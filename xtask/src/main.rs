@@ -50,6 +50,7 @@ mod sentences;
 mod skill_regions;
 mod tokens;
 mod tokens_emit;
+mod vocabulary;
 mod wire;
 
 /// One rule's outcome. `Warn` never fails the gate; `Fail` always does.
@@ -96,6 +97,10 @@ fn main() -> ExitCode {
             let write = std::env::args().any(|a| a == "--write");
             verify_wire(write)
         }
+        Some("verify-vocabulary") => {
+            let write = std::env::args().any(|a| a == "--write");
+            verify_vocabulary(write)
+        }
         Some("verify-roadmap") => verify_roadmap(),
         Some("verify-error-codes") => verify_error_codes(),
         Some("verify-docs") => {
@@ -104,12 +109,12 @@ fn main() -> ExitCode {
         }
         Some(other) => {
             eprintln!("xtask: unknown task `{other}`");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-vocabulary [--write], verify-roadmap");
             ExitCode::FAILURE
         }
         None => {
             eprintln!("xtask: no task given");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-vocabulary [--write], verify-roadmap");
             ExitCode::FAILURE
         }
     }
@@ -330,6 +335,12 @@ fn verify_wire(write: bool) -> ExitCode {
 
 fn verify_tokens(write: bool) -> ExitCode {
     regenerate("verify-tokens", tokens::outputs, write)
+}
+
+/// The vocabulary and the acts the native Bridge renders, from the registries in
+/// `crates/core-model/domain/`.
+fn verify_vocabulary(write: bool) -> ExitCode {
+    regenerate("verify-vocabulary", vocabulary::outputs, write)
 }
 
 /// The online half of the capability check. Not a gate rule on purpose — see

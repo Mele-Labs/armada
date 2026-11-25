@@ -5,8 +5,8 @@
 use std::collections::BTreeMap;
 
 use ipc::{
-    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunList, AppRunOpensIn, AppRunProcess, AppRunState, Instant, IssueState, ManifestId, MatchedBy, MatchedFeature, RankedIssue, RankedIssues, RankedPull,
-    RunPlace, ServerLink, TrackedIssue,
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunList, AppRunOpensIn, AppRunProcess, AppRunState, Instant, IssueState, ManifestId, MatchedBy, MatchedFeature, MetricAnswer, MetricCredential, MetricPoint,
+    MetricReading, MetricReadings, MetricRow, MetricState, MetricValue, RankedIssue, RankedIssues, RankedPull, RunPlace, ServerLink, TrackedIssue,
 };
 
 use super::board::{Checkout, IssuesRead};
@@ -182,4 +182,67 @@ pub fn issues() -> IssuesRead {
         }],
     };
     IssuesRead { mine, ranked }
+}
+
+// ---- metrics ---------------------------------------------------------------------------------------------------------
+
+fn at(hour: u32, minute: u32) -> Instant {
+    Instant::carried(format!("2026-11-24T{hour:02}:{minute:02}:00Z"))
+}
+
+fn row(label: &str, value: f64, unit: Option<&str>, when: Option<Instant>) -> MetricRow {
+    MetricRow { label: label.into(), value: MetricValue::Number(value), unit: unit.map(str::to_string), at: when, link: None }
+}
+
+/// What `/metrics` reads for the project's recipes, one in each state: errors as a series the answer carries in time, a build time
+/// that has only what Fleet kept and a picture, a deploy count that waits for this Mac's token, and a queue that no longer reads.
+pub fn readings(project: &str) -> MetricReadings {
+    if project != crate::features::mock::PROJECT {
+        return MetricReadings { project: project.to_string(), readings: Vec::new() };
+    }
+    let errors = MetricReading {
+        id: "errors-24h".into(),
+        title: "Errors, last day".into(),
+        state: MetricState::Read,
+        answer: Some(MetricAnswer {
+            rows: vec![row("Now", 14., Some("errors"), Some(at(9, 0))), row("3 hours ago", 22., Some("errors"), Some(at(6, 0))), row("6 hours ago", 9., Some("errors"), Some(at(3, 0))), row("9 hours ago", 17., Some("errors"), Some(at(0, 0)))],
+            picture: None,
+        }),
+        read_at: Some(at(9, 0)),
+        kept: Vec::new(),
+    };
+    let build = MetricReading {
+        id: "build-time".into(),
+        title: "Build time".into(),
+        state: MetricState::Read,
+        answer: Some(MetricAnswer { rows: vec![row("Main", 412., Some("s"), None), row("Last pull request", 388., Some("s"), None)], picture: Some("https://example.com/panels/build-time.png".into()) }),
+        read_at: Some(at(9, 1)),
+        kept: [(7, 0, 380.), (7, 55, 388.), (8, 20, 401.), (8, 45, 396.), (9, 0, 412.), (9, 1, 412.)].into_iter().map(|(hour, minute, value)| MetricPoint { at: at(hour, minute), value }).collect(),
+    };
+    let deploys = MetricReading {
+        id: "deploys-week".into(),
+        title: "Deploys this week".into(),
+        state: MetricState::NoToken { credential: MetricCredential { name: "vercel".into(), how: "A Vercel token with read access to deployments".into(), url: Some("https://vercel.com/account/tokens".into()) } },
+        answer: None,
+        read_at: None,
+        kept: Vec::new(),
+    };
+    let queue = MetricReading {
+        id: "queue-depth".into(),
+        title: "Queue depth".into(),
+        state: MetricState::Broken { why: "HTTP 401 from queue.example.com/depth".into() },
+        answer: Some(MetricAnswer { rows: vec![row("Waiting", 23., Some("jobs"), None), row("Oldest", 14., Some("min"), None)], picture: None }),
+        read_at: Some(at(8, 12)),
+        kept: Vec::new(),
+    };
+    MetricReadings { project: project.to_string(), readings: vec![errors, build, deploys, queue] }
+}
+
+/// A token saved on the mock: the recipe reads from then on.
+pub fn token_saved(read: &mut MetricReadings, id: &str) {
+    if let Some(one) = read.readings.iter_mut().find(|one| one.id == id) {
+        one.state = MetricState::Read;
+        one.answer = Some(MetricAnswer { rows: vec![row("Deploys", 31., None, None)], picture: None });
+        one.read_at = Some(at(9, 2));
+    }
 }

@@ -85,7 +85,7 @@ async fn a_proposed_draft_waits_under_its_title_and_its_row_keeps_what_it_replac
 
     let item = the_draft(&record);
     assert!(item.id.starts_with("draft:"), "{}", item.id);
-    assert_eq!(item.text, TITLE, "the receipt finds the item by its trimmed title");
+    assert_eq!(item.text, format!("Approve \"{TITLE}\"?"), "titled with the question Fleet words, naming the trimmed title");
     assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Approve"]);
     let act = item.act.as_ref().expect("an act, so Needs you answers it in place");
     assert_eq!((act.kind, act.target.as_str()), (WaitingActKind::Answer, item.id.as_str()));

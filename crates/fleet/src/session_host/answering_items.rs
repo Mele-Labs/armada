@@ -27,8 +27,6 @@ pub(crate) fn passed(title: &str) -> String {
 /// An item with an Approve: what Approve all and Dismiss all reach. Questions keep their own answers.
 fn approvable(item: &WaitingItem) -> bool {
     match item.source {
-        // A page waiting to be read is opened, not approved.
-        _ if super::document_answers::is_read_item(item) => false,
         WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Walk => true,
         WaitingSource::Agent => item.approves,
         _ => false,
@@ -62,10 +60,13 @@ fn plan_version(item: &str) -> Option<u32> {
 }
 
 /// The title a Job is told an item by: a plan's call reads the same for every version, so it is named by its version.
+/// What the Job knows the item by: a plan's version, a sketch's title, the draft or page a Fleet question names,
+/// and else its text.
 fn title_of(item: &WaitingItem) -> String {
     match (item.source, plan_version(&item.id)) {
         (WaitingSource::Plan, Some(version)) => format!("plan v{version}"),
-        _ => item.text.clone(),
+        (WaitingSource::Sketch, _) => item.id.strip_prefix(super::sketching::TARGET_PREFIX).unwrap_or(&item.text).to_string(),
+        _ => super::artifact_parts::fleet_question_of(&item.text).unwrap_or(&item.text).to_string(),
     }
 }
 

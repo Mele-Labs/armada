@@ -69,7 +69,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
         title: "Findings".into(),
         since: "2026-10-09T00:02:00Z".into(),
     }];
-    let items = merged(vec![kept("a1", "run", "cargo test")], Some(&asked), &windows, &[], false);
+    let items = merged(vec![kept("a1", "run", "cargo test")], Some((&asked, &[][..])), &windows, &[], false);
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["a1", "ask:c1", "walk:http://localhost:5173/"]);
     assert_eq!(items[0].source, WaitingSource::Agent);
@@ -77,7 +77,7 @@ fn the_agents_items_come_first_and_fleets_own_follow_with_stable_ids() {
     assert_eq!(items[1].options.len(), 2, "one single-choice question has numbered choices");
     assert_eq!(items[2].source, WaitingSource::Walk);
 
-    let permission = merged(Vec::new(), Some(&card("c2", None)), &[], &[], false);
+    let permission = merged(Vec::new(), Some((&card("c2", None), &[][..])), &[], &[], false);
     assert_eq!(permission[0].id, "perm:c2");
     assert_eq!(permission[0].source, WaitingSource::Permission);
     assert_eq!(permission[0].text, "Bash rm -rf build");
@@ -89,14 +89,14 @@ fn where_an_agent_item_names_fleets_target_fleets_stands_and_an_ended_session_ho
     let asked = card("c1", Some("Which clock?"));
     let items = merged(
         vec![kept("mine", "answer", "c1"), kept("other", "answer", "c9")],
-        Some(&asked),
+        Some((&asked, &[][..])),
         &[],
         &[],
         false,
     );
     let ids: Vec<_> = items.iter().map(|one| one.id.as_str()).collect();
     assert_eq!(ids, ["other", "ask:c1"], "the agent's duplicate of the open card is left off");
-    assert!(merged(vec![kept("a", "run", "x")], Some(&asked), &[], &[], true).is_empty());
+    assert!(merged(vec![kept("a", "run", "x")], Some((&asked, &[][..])), &[], &[], true).is_empty());
 }
 
 #[test]
@@ -713,7 +713,7 @@ async fn an_item_repeating_a_question_that_lapsed_is_refused_and_one_with_other_
     lapsed_clock_question(&rig, &id).await;
 
     // The same labels in another order, under words of the agent's own.
-    let repeat = answer_item(&id, "clock", "Choose which clock the tests run on", &["Frozen", "Fake"]);
+    let repeat = answer_item(&id, "clock", "Which clock do the tests run on?", &["Frozen", "Fake"]);
     let why = refused_for(rig.fleet.waiting_for(None, repeat).await);
     assert!(why.contains("already in his Needs you"), "{why}");
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
@@ -725,7 +725,7 @@ async fn an_item_repeating_a_question_that_lapsed_is_refused_and_one_with_other_
     refused_for(rig.fleet.waiting_for(None, worded).await);
 
     // Other options and other words are a different thing to ask.
-    let other = answer_item(&id, "tz", "Choose the time zone", &["UTC", "Local"]);
+    let other = answer_item(&id, "tz", "Which time zone?", &["UTC", "Local"]);
     rig.fleet.waiting_for(None, other).await.expect("a different question is kept");
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert_eq!(ids(&record), ["tz"]);

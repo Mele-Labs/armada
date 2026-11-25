@@ -398,7 +398,7 @@ async fn keeping_a_changed_rule_for_every_job_waits_on_the_owner_and_writes_noth
     assert!(in_kit(&rig, "rules").is_empty(), "nothing is written before he approves");
 
     let item = proposal_waiting(&rig, &id).await.expect("the Job's draft asks him");
-    assert_eq!(item.text, "Rule deploy_watch");
+    assert_eq!(item.text, "Approve \"Rule deploy_watch\"?");
     assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Approve", "Dismiss"]);
     let held = rig.fleet.store().lock().await.workflow_change(kept.change).unwrap().expect("held");
     assert_eq!((held.piece.as_str(), held.source.as_str(), held.state.as_str()), ("rule", "kit", store::CHANGE_READY));
@@ -567,7 +567,7 @@ async fn a_lifecycle_a_job_added_is_kept_within_its_repository_as_a_rule_is() {
     assert_eq!(kept.scope, PieceScope::Within { id: rig.manifest.as_str().to_string() });
     assert!(in_kit(&rig, "lifecycles").is_empty());
     let item = proposal_waiting(&rig, &id).await.expect("waits");
-    assert_eq!(item.text, "Lifecycle ticket");
+    assert_eq!(item.text, "Approve \"Lifecycle ticket\"?");
     answered(&rig, &id, &item.id, 0).await.expect("approved");
     let files = in_kit(&rig, "lifecycles");
     assert_eq!(files.len(), 1, "{files:?}");

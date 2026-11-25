@@ -1,0 +1,21 @@
+[
+  {
+    "item": "ask:call-1",
+    "question": "Which colour does the stale chip take?",
+    "how": "picked",
+    "pick": "Amber",
+    "words": "Amber, so it reads with the other waiting marks.",
+    "extras": {
+      "attachments": [{ "name": "stale-chip.png", "media_type": "image/png", "data": "" }],
+      "mentions": [{ "kind": "branch", "id": "chip-colour", "title": "chip-colour" }]
+    },
+    "at": "2026-11-09T14:04:10Z"
+  },
+  {
+    "item": "ask:call-1#1",
+    "question": "Where does the chip show how far behind it is?",
+    "how": "answered",
+    "words": "In the tooltip. The chip stays one word.",
+    "at": "2026-11-09T14:04:12Z"
+  }
+]

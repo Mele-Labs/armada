@@ -4,16 +4,18 @@
 //! moves are keys (`dashboard_move`, `dashboard_resize`).
 
 use gpui::{div, prelude::*, px, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Pixels, Role, SharedString, Toggled, Window};
+use ipc::MetricState;
 
 use super::board::Board;
 use super::layout::{BlockKind, Placed, View, COLUMNS};
+use super::metric;
 use super::model::{self, Button, Fill, Item, Project, Shown, Tile};
 use crate::generated::actions::ActionScope;
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ring_colour};
-use crate::titlebar::parts::{card, glyph, sans, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
 
 /// A block being moved or resized, as the drag carries it.
 #[derive(Clone)]
@@ -40,6 +42,7 @@ fn hue_of(kind: BlockKind) -> Token {
         BlockKind::Issues => token::SKETCH_TEAL,
         BlockKind::Features => token::ASK_FEATURES,
         BlockKind::Checks => token::SKETCH_GREY,
+        BlockKind::Metric(_) => token::SKETCH_BLUE,
     }
 }
 
@@ -51,6 +54,7 @@ pub(super) fn mark_of(kind: BlockKind) -> &'static str {
         BlockKind::Issues => "ticket",
         BlockKind::Features => "library",
         BlockKind::Checks => "list-checks",
+        BlockKind::Metric(_) => "gauge",
     }
 }
 
@@ -129,7 +133,7 @@ impl Board {
             ("dashboard_resize", Some(kind)) if self.edit => self.edit_layout(&project.id, |layout| layout.grow(kind, dx, dy), cx),
             ("dashboard_block_view", Some(kind)) => {
                 let now = self.layout(&project.id).block(kind).map(|one| one.view).unwrap_or(View::List);
-                let next = Board::next_view(kind, now);
+                let next = self.next_view(kind, now);
                 self.edit_layout(&project.id, |layout| layout.set_view(kind, next), cx);
             }
             _ => cx.propagate(),
@@ -168,16 +172,24 @@ impl Board {
 
     fn block(&self, placed: &Placed, project: &Project, grid: Grid, look: &Look, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let kind = placed.kind;
+        let metric = kind.metric_id().and_then(|id| self.reading(id));
+        // A metric block of a recipe the project no longer keeps draws nothing, and the layout keeps it as it was saved.
+        if kind.metric_id().is_some() && metric.is_none() {
+            return div().into_any_element();
+        }
         let hue = hue_of(kind);
         let slug = kind.slug();
+        let title = self.title_of(kind);
         let ring = ring_colour(look);
         let handle = self.handles.iter().find(|(one, _)| *one == kind).map(|(_, handle)| handle.clone());
         let fill = self.fill(kind, project, cx);
-        let views = kind.views();
+        let views = self.views_of(kind);
+        let shown_view = metric.map_or(placed.view, |reading| metric::drawn_in(placed.view, reading));
+        let broken = metric.is_some_and(|reading| matches!(reading.state, MetricState::Broken { .. }));
         let switch = (views.len() > 1).then(|| {
             let mut group = div().id(SharedString::from(format!("{slug}-views"))).flex().items_center().gap(look.length(token::SPACE_1));
-            for view in views {
-                let (view, on) = (*view, *view == placed.view);
+            for view in &views {
+                let (view, on) = (*view, *view == shown_view);
                 let project = project.id.clone();
                 let button = div()
                     .id(SharedString::from(format!("{slug}-view-{}", view.word())))
@@ -201,9 +213,9 @@ impl Board {
                     })
                     .on_click(cx.listener(move |this, _, _, cx| this.edit_layout(&project, |layout| layout.set_view(kind, view), cx)))
                     .child(view.word());
-                group = group.child(labelled(button, Role::Button, format!("{} view of {}", view.word(), kind.title())));
+                group = group.child(labelled(button, Role::Button, format!("{} view of {}", view.word(), title)));
             }
-            labelled(group, Role::Group, format!("View of {}", kind.title()))
+            labelled(group, Role::Group, format!("View of {}", title))
         });
         let editing = self.edit;
         let hide = editing.then(|| {
@@ -224,7 +236,7 @@ impl Board {
                     .focusable()
                     .tab_stop(true)
                     .focus_visible(move |style| style.border_color(ring))
-                    .tooltip(tip(format!("Hide {} from the board", kind.title())))
+                    .tooltip(tip(format!("Hide {} from the board", title)))
                     // A press on it is not the start of a drag of the block.
                     .on_mouse_down(MouseButton::Left, |_, window, cx| {
                         cx.stop_propagation();
@@ -233,7 +245,7 @@ impl Board {
                     .on_click(cx.listener(move |this, _, window, cx| this.hide_block(kind, window, cx)))
                     .child(glyph("eye-off", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
                 Role::Button,
-                format!("Hide {}", kind.title()),
+                format!("Hide {}", title),
             )
         });
         let header = div()
@@ -251,12 +263,16 @@ impl Board {
                     .on_drag(BlockDrag { kind, resize: false }, |_, _, _, cx| cx.new(|_| Ghost))
             })
             .child(glyph(mark_of(kind), look.length(token::SPACE_4), look.color(hue)))
-            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(kind.title()))
+            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title.clone())))
+            .children(metric.map(|reading| self.metric_state(reading, look)))
             .child(div().flex_1())
             .children(switch)
             .children(hide);
-        let header = if editing { labelled(header, Role::Group, format!("Move {}", kind.title())).into_any_element() } else { header.into_any_element() };
-        let body = self.body(kind, placed.view, &fill, look, cx);
+        let header = if editing { labelled(header, Role::Group, format!("Move {}", title)).into_any_element() } else { header.into_any_element() };
+        let body = match metric {
+            Some(reading) => self.metric_body(reading, shown_view, look, cx),
+            None => self.body(kind, placed.view, &fill, look, cx),
+        };
         let corner = editing.then(|| {
             labelled(
                 div()
@@ -273,7 +289,7 @@ impl Board {
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, _| this.grab = None))
                     .on_drag(BlockDrag { kind, resize: true }, |_, _, _, cx| cx.new(|_| Ghost)),
                 Role::Splitter,
-                format!("Resize {}", kind.title()),
+                format!("Resize {}", title),
             )
         });
         let frame = div()
@@ -288,7 +304,8 @@ impl Board {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG))
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) })
+            // A metric that cannot read wears the failed hue on its whole frame, as a hairline all round.
+            .border_color(if broken { look.color(token::STATUS_COMPLETED_FAILED) } else if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) })
             .bg(look.color(token::BG_RAISED))
             .shadow(look.shadows(token::SHADOW_CARD))
             .text_color(look.color(token::FG_DEFAULT))
@@ -298,14 +315,26 @@ impl Board {
             .child(body)
             .children(corner);
         let _ = window;
-        labelled(frame, Role::Region, kind.title()).into_any_element()
+        labelled(frame, Role::Region, title).into_any_element()
+    }
+
+    /// A block's body, scrolled on its own. **While it has rows out of sight it keeps the wheel**, so the board behind it
+    /// stands still; a body with nothing to scroll lets the wheel through to the board.
+    pub(super) fn body_scroll(&self, id: SharedString) -> gpui::Stateful<gpui::Div> {
+        let handle = self.bodies.borrow_mut().entry(id.to_string()).or_default().clone();
+        let held = handle.clone();
+        div().id(id).track_scroll(&handle).overflow_y_scroll().on_scroll_wheel(move |_, _, cx| {
+            if held.max_offset().y > px(0.) {
+                cx.stop_propagation();
+            }
+        })
     }
 
     /// What a block holds under its header: bones while it reads, why it could not, or its rows in the view it is in.
     fn body(&self, kind: BlockKind, view: View, fill: &Fill, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let slug = kind.slug();
         let pad = look.length(token::SPACE_2);
-        let scroll = |content: AnyElement| div().id(SharedString::from(format!("{slug}-body"))).flex_1().min_h_0().overflow_y_scroll().p(pad).child(content).into_any_element();
+        let scroll = |content: AnyElement| self.body_scroll(SharedString::from(format!("{slug}-body"))).flex_1().min_h_0().p(pad).child(content).into_any_element();
         match fill {
             Fill::Reading => {
                 let bones = (0..3).map(|at| bone(look, look.length(token::SPACE_12) * (3.0 - at as f32 * 0.5), look.length(token::SPACE_3)));
@@ -331,7 +360,7 @@ impl Board {
         }
     }
 
-    fn rows(&self, kind: BlockKind, view: View, shown: &Shown, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn rows(&self, kind: BlockKind, view: View, shown: &Shown, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let columns = model::button_columns(kind);
         if view == View::Picture && !shown.tiles.is_empty() {
             return self.picture(&shown.tiles, look);
@@ -407,9 +436,22 @@ impl Board {
         labelled(element, Role::Button, button.name.clone()).into_any_element()
     }
 
+    /// The second line of a two-line row: its reference in mono, then a chip for each thing it touches.
+    fn under_line(&self, under: &model::Under, look: &Look) -> AnyElement {
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(under.reference.clone())))
+            .children(under.chips.iter().map(|words| chip(look, token::SKETCH_BLUE, words.clone())))
+            .into_any_element()
+    }
+
     /// A row as a line of a List, or of a Table, where it stands in columns and is parted from the one above by a hairline.
     fn line(&self, item: &Item, table: bool, parted: bool, columns: usize, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ring = ring_colour(look);
+        let two = item.under.is_some();
         let buttons: Vec<AnyElement> = (0..columns).map(|at| self.button(item, at, item.buttons.get(at).and_then(Option::as_ref), look, cx)).collect();
         let meta_w = look.length(token::SPACE_12) * 2.0;
         let chip_w = look.length(token::SPACE_12) * 2.5;
@@ -419,14 +461,26 @@ impl Board {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .h(look.length(token::H_ROW_ACTION))
+            .when(!two, |row| row.h(look.length(token::H_ROW_ACTION)))
+            .when(two, |row| row.items_start().py(look.length(token::SPACE_2)))
             .px(look.length(token::SPACE_1))
             .rounded(look.length(token::RADIUS_MD))
             .text_size(look.length(token::TEXT_XS))
             .when(table && parted, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).rounded_none())
             .child(self.mark(item, look, cx))
-            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())))
-            .when(table, |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
+            .child(match &item.under {
+                Some(under) => div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(div().line_clamp(2).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(item.title.clone())))
+                    .child(self.under_line(under, look))
+                    .into_any_element(),
+                None => div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())).into_any_element(),
+            })
+            .when(table && !two, |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
             .children(item.meta.as_ref().map(|meta| {
                 div().flex_none().when(table, |meta| meta.w(meta_w)).max_w(meta_w).truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))
             }))
@@ -473,6 +527,7 @@ impl Board {
             )
             .children(item.meta.as_ref().map(|meta| div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))))
             .children(item.tag.as_ref().map(|(words, hue)| div().flex().child(chip(look, *hue, words.clone()))))
+            .children(item.under.as_ref().map(|under| self.under_line(under, look)))
             .when(!buttons.is_empty(), |card| card.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(buttons)));
         match &item.press {
             Some(press) => {

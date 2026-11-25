@@ -2,10 +2,11 @@
 //! change the board.
 
 use gpui::{div, prelude::*, AnyView, Bounds, Context, Entity, Modifiers, Pixels, Role, TestAppContext, VisualTestContext, Window};
-use ipc::{BoardBlock, BoardLayout, ManifestConfig};
+use ipc::{BoardBlock, BoardLayout, Instant, ManifestConfig, MetricAnswer, MetricPoint, MetricReading, MetricRow, MetricState, MetricValue};
 
 use super::board::{Board, SAVE_AFTER};
 use super::layout::{BlockKind, Layout, Placed, View};
+use super::metric::{self, Plot};
 use super::model::{self, Press};
 use super::presets;
 use super::{ProjectScreen, Tab, EXAMPLE_ASKS};
@@ -67,12 +68,19 @@ fn board_keeping(cx: &mut TestAppContext, kept: Option<BoardLayout>) -> (Entity<
         held = Some(board.clone());
         Rooted(board.into())
     });
+    // Tall enough that the blocks the mock's recipes put at the bottom are on screen to be pressed.
+    cx.simulate_resize(gpui::size(gpui::px(1280.), gpui::px(2600.)));
     redraw(cx);
     (held.expect("the board was made"), cx)
 }
 
 fn layout_of(board: &Entity<Board>, cx: &mut VisualTestContext) -> Layout {
     board.update(cx, |board, _| board.layout(PROJECT).clone())
+}
+
+/// The layout without the metric blocks the mock's recipes put at the bottom, for what is asked of the fixed kinds alone.
+fn fixed(layout: Layout) -> Layout {
+    Layout { blocks: layout.blocks.into_iter().filter(|one| one.kind.metric_id().is_none()).collect() }
 }
 
 fn kept_of(board: &Entity<Board>, cx: &mut VisualTestContext) -> Option<BoardLayout> {
@@ -94,6 +102,7 @@ fn screen(cx: &mut TestAppContext) -> (Entity<ProjectScreen>, &mut VisualTestCon
     let screen = held.expect("the screen was made");
     // The input tells of its focus only while its window is the active one.
     cx.update(|window, _| window.activate_window());
+    cx.simulate_resize(gpui::size(gpui::px(1280.), gpui::px(2600.)));
     cx.update(|window, cx| screen.update(cx, |screen, cx| screen.enter(window, cx)));
     redraw(cx);
     (screen, cx)
@@ -142,7 +151,7 @@ fn the_project_follows_the_title_bars_pick_and_the_header_draws_no_project_chips
 fn the_layout_fleet_kept_is_what_the_board_opens_on(cx: &mut TestAppContext) {
     let kept = BoardLayout { blocks: vec![block("checks", 0, 0, 6, 2, "table"), block("needs-you", 0, 2, 3, 2, "cards")] };
     let (board, cx) = board_keeping(cx, Some(kept));
-    let layout = layout_of(&board, cx);
+    let layout = fixed(layout_of(&board, cx));
     assert_eq!(layout.blocks, vec![Placed::new(BlockKind::Checks, 0, 0, 6, 2, View::Table), Placed::new(BlockKind::Needs, 0, 2, 3, 2, View::Cards)], "Fleet's blocks, kinds spelled as it keeps them");
     assert!(drawn(cx, Role::Region, "Checks and commands") && drawn(cx, Role::Region, "Needs you"));
     assert!(!drawn(cx, Role::Region, "Run"), "a block the layout does not hold is not drawn");
@@ -152,7 +161,7 @@ fn the_layout_fleet_kept_is_what_the_board_opens_on(cx: &mut TestAppContext) {
 fn a_project_that_kept_no_layout_opens_on_the_preset(cx: &mut TestAppContext) {
     let (board, cx) = board_keeping(cx, None);
     let kind = board.read_with(cx, |board, _| board.kind());
-    assert_eq!(layout_of(&board, cx), presets::preset(kind));
+    assert_eq!(fixed(layout_of(&board, cx)), presets::preset(kind));
     assert!(drawn(cx, Role::Region, "Run") && drawn(cx, Role::Region, "Issues"));
 }
 
@@ -213,7 +222,7 @@ fn resetting_the_board_has_fleet_forget_the_layout_it_kept(cx: &mut TestAppConte
     cx.run_until_parked();
     assert_eq!(kept_of(&board, cx), None, "the preset is not a layout to keep");
     let kind = board.read_with(cx, |board, _| board.kind());
-    assert_eq!(layout_of(&board, cx), presets::preset(kind));
+    assert_eq!(fixed(layout_of(&board, cx)), presets::preset(kind));
 }
 
 // ---- Start's checkouts ---------------------------------------------------------------------------------------------------
@@ -401,24 +410,28 @@ fn the_arrows_and_enter_take_an_example_and_escape_puts_the_list_away(cx: &mut T
 // ---- the issues ---------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_ranked_issue_is_one_chip_and_a_column_that_names_the_features_it_matched() {
+fn an_issue_row_is_its_title_over_its_reference_and_feature_chips_under_a_section_header() {
     let read = super::mock::issues();
     let items = model::issues(&read.mine, &read.ranked.might_pick_up);
     let matched = items.iter().find(|item| item.key == "issue-armada-9efp").expect("a ranked row");
-    assert_eq!(matched.tag.as_ref().map(|tag| tag.0.as_str()), Some("Might pick up"));
-    assert_eq!(matched.meta.as_deref(), Some("Feature library, Project board"), "the column names the features, in Fleet's order");
+    assert_eq!(matched.title, "Library sync", "the title alone, its reference apart");
+    assert_eq!(matched.under, Some(model::Under { reference: "armada-9efp".into(), chips: vec!["Feature library".into(), "Project board".into()] }), "the features as chips, in Fleet's order");
+    assert_eq!((matched.tag.as_ref(), matched.meta.as_ref()), (None, None), "no chip repeated on every row, no column");
     let bare = items.iter().find(|item| item.key == "issue-armada-71cc").expect("a ranked row that matched none");
-    assert_eq!(bare.meta, None, "an issue that matched no feature leaves the column empty");
+    assert_eq!(bare.under.as_ref().map(|under| under.chips.len()), Some(0));
     let yours = items.iter().find(|item| item.key == "issue-armada-a3f2").expect("his own");
-    assert_eq!((yours.tag.as_ref().map(|tag| tag.0.as_str()), yours.meta.as_deref()), (Some("Yours"), None));
+    assert_eq!(yours.section.as_deref(), Some("Assigned to you"));
+    assert_eq!(matched.section.as_deref(), Some("Might pick up"), "the first ranked row heads its section");
+    assert_eq!(bare.section, None, "the section is headed once");
     assert_eq!(items.iter().map(|item| item.key.as_str()).collect::<Vec<_>>(), ["issue-armada-a3f2", "issue-armada-9efp", "issue-armada-71cc"], "his own first, then Fleet's ranking");
 }
 
 #[gpui::test]
-fn the_issues_table_draws_each_ranked_row_named_by_its_features(cx: &mut TestAppContext) {
+fn the_issues_block_draws_each_row_named_by_title_reference_and_features(cx: &mut TestAppContext) {
     let (_board, cx) = board_keeping(cx, None);
-    assert!(drawn(cx, Role::Button, "armada-9efp Library sync, Feature library, Project board"));
-    assert!(drawn(cx, Role::Button, "armada-71cc Pocket offline"));
+    assert!(drawn(cx, Role::Heading, "Might pick up"));
+    assert!(drawn(cx, Role::Button, "Library sync, armada-9efp, Feature library, Project board"));
+    assert!(drawn(cx, Role::Button, "Pocket offline, armada-71cc"));
 }
 
 #[test]
@@ -467,4 +480,268 @@ fn the_header_settings_and_members_open_the_settings_tab_and_members_has_the_key
     assert_eq!(screen.read_with(cx, |screen, _| screen.tab), Tab::Settings);
     let list = screen.read_with(cx, |screen, cx| screen.settings.read(cx).members_handle()).expect("the sheet is open as a page");
     assert!(cx.update(|window, _| list.is_focused(window)), "Members has the keys in the list of members");
+}
+
+// ---- live metrics ----------------------------------------------------------------------------------------------------------
+
+fn instant(hour: u32, minute: u32) -> Instant {
+    Instant::carried(format!("2026-11-24T{hour:02}:{minute:02}:00Z"))
+}
+
+fn number(label: &str, value: f64, at: Option<Instant>) -> MetricRow {
+    MetricRow { label: label.into(), value: MetricValue::Number(value), unit: None, at, link: None }
+}
+
+fn reading(rows: Vec<MetricRow>, picture: Option<&str>, kept: Vec<MetricPoint>) -> MetricReading {
+    MetricReading {
+        id: "r".into(),
+        title: "R".into(),
+        state: MetricState::Read,
+        answer: Some(MetricAnswer { rows, picture: picture.map(str::to_string) }),
+        read_at: Some(instant(9, 0)),
+        kept,
+    }
+}
+
+fn mock_reading(id: &str) -> MetricReading {
+    super::mock::readings(PROJECT).readings.into_iter().find(|one| one.id == id).unwrap_or_else(|| panic!("the mock has {id}"))
+}
+
+#[test]
+fn a_metric_block_is_spelled_metric_and_the_recipe_id_both_ways() {
+    let kind = BlockKind::from_slug("metric:errors-24h").expect("a metric block is a kind");
+    assert_eq!(kind, BlockKind::metric("errors-24h"));
+    assert_eq!(kind.metric_id(), Some("errors-24h"));
+    assert_eq!(kind.slug(), "metric:errors-24h", "the word Fleet keeps");
+    assert_eq!(BlockKind::from_slug(&kind.slug()), Some(kind));
+    assert_eq!(BlockKind::from_slug("metric:"), None, "a recipe with no id is no block");
+    let kept = BoardLayout { blocks: vec![block("metric:errors-24h", 0, 0, 3, 2, "graph")] };
+    let (layout, unknown) = Layout::from_wire(&kept);
+    assert_eq!(layout.blocks, vec![Placed::new(kind, 0, 0, 3, 2, View::Graph)], "its view is one a metric draws");
+    assert!(unknown.is_empty());
+    assert_eq!(layout.to_wire(&unknown), kept, "and it goes back as it came");
+}
+
+#[gpui::test]
+fn a_metric_block_with_no_recipe_in_the_readings_draws_nothing_and_is_kept_as_saved(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("run", 0, 0, 3, 2, "list"), block("metric:retired", 3, 0, 3, 2, "graph")] };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    assert!(layout_of(&board, cx).block(BlockKind::metric("retired")).is_some(), "the layout still holds it");
+    assert!(!drawn(cx, Role::Region, "retired"), "nothing is drawn for it");
+    board.update(cx, |board, cx| board.edit_layout(PROJECT, |layout| layout.nudge(BlockKind::Run, 0, 1), cx));
+    cx.executor().advance_clock(SAVE_AFTER);
+    cx.run_until_parked();
+    let sent = kept_of(&board, cx).expect("the move is kept");
+    assert_eq!(sent.blocks.iter().find(|one| one.kind == "metric:retired"), Some(&block("metric:retired", 3, 0, 3, 2, "graph")), "kept as saved");
+}
+
+#[gpui::test]
+fn a_recipe_the_board_has_no_block_for_is_put_at_the_bottom_and_drawn(cx: &mut TestAppContext) {
+    let (board, cx) = board_keeping(cx, None);
+    let layout = layout_of(&board, cx);
+    let floor = fixed(layout.clone()).rows();
+    for id in ["errors-24h", "build-time", "deploys-week", "queue-depth"] {
+        let at = layout.block(BlockKind::metric(id)).unwrap_or_else(|| panic!("{id} is on the board"));
+        assert!(at.y >= floor, "{id} stands below the blocks that were there");
+    }
+    for title in ["Errors, last day", "Build time", "Deploys this week", "Queue depth"] {
+        assert!(drawn(cx, Role::Region, title), "{title} is drawn");
+    }
+}
+
+#[test]
+fn picture_is_offered_only_where_the_answer_carries_one() {
+    let without = reading(vec![number("Now", 1., None)], None, Vec::new());
+    let with = reading(vec![number("Now", 1., None)], Some("https://example.com/a.png"), Vec::new());
+    assert_eq!(metric::offered(&without), [View::List, View::Table, View::Cards, View::Graph]);
+    assert_eq!(metric::offered(&with), [View::List, View::Table, View::Cards, View::Graph, View::Picture]);
+    assert_eq!(metric::drawn_in(View::Picture, &without), View::List, "a saved Picture is drawn as the first view until the tool gives one");
+    assert_eq!(metric::drawn_in(View::Picture, &with), View::Picture);
+}
+
+#[gpui::test]
+fn the_view_switch_of_a_metric_block_offers_picture_only_with_a_picture(cx: &mut TestAppContext) {
+    let (_board, cx) = board_keeping(cx, None);
+    assert!(drawn(cx, Role::Button, "Picture view of Build time"));
+    assert!(!drawn(cx, Role::Button, "Picture view of Errors, last day"));
+    assert!(drawn(cx, Role::Button, "Graph view of Errors, last day"));
+}
+
+#[test]
+fn graph_draws_the_rows_that_carry_a_time_and_else_what_fleet_kept() {
+    let kept = vec![MetricPoint { at: instant(7, 0), value: 1. }, MetricPoint { at: instant(8, 0), value: 2. }];
+    let timed = reading(vec![number("later", 5., Some(instant(9, 0))), number("earlier", 3., Some(instant(6, 0)))], None, kept.clone());
+    match metric::plot(&timed) {
+        Plot::Rows(points) => assert_eq!(points.iter().map(|(_, value)| *value).collect::<Vec<_>>(), [3., 5.], "in time, whatever order the rows came in"),
+        other => panic!("rows that carry a time are the series: {other:?}"),
+    }
+    let bare = reading(vec![number("Main", 412., None)], None, kept.clone());
+    match metric::plot(&bare) {
+        Plot::Kept(points) => assert_eq!(points.iter().map(|(_, value)| *value).collect::<Vec<_>>(), [1., 2.]),
+        other => panic!("rows with no time draw what was kept: {other:?}"),
+    }
+    let one = reading(vec![number("only", 9., Some(instant(9, 0)))], None, kept);
+    assert!(matches!(metric::plot(&one), Plot::Kept(_)), "one timed row is no series");
+}
+
+#[gpui::test]
+fn the_token_field_is_masked_keeps_no_draft_and_goes_when_the_token_is_sent(cx: &mut TestAppContext) {
+    let (board, cx) = board_keeping(cx, None);
+    assert!(drawn(cx, Role::TextInput, "Token for Deploys this week"), "the credential's block has a field");
+    assert!(drawn(cx, Role::Link, "Make a token for Deploys this week"), "the credential names where it is made");
+    let input = board.read_with(cx, |board, _| board.token_fields.get("deploys-week").map(|field| field.input.clone())).expect("a field for the recipe with no token");
+    // Typed, not set: typing is what tells the box a change was made, which is what a draft would be kept on.
+    cx.update(|window, cx| {
+        window.activate_window();
+        input.update(cx, |state, cx| state.focus(window, cx));
+    });
+    cx.simulate_input("sk-live-secret");
+    redraw(cx);
+    assert!(cx.update(|_, cx| input.read(cx).value() == "sk-live-secret"), "the field holds what was pasted");
+    assert!(!cx.update(|_, cx| crate::drafts::holds("sk-live-secret", cx)), "a secret is never kept as a draft");
+    press(cx, Role::Button, "Save the token for Deploys this week");
+    assert!(!drawn(cx, Role::TextInput, "Token for Deploys this week"), "the field is gone once the token is sent");
+    assert!(board.read_with(cx, |board, _| board.token_fields.is_empty()), "and nothing holds the words");
+    assert!(!cx.update(|_, cx| crate::drafts::holds("sk-live-secret", cx)));
+    assert!(matches!(board.read_with(cx, |board, _| board.reading("deploys-week").map(|one| one.state.clone())), Some(MetricState::Read)), "the recipe reads from then on");
+}
+
+#[gpui::test]
+fn save_is_off_while_the_field_is_empty(cx: &mut TestAppContext) {
+    let (board, cx) = board_keeping(cx, None);
+    let at = find(cx, Role::Button, "Save the token for Deploys this week").expect("Save is drawn").center();
+    cx.simulate_click(at, Modifiers::default());
+    redraw(cx);
+    assert!(board.read_with(cx, |board, _| board.token_fields.contains_key("deploys-week")), "an empty field sends nothing");
+}
+
+#[test]
+fn a_broken_reading_carries_the_time_of_its_last_good_one() {
+    let broken = mock_reading("queue-depth");
+    let (said, full) = metric::last_good(&broken).expect("it still holds an answer");
+    assert_eq!(said, format!("Last good reading {}", metric::clock(&instant(8, 12)).expect("a time")));
+    assert!(!full.is_empty(), "the tooltip has the full time");
+    let mut never = broken;
+    never.answer = None;
+    assert_eq!(metric::last_good(&never), None, "none ever read, none to name");
+}
+
+#[gpui::test]
+fn a_broken_block_says_why_and_its_fix_puts_the_words_in_the_ask_box(cx: &mut TestAppContext) {
+    let (screen, cx) = screen(cx);
+    assert!(drawn(cx, Role::Region, "Queue depth"));
+    assert!(drawn(cx, Role::Image, "Could not read"), "its state is a glyph with words");
+    assert!(drawn(cx, Role::Button, "Fix Queue depth with the librarian"));
+    press(cx, Role::Button, "Fix Queue depth with the librarian");
+    assert_eq!(asked(&screen, cx), "Fix Queue depth");
+    let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask.read(cx), cx));
+    assert!(cx.update(|window, _| focused.is_focused(window)), "the box has the keys");
+}
+
+#[gpui::test]
+fn a_saved_layout_with_no_block_for_a_recipe_leaves_it_off_and_the_add_menu_offers_it(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("run", 0, 0, 3, 2, "list")] };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    assert!(layout_of(&board, cx).blocks.iter().all(|one| one.kind.metric_id().is_none()), "Fleet adds a recipe's block when it saves the recipe, so one with none was taken off");
+    assert!(!drawn(cx, Role::Region, "Queue depth"));
+    let offered = board.update(cx, |board, _| board.addable(PROJECT));
+    assert!(offered.contains(&BlockKind::metric("queue-depth")), "the Add block menu has it");
+    board.update(cx, |board, cx| board.add_block(BlockKind::metric("queue-depth"), cx));
+    redraw(cx);
+    assert!(drawn(cx, Role::Region, "Queue depth"), "and a pick puts it on the board");
+}
+
+#[gpui::test]
+fn hiding_a_metric_block_saves_the_layout_without_it_and_it_stays_off(cx: &mut TestAppContext) {
+    let (board, cx) = board_keeping(cx, None);
+    board.update(cx, |board, cx| board.toggle_edit(cx));
+    redraw(cx);
+    press(cx, Role::Button, "Hide Queue depth");
+    cx.executor().advance_clock(SAVE_AFTER);
+    cx.run_until_parked();
+    let sent = kept_of(&board, cx).expect("the board is kept");
+    assert!(sent.blocks.iter().all(|one| one.kind != "metric:queue-depth"), "saved without it, like any other block");
+    assert!(sent.blocks.iter().any(|one| one.kind == "metric:errors-24h"), "the others are on it");
+    board.update(cx, |board, cx| board.apply_readings(super::mock::readings(PROJECT), cx));
+    redraw(cx);
+    assert!(layout_of(&board, cx).block(BlockKind::metric("queue-depth")).is_none(), "the next reading does not put it back");
+    assert!(!drawn(cx, Role::Region, "Queue depth"));
+}
+
+#[test]
+fn the_host_of_a_picture_is_the_address_without_its_scheme_and_path() {
+    assert_eq!(metric::host("https://grafana.example.com/render/d?id=3#top"), "grafana.example.com");
+    assert_eq!(metric::host("https://example.com"), "example.com");
+}
+
+#[gpui::test]
+fn the_picture_view_is_a_card_with_the_host_that_opens_the_address(cx: &mut TestAppContext) {
+    let (_board, cx) = board_keeping(cx, None);
+    press(cx, Role::Button, "Picture view of Build time");
+    assert!(drawn(cx, Role::Button, "Open the picture of Build time from example.com"));
+}
+
+#[test]
+fn the_number_shown_large_is_not_a_row_again_beneath_it() {
+    let row = |label: &str, value: MetricValue, at: Option<&str>| MetricRow { label: label.to_string(), value, unit: None, at: at.map(Instant::carried), link: None };
+    let answer = MetricAnswer {
+        rows: vec![row("Open pull requests", MetricValue::Number(3.0), None), row("#4023 Say a stalled step waits", MetricValue::Text("NickMele".to_string()), None)],
+        picture: None,
+    };
+    assert_eq!(metric::headline(&answer).map(|head| head.label), Some("Open pull requests".to_string()));
+    let labels: Vec<String> = metric::items("open-pulls", &answer).into_iter().map(|item| item.title.to_string()).collect();
+    assert_eq!(labels, ["#4023 Say a stalled step waits"], "the headline row is drawn large, not listed again");
+
+    let series = MetricAnswer {
+        rows: vec![row("errors", MetricValue::Number(4.0), Some("2026-11-24T10:00:00Z")), row("errors", MetricValue::Number(6.0), Some("2026-11-24T11:00:00Z"))],
+        picture: None,
+    };
+    assert_eq!(metric::items("errors", &series).len(), 2, "a point of a series stays in the rows");
+}
+
+#[gpui::test]
+fn a_block_with_rows_out_of_sight_keeps_the_wheel_and_the_board_stands_still(cx: &mut TestAppContext) {
+    // Features one row tall, so its cards run out of sight, over enough blocks that the board scrolls too.
+    let kept = BoardLayout {
+        blocks: vec![
+            block("features", 0, 0, 6, 1, "cards"),
+            block("checks", 0, 1, 6, 2, "list"),
+            block("reviews", 0, 3, 6, 2, "cards"),
+            block("issues", 0, 5, 6, 2, "table"),
+            block("needs-you", 0, 7, 6, 2, "list"),
+        ],
+    };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    cx.simulate_resize(gpui::size(gpui::px(1280.), gpui::px(700.)));
+    redraw(cx);
+    let wheel = |cx: &mut VisualTestContext, at: gpui::Point<Pixels>| {
+        cx.simulate_event(gpui::ScrollWheelEvent { position: at, delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-60.))), ..Default::default() });
+        redraw(cx);
+    };
+    let overflows = cx.update(|_, cx| board.read(cx).bodies.borrow().get("features-body").is_some_and(|body| body.max_offset().y > gpui::px(0.)));
+    assert!(overflows, "Features one row tall has cards out of sight");
+    let features = find(cx, Role::Region, "Features").expect("the Features block is drawn");
+
+    wheel(cx, features.center());
+    let after = find(cx, Role::Region, "Features").expect("still drawn");
+    assert_eq!(after.origin.y, features.origin.y, "the board stood still while the block scrolled");
+
+    let checks = find(cx, Role::Region, "Checks and commands").expect("the Checks block is drawn");
+    wheel(cx, gpui::point(checks.origin.x + gpui::px(40.), checks.origin.y + gpui::px(10.)));
+    let moved = find(cx, Role::Region, "Checks and commands").expect("still drawn");
+    assert!(moved.origin.y < checks.origin.y, "a wheel over a block's header still moves the board");
+}
+
+#[gpui::test]
+fn graph_of_a_metric_with_one_reading_kept_draws_it_and_is_not_empty(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("metric:open-pulls", 0, 0, 3, 2, "graph")] };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    let mut one = reading(vec![number("Open pull requests", 6., None)], None, vec![MetricPoint { at: instant(13, 35), value: 6. }]);
+    one.id = "open-pulls".into();
+    one.title = "Open pull requests".into();
+    let mut readings = super::mock::readings(PROJECT);
+    readings.readings.push(one);
+    board.update(cx, |board, cx| board.apply_readings(readings, cx));
+    redraw(cx);
+    assert!(drawn(cx, Role::Image, "Graph of Open pull requests"), "a single reading is drawn as its point, not as nothing");
 }

@@ -135,3 +135,22 @@ fn a_value_that_does_not_fit_is_refused_before_the_keychain_is_asked_and_not_rep
         assert!(matches!(&refused, SecretError::Refused(why) if !why.contains("lines")), "{refused:?}");
     }
 }
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_metric_token_is_kept_under_its_credentials_name_and_apart_from_the_requests_variables() {
+    let throwaway = Throwaway::made("metric");
+    let tokens = KeychainSecrets::metric_tokens_in_keychain(&throwaway.keychain);
+    let sentry = SecretVariable { repository: String::new(), environment: String::new(), name: "sentry".to_string() };
+    assert!(tokens.read(&sentry).expect("read").is_none());
+    tokens.keep(&sentry, Secret::new("sntrys_abc".to_string())).expect("kept");
+    assert_eq!(tokens.read(&sentry).unwrap().unwrap().expose(), "sntrys_abc");
+    let found = std::process::Command::new("/usr/bin/security")
+        .args(["find-generic-password", "-s", "armada-metric-token", "-a", "sentry", "-w", throwaway.keychain.to_str().unwrap()])
+        .output()
+        .expect("security runs");
+    assert!(found.status.success(), "one item per tool, its account the credential's name");
+    assert!(throwaway.secrets().read(&sentry).unwrap().is_none(), "a request's variables are a service of their own");
+    tokens.forget(&sentry).expect("forgotten");
+    assert!(!tokens.is_kept(&sentry).unwrap());
+}

@@ -36,7 +36,7 @@ const PLAN_STALE: &str = "fleet.plan_version_stale";
 const PLAN_MARK_REFUSED: &str = "fleet.plan_mark_refused";
 
 /// The text of the call a recorded plan makes of the person.
-pub(crate) const PLAN_TO_APPROVE: &str = "Plan to approve";
+pub(crate) const PLAN_TO_APPROVE: &str = "Approve this plan?";
 
 /// What the agent is told when he puts a plan away to keep talking.
 pub(crate) const NOT_YET_TOLD: &str =
@@ -447,6 +447,8 @@ where
                 .approve_session_plan(&id, plan.version, &now)
                 .map_err(|why| self.ledger_fault(why))?;
             self.plan_decided(&id, &plan, crate::feature_library::deciding::APPROVED, None).await;
+            let item = format!("plan:{}", plan.version);
+            self.answer_kept(&id, super::answers_kept::Answered::to(&item, PLAN_TO_APPROVE, ipc::AnswerHow::Approved)).await;
             self.plan_sketches_settled(&id, plan.version, &asking).await?;
         }
         self.published_hosted(&id).await
@@ -477,6 +479,8 @@ where
         };
         let text = plan_marks::with_sketches(plan_marks::message(&plan, approving, &said), &asking);
         let marked = said.iter().map(|one| one.agent.as_str()).collect::<Vec<_>>().join("\n");
+        // His own words are his notes; the marks he made stay on the `plan_changes` row.
+        let notes: Vec<String> = said.iter().filter(|one| one.line.verb == "Note").filter_map(|one| one.line.text.clone()).collect();
         let row = SessionRow::PlanChanges {
             id: self.row_id(&id),
             at: self.instant(),
@@ -487,6 +491,11 @@ where
         self.told_by_fleet_as(&id, &text, row).await?;
         let choice = if approving { crate::feature_library::deciding::APPROVED } else { crate::feature_library::deciding::ASKED_FOR_CHANGES };
         self.plan_decided(&id, &plan, choice, Some(&marked)).await;
+        let item = format!("plan:{}", plan.version);
+        let how = if approving { ipc::AnswerHow::Approved } else { ipc::AnswerHow::AskedForChanges };
+        let words = notes.join("\n");
+        let kept = super::answers_kept::Answered { words: Some(&words), ..super::answers_kept::Answered::to(&item, PLAN_TO_APPROVE, how) };
+        self.answer_kept(&id, kept).await;
         if approving {
             let now = self.now().as_str().to_string();
             self.store()

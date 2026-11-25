@@ -241,6 +241,8 @@ pub mod places;
 pub mod ports;
 /// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
+/// The Cockpit home's layout, one per user, kept as a key of settings.json.
+mod home_layout;
 /// How the owner works with Jobs, said to a Job: the start note, the plan block and the checks' words.
 mod ways;
 pub mod preparing;
@@ -297,6 +299,8 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_board;
+/// A project's live metrics, read with no model while its dashboard is open.
+mod project_metrics;
 mod project_copies;
 /// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
 mod project_copy_reads;
