@@ -53,5 +53,7 @@ pub(crate) use seeding::PROJECT as PROJECT_UNKNOWN;
 pub(crate) use floor_plan::{is_contract, plan as floor_plan_of_layouts, read as read_floor};
 #[cfg(test)]
 pub(crate) use modules::read as read_modules;
+pub(crate) use floor_plan::read as layout_with_files;
+pub(crate) use modules::{json_scan, Dep as ModuleDep, Kind as ModuleKind, Layout as ModuleLayout, Module, SKIPPED as SKIPPED_FOLDERS};
 #[cfg(test)]
 pub(crate) use project_pages::first_sentence;

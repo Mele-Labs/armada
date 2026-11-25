@@ -983,6 +983,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/project/:project/metrics/token", post(crate::projects::save_metric_token::<D>))
         .route("/projects/project/:project/metrics/:id/remove", post(crate::projects::remove_metric::<D>))
         .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
+        .route("/projects/project/:project/system", get(crate::system_map::get_system_map::<D>))
+        .route("/projects/project/:project/system/part", get(crate::system_map::get_system_part::<D>))
+        .route("/projects/project/:project/system/folder", get(crate::system_map::list_system_folder::<D>))
+        .route("/projects/project/:project/system/librarian", post(crate::system_map::map_system_with_librarian::<D>))
+        .route("/projects/project/:project/system/answer", post(crate::system_map::answer_system_addition::<D>))
         .route(
             "/projects/project/:project/store",
             get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),

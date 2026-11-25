@@ -299,7 +299,7 @@ impl JobView {
                     ForYouOpens::Waiting { id } if super::ready_card::is_card(&id) => {
                         self.open_ready_review(job, &id, window, cx);
                     }
-                    // An ask the review sheet holds opens there, the one place it is answered.
+                    // An ask the review sheet holds opens there.
                     ForYouOpens::Waiting { id } if self.sheet_item(job, &id, cx).is_some() => self.open_ask(&id, window, cx),
                     ForYouOpens::Waiting { id } => self.set_needs(true, Some(format!("item:{id}")), window, cx),
                     ForYouOpens::Plan => self.add_tab("plan", window, cx),
@@ -783,8 +783,8 @@ mod tests {
     }
 
     #[gpui::test]
-    /// One ask, one place: a question Fleet also names for him is not listed twice; its one line opens the sheet on it.
-    fn a_question_needs_you_already_lists_has_no_second_row_and_its_line_opens_the_sheet(cx: &mut TestAppContext) {
+    /// A question Fleet also names for him is not listed twice; its one line in Needs you brings the thread to its card.
+    fn a_question_needs_you_already_lists_has_no_second_row_and_its_line_brings_the_thread_to_its_card(cx: &mut TestAppContext) {
         use super::super::parts_fold::{redraw, rooted_job};
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", gpui::size(gpui::px(1440.), gpui::px(900.)), |_| {});
         let question = "Where does the chip show how far behind it is?";
@@ -813,8 +813,10 @@ mod tests {
         let at = find(question.to_string(), cx).expect("the question is one line");
         cx.simulate_click(at, gpui::Modifiers::none());
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("ask:call-1#1"), "the sheet opens on the question");
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the sheet stays shut");
+        let card = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Article, &format!("Question: {question}")).map(|one| one.bounds));
+        let thread = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Region, "Thread").map(|one| one.bounds));
+        assert!(card.zip(thread).is_some_and(|(card, thread)| thread.contains(&card.origin)), "the thread stands at the question's card");
     }
 
     #[gpui::test]

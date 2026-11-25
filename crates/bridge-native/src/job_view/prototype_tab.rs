@@ -45,7 +45,11 @@ impl JobView {
             match held {
                 Some(view) => view.update(cx, |view, cx| view.set_source(source.clone(), cx)),
                 None => {
-                    let view = cx.new(|cx| PrototypeView::new(source.clone(), Home::Tab, cx));
+                    let view = cx.new(|cx| {
+                        let mut view = PrototypeView::new(source.clone(), Home::Tab, cx);
+                        view.set_job(job.clone());
+                        view
+                    });
                     let key = artifact.clone();
                     let popped = cx.subscribe(&view, move |this, _, event: &PrototypeEvent, cx| match event {
                         PrototypeEvent::PopOut => this.pop_out_prototype(&key, cx),
@@ -58,7 +62,11 @@ impl JobView {
             match sheet {
                 Some(view) => view.update(cx, |view, cx| view.set_source(source.clone(), cx)),
                 None => {
-                    let view = cx.new(|cx| PrototypeView::new(source.clone(), Home::Sheet, cx));
+                    let view = cx.new(|cx| {
+                        let mut view = PrototypeView::new(source.clone(), Home::Sheet, cx);
+                        view.set_job(job.clone());
+                        view
+                    });
                     let key = artifact.clone();
                     let told = cx.subscribe(&view, move |this, _, event: &PrototypeEvent, cx| match event {
                         PrototypeEvent::PopOut => this.pop_out_prototype(&key, cx),

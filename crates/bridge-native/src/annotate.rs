@@ -766,7 +766,7 @@ impl Layer {
 
     /// The Jobs' picker right beside the Send to job drawn at `from`: under it, or over it in the window's
     /// lower half.
-    /// Notes made over a live Job's Browser tab go to that Job with no pick.
+    /// Notes made over a live Job's Browser tab or prototype go to that Job with no pick.
     pub(crate) fn open_menu_by(&mut self, ids: Vec<u32>, from: &Cell<Option<Bounds<Pixels>>>, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(job) = self.own_job(&ids) {
             self.refocus(window, cx);

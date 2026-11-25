@@ -151,6 +151,8 @@ mod issue_queries;
 mod project_store;
 mod metrics;
 mod project_board;
+/// A project's system map: its parts, how they reach each other, and what Fleet knows of each.
+mod system_map;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
@@ -583,6 +585,9 @@ pub use metrics::{
     MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
 };
 pub use projects::MergeProjects;
+pub use system_map::{
+    AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
+};
 pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,

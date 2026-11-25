@@ -23,6 +23,7 @@ pub const MOST_H: u8 = 6;
 /// What a block shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BlockKind {
+    System,
     Needs,
     Run,
     Reviews,
@@ -63,7 +64,7 @@ impl<'de> Deserialize<'de> for BlockKind {
 
 impl BlockKind {
     /// The kinds Bridge draws whatever the project keeps. A metric block stands on a recipe, so it is not among them.
-    pub const ALL: [BlockKind; 6] = [BlockKind::Needs, BlockKind::Run, BlockKind::Reviews, BlockKind::Issues, BlockKind::Features, BlockKind::Checks];
+    pub const ALL: [BlockKind; 7] = [BlockKind::System, BlockKind::Needs, BlockKind::Run, BlockKind::Reviews, BlockKind::Issues, BlockKind::Features, BlockKind::Checks];
 
     /// The metric block of the recipe `id`.
     pub fn metric(id: &str) -> BlockKind {
@@ -82,6 +83,7 @@ impl BlockKind {
     /// board holds (`Board::title_of`); the id stands here for one it does not hold.
     pub fn title(self) -> &'static str {
         match self {
+            BlockKind::System => "System",
             BlockKind::Needs => "Needs you",
             BlockKind::Run => "Run",
             BlockKind::Reviews => "Reviews",
@@ -95,6 +97,7 @@ impl BlockKind {
     /// What its element id is made of, and the word Fleet keeps for it.
     pub fn slug(self) -> String {
         match self {
+            BlockKind::System => "system".to_string(),
             BlockKind::Needs => "needs-you".to_string(),
             BlockKind::Run => "run".to_string(),
             BlockKind::Reviews => "reviews".to_string(),
@@ -117,6 +120,7 @@ impl BlockKind {
     /// The views its data fits, the first being the one it starts in.
     pub fn views(self) -> &'static [View] {
         match self {
+            BlockKind::System => &[View::Graph, View::List],
             BlockKind::Needs => &[View::List, View::Cards],
             BlockKind::Run => &[View::List, View::Table, View::Cards],
             BlockKind::Reviews => &[View::Cards, View::List, View::Table],
