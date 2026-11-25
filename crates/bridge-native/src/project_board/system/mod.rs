@@ -602,6 +602,20 @@ impl SystemBlock {
         cx.emit(SystemEvent::Feature(slug.to_string()));
     }
 
+    /// Whether a feature row draws the feature's path here: on level two, for a feature with parts on it.
+    pub(super) fn draws_path(&self, slug: &str) -> bool {
+        self.trail.depth() == 2 && self.level().is_some_and(|map| map.features.iter().any(|one| one.slug == slug))
+    }
+
+    /// A feature row of the panel: its path on level two, and its page where there is no path to draw.
+    pub(super) fn press_feature(&mut self, slug: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.draws_path(slug) {
+            self.follow_feature(slug, window, cx);
+        } else {
+            self.open_feature(slug, cx);
+        }
+    }
+
     pub(super) fn open_job(&mut self, id: &str, cx: &mut Context<Self>) {
         cx.emit(SystemEvent::Job(id.to_string()));
     }

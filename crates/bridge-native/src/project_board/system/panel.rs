@@ -393,7 +393,8 @@ fn sections(this: &SystemBlock, part: &SystemPart, answers: &SystemPartAnswers, 
             .child(tile)
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(feature.title.clone())))
             .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)));
-        rows.push(pressable(look, format!("system-feature-row-{}", feature.slug), format!("{}, open the feature", feature.title), row, move |this, _, cx| this.open_feature(&slug, cx), cx));
+        let said = if this.draws_path(&feature.slug) { format!("{}, draw its path", feature.title) } else { format!("{}, open the feature", feature.title) };
+        rows.push(pressable(look, format!("system-feature-row-{}", feature.slug), said, row, move |this, window, cx| this.press_feature(&slug, window, cx), cx));
     }
     let add = div()
         .flex()
