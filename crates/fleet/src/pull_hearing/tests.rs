@@ -9,7 +9,7 @@ use adapter_traits::{
     PullEvents, PullEventsFailure, PullStreamAction, PullStreamEnd, PullStreamSignal, PullSubscription,
 };
 
-use super::engine::{Hearing, Timing, Want};
+use super::engine::{Hearing, Live, Timing, Want};
 
 /// Every wait in milliseconds, none long enough to be waited on for real.
 const QUICK: Timing = Timing {
@@ -22,6 +22,8 @@ const QUICK: Timing = Timing {
     backoff_first: Duration::from_millis(200),
     backoff_longest: Duration::from_millis(400),
     limit_wait: Duration::from_millis(200),
+    // Longer than any test, so no safety read joins what a test counts unless it asks for one.
+    safety: Duration::from_secs(3600),
 };
 
 enum Play {
@@ -137,7 +139,19 @@ async fn until(what: &str, mut done: impl FnMut() -> bool) {
 
 /// Hearing for `wanted`, with the pull requests read again collected in the second value.
 fn running(forge: &Arc<Forge>, wanted: Vec<Want>, over: bool) -> (Arc<Mutex<Vec<u64>>>, tokio::task::JoinHandle<()>) {
-    let (hearing, heard) = Hearing::opened(Arc::clone(forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (read, task, _) = running_on(forge, wanted, over, QUICK);
+    (read, task)
+}
+
+/// As [`running`], on `timing`, with the set the sweep reads.
+fn running_on(
+    forge: &Arc<Forge>,
+    wanted: Vec<Want>,
+    over: bool,
+    timing: Timing,
+) -> (Arc<Mutex<Vec<u64>>>, tokio::task::JoinHandle<()>, Live) {
+    let live = Live::default();
+    let (hearing, heard) = Hearing::opened(Arc::clone(forge) as Arc<dyn PullEvents>, timing, silent(), live.clone());
     let read = Arc::new(Mutex::new(Vec::new()));
     let seen = Arc::clone(&read);
     let task = tokio::spawn(hearing.run(
@@ -154,7 +168,7 @@ fn running(forge: &Arc<Forge>, wanted: Vec<Want>, over: bool) -> (Arc<Mutex<Vec<
             }
         },
     ));
-    (read, task)
+    (read, task, live)
 }
 
 #[tokio::test]
@@ -241,7 +255,7 @@ async fn a_pull_request_found_over_is_unsubscribed() {
 #[tokio::test]
 async fn a_pull_request_nobody_holds_any_more_is_unsubscribed() {
     let forge = Arc::new(Forge::default());
-    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), Live::default());
     hearing.pass(&[want(7), want(8)]).await;
     assert_eq!(hearing.held(), vec![want(7), want(8)]);
     hearing.pass(&[want(8)]).await;
@@ -261,6 +275,7 @@ async fn an_account_with_events_off_holds_nothing_and_asks_again_later() {
         Arc::clone(&forge) as Arc<dyn PullEvents>,
         QUICK,
         Arc::new(move |line| kept.lock().unwrap().push(line.to_string())),
+        Live::default(),
     );
     hearing.pass(&[want(7), want(8)]).await;
     assert!(hearing.is_off());
@@ -292,7 +307,7 @@ async fn an_account_with_events_off_holds_nothing_and_asks_again_later() {
 #[tokio::test]
 async fn at_the_limit_the_newest_pull_requests_are_subscribed() {
     let forge = Arc::new(Forge::default());
-    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), Live::default());
     let wanted: Vec<Want> = (1..=105).map(want).collect();
     hearing.pass(&wanted).await;
     let held = hearing.held();
@@ -305,7 +320,7 @@ async fn a_subscription_close_to_its_end_is_made_again() {
     let forge = Arc::new(Forge::default());
     // Left for `renew_before` and a moment: due again almost at once.
     forge.subscribe_answers.lock().unwrap().push_back(Ok(QUICK.renew_before + Duration::from_millis(30)));
-    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), Live::default());
     hearing.pass(&[want(7)]).await;
     assert_eq!(forge.subscribed(), vec![7]);
     tokio::time::sleep(Duration::from_millis(60)).await;
@@ -320,7 +335,7 @@ async fn a_subscription_close_to_its_end_is_made_again() {
 async fn a_refusal_that_may_pass_is_not_asked_again_at_once() {
     let forge = Arc::new(Forge::default());
     forge.subscribe_answers.lock().unwrap().push_back(Err(PullEventsFailure::Transient));
-    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), Live::default());
     hearing.pass(&[want(7)]).await;
     hearing.pass(&[want(7)]).await;
     assert_eq!(forge.subscribed(), vec![7]);
@@ -334,10 +349,78 @@ async fn a_refusal_that_may_pass_is_not_asked_again_at_once() {
 async fn a_pull_request_the_forge_refuses_is_left_to_the_sweep() {
     let forge = Arc::new(Forge::default());
     forge.subscribe_answers.lock().unwrap().push_back(Err(PullEventsFailure::Forbidden));
-    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent());
+    let (mut hearing, _heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), Live::default());
     hearing.pass(&[want(7), want(8)]).await;
     hearing.pass(&[want(7), want(8)]).await;
     // The newest is asked first, refused once, and not asked again while it is wanted.
     assert_eq!(forge.subscribed(), vec![8, 7]);
     assert_eq!(hearing.held(), vec![want(7)]);
+}
+
+#[tokio::test]
+async fn an_attached_stream_is_heard_live_until_it_stops() {
+    let forge = Arc::new(Forge::default());
+    let first = forge.stream();
+    let second = forge.stream();
+    let (_read, task, live) = running_on(&forge, vec![want(7)], false, QUICK);
+    until("the stream opened", || forge.listened() == 1).await;
+    assert!(!live.contains("/repo", 7), "subscribed is not heard: nothing has attached");
+    first.send(Play::Signal(PullStreamSignal::Attached)).unwrap();
+    until("heard live", || live.contains("/repo", 7)).await;
+    // Dropped: the sweep reads it every minute again until the stream is back.
+    first.send(Play::End(PullStreamEnd::Dropped)).unwrap();
+    until("left to the sweep", || !live.contains("/repo", 7)).await;
+    second.send(Play::Signal(PullStreamSignal::Attached)).unwrap();
+    until("heard live again", || live.contains("/repo", 7)).await;
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_pull_request_nobody_wants_any_more_is_not_heard_live() {
+    let forge = Arc::new(Forge::default());
+    let play = forge.stream();
+    let wanted = Arc::new(Mutex::new(vec![want(7)]));
+    let asked = Arc::clone(&wanted);
+    let live = Live::default();
+    let (hearing, heard) = Hearing::opened(Arc::clone(&forge) as Arc<dyn PullEvents>, QUICK, silent(), live.clone());
+    let task = tokio::spawn(hearing.run(
+        heard,
+        move || {
+            let wanted = asked.lock().unwrap().clone();
+            async move { wanted }
+        },
+        |_| async { false },
+    ));
+    play.send(Play::Signal(PullStreamSignal::Attached)).unwrap();
+    until("heard live", || live.contains("/repo", 7)).await;
+    wanted.lock().unwrap().clear();
+    until("not heard once unwanted", || !live.contains("/repo", 7)).await;
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_pull_request_heard_live_is_still_read_after_the_safety_wait() {
+    let forge = Arc::new(Forge::default());
+    let play = forge.stream();
+    let timing = Timing { safety: Duration::from_millis(100), ..QUICK };
+    let (read, task, _live) = running_on(&forge, vec![want(7)], false, timing);
+    play.send(Play::Signal(PullStreamSignal::Attached)).unwrap();
+    until("the attach read", || read.lock().unwrap().len() == 1).await;
+    // No event after the attach: a comment says nothing on the stream, so the safety read finds it.
+    until("two safety reads", || read.lock().unwrap().len() >= 3).await;
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_stream_that_never_attached_gets_no_safety_read() {
+    let forge = Arc::new(Forge::default());
+    let _play = forge.stream();
+    let timing = Timing { safety: Duration::from_millis(20), ..QUICK };
+    let (read, task, live) = running_on(&forge, vec![want(7)], false, timing);
+    until("the stream opened", || forge.listened() == 1).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // The sweep reads it every minute, so the engine adds nothing.
+    assert!(read.lock().unwrap().is_empty());
+    assert!(!live.contains("/repo", 7));
+    task.abort();
 }
