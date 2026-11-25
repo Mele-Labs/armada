@@ -90,7 +90,7 @@ the lock file; tell the owner, never remove it yourself.
 
 **What runs after `--restart` is the preview's.** The run fails if launchd loaded
 any other tree or Fleet reports a protocol ID other than the one the preview's
-wire files hash to (`node apps/desktop/codegen/protocol-id.mjs`).
+wire files hash to (`scripts/protocol-id`).
 The native Bridge runs from `builds/current/Armada.app` through its own job, `com.armada.fleet.native`; read the last line of the output, `Native Bridge reopened`.
 Every restart also removes what Armada Classic left (`scripts/retire-classic`): its launchd job, plist and installed app. Nothing launches it.
 

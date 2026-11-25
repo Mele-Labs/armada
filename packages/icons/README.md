@@ -28,7 +28,7 @@ resolved to a title.
 
 ## Checking this file against the app
 
-A gate that walks the component sheet, the mockups, and `apps/desktop` for
+A gate that walks the apps for
 every lucide glyph in use, and fails on a glyph with no row here or one used
 somewhere its `reserved` field forbids, is being added separately (see the
 Notion contract checks page). This registry is what it checks against — adding

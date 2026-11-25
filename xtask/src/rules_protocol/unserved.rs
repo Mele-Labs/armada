@@ -24,8 +24,8 @@ use super::{operations, rows, served_rows, INVENTORY, SERVED_TABLE};
 const NOT_BUILT: &[(&str, &str)] = &[
     (
         "restart_fleet",
-        "Restarting Fleet is Bridge's own `launchctl kickstart -k` (`apps/desktop/src/main/\
-         restart-fleet.ts`), not a route: the process being restarted cannot serve it, and a \
+        "Restarting Fleet is Bridge's own `launchctl kickstart -k` (`crates/bridge-native/src/\
+         restart_fleet.rs`), not a route: the process being restarted cannot serve it, and a \
          Fleet too old for any route is the one it is most needed against",
     ),
 ];

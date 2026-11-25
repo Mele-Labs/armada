@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-The view is `SketchScene` in `packages/components/src/compositions/`.
+The view is `SketchScene` in `classic-final:packages/components/src/compositions/`.
 
 ## Status
 
@@ -16,7 +16,8 @@ Gaps found in the sketch are tracked in #2052.
 
 ## The scene format
 
-A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is defined in `packages/components/src/compositions/SketchScene/scene.ts`, and an agent's sketch and the owner's pad share it.
+A scene is the sketch pad's drawing plus the kinds the pad cannot say.
+It is defined in `classic-final:packages/components/src/compositions/SketchScene/scene.ts`, and an agent's sketch and the owner's pad share it.
 
 | Part | Fields |
 |---|---|
@@ -86,7 +87,7 @@ No hop falls on a corner, within the straight run of a head, or so near another 
 An agent draws it for a repository with no styles, and a `mock` for one that has them.
 An agent says what is on the screen and never where: `w` is its width and its height comes from its contents.
 
-**Rule.** The tree is `ScreenElement` in `packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
+**Rule.** The tree is `ScreenElement` in `classic-final:packages/components/src/compositions/SketchScene/screen.ts`, and it arrives as `unknown`. Any element that is not one fails the whole scene.
 
 | Element | Takes |
 |---|---|

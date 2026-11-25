@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. The agent or he folds a stale sketch, draft or page away, and brings it back. `docs/concepts/artifact.md`, *Archive*.
 **Additive only**: two operations, two routes, one optional field and one body type. No field of `SessionRecord`, no event kind and no error kind is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
 
 | Where | Side | Carries |
 | --- | --- | --- |

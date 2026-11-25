@@ -207,9 +207,6 @@ const VENDOR_LITERALS: &[&str] = &[
     "git2",
 ];
 
-/// Bridge's registry of unbuilt Fleet routes. Exempt from the rule above, by name.
-const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
-
 /// The sign-in files, which may say `github`, and no other vendor.
 ///
 /// The account a person signs in with is a GitHub account, and the approved
@@ -218,46 +215,17 @@ const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 /// Bridge's Account page and its Joins as row are the same page ported. The address
 /// to sign in at still comes from Fleet when this is wired.
 const SIGN_IN_FILES: &[&str] = &[
-    "apps/desktop/src/renderer/src/mock/account.tsx",
-    "apps/desktop/src/renderer/src/mock/scenarios/onboarding-home.ts",
-    "apps/desktop/src/renderer/src/mock/walks/onboarding-home.ts",
-    "apps/desktop/src/renderer/src/mock/walks/onboarding-work.ts",
-    "packages/components/src/compositions/Account/Account.stories.tsx",
-    "packages/components/src/compositions/Account/Account.tsx",
-    "packages/components/src/compositions/Account/AccountScreen.tsx",
-    "packages/components/src/compositions/Account/ForgeMark.tsx",
-    "packages/components/src/compositions/TitleBar/TitleBar.stories.tsx",
-    "packages/components/src/compositions/TitleBar/TitleMenu.tsx",
     "apps/store/src/enrol.ts",
     "crates/bridge-native/src/settings/account.rs",
     "crates/bridge-native/src/settings/mock_account.rs",
     "crates/bridge-native/src/settings/store_login.rs",
 ];
 
-/// The mock files that stand in for what Fleet sends about the forge's own name.
-///
-/// A `session.called` entry carries `name`, and Fleet's adapter says `GitHub` there, so the scenario that
-/// plays the entries and the walk that points at the outpost it labels have to say it too. Product code
-/// reads the name off the entry and says nothing.
-const STANDS_IN_FOR_THE_FORGE: &[&str] = &[
-    "apps/desktop/src/renderer/src/mock/scenarios/field-outposts.ts",
-    "apps/desktop/src/renderer/src/mock/walks/field-outposts.ts",
-];
-
 /// The files that download Whisper and `cloudflared`, which may say `github`, and no other vendor.
 ///
 /// whisper.cpp and `cloudflared` publish their builds only as releases on the forge, so the addresses name it. Each
 /// is a download, checked against its SHA-256, not a forge the product talks to.
-const DOWNLOADS_FROM_THE_FORGE: &[&str] =
-    &["apps/desktop/src/main/whisper-install.ts", "crates/bridge-native/src/whisper.rs", "crates/pocket/src/cloudflared.rs"];
-
-/// The files that recognise a pull request's link in a thread, which may say `github`, and no other vendor.
-///
-/// The link is words a person or an agent wrote, so its address names the forge. Nothing here talks to it.
-const READS_THE_FORGES_LINKS: &[&str] = &[
-    "packages/screens/src/prose-refs.ts",
-    "packages/screens/src/prose-refs.test.ts",
-];
+const DOWNLOADS_FROM_THE_FORGE: &[&str] = &["crates/bridge-native/src/whisper.rs", "crates/pocket/src/cloudflared.rs"];
 
 /// `lower` with every identifier imported from `lucide-react` blanked out.
 ///
@@ -302,18 +270,11 @@ pub fn no_vendor_literal_outside_adapters(root: &Path) -> Report {
             if path.starts_with("crates/adapters/") || path.starts_with("xtask/") {
                 continue;
             }
-            // The one named file outside them: the routes Fleet does not serve
-            // yet, each carrying the full link to the issue that builds it. The
-            // link is Armada's own tracker, not a vendor the product talks to,
-            // and the owner chose the whole URL over a short form on 29 Sep.
-            if path == PENDING_ROUTES_FILE {
-                continue;
-            }
             let Ok(text) = fs::read_to_string(root.join(&path)) else {
                 continue;
             };
             let lower = without_lucide_names(&text.to_lowercase(), &text);
-            let signs_in = SIGN_IN_FILES.contains(&path.as_str()) || STANDS_IN_FOR_THE_FORGE.contains(&path.as_str()) || DOWNLOADS_FROM_THE_FORGE.contains(&path.as_str()) || READS_THE_FORGES_LINKS.contains(&path.as_str());
+            let signs_in = SIGN_IN_FILES.contains(&path.as_str()) || DOWNLOADS_FROM_THE_FORGE.contains(&path.as_str());
             for vendor in VENDOR_LITERALS {
                 if signs_in && *vendor == "github" {
                     continue;

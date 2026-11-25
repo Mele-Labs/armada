@@ -9,7 +9,7 @@ Fleet places a hosted session by its connection, as for `show_window`; a termina
 
 **`path` is absolute, or relative to the folder the job runs in**, the `cwd` its ledger row holds.
 Fleet canonicalises it, and the receipt through the door names the absolute path it kept, so the agent learns what a relative one meant.
-A path with nothing at it, a folder, anything that is not a regular file, a file over 8 MiB (`8 * 1024 * 1024`, the most Bridge's panel reads: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`), and a video over 256 MiB (`256 * 1024 * 1024`) are refused with 422, `fleet.file_missing`, `fleet.file_not_a_file` or `fleet.file_too_large`, naming the path as resolved and what is allowed.
+A path with nothing at it, a folder, anything that is not a regular file, a file over 8 MiB (`8 * 1024 * 1024`, the most Bridge's panel reads: `MOST_BYTES` in `classic-final:apps/desktop/src/main/session-file.ts`), and a video over 256 MiB (`256 * 1024 * 1024`) are refused with 422, `fleet.file_missing`, `fleet.file_not_a_file` or `fleet.file_too_large`, naming the path as resolved and what is allowed.
 A call that places no job is `fleet.file_unnamed`.
 The 8 MiB cap is written twice, in Fleet and in Bridge, and nothing ties the two together.
 The video cap is Fleet's alone: nothing reads a video whole.

@@ -6,8 +6,8 @@ Bridge renders one. The v0 lifeboat is explicitly outside it. Read before
 touching `core-model`'s `ArmadaError`, `ipc`'s wire types, or how Bridge
 renders one.
 
-**Purpose:** what an error carries, how it crosses the Rust and TypeScript
-halves, and what a person sees when one reaches them. **The shape, not the
+**Purpose:** what an error carries, how it crosses from Fleet to
+Bridge, and what a person sees when one reaches them. **The shape, not the
 handling of any particular failure.** Nothing here says what to do about a
 lost worktree; it says what a lost worktree looks like by the time it
 reaches somebody.
@@ -61,25 +61,22 @@ credential cannot be put into one without it failing to compile.
 ### Codes
 
 **Declaration stays beside the variant that raises it.** The set is closed
-by collection, not by authorship: a `verify-foundations` rule walks both
-halves of the repository and fails on a code declared twice, naming every
-site that declares it.
+by collection, not by authorship: a `verify-foundations` rule walks the Rust
+crates and fails on a code declared twice, naming every site that declares it.
 
 A central registry puts every code far from the failure it names and turns
 adding one into a merge conflict. Scanning gets the closure without the
 distance — the same shape the vendor-literal rule already uses.
 
 **What a declaration looks like is not specified here, it is observed.** The
-scan reads the form each half already uses, so neither had to change:
+scan reads the form Rust already uses, so it had to change nothing:
 
-| Half | Declared as | Found by |
-| --- | --- | --- |
-| Rust | `const NO_SUCH_JOB: &str = "fleet.no_such_job";` | the literal's shape |
-| Bridge | `const FLEET_UNREACHABLE: BridgeCode = "bridge.fleet.unreachable";` | the type annotation |
+| Declared as | Found by |
+| --- | --- |
+| `const NO_SUCH_JOB: &str = "fleet.no_such_job";` | the literal's shape |
 
-Bridge's half is exact, because `BridgeCode` is a type. Rust's is a shape —
-two or more lowercase segments — because nothing types a code there, and a
-dotted lowercase string is also what a file name looks like. Four of those
+The shape is two or more lowercase segments, because nothing types a code,
+and a dotted lowercase string is also what a file name looks like. Four of those
 live in `crates/` and are excluded by their extension. **That exclusion is a
 guess, and it is the loud kind**: a wrong include arrives as a duplicate
 naming a file name, not as silence.
@@ -256,8 +253,7 @@ state stays a banner. The line is drawn by what the failure is about:
 | --- | --- | --- |
 | A refusal Fleet named | a command somebody pressed | Toast |
 | A command Fleet did not answer | a command somebody pressed | Toast |
-| `bridge.not_implemented` | a command somebody pressed | Toast |
-| A throw no boundary saw | a click or a preload call, in this process | Toast |
+| A throw no boundary saw | a click, in this process | Toast |
 | A press the form would not send — Fleet not connected, and the rest of its guidance | a command somebody pressed | Toast |
 | Fleet unreachable, or the window stale | the connection | Banner |
 | A row Fleet refused | the board as read | Inline, beside its row |
@@ -307,8 +303,9 @@ is a fault, because what failed was an act.
 thing that observed the failure knows Fleet's state, and a component that
 mints the class has to guess — which is how every Bridge failure came to
 draw as a fault, including the two where restarting Fleet is the wrong move.
-It sits beside the code, under `packages/shell/src/failures/`, and carries
-its argument there. See #344.
+It sits beside the code that raises the failure, which in the native Bridge is
+`crates/bridge-native/src/titlebar/face.rs`, and carries its argument there.
+See #344.
 
 **It is never derived from the code.** The one code Bridge does not mint is
 opaque to it — looked up, never parsed — so a lookup would read a value this
@@ -339,16 +336,15 @@ payload is read away from the screen that would have answered that.
 failures Bridge draws crosses the wire that guarantees one, and the code is
 what separates an error from a failed Job. See #228.
 
-**A Bridge code is declared beside the builder that raises it**, in
-`packages/shell/src/failures/`, and is namespaced `bridge.`. The prefix keeps
-the Rust set and the Bridge set disjoint without a collector spanning both —
-which is why the collection above may check each half against itself and
-decide nothing about the other. A Rust code that took the prefix fails, since
-it is the one thing that would make that reading wrong. The failure's class is
-declared in the same place, for the same reason.
+**A Bridge code is declared beside the place that raises it** and is namespaced
+`bridge.`; no gate collects them, and the Rust collection decides nothing about
+them. The prefix keeps the Rust set and the Bridge set disjoint, so a Rust code
+that took the prefix fails. The failure's class is declared in the same place,
+for the same reason.
 
-**A control may ship ahead of its Fleet route, and pressing it says so.** The
-route is declared pending in `packages/protocol/src/pending.ts`, one line naming
+**Classic let a control ship ahead of its Fleet route, and pressing it said so;
+the native Bridge has no such list.** The route was declared pending in
+`classic-final:packages/protocol/src/pending.ts`, one line naming
 the method, the path and the issue that builds it. Where Fleet answers a command
 to it the way it answers a route it has none for, Bridge raises
 `bridge.not_implemented`, headed `Not implemented`, and the debug info names the

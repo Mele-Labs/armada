@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""The protocol ID a tree's wire files hash to, printed without building anything.
+
+Fleet's is compiled in by `crates/ipc/build.rs`, which includes `crates/ipc/wire_hash.rs`:
+FNV-1a 64 over the wire surface, the comment-only lines dropped. `scripts/restart` needs the
+ID of the tree it is about to build, before there is a binary to ask, so this is that
+function written again. `cargo xtask verify-foundations` runs both on the working tree and
+fails when they disagree, so a change to the file list, the comment rule or the hash is made
+in both or not at all.
+
+Usage: scripts/protocol-id [<repo root>]    (default: the root this script sits in)
+"""
+import os
+import sys
+
+MASK = 0xFFFFFFFFFFFFFFFF
+PRIME = 0x100000001B3
+OFFSET = 0xCBF29CE484222325
+
+
+def collect(root, directory, keep):
+    """Every file under `directory` that `keep` accepts, as repo-relative `/` paths.
+    A directory that is missing is an error: an empty surface hashes to a constant."""
+    found = []
+    for name in os.listdir(os.path.join(root, directory)):
+        rel = f"{directory}/{name}"
+        if os.path.isdir(os.path.join(root, rel)):
+            found.extend(collect(root, rel, keep))
+        elif keep(rel):
+            found.append(rel)
+    return found
+
+
+def protocol_id(root):
+    files = collect(root, "crates/ipc/src", lambda rel: rel.endswith(".rs") and "/tests/" not in rel and not rel.endswith("/tests.rs"))
+    # The route table: the method and path each operation is served on.
+    files += collect(root, "crates/api/src/routes", lambda rel: rel.endswith(".rs"))
+    files += collect(root, "crates/ipc/operations", lambda rel: rel.endswith(".toml") and not rel.endswith("/_header.toml"))
+    files.sort()
+    state = OFFSET
+
+    def feed(data):
+        nonlocal state
+        for byte in data:
+            state = ((state ^ byte) * PRIME) & MASK
+
+    for rel in files:
+        comment = "#" if rel.endswith(".toml") else "//"
+        feed(rel.encode() + b"\n")
+        with open(os.path.join(root, rel), encoding="utf-8") as handle:
+            for raw in handle.read().split("\n"):
+                line = raw.rstrip()
+                if line == "" or line.lstrip().startswith(comment):
+                    continue
+                feed(line.encode() + b"\n")
+        feed(b"\0")
+    return f"{state:016x}"
+
+
+if __name__ == "__main__":
+    here = os.path.dirname(os.path.abspath(__file__))
+    print(protocol_id(os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.dirname(here)))

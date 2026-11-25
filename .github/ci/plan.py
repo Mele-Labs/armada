@@ -10,50 +10,30 @@ With `--quick`, `compile` names the Rust Checks left to the queue whose test
 code the pull request compiles all the same.
 
 A root Check is a bare name and has a static job in checks.yml. A workspace
-Check is `<dir>:<name>`: the desktop tests that read no surface run in one Linux
-job, and the other Node Checks run in a few grouped matrix jobs, each calling
+Check is `<dir>:<name>`, and the Node Checks run in one grouped matrix job, calling
 `armada check <key>` for its keys one after another. A key that is
 neither run nor named in EXCLUDED fails the plan, so a Check added to a manifest
 is never skipped for want of a line here. docs/practices/ci.md, *How a Check is
 chosen*.
 """
-import hashlib
 import json
 import re
 import sys
 
 # Bare names with a static job in checks.yml.
-ROOT = {"build", "test", "acceptance", "typecheck", "hooks_test", "preview_test", "sync_mod_test", "keep_build_test", "format_catch_up_test"}
-
-# Run by the Linux job that runs vitest directly, outside the matrix so that
-# `desktop_test` reports it with the shards and `ci` does not wait on it.
-DESKTOP = {"apps/desktop/unit:desktop_test"}
-
-# Run by a static Rust job: a workspace Check whose command is cargo, not Node.
-RUST = {"apps/desktop:xtask_test"}
+ROOT = {"build", "test", "acceptance", "typecheck", "xtask_test", "hooks_test", "preview_test", "sync_mod_test", "keep_build_test", "format_catch_up_test"}
 
 # Workspace Checks by name that the Linux matrix job runs.
-MATRIX = {"typecheck", "bridge_build", "storybook", "components_test", "screens_test", "pocket_test", "store_test", "bundle_current", "test"}
+MATRIX = {"typecheck", "pocket_test", "store_test", "bundle_current", "test"}
 
-# Of those, the ones that never open a browser.
-NO_BROWSER = {"typecheck", "bridge_build", "pocket_test", "store_test", "bundle_current"}
-
-# The grouped jobs the matrix keys run in, one runner each: a runner's checkout
-# and setup cost about as much as a short Check, so a job runs several Checks
-# one after another. The merge queue builds five runs at once, so fewer jobs
-# means less waiting for a runner. Names are the job names.
+# The grouped job the matrix keys run in: a runner's checkout and setup cost
+# about as much as a short Check, so one job runs several Checks one after
+# another. The name is the job's.
 NODE = "node checks"
-COMPONENTS = "components"
-SURFACES = ("surface tests 1/2", "surface tests 2/2")
-GROUPS = [NODE, COMPONENTS, *SURFACES]
-
-# Of the matrix names, the ones that run in the components job: the slowest
-# (components_test) and the one that shares its build (storybook).
-COMPONENT_NAMES = {"components_test", "storybook"}
+GROUPS = [NODE]
 
 # Keys CI deliberately does not run, and why.
 EXCLUDED = {
-    "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
     "apps/pocket:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
     "crates/bridge-native:shot_check": "it compares a Job's own prototype scene, which lives in the Job's scratch folder and which no CI runner has",
     "apps/store:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
@@ -68,7 +48,7 @@ NATIVE = "crates/bridge-native:test"
 # Check names a pull request's own run keeps with `--quick`: the ones that
 # compile. The merge queue runs every Check, so the pull request run is an early
 # warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
-QUICK = {"build", "typecheck", "bridge_build"}
+QUICK = {"build", "typecheck"}
 
 # Root Checks whose test code a pull request's run compiles without running it,
 # when the queue is left to run them: `cargo build` compiles no test target, so
@@ -76,21 +56,7 @@ QUICK = {"build", "typecheck", "bridge_build"}
 # queue runs on 30 and 31 Oct 2026.
 COMPILE = {"test", "acceptance"}
 
-# Job names in checks.yml that are not their Check's key. A shard's name is its
-# Check's with ` <n>/<m>` after it.
-JOB_KEYS = {"desktop_unit": "apps/desktop/unit:desktop_test"}
-
-
-def group_of(key):
-    """The grouped job a matrix key runs in. The surface tests split by a hash
-    of the key, so a key stays in its half as others come and go. Today's eight
-    fall four and four."""
-    name = key.rsplit(":", 1)[-1]
-    if name in NO_BROWSER:
-        return NODE
-    if name in COMPONENT_NAMES:
-        return COMPONENTS
-    return SURFACES[hashlib.sha256(key.encode()).digest()[0] % len(SURFACES)]
+# A shard's job name is its Check's with ` <n>/<m>` after it.
 
 
 def rerun_keys(job_names):
@@ -104,7 +70,7 @@ def rerun_keys(job_names):
         name = name.strip()
         if name not in GROUPS:
             name = re.sub(r" \d+/\d+$", "", name)
-        keys.add(JOB_KEYS.get(name, name))
+        keys.add(name)
     return keys
 
 
@@ -119,15 +85,13 @@ def plan(keys, quick=False, rerun=frozenset()):
             excluded.append(key)
         elif ":" not in key and key in ROOT:
             run.append(key)
-        elif key in DESKTOP or key in RUST:
-            run.append(key)
         elif ":" in key and name in MATRIX:
             run.append(key)
             grouped.append(key)
         else:
             unrun.append(key)
     queued, compile = [], []
-    again = lambda key: key in rerun or (key in grouped and group_of(key) in rerun)
+    again = lambda key: key in rerun or (key in grouped and NODE in rerun)
     if quick:
         queued = [key for key in run if key.rsplit(":", 1)[-1] not in QUICK and not again(key)]
         run = [key for key in run if key not in queued]
@@ -135,10 +99,9 @@ def plan(keys, quick=False, rerun=frozenset()):
     rerun = [key for key in run if again(key)] if quick else []
     include = []
     for group in GROUPS:
-        keys = [key for key in run if key in grouped and group_of(key) == group]
+        keys = [key for key in run if key in grouped]
         if keys:
-            # A browser opens in every group but the node one.
-            include.append({"group": group, "keys": " ".join(keys), "browsers": str(group != NODE).lower()})
+            include.append({"group": group, "keys": " ".join(keys)})
     return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun, "compile": compile, "native": native}
 
 

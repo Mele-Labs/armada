@@ -4,7 +4,7 @@
 
 `docs/concepts/tracker.md`, *Saved queries and the query writer*.
 The protocol ID moves with the files below, and there is no number to take.
-Bridge's half is `packages/protocol/src/issues.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/issues.ts`, written by hand, field for field.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ The lifeboat is untouched.
 
 ## A missing tool, named, and installed when asked
 
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Change |
 | --- | --- | --- |

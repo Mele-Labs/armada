@@ -6,7 +6,7 @@
 //!
 //! **Not Fleet's port, and not Fleet's errors.** The Gateway answers a refusal as a plain sentence, and refuses
 //! any request that carries `Origin`, so it is asked over hyper's bare client, which sends only the headers
-//! written here (`apps/desktop/src/main/phone-gateway.ts`).
+//! written here (`classic-final:apps/desktop/src/main/phone-gateway.ts`).
 
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;

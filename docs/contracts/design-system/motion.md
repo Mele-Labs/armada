@@ -89,7 +89,7 @@ edge and its ground lifts one step at `--duration-fast`.
 state still reads from colour and label.
 
 **Armada has its own switch.** `features.reduceMotion` makes each of Bridge's windows answer `prefers-reduced-motion` as if the Mac asked for it, so every rule above follows it with nothing else to write and no other app changes.
-`apps/desktop/src/main/reduce-motion.ts`.
+`classic-final:apps/desktop/src/main/reduce-motion.ts`.
 
 **A loop that never ends animates `transform` and `opacity` only.** A loop runs for as long
 as the window is open, so what it animates is what Bridge costs idle. The compositor draws
@@ -97,7 +97,7 @@ those two with no repaint; `box-shadow`, `background-position`, `stroke-dashoffs
 rest repaint their element every frame. A glow is a pseudo-element with a static shadow that
 animates `opacity` or `scale`; a dash that marches is a layer that slides one period. Use
 `will-change` on the element that animates, never on a container.
-`apps/desktop/src/main/compositor-motion.test.ts` refuses a new infinite `@keyframes`
+`classic-final:apps/desktop/src/main/compositor-motion.test.ts` refuses a new infinite `@keyframes`
 that animates anything else, and holds the allow-list: each exception names why it cannot move.
 
 | Measured against the mock in headless Chromium, ms per second | Before: `box-shadow` ring | After: `transform` and `opacity` ring |
@@ -115,7 +115,7 @@ The owner chose solid panels on 2 Nov 2026.
 
 **Loops move in two tiers.** A small loop runs smooth at the display's rate: the working mark and every spinner, a needs-you pulse, a lamp on a row, a mark in a thread or list.
 The Cockpit's map and console, and any loop large enough to redraw much of the window, move together on one clock, 5 times a second.
-The rule is decided when `apps/desktop/src/renderer/src/loop-clock.ts` first meets a loop, so a new one needs no list:
+The rule is decided when `classic-final:apps/desktop/src/renderer/src/loop-clock.ts` first meets a loop, so a new one needs no list:
 a loop takes the clock if it sits inside an element marked `data-loop-clock` (the map's `.bf` and the console's block), or if its box covers more than a tenth of the window.
 Any other infinite loop runs free.
 An animation that ends takes the clock if it runs 5 seconds or more, wherever it is, since nobody sees its steps.

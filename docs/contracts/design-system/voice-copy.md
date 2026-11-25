@@ -491,7 +491,7 @@ hints or guides should be something I choose to see."* A sentence that would
 still be true of a Job that had never run is an explanation, and it belongs in
 a guide rather than on the screen. #1602.
 
-**A guide is data, numbered, in `packages/components/src/guides/`.** One file
+**A guide is data, numbered, in `classic-final:packages/components/src/guides/`.** One file
 each, one catalogue listing them in order, and a `?` beside the piece a guide
 explains. The mark goes where the vocabulary is Armada's own — a group
 boundary, a landing rule, how a graph is read — and never on every noun. The

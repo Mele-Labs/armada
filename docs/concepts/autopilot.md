@@ -179,4 +179,4 @@ A row is the Job, what was asked, what Autopilot chose, why, and when.
 Agree keeps it, Change sends the Job the person's own words, and an answer Fleet cannot correct, such as a landed pull request, offers Agree alone.
 Each leaves the list.
 `autopilot.changed` reaches every window through main, which keeps no copy.
-The code is `apps/desktop/src/renderer/src/cockpit/deck/AutopilotArm.tsx`, and `AutopilotAnswers.tsx` draws the list until the panel does.
+The code is `classic-final:apps/desktop/src/renderer/src/cockpit/deck/AutopilotArm.tsx`, and `AutopilotAnswers.tsx` draws the list until the panel does.

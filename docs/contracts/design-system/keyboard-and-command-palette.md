@@ -265,7 +265,7 @@ Its keys answer wherever focus is on the plan card or in the plan in full.
 `j`, `k` and the arrows move between the notes not yet acted on, in the order the plan draws them; `Enter` sends the one in focus to the Job and `d` or Backspace dismisses it.
 They stand down in a text field.
 
-**System, Projects, Reviews and Issues share one search bar,** `SearchField` in `packages/components`: "Search" with the key drawn inside it, Esc clearing the words and a second Esc leaving it.
+**System, Projects, Reviews and Issues share one search bar,** `SearchField` in `classic-final:packages/components`: "Search" with the key drawn inside it, Esc clearing the words and a second Esc leaving it.
 Its key is `/` on each page, and on a page with nothing focused the bar takes it.
 
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
@@ -581,7 +581,7 @@ What a project is: [Project](../../concepts/project.md).
 Tasks and subtasks of the Projects tab are listed while something is typed, in a Tasks block after the Jobs, each with its project or No project and its repository on a quiet second line.
 Choosing one goes to the Projects tab on that task's project, or All tasks for a task in no project, shows done tasks if it is done, and scrolls its card into view with the focus on it.
 
-**Contents, in order**, as `packages/shell/src/Palette.tsx` lays its sections:
+**Contents, in order**, as `classic-final:packages/shell/src/Palette.tsx` lays its sections:
 
 1. The open page's commands, titled with the page.
 2. Acts on the current context, titled with what they act on, or *Nothing focused*.
@@ -645,7 +645,7 @@ in the actions panel, in Settings under Keyboard shortcuts, and from a tooltip.
 | Glyph | A Job's state as its registry glyph, with a tooltip naming it; else the row's icon. The slot keeps its width when empty |
 | Title | The lexicon term, with the matched span marked |
 | Subtitle | Repository, number, detail, a setting's value, or why the row is dormant. It gives way first when the row is short |
-| Kind | One word per kind of row: `KIND` in `packages/shell/src/Palette.tsx` |
+| Kind | One word per kind of row: `KIND` in `classic-final:packages/shell/src/Palette.tsx` |
 
 > **Rule.** No binding is drawn on a row at rest.
 > Why: a key on every row competed with the title, and a binding is read where a person asks for it.
@@ -677,7 +677,7 @@ Esc goes back to the results with the query kept; while an act is taking its ans
 > **Rule.** A destructive act confirms over the palette, which stays up behind the confirmation.
 > Why: every destructive action confirms, even from the keyboard, and the confirmation answers Esc and a click while it is up.
 
-The acts of each row are `actionsOf` in `packages/shell/src/Palette.tsx`:
+The acts of each row are `actionsOf` in `classic-final:packages/shell/src/Palette.tsx`:
 
 | Row | Acts and chords |
 |---|---|
@@ -703,7 +703,7 @@ Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin r
 > Why: the list is never ranked, so this is the one order a person sets on purpose. A refusal reads *Needs a word*, *One word* or *Used by* and the row's name.
 
 > **Rule.** A hotkey needs ⌘ or ⌃ and is refused for each reason below, by the one function the panel and Settings' table both call.
-> Why: a key one refuses, both do. The function is `refuseHotkey` in `packages/components/src/primitives/CommandPalette/hotkey.ts`.
+> Why: a key one refuses, both do. The function is `refuseHotkey` in `classic-final:packages/components/src/primitives/CommandPalette/hotkey.ts`.
 
 | Refusal | Reason |
 |---|---|
@@ -737,7 +737,7 @@ Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin r
 
 > **Rule.** The Settings section *Command palette* holds that setting and a table of every row that holds a pin, an alias or a hotkey, each editable in place.
 > Why: what was given in a panel needs one place to be read together and changed without finding the row.
-> Pins, aliases, hotkeys and the setting are kept on this machine, in `apps/desktop/src/renderer/src/palette-memory.ts`, and are not Fleet's.
+> Pins, aliases, hotkeys and the setting are kept on this machine, in `classic-final:apps/desktop/src/renderer/src/palette-memory.ts`, and are not Fleet's.
 
 ### Where it sits
 
@@ -748,12 +748,12 @@ Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin r
 > Why: the middle is the one place worth finding without looking.
 
 > **Rule.** Where it is dropped is kept on this machine, as a share of the window, and a double click on a bare part puts it back.
-> Why: it reopens where it was left, across a resize and a restart, and the default is one gesture away. `packages/components/src/primitives/CommandPalette/place.ts` owns the distances.
+> Why: it reopens where it was left, across a resize and a restart, and the default is one gesture away. `classic-final:packages/components/src/primitives/CommandPalette/place.ts` owns the distances.
 
 ### Page commands and Commands mods
 
 > **Rule.** The first block follows the open page: it is titled with the page, and a Job open on the Cockpit's deck replaces the page's commands with its own.
-> Why: what a person is looking at is what they most often mean to act on. A page with none draws no block, and `apps/desktop/src/renderer/src/palette-page.ts` owns the list.
+> Why: what a person is looking at is what they most often mean to act on. A page with none draws no block, and `classic-final:apps/desktop/src/renderer/src/palette-page.ts` owns the list.
 
 > **Rule.** A command a Commands mod brings is a row under Commands with the id `cmd:<mod>:<slug>`, its glyph chosen by its kind, and the acts Run ↵ and Pin.
 > Why: the row is a palette row like any other, so it takes an alias and a hotkey. The file is described in `docs/concepts/mods.md`.

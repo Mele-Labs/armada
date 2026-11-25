@@ -76,7 +76,7 @@ pub(super) const TIMEOUTS: &[Entry] = &[
     // call that will not answer. A proposal is watched and `stop_proposal` kills
     // it, so a tight budget would take the decision from the person; ten minutes
     // is the outer bound on a call nobody is left to stop. Bridge asks after two,
-    // `PROPOSAL_IS_SLOW` in `packages/screens`. Measured on nothing.
+    // `PROPOSAL_IS_SLOW` in `classic-final:packages/screens`. Measured on nothing.
     Entry {
         key: PROPOSER_SECONDS.0,
         section: Section::Timeouts,

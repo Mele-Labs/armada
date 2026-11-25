@@ -606,8 +606,8 @@ fn sentence(name: &str) -> String {
     chars.next().map(|first| first.to_uppercase().collect::<String>() + &chars.as_str().replace('-', " ")).unwrap_or_default()
 }
 
-/// The kit's rules a screen is drawn with, as the component's own stylesheet holds them.
-const SCREEN_CSS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/ScreenView.css");
+/// The kit's rules a screen is drawn with, in the stylesheet this crate keeps beside the drawing.
+const SCREEN_CSS: &str = include_str!("screen_view.css");
 
 /// What a page's player toggles on the drawing. A rule here wins over the value on the element, as a rule does over a
 /// presentation attribute.

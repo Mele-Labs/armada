@@ -1,6 +1,6 @@
 //! How the native Bridge finds Fleet: the runtime file, the pid check and the protocol check.
 //!
-//! Mirrors `apps/desktop/src/main/runtime-file.ts`, which mirrors `crates/fleet/src/runtime.rs`.
+//! Mirrors `classic-final:apps/desktop/src/main/runtime-file.ts`, which mirrors `crates/fleet/src/runtime.rs`.
 //! Unknown fields are ignored; a file that will not parse is refused rather than read as "not
 //! running", because Fleet writes it by rename and so a torn file was not written by Fleet.
 

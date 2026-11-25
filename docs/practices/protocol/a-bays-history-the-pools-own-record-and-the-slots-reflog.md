@@ -24,7 +24,7 @@ Titles are read when asked and not kept with the entry, so a Job forgotten since
 This is the same resolution `list_worktrees` makes for a slot's holder.
 
 **Additive.** One new operation, `BayHistory`, `BayHistoryEntry` (tagged by `kind`, strict), `BayHolder` and `BayHolderKind` (strict).
-Bridge's half is `packages/protocol/src/bay-history.ts`, written by hand, and `getSlotHistory(manifestId, slot)` on the preload.
+Bridge's half is `classic-final:packages/protocol/src/bay-history.ts`, written by hand, and `getSlotHistory(manifestId, slot)` on the preload.
 Every optional field is left out when empty.
 There is no number to take and `armada need` has nothing to order: the protocol ID moves with the wire files.
 

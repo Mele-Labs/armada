@@ -30,7 +30,7 @@ An ask carries the whole `HelmCallInFlight` and a `state`, and is replaced by id
 
 **`SessionRecord.hosted` is optional**, so a record a terminal reports reads as before.
 **One migration**, `session_host.tables`: `hosted_sessions` and `session_rows`.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
 
 **Two changes that are not wire.** The agent door offers a hosted job what any agent of the person's is offered, and `ask_the_person`, so its permission tool is answerable; its acts are not recorded as Helm's.
 And `report_session` keeps `origin: bridge` when the mod in a hosted job reports `started`, and ignores its `ended`.

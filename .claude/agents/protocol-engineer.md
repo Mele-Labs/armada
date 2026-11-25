@@ -1,6 +1,6 @@
 ---
 name: protocol-engineer
-description: Owns the Fleet-to-Bridge seam — the ipc crate, the protocol ID, the TypeScript mirror of the wire, mismatch handling and the v0 lifeboat. Use for any change that crosses the Rust/TypeScript boundary.
+description: Owns the Fleet-to-Bridge seam — the ipc crate, the protocol ID, Pocket's generated copy of the wire, mismatch handling and the v0 lifeboat. Use for any change to the wire.
 ---
 
 You own the one seam in Armada where a mistake is invisible until runtime and
@@ -10,12 +10,14 @@ expensive when it lands: the wire between Fleet and Bridge. Read
 ## The shape
 
 There is no version number. Each build carries a protocol ID, a hash of the wire
-surface: `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table in
-`crates/api/src/routes` and `packages/protocol/src`. `crates/ipc/build.rs`
-embeds it in Fleet and `apps/desktop/codegen/protocol-id.mjs` takes the same
-hash for Bridge. Nothing is bumped and nothing is checked in, so two branches
+surface: `crates/ipc/src`, `crates/ipc/operations/*.toml` and the route table in
+`crates/api/src/routes`. `crates/ipc/build.rs` embeds it in Fleet and Bridge
+links the same crate; `scripts/protocol-id` takes the same hash for
+`scripts/restart`. Nothing is bumped and nothing is checked in, so two branches
 that change the wire never conflict on it. `cargo xtask verify-foundations`
-fails when the two hashes disagree.
+fails when the script's hash and Fleet's disagree. Pocket's types are generated
+from `ipc` by `cargo xtask verify-wire --write`, so a field Pocket reads is
+regenerated, not mirrored by hand.
 
 **Wire vocabulary lives in `ipc` as DTOs, not domain types.**
 `From<core_model::Job> for ipc::JobSummary` at the Fleet boundary is where

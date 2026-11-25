@@ -1,6 +1,6 @@
 # Bridge
 
-**What it is:** The Electron command-center shell, and the only engineer-facing surface in Armada — a client of Fleet rather than the daemon itself, so closing it stops nothing.
+**What it is:** The native command-center shell, and the engineer-facing surface in Armada beside Pocket — a client of Fleet rather than the daemon itself, so closing it stops nothing.
 
 ---
 
@@ -8,10 +8,12 @@
 
 This document exists so "Bridge" has one stable, correct link target, not to duplicate journey content.
 Bridge is a shell rather than a domain concept: it owns the chrome, and the work happens in the journeys that mount inside it.
+**Armada Classic, the Electron Bridge, is deleted** and readable at the tag `classic-final`.
+What the native Bridge is and how it differs from Classic is [Native Bridge](native-bridge.md).
 
 ## What it is
 
-The Electron frontend — the only engineer-facing surface in Armada.
+The native frontend in `crates/bridge-native`, Rust on gpui, and the desktop engineer-facing surface in Armada; Pocket is the phone's.
 Single-user, no auth layer (personal dashboard, not a shared team view).
 Chosen over a TUI for richer visualization: monitoring many Jobs, diffs, real-time UI (see `../contracts/system-architecture.md`, section 4).
 
@@ -23,10 +25,10 @@ Chosen over a TUI for richer visualization: monitoring many Jobs, diffs, real-ti
 Closing Bridge does not stop Fleet; reopening it reconnects rather than respawning.
 **What Bridge shows while it cannot reach Fleet, and what it trusts on reconnect, is not yet designed** (see Open questions).
 
-**Bridge authors no vocabulary of its own.** Statuses, their reasons and verdicts all reach the renderer as one generated TypeScript module, emitted by the same codegen that produces the `ipc` types — names from `core-model`'s enums joined to a checked-in file carrying each variant's verb, icon and status token.
-Bridge imports it, and never holds a status list for a filter, a reason list for a badge, or a copy of the enum→verb map.
+**Bridge authors no vocabulary of its own.** Statuses, their reasons and verdicts all reach it as generated Rust in `crates/bridge-native/src/generated/`, written by `cargo xtask verify-vocabulary --write` — names from `core-model`'s enums joined to a checked-in file carrying each variant's verb, icon and status token.
+Bridge uses it, and never holds a status list for a filter, a reason list for a badge, or a copy of the enum→verb map.
 
-The build fails where a variant lacks a verb, an icon or a token. `../contracts/system-architecture.md`, section 6 owns the mechanism.
+The gate fails where a variant lacks a verb, an icon or a token. `../contracts/system-architecture.md`, section 6 owns the mechanism.
 
 **A person's own way of looking is kept by Fleet, in settings.json** — theme, layout, key bindings, and the editor and terminal a file or a worktree opens in.
 Bridge's Settings page is drawn from `get_settings`, so a key Fleet adds appears there without a change to Bridge, and a hand edit reaches an open Bridge on `settings.changed`. [Machine](machine.md), *settings.json*.
@@ -48,6 +50,9 @@ The module grid is [Doctor](doctor.md)'s. **The count is not a contract** — a 
 Run and edit a Manifest reads a project's Checks and Commands, runs any one of them on demand, and edits the file.
 
 ## Top-level shell
+
+**This section is the shell Armada Classic drew.**
+The native Bridge keeps its places and keys, and where it departs is [Native Bridge](native-bridge.md), *Where native departs from Armada Classic*.
 
 Bridge's shell is a **title row** across the top and, beneath it, a **full-width window** where the journeys mount.
 There is no left column and no rail: the places a person moves between are the title row's tabs and, under System, a strip of pages.
@@ -81,7 +86,7 @@ Settings answers `⌘,` and the title menu's entry.
 **Retros is not a place since 22 Oct 2026**: its items are a tab of the Logbook, and every way to Retros opens the Logbook on it.
 A page with no tab and no strip place stays reachable: Worktree Slots, Merge line, Manifest and Checks open from the palette (`⌘K`) by name.
 The rule is that no page is reachable only by a place the window does not draw.
-`packages/shell/src/surfaces.ts` is the one roster the tabs, the strip and the palette read.
+`classic-final:packages/shell/src/surfaces.ts` was the one roster the tabs, the strip and the palette read.
 
 **The repository picker is the top of the Cockpit's left column.** At the title row's narrow width the picker's entries are listed in the title menu, with a control that opens the picked repository's [Manifest](manifest.md).
 **Off the Cockpit the title row names the picked repository**, or "All repositories", as text at its start; it cannot be changed there.
@@ -89,7 +94,7 @@ The rule is that no page is reachable only by a place the window does not draw.
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id.
 The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-**The window's places are declared in `surfaces.ts`, not derived from what a screen draws.** The Operator is not a place here: this Bridge no longer shows it, decided 10 Nov, and the native Bridge draws its page.
+**The window's places are declared, not derived from what a screen draws.** Classic does not show the Operator, decided 10 Nov, and the native Bridge draws its page.
 [Operator](operator.md) is what it shows.
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else.
@@ -126,14 +131,14 @@ Whether the panel reads the same during onboarding, before Fleet is reachable, i
 ## Still open
 
 Almost nothing is scoped to Bridge as a config target: settings a person adjusts *in* Bridge are tagged to the concept each one affects — landing Manifest to Manifest — rather than to Bridge as a catch-all.
-**Notification routing is the exception**: no dependency path carries config to Bridge, so the Electron side reads its own copy or a hardcoded default.
+**Notification routing is the exception**: no dependency path carries config to Bridge, so it reads its own copy or a hardcoded default.
 See `../contracts/configuration.md` for the tiering rule.
 
 **A person's Bridge preferences are a different path from that one, kept by Fleet rather than resolved from `armada.yml`.** `#927`.
 Fleet keeps a preferences table the way it keeps a person's admission limits — one row per name, an absent row reading as the shipped default — and serves it over `get_preferences`/`save_preferences`.
-Bridge's main process loads it when Fleet connects, saves on change, and publishes it in `BridgeState`; while Fleet is unreachable Bridge draws the shipped default and queues no save.
+Bridge loads it when Fleet connects and saves on change; while Fleet is unreachable Bridge draws the shipped default and queues no save.
 
-**Whether Bridge notifies is one switch in settings.json, `features.notifications`**, read off `BridgeState.settings` like every other key.
+**Whether Bridge notifies is one switch in settings.json, `features.notifications`**, read off Fleet's settings like every other key.
 It covers every job that needs the owner; there is no per-event routing.
 
 ## Open questions
