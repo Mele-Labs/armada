@@ -4852,8 +4852,8 @@ mod tests {
         });
         assert_eq!(flow, Some(Some(("Ship a screen".into(), "Build".into()))));
         assert_eq!(first.flow, None);
-        // Waiting on him, a row says the first thing it waits on him for, not what it last did.
-        assert_eq!(first.now.as_deref(), Some("Plan to approve"));
+        // Waiting on him, a row says the first thing it waits on him for, in the Job's order, not what it last did.
+        assert_eq!(first.now.as_deref(), Some("Which colour does the stale chip take?"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
     }
