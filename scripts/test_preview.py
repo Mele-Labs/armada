@@ -610,9 +610,9 @@ class Preview(unittest.TestCase):
         self.assertEqual(self.count(runs), 2)
         # The detached run's log is one stream, which the foreground follows on stdout.
         self.assertIn("error[E0432]: unresolved import", done.stdout)
-        self.assertIn("feat/bad   skipped (does not build: bad.rs)", done.stdout)
+        self.assertIn("feat/bad   skipped (does not build: bad.rs: error[E0432]: unresolved import (bad.rs:12))", done.stdout)
         with open(os.path.join(self.wt, "PREVIEW.txt")) as f:
-            self.assertIn("feat/bad   skipped (does not build: bad.rs)", f.read())
+            self.assertIn("feat/bad   skipped (does not build: bad.rs: error[E0432]: unresolved import (bad.rs:12))", f.read())
         self.assertFalse(os.path.exists(os.path.join(self.wt, "bad.rs")))
         self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
 
@@ -635,7 +635,7 @@ class Preview(unittest.TestCase):
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
-        self.assertIn("skipped (does not build: apps/desktop/src/App.tsx)", done.stdout)
+        self.assertIn("skipped (does not build: apps/desktop/src/App.tsx: error[E0432]: unresolved import (src/App.tsx:12))", done.stdout)
         self.assertTrue(os.path.exists(os.path.join(self.wt, "elsewhere/src/Other.tsx")))
 
     def test_a_branch_whose_import_has_no_file_is_left_out_and_the_restart_run_once_more(self):
@@ -665,6 +665,54 @@ class Preview(unittest.TestCase):
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
+
+    def broke(self):
+        """The blocks of `Armada/preview-broke`: (commit, error, {branch: (tip, what)})."""
+        with open(os.path.join(self.home, "Library", "Application Support", "Armada", "preview-broke")) as f:
+            blocks = [b.splitlines() for b in f.read().split("\n\n") if b.strip()]
+        return [(b[0], b[1], {l.split("\t")[0]: tuple(l.split("\t")[1:]) for l in b[2:]}) for b in blocks]
+
+    def test_two_branches_that_build_alone_and_not_together_are_both_named_for_fleet(self):
+        self.branch("feat/field", {"crates/ipc/src/start.rs": "pub struct StartSession {\n    pub workflow: Option<String>,\n}\n"})
+        self.branch("feat/literal", {"crates/bridge-native/src/system.rs": "let s = StartSession {};\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/field", "feat/literal", "feat/good")
+        script, runs = self.rust_failure(
+            "error[E0063]: missing field `workflow` in initializer of `StartSession`\n   --> src/system.rs:697:25",
+            '[ -f "$2/crates/bridge-native/src/system.rs" ]')
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        tip = lambda b: run(self.repo, "rev-parse", f"refs/heads/{b}").strip()
+        [(commit, error, named)] = self.broke()
+        self.assertEqual(error, "error[E0063]: missing field `workflow` in initializer of `StartSession` (src/system.rs:697)")
+        self.assertEqual(named, {
+            "feat/literal": (tip("feat/literal"), f"left out: does not build: crates/bridge-native/src/system.rs: {error}"),
+            "feat/field": (tip("feat/field"), "changed StartSession, which src/system.rs uses"),
+        })
+        self.assertNotEqual(commit, run(self.wt, "rev-parse", "HEAD").strip())
+
+    def test_a_failure_that_names_no_branch_names_every_branch_merged(self):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.branch("feat/b", {"b.txt": "b\n"})
+        self.hold("feat/a", "feat/b")
+        script, _ = self.failing_restart("elsewhere.rs", always=True)
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        [(commit, error, named)] = self.broke()
+        self.assertEqual(commit, run(self.wt, "rev-parse", "HEAD").strip())
+        self.assertEqual(error, "error[E0432]: unresolved import (elsewhere.rs:12)")
+        self.assertEqual({b: what for b, (_, what) in named.items()}, {"feat/a": "was in it", "feat/b": "was in it"})
+
+    def test_a_preview_that_builds_leaves_nothing_for_fleet_to_tell(self):
+        self.branch("feat/a", {"a.txt": "a\n"})
+        self.hold("feat/a")
+        path = os.path.join(self.home, "Library", "Application Support", "Armada", "preview-broke")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write("old\nerror\nfeat/a\tabc\twas in it\n\n")
+        script, _ = self.failing_restart("elsewhere.rs")
+        self.assertEqual(self.preview_restart(script).returncode, 0)
+        self.assertEqual(self.broke(), [])
 
     def rust_failure(self, errors, broken):
         """A restart script that prints `errors` and fails while the shell test `broken` (on the
@@ -792,7 +840,7 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 3)
         self.assertIn("feat/mig   skipped (breaking migration m.rebuild is not on main)", done.stdout)
-        self.assertIn("feat/bad   skipped (does not build: bad.rs)", done.stdout)
+        self.assertIn("feat/bad   skipped (does not build: bad.rs: error[E0432]: unresolved import (bad.rs:12))", done.stdout)
         self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
 
     def test_the_branches_left_out_are_written_down_for_the_preview_commit(self):
@@ -807,7 +855,7 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
             lines = f.read().splitlines()
         self.assertEqual(lines[0], run(self.wt, "rev-parse", "HEAD").strip())
         tip = lambda b: run(self.repo, "rev-parse", f"refs/heads/{b}")
-        self.assertEqual(sorted(lines[1:]), [f"feat/bad\t{tip('feat/bad')}\tdoes not build: bad.rs",
+        self.assertEqual(sorted(lines[1:]), [f"feat/bad\t{tip('feat/bad')}\tdoes not build: bad.rs: error[E0432]: unresolved import (bad.rs:12)",
                                              f"feat/mig\t{tip('feat/mig')}\tbreaking migration m.rebuild is not on main"])
 
     def test_the_main_commit_and_the_branches_merged_are_written_down_for_the_preview_commit(self):
@@ -1882,7 +1930,11 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(self.status(), "failed\nmain\n\nnope\n")
 
     # Two Macs on one preview build.
-    MERGE_AND_PUSH = 'case "$*" in *--restart*) ;; *) echo "preview: pushed 1234567 to preview/mac-a" ;; esac'
+    def pushes(self, *before):
+        """A preview stub that says it pushed each of `before`, then the preview worktree's commit, to preview/mac-a."""
+        tree = os.path.join(self.root, ".armada", "preview")
+        said = [f'echo "preview: pushed {sha} to preview/mac-a"' for sha in before]
+        return "\n".join(said + [f'echo "preview: pushed $(git -C "{tree}" rev-parse --short HEAD) to preview/mac-a"'])
 
     def tell_server(self):
         """A Fleet that keeps the bodies posted to `/macs/update`; returns (its url, the bodies)."""
@@ -1927,53 +1979,59 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(self.build("preview", "--adopt", "--at", "abc1234", "--ref", "preview/mac-a"), 0)
         self.assertEqual(self.runs(), ["--restart --at abc1234 --ref preview/mac-a --adopt"])
 
-    def test_tell_merges_and_pushes_then_posts_to_fleet_then_builds_that_commit_with_no_second_merge(self):
+    def test_tell_builds_here_with_the_leave_out_loop_then_tells_the_other_mac_the_commit_it_built(self):
         commit = self.preview_commit()
         url, posted = self.tell_server()
         code = self.build("preview", "--adopt", "--push-as", "mac-a", "--tell", "mac-b",
-                          script=self.MERGE_AND_PUSH, env={"ARMADA_FLEET_URL": url})
+                          script=self.pushes(), env={"ARMADA_FLEET_URL": url})
         self.assertEqual(code, 0, self.log())
-        self.assertEqual(self.runs(), ["--push-as mac-a", f"--restart --at {commit} --ref preview/mac-a --adopt"])
+        self.assertEqual(self.runs(), ["--restart --push-as mac-a --adopt"])
         self.assertEqual(posted, [("/macs/update", {"mac": "mac-b", "build": "preview", "commit": commit, "ref": "preview/mac-a"})])
         self.assertIsNone(self.status())
+
+    def test_after_a_branch_is_left_out_the_other_mac_is_told_the_commit_that_built_not_the_first_pushed(self):
+        commit = self.preview_commit()
+        url, posted = self.tell_server()
+        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
+                          script=self.pushes("deadbee"), env={"ARMADA_FLEET_URL": url})
+        self.assertEqual(code, 0, self.log())
+        self.assertEqual([body["commit"] for _, body in posted], [commit])
 
     def test_tell_reaches_the_fleet_named_in_fleet_json_when_no_url_is_given(self):
         commit = self.preview_commit()
         url, posted = self.tell_server()
         with open(os.path.join(self.support, "fleet.json"), "w") as f:
             json.dump({"port": int(url.rsplit(":", 1)[1])}, f)
-        self.assertEqual(self.build("preview", "--push-as", "mac-a", "--tell", "mac-b", script=self.MERGE_AND_PUSH), 0)
+        self.assertEqual(self.build("preview", "--push-as", "mac-a", "--tell", "mac-b", script=self.pushes()), 0)
         self.assertEqual([body["commit"] for _, body in posted], [commit])
 
-    def test_a_post_that_fails_is_logged_and_the_restart_goes_on(self):
-        commit = self.preview_commit()
+    def test_a_post_that_fails_is_logged_and_the_run_still_succeeds(self):
+        self.preview_commit()
         code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
-                          script=self.MERGE_AND_PUSH, env={"ARMADA_FLEET_URL": "http://127.0.0.1:9"})
+                          script=self.pushes(), env={"ARMADA_FLEET_URL": "http://127.0.0.1:9"})
         self.assertEqual(code, 0)
-        self.assertEqual(self.runs()[1], f"--restart --at {commit} --ref preview/mac-a")
+        self.assertEqual(self.runs(), ["--restart --push-as mac-a"])
         self.assertIn("could not tell mac-b", self.log())
 
-    def test_a_push_that_failed_tells_nobody_and_the_restart_goes_on(self):
-        commit = self.preview_commit()
-        url, posted = self.tell_server()
-        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
-                          script='case "$*" in *--restart*) ;; *) echo "preview: warning: could not push 1234567 to preview/mac-a: no" ;; esac',
-                          env={"ARMADA_FLEET_URL": url})
-        self.assertEqual(code, 0)
-        self.assertEqual(posted, [])
-        self.assertEqual(self.runs()[1], f"--restart --at {commit} --ref preview/mac-a")
-        self.assertIn("not telling mac-b", self.log())
-
-    def test_a_failed_merge_is_the_runs_failure_and_nothing_is_told_or_restarted(self):
+    def test_a_push_that_failed_tells_nobody_and_the_run_still_succeeds(self):
         self.preview_commit()
         url, posted = self.tell_server()
         code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
-                          script='echo "preview: git merge-tree failed in /x: boom"; exit 1', env={"ARMADA_FLEET_URL": url})
+                          script='echo "preview: warning: could not push 1234567 to preview/mac-a: no"',
+                          env={"ARMADA_FLEET_URL": url})
+        self.assertEqual(code, 0)
+        self.assertEqual(posted, [])
+        self.assertIn("not telling mac-b", self.log())
+
+    def test_a_build_that_fails_here_is_the_runs_failure_and_the_other_mac_is_told_nothing(self):
+        self.preview_commit()
+        url, posted = self.tell_server()
+        code = self.build("preview", "--push-as", "mac-a", "--tell", "mac-b",
+                          script=self.pushes() + '\necho "preview: restart exited 101"; exit 1', env={"ARMADA_FLEET_URL": url})
         self.assertEqual(code, 1)
-        self.assertEqual(self.runs(), ["--push-as mac-a"])
+        self.assertEqual(self.runs(), ["--restart --push-as mac-a"])
         self.assertEqual(posted, [])
         self.assertIn("failed\npreview\n", self.status())
-        self.assertIn("git merge-tree failed", self.status())
 
     def test_the_new_flags_are_refused_on_main_and_snapshot_and_when_they_do_not_belong_together(self):
         for which, args in (("main", ["--push-as", "x"]), ("main", ["--at", "abc1234", "--ref", "r"]), ("main", ["--tell", "m"]),
