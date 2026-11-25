@@ -3329,7 +3329,7 @@ pub static WALKS: &[Walk] = &[
             step("A Job that asks two questions", Verb::Press, "row", "Endpoint cleanup"),
             step("Needs you lists each question as one line: the question and its age. Nothing is answered there", Verb::Open("button", "Needs you"), "button", "The old /v1/sessions endpoint has no callers left. What happens to it?"),
             step("The other question waits under it", Verb::Look, "button", "Land on a branch or a pull request?"),
-            step("A press on a question opens the review sheet on it, where it is answered", Verb::Open("button", "The old /v1/sessions endpoint has no callers left. What happens to it?"), "dialog", "Review"),
+            step("Review all opens the review sheet on the first question, where it is answered", Verb::Open("button", "Review all"), "dialog", "Review"),
             step("Its options are the sheet's choices", Verb::Look, "radio", "Keep it a week"),
             step("3 chooses the third; nothing is sent yet", Verb::Key("3"), "radio", "Chosen: Remove it now"),
             step("Send answer goes to Fleet, and the other question comes up", Verb::Open("button", "Send answer"), "radio", "Pull request"),
