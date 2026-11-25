@@ -2488,6 +2488,13 @@ pub static WALKS: &[Walk] = &[
         steps: &dispatch::REFUSED,
     },
     Walk {
+        name: "dispatch-story",
+        title: "Dispatch: a sentence written into the box",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::STORY,
+    },
+    Walk {
         name: "start-flow-sheet",
         title: "Dispatch: Start runs at once, Draft holds it on its start card",
         screen: Screen::Dispatch,

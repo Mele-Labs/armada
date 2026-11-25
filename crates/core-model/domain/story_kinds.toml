@@ -1,0 +1,86 @@
+# The kinds of Job a person starts by writing a sentence into the dispatch box: he types the opening words, takes one,
+# and fills the blanks from the keyboard. Native Bridge only.
+#
+# Authored here. The dispatch sheet reads this file, built in (`crates/bridge-native/src/dispatch/story_kinds.rs`), so the
+# list of openings, each sentence and each kind's preset are written once. The wording is settled in the Job's
+# `story-sentences` document, under Decisions; a change here is a change to that decision.
+#
+# The table key is the kind's id. One line a field, each a plain quoted string: the reader splits on lines and keeps no
+# escapes.
+#
+# Fields:
+#   name     - what the kind is called in the list of openings
+#   opening  - the words the person types, which lead the sentence
+#   sentence - what follows the opening, a space after it. Text stands as written. A blank is in braces:
+#                {do what}          a free blank, named by what it asks for
+#                {@feature}         a blank filled from the project's feature catalog
+#                {@feature|Armada}  the same, with one more row of its own at the top of the list
+#                {=now|later}       a choice of words, switched with the space bar or the arrows
+#   workflow - the workflow id the Job starts on, or `none` for a talk Job. Not sent in this step: Start carries the
+#              sentence as the request's words, and the tools as `tool` tags
+#   starts   - what the line under the sentence says the Job starts
+#   later    - the same where the choice reads `later`; absent where the kind has no choice
+#   tools    - the tools preset, as keys of `ask_tools.toml`, comma separated, or `none`
+#   hue      - a token the opening and its glyph are drawn in
+#   glyph    - a glyph key in packages/icons/icons/
+
+[kinds.bug]
+name = "Bug"
+opening = "When I"
+sentence = "{do what} in {@feature}, {what happens}"
+workflow = "bug"
+starts = "bug workflow"
+tools = "terminal, browser"
+hue = "--status-completed-failed"
+glyph = "bug"
+
+[kinds.feature]
+name = "Feature"
+opening = "I want to"
+sentence = "{do what} in {@feature|something new}, so that {why}"
+workflow = "feature"
+starts = "feature workflow"
+tools = "sketch"
+hue = "--accent"
+glyph = "sparkles"
+
+[kinds.idea]
+name = "Idea"
+opening = "What if"
+sentence = "{@feature|Armada} could {do what}? {=now|later}"
+workflow = "none"
+starts = "talk Job, shapes it into a feature"
+later = "talk Job, writes it up and stops"
+tools = "none"
+hue = "--status-awaiting-review"
+glyph = "lightbulb"
+
+[kinds.design]
+name = "Design"
+opening = "How should"
+sentence = "{@feature} {work how}?"
+workflow = "design_plan"
+starts = "design plan workflow"
+tools = "sketch, takes"
+hue = "--status-completed-success"
+glyph = "palette"
+
+[kinds.investigate]
+name = "Investigate"
+opening = "Why is"
+sentence = "{@feature|Armada} {slow / doing what}?"
+workflow = "bug"
+starts = "bug workflow, stops at the cause"
+tools = "terminal"
+hue = "--status-escalated"
+glyph = "circle-alert"
+
+[kinds.brainstorm]
+name = "Brainstorm"
+opening = "Talk about"
+sentence = "{@feature|anything}: {topic}"
+workflow = "none"
+starts = "talk Job"
+tools = "diagram"
+hue = "--status-not-started"
+glyph = "messages-square"
