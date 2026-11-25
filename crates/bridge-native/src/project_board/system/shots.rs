@@ -1,6 +1,6 @@
 //! The System block drawn headless at 1400 and 900 wide and written as pictures, so a Job looks at it with no window on the
 //! owner's screen: the board at level one, a part selected with its panel, a part zoomed into, a feature's path, a part the
-//! librarian added, and the Code tree with a folder open. A function and not a test because the Mac platform is made on the
+//! librarian added, the Code tree with a folder open, and a level of forty-six pieces. A function and not a test because the Mac platform is made on the
 //! main thread, which a test never runs on (`features/shots.rs` is the same).
 
 use std::cell::RefCell;
@@ -23,15 +23,17 @@ enum State {
     DashboardPath,
     Librarian,
     CodeTree,
+    ManyPieces,
 }
 
-const STATES: [(&str, State); 6] = [
+const STATES: [(&str, State); 7] = [
     ("a-level-one", State::LevelOne),
     ("b-bridge-selected", State::BridgeSelected),
     ("c-bridge-jobs", State::BridgeJobs),
     ("d-dashboard-path", State::DashboardPath),
     ("e-librarian-bank", State::Librarian),
     ("f-code-tree", State::CodeTree),
+    ("g-many-pieces", State::ManyPieces),
 ];
 
 /// What a window holds around a bare block: the ground the board would give it.
@@ -102,6 +104,16 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
                     }
                     State::Librarian => block.select(Some("bank".into()), cx),
                     State::CodeTree => block.select(Some("bridge".into()), cx),
+                    State::ManyPieces => {
+                        // Level two of a part with forty-six pieces, read from Fleet's own map of Armada.
+                        let many: ipc::SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).expect("the fixture is a system map");
+                        if let Some(super::Read::Ready(top)) = block.maps.get_mut(&(None, None)) {
+                            top.parts.iter_mut().filter(|part| part.id == "fleet").for_each(|part| part.zooms = true);
+                        }
+                        block.maps.insert((Some("fleet".into()), None), super::Read::Ready(many));
+                        block.select(Some("fleet".into()), cx);
+                        block.look_inside(window, cx);
+                    }
                 })
             })
             .map_err(|why| why.to_string())?;

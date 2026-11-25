@@ -138,7 +138,7 @@ fn return_looks_inside_the_selected_part_esc_steps_out_and_esc_at_level_one_puts
     assert!(drawn(cx, Role::Heading, "Bridge"), "the crumb at the end names where he is");
     assert!(drawn(cx, Role::Button, "Step out to Project"));
     assert!(drawn(cx, Role::Button, "project_board, part"), "level two draws the pieces of Bridge");
-    assert!(drawn(cx, Role::Button, "Dashboard, draw its path"), "a feature of level two is a row with a chevron");
+    assert!(!drawn(cx, Role::Button, "Dashboard, draw its path"), "features are listed in the panel only, not under the graph");
     cx.simulate_keystrokes("escape");
     redraw(cx);
     assert_eq!(block.read_with(cx, |block, _| block.trail.depth()), 1);
@@ -154,7 +154,8 @@ fn a_feature_of_level_two_draws_its_path_and_a_crumb_steps_back_out_to_the_proje
     press(cx, Role::Button, "Bridge, entry point");
     cx.simulate_keystrokes("enter");
     redraw(cx);
-    press(cx, Role::Button, "Dashboard, draw its path");
+    block.update_in(cx, |block, window, cx| block.follow_feature("dashboard", window, cx));
+    redraw(cx);
     assert_eq!(block.read_with(cx, |block, _| (block.trail.depth(), block.trail.feature().map(str::to_string))), (3, Some("dashboard".to_string())));
     assert!(drawn(cx, Role::Button, "project_board, part"));
     assert!(drawn(cx, Role::Button, "Open feature page"), "the panel's subject is the feature");

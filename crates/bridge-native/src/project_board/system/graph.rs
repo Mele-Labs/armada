@@ -8,7 +8,6 @@ use gpui::{canvas, div, point, prelude::*, px, Animation, AnimationExt as _, Any
 use ipc::{PartOrigin, SystemMap, SystemPart, SystemPartKind};
 
 use super::arrange::{self, Arranged, Edge, Hover, Lane, LaneKind, Lit, Metrics, Node, Pt};
-use super::trail::Level;
 use super::{panel, Read, SystemBlock};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
@@ -153,7 +152,6 @@ pub(super) fn draw(this: &mut SystemBlock, window: &mut Window, cx: &mut Context
     // A block narrower than two columns of room has its panel under the graph, and the whole block scrolls.
     let stacked = f32::from(window.viewport_size().width) < f32::from(look.length(token::SPACE_12)) * 20.;
     let room = room(this, &look, stacked, window, cx);
-    let strip = features_strip(this, &look, cx);
     let panel = panel::draw(this, &look, stacked, window, cx);
     let body = div()
         .id("system-body")
@@ -164,9 +162,9 @@ pub(super) fn draw(this: &mut SystemBlock, window: &mut Window, cx: &mut Context
         .text_color(look.color(token::FG_DEFAULT))
         .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| this.on_key(event, window, cx)));
     if stacked {
-        return body.flex_col().overflow_y_scroll().child(crumbs).child(room).children(strip).child(panel).into_any_element();
+        return body.flex_col().overflow_y_scroll().child(crumbs).child(room).child(panel).into_any_element();
     }
-    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room).children(strip);
+    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room);
     body.child(left).child(panel).into_any_element()
 }
 
@@ -263,10 +261,10 @@ fn room(this: &mut SystemBlock, look: &Look, natural: bool, window: &mut Window,
                 View::List => Some(list(this, &map, top.as_ref(), look, cx)),
                 _ => {
                     let inner = (width - f32::from(look.length(token::SPACE_4)) * 2.).max(0.);
-                    // The arrangement is as tall as its parts need, whatever room there is.
-                    let arranged = this.arranged(look, (inner, 0.)).cloned();
+                    // Beside the panel a lane too tall for the room wraps into columns; stacked over it the block scrolls instead, and the
+                    // arrangement is as tall as its parts need.
+                    let arranged = this.arranged(look, (inner, if natural { 0. } else { height })).cloned();
                     tall = arranged.as_ref().map(|arranged| arranged.height);
-                    let _ = height;
                     arranged.map(|arranged| stage(this, &arranged, &map, top.as_ref(), look, window, cx))
                 }
             }
@@ -610,69 +608,4 @@ fn list(this: &SystemBlock, map: &SystemMap, top: Option<&SystemMap>, look: &Loo
         )
     });
     labelled(div().id("system-list").flex().flex_col().gap(look.length(token::SPACE_1)).py(look.length(token::SPACE_2)).children(rows), Role::List, "Parts of the system").into_any_element()
-}
-
-// ---- the features of level two --------------------------------------------------------------------------
-
-/// The features that own files in the parts on screen: rows with a chevron, lit parts under the pointer.
-fn features_strip(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>) -> Option<AnyElement> {
-    if this.trail.depth() != 2 || !matches!(this.here(), Level::Part { .. }) {
-        return None;
-    }
-    let map = this.level()?;
-    if map.features.is_empty() {
-        return None;
-    }
-    let ring = ring_colour(look);
-    let hue = look.color(token::SKETCH_GREEN);
-    let items = map.features.iter().map(|feature| {
-        let (slug, hover_slug, leave_slug) = (feature.slug.clone(), feature.slug.clone(), feature.slug.clone());
-        labelled(
-            div()
-                .id(SharedString::from(format!("system-feature-{}", feature.slug)))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_1))
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(gpui::transparent_black())
-                .text_size(look.length(token::TEXT_XS))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .focusable()
-                .tab_stop(true)
-                .focus_visible(move |style| style.border_color(ring))
-                .tooltip(tip(format!("Draw the path of {}", feature.title)))
-                .on_hover(cx.listener(move |this, on: &bool, _, cx| {
-                    if *on {
-                        this.set_hover(Hover::Feature(hover_slug.clone()), cx);
-                    } else if this.hover == Hover::Feature(leave_slug.clone()) {
-                        this.set_hover(Hover::None, cx);
-                    }
-                }))
-                .on_click(cx.listener(move |this, _, window, cx| this.follow_feature(&slug, window, cx)))
-                .child(div().flex_none().size(look.length(token::SPACE_2)).rounded(look.length(token::RADIUS_SM)).bg(hue))
-                .child(SharedString::from(feature.title.clone()))
-                .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::FG_SUBTLE))),
-            Role::Button,
-            format!("{}, draw its path", feature.title),
-        )
-    });
-    Some(
-        div()
-            .flex_none()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_2))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(div().pr(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("FEATURES"))
-            .children(items)
-            .into_any_element(),
-    )
 }

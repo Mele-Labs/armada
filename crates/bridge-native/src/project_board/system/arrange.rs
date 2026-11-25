@@ -278,10 +278,25 @@ fn lane_order(keys: &[String], map: &SystemMap, key_of: &HashMap<&str, usize>) -
 /// Stand every part of `map` in `width` by at least `min_height`, and join them. `depth` is 1 for the project, 2 for a part and
 /// 3 for a feature; `title_of` names the part a lane of level two or three is for.
 pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&str) -> Option<String>, metrics: &Metrics, width: f32, min_height: f32) -> Arranged {
+    // Parts wrap into as many sub-columns as the room's height asks for; where those would take more than the room's width, the lane
+    // keeps fewer, one fewer at a time, and grows taller instead, which the block scrolls down.
+    let mut across = usize::MAX;
+    loop {
+        let (arranged, widest) = lay(map, depth, project, title_of, metrics, width, min_height, across);
+        if arranged.width <= width + 1. || width <= 0. || widest <= 1 {
+            return arranged;
+        }
+        across = widest - 1;
+    }
+}
+
+/// `arrange` with no lane wider than `across` sub-columns; also how many sub-columns the widest lane took.
+#[allow(clippy::too_many_arguments)]
+fn lay(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&str) -> Option<String>, metrics: &Metrics, width: f32, min_height: f32, across: usize) -> (Arranged, usize) {
     let deep = depth > 1;
     let parts = &map.parts;
     if parts.is_empty() {
-        return Arranged { width, height: min_height, scale: 1., ..Arranged::default() };
+        return (Arranged { width, height: min_height, scale: 1., ..Arranged::default() }, 1);
     }
     let files_of = |part: &SystemPart| -> Vec<String> { map.stops.iter().filter(|stop| stop.part == part.id).flat_map(|stop| stop.files.clone()).collect() };
     let nodes_files: Vec<Vec<String>> = parts.iter().map(|part| if depth == 3 { files_of(part) } else { Vec::new() }).collect();
@@ -344,6 +359,10 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             lane_of.push((at, col));
         }
     }
+
+    // A column that would run past the room's height wraps into sub-columns, a grid inside its lane.
+    let room_tall = min_height - (metrics.lane_head + metrics.gap / 2.) - metrics.bottom;
+    let widest = if min_height > 0. { wrap(&mut lane_of, &heights, room_tall, metrics.gap, across) } else { 1 };
 
     // ---- columns left to right, flattened ------------------------------------------------------------------------------
     let lane_count = lane_titles.len();
@@ -461,6 +480,10 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         stack[*col].push(at);
     }
     let top = metrics.lane_head + metrics.gap / 2.;
+    // What a column stands as tall as; where one is taller than the room the block scrolls, and the columns that fit stand from the
+    // top of their lane, in view, and not level with whatever part of the tall one they link to.
+    let tall_of = |col: &[usize]| col.iter().map(|&at| heights[at] + metrics.gap).sum::<f32>() - metrics.gap;
+    let scrolls = min_height > 0. && stack.iter().any(|col| tall_of(col) > room_tall);
     let mut centre_y = vec![f32::NAN; parts.len()];
     let mut ys = vec![0f32; parts.len()];
     for col in 0..total_cols {
@@ -484,12 +507,23 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             .collect();
         keyed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         // Each stands where it wants to, pushed down only as far as the one above it needs.
+        let stood = tall_of(&stack[col]);
+        let from_top = scrolls && stood <= room_tall;
         let mut floor = top;
-        for (key, at) in keyed {
-            let y = (key - heights[at] / 2.).max(floor);
+        for &(key, at) in &keyed {
+            let y = if from_top { floor } else { (key - heights[at] / 2.).max(floor) };
             ys[at] = y;
             centre_y[at] = y + heights[at] / 2.;
             floor = y + heights[at] + metrics.gap;
+        }
+        // Where the room's height is known, what was pushed down past its bottom is lifted back in, from the last one up.
+        if min_height > 0. && stood <= room_tall {
+            let mut ceiling = min_height - metrics.bottom;
+            for &(_, at) in keyed.iter().rev() {
+                ys[at] = ys[at].min(ceiling - heights[at]).max(top);
+                centre_y[at] = ys[at] + heights[at] / 2.;
+                ceiling = ys[at] - metrics.gap;
+            }
         }
     }
     let height = (0..parts.len()).map(|at| ys[at] + heights[at]).fold(top, f32::max) + metrics.bottom;
@@ -511,7 +545,52 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         .collect();
     let lanes: Vec<Lane> = lane_rects.iter().zip(&lane_titles).map(|(&(x, w), (title, kind))| Lane { rect: Rect { x, y: 0., w, h: height }, title: title.clone(), kind: *kind }).collect();
     let edges = join(map, &index, &nodes, metrics);
-    Arranged { lanes, nodes, edges, width: extent, height, scale: 1. }
+    (Arranged { lanes, nodes, edges, width: extent, height, scale: 1. }, widest)
+}
+
+/// Splits each column of each lane into sub-columns, filling one down to `cap` before the next, so a lane of many parts is a grid
+/// as tall as the room and not a column as tall as the parts. A column that fits is left as it is. No column takes more than
+/// `across` sub-columns, which makes them taller than `cap`; returns the most any column took.
+fn wrap(lane_of: &mut [(usize, usize)], heights: &[f32], cap: f32, gap: f32, across: usize) -> usize {
+    let lanes = lane_of.iter().map(|(lane, _)| *lane).max().map_or(0, |last| last + 1);
+    let was = lane_of.to_vec();
+    let mut most = 1;
+    for lane in 0..lanes {
+        let mut cols: Vec<usize> = was.iter().filter(|(one, _)| *one == lane).map(|(_, col)| *col).collect();
+        cols.sort_unstable();
+        cols.dedup();
+        let mut offset = 0;
+        for col in cols {
+            let members: Vec<usize> = (0..was.len()).filter(|&at| was[at] == (lane, col)).collect();
+            let fill = |limit: f32| -> Vec<usize> {
+                let (mut used, mut sub) = (0., 0);
+                members
+                    .iter()
+                    .map(|&at| {
+                        if used > 0. && used + gap + heights[at] > limit {
+                            sub += 1;
+                            used = 0.;
+                        }
+                        used += if used > 0. { gap } else { 0. } + heights[at];
+                        sub
+                    })
+                    .collect()
+            };
+            let mut subs = fill(cap);
+            if subs.last().is_some_and(|last| last + 1 > across) {
+                let total: f32 = members.iter().map(|&at| heights[at] + gap).sum();
+                let tallest = members.iter().map(|&at| heights[at]).fold(0., f32::max);
+                subs = fill(total / across as f32 + tallest);
+            }
+            let made = subs.last().map_or(0, |last| last + 1);
+            for (&at, sub) in members.iter().zip(subs) {
+                lane_of[at].1 = offset + sub;
+            }
+            offset += made;
+            most = most.max(made);
+        }
+    }
+    most
 }
 
 /// `arrange`, made smaller where the parts need more room than there is: every size shrinks together, to a floor of `FLOOR`, and
@@ -783,6 +862,38 @@ mod tests {
                 let apart = a.rect.right() <= b.rect.x || b.rect.right() <= a.rect.x || a.rect.bottom() <= b.rect.y || b.rect.bottom() <= a.rect.y;
                 assert!(apart, "{} and {} overlap", a.id, b.id);
             }
+        }
+    }
+
+    #[test]
+    fn a_level_of_many_pieces_wraps_its_lane_and_keeps_the_linked_lanes_in_view() {
+        let map: SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).unwrap();
+        let out = arrange_fitted(&map, 2, "Armada", &|id| Some(id.to_string()), &Metrics::default(), 1400., 820.);
+        for (at, a) in out.nodes.iter().enumerate() {
+            assert!(a.rect.x >= 0. && a.rect.right() <= out.width + 0.5 && a.rect.y >= 0. && a.rect.bottom() <= out.height, "{} is inside the room", a.id);
+            for b in &out.nodes[at + 1..] {
+                let apart = a.rect.right() <= b.rect.x || b.rect.right() <= a.rect.x || a.rect.bottom() <= b.rect.y || b.rect.bottom() <= a.rect.y;
+                assert!(apart, "{} and {} overlap", a.id, b.id);
+            }
+        }
+        let first = |id: &str| out.nodes[out.index_of(id).unwrap()].rect;
+        assert!(first("store-armada-db").bottom() <= 820. && first("api/routes").bottom() <= 820. && first("outside-github").bottom() <= 820.);
+    }
+
+    #[test]
+    fn beside_the_panel_the_pieces_take_fewer_columns_and_the_linked_lanes_still_stand_in_the_first_screen() {
+        let map: SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).unwrap();
+        let out = arrange_fitted(&map, 2, "Armada", &|id| Some(id.to_string()), &Metrics::default(), 960., 600.);
+        assert!(out.width <= 961., "it is no wider than its room: {}", out.width);
+        for (at, a) in out.nodes.iter().enumerate() {
+            for b in &out.nodes[at + 1..] {
+                let apart = a.rect.right() <= b.rect.x || b.rect.right() <= a.rect.x || a.rect.bottom() <= b.rect.y || b.rect.bottom() <= a.rect.y;
+                assert!(apart, "{} and {} overlap", a.id, b.id);
+            }
+        }
+        for id in ["store-armada-db", "api/routes", "outside-github", "outside-cloudflare", "outside-claude-code", "outside-api-buildkite-com"] {
+            let rect = out.nodes[out.index_of(id).unwrap()].rect;
+            assert!(rect.bottom() <= 600., "{id} stands in the first screen: {}", rect.bottom());
         }
     }
 
