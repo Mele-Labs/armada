@@ -158,7 +158,7 @@ With no flags it opens on the Fleet this Mac runs.
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
   --prototype-shots <dir>  draw the mock prototype with no window on screen, keep a picture of each state in <dir>, print how long it took to draw, and exit
-  --system-shots <dir>  draw the System block of the mock Fleet at 1400 and 900 wide in seven states with no window on screen, keep a picture of each in <dir>, and exit
+  --system-shots <dir>  draw the System block of the mock Fleet at 1400 and 900 wide in nine states with no window on screen, keep a picture of each in <dir>, and exit
   --shot-check <scene.html>  draw each state of the scene and the step of the walk it names for that state, compare the two, and exit 1 when any has drifted or has no step
   --out <dir>         with --shot-check, where report.json and each state's side-by-side and difference pictures go
   --fixtures-dir <dir>  with --shot-check, where the scene's fixtures are, the scene's own folder where left out

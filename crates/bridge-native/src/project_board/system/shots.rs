@@ -1,6 +1,6 @@
 //! The System block drawn headless at 1400 and 900 wide and written as pictures, so a Job looks at it with no window on the
 //! owner's screen: the board at level one, a part selected with its panel, a part zoomed into, a feature's path, a part the
-//! librarian added, the Code tree with a folder open, and a level of forty-six pieces. A function and not a test because the Mac platform is made on the
+//! librarian added, the Code tree with a folder open, and a level of forty-six pieces, at its top and down where its pieces link to each other, at rest and with one hovered. A function and not a test because the Mac platform is made on the
 //! main thread, which a test never runs on (`features/shots.rs` is the same).
 
 use std::cell::RefCell;
@@ -24,9 +24,11 @@ enum State {
     Librarian,
     CodeTree,
     ManyPieces,
+    ManyPiecesLow,
+    ManyPiecesHovered,
 }
 
-const STATES: [(&str, State); 7] = [
+const STATES: [(&str, State); 9] = [
     ("a-level-one", State::LevelOne),
     ("b-bridge-selected", State::BridgeSelected),
     ("c-bridge-jobs", State::BridgeJobs),
@@ -34,6 +36,8 @@ const STATES: [(&str, State); 7] = [
     ("e-librarian-bank", State::Librarian),
     ("f-code-tree", State::CodeTree),
     ("g-many-pieces", State::ManyPieces),
+    ("h-many-pieces-low", State::ManyPiecesLow),
+    ("i-many-pieces-hovered", State::ManyPiecesHovered),
 ];
 
 /// What a window holds around a bare block: the ground the board would give it.
@@ -104,7 +108,7 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
                     }
                     State::Librarian => block.select(Some("bank".into()), cx),
                     State::CodeTree => block.select(Some("bridge".into()), cx),
-                    State::ManyPieces => {
+                    State::ManyPieces | State::ManyPiecesLow | State::ManyPiecesHovered => {
                         // Level two of a part with forty-six pieces, read from Fleet's own map of Armada.
                         let many: ipc::SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).expect("the fixture is a system map");
                         if let Some(super::Read::Ready(top)) = block.maps.get_mut(&(None, None)) {
@@ -122,6 +126,17 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
             cx.update_window(handle, |_, _, cx| {
                 block.update(cx, |block, cx| match state {
                     State::BridgeJobs => block.select(Some("b_jobs".into()), cx),
+                    // Down the lane where its pieces link to each other, at rest and with one hovered, which draws those links only now.
+                    State::ManyPiecesLow | State::ManyPiecesHovered => {
+                        if matches!(state, State::ManyPiecesHovered) {
+                            block.select(Some("fleet/adapters".into()), cx);
+                            block.set_hover(super::Hover::Part("fleet/adapters".into()), cx);
+                        }
+                        let top = block.laid.as_ref().and_then(|(_, laid)| laid.index_of("fleet/adapters").map(|at| laid.nodes[at].rect.y));
+                        if let Some(top) = top {
+                            block.graph_scroll.set_offset(gpui::point(px(0.), px(-(top - 240.).max(0.))));
+                        }
+                    }
                     State::CodeTree => {
                         let first = block.answers.get("bridge").and_then(super::Read::ready).and_then(|answers| tree::rows(&answers.code, &HashMap::new(), &HashMap::new()).into_iter().next());
                         if let Some(row) = first {

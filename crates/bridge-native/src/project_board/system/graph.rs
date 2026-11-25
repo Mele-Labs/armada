@@ -279,6 +279,7 @@ fn room(this: &mut SystemBlock, look: &Look, natural: bool, window: &mut Window,
                 .id("system-graph")
                 .size_full()
                 .overflow_scroll()
+                .track_scroll(&this.graph_scroll)
                 .px(look.length(token::SPACE_4))
                 .track_focus(&this.focus)
                 .focus_visible(|style| style)
@@ -319,10 +320,11 @@ fn stage(this: &SystemBlock, arranged: &Arranged, map: &SystemMap, top: Option<&
         other => other.clone(),
     };
     let lit = arrange::lit(arranged, map, &target, this.trail.depth());
+    let shown = arrange::shown(arranged, map, &target, this.selected.as_deref());
     let dimming = lit.is_some();
     let lanes = arranged.lanes.iter().map(|lane| lane_box(lane, arranged.scale, look));
-    let drawn = curves(arranged, lit.as_ref(), look);
-    let pills = arranged.edges.iter().enumerate().filter(|(_, edge)| edge.label.is_some() || edge.step.is_some()).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, arranged.scale, look));
+    let drawn = curves(arranged, &shown, lit.as_ref(), look);
+    let pills = arranged.edges.iter().enumerate().filter(|(at, edge)| shown[*at] && (edge.label.is_some() || edge.step.is_some())).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, arranged.scale, look));
     let nodes = arranged.nodes.iter().enumerate().map(|(at, node)| part_box(this, node, lit.as_ref().map(|lit| lit.nodes.contains(&at)), top, arranged.scale, look, cx));
     div()
         .relative()
@@ -358,15 +360,15 @@ fn lane_box(lane: &Lane, k: f32, look: &Look) -> AnyElement {
         .into_any_element()
 }
 
-/// The curves, painted in one canvas: every link, bright where it is lit and faint where something else is.
-fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
+/// The curves, painted in one canvas: every link `shown`, bright where it is lit and faint where something else is.
+fn curves(arranged: &Arranged, shown: &[bool], lit: Option<&Lit>, look: &Look) -> AnyElement {
     let len = |token| look.length(token) * arranged.scale;
     struct Drawn {
         edge: Edge,
         lit: bool,
         dim: bool,
     }
-    let edges: Vec<Drawn> = arranged.edges.iter().enumerate().map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
+    let edges: Vec<Drawn> = arranged.edges.iter().enumerate().filter(|(at, _)| shown[*at]).map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
     let (base, bright) = (look.color(token::BORDER_STRONG), look.color(token::ACCENT));
     let (plain, bold) = (f32::from(len(token::BORDER_WIDTH)) * 1.5, f32::from(len(token::BORDER_WIDTH)) * 2.);
     let faint = tint::DIM_CURVE;
@@ -386,7 +388,9 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
                     }
                 } else {
                     line.move_to(at(edge.a));
-                    line.cubic_bezier_to(at(edge.b), at(edge.c1), at(edge.c2));
+                    for [_, c1, c2, b] in &edge.path {
+                        line.cubic_bezier_to(at(*b), at(*c1), at(*c2));
+                    }
                 }
                 if let Ok(path) = line.build() {
                     window.paint_path(path, ink);
@@ -408,8 +412,10 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
 
 /// The curve cut into dashes `on` long with `off` between, as pairs of end points along it.
 fn dashes(edge: &Edge, on: f32, off: f32) -> Vec<(Pt, Pt)> {
+    // Points along each cubic piece; a curve round a gutter has several.
     const STEPS: usize = 48;
-    let points: Vec<Pt> = (0..=STEPS).map(|at| edge.at(at as f32 / STEPS as f32)).collect();
+    let steps = STEPS * edge.path.len().max(1);
+    let points: Vec<Pt> = (0..=steps).map(|at| edge.at(at as f32 / steps as f32)).collect();
     let mut out = Vec::new();
     let (mut run, mut drawing) = (0., true);
     for pair in points.windows(2) {

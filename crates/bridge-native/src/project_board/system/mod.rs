@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{canvas, div, prelude::*, AnyElement, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, Subscription, Task, Window};
+use gpui::{canvas, div, prelude::*, AnyElement, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Pixels, ScrollHandle, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, TextareaState};
 use ipc::{AdditionAnswer, AnswerSystemAddition, SystemMap, SystemPartAnswers};
 
@@ -142,6 +142,8 @@ pub struct SystemBlock {
     pub(super) asking_librarian: bool,
     pub(super) starting: bool,
     pub(super) focus: FocusHandle,
+    /// The graph's scroll, which a shot moves to the part it is about.
+    graph_scroll: ScrollHandle,
     /// Where the graph's room was drawn this frame, so the arrangement fits it.
     stage: Rc<Cell<Option<Bounds<Pixels>>>>,
     laid: Option<(LaidFor, Arranged)>,
@@ -185,6 +187,7 @@ impl SystemBlock {
             asking_librarian: false,
             starting: false,
             focus: cx.focus_handle().tab_stop(true),
+            graph_scroll: ScrollHandle::new(),
             stage: Rc::default(),
             laid: None,
             grid_seen: Rc::default(),

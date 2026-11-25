@@ -296,3 +296,31 @@ fn the_mock_says_of_a_part_what_its_map_says() {
     assert!(!super::mock::answers(ARMADA, "b_jobs").features.is_empty());
     assert!(super::mock::answers("auto-ynab", "s_rev").has_screen);
 }
+
+#[gpui::test]
+fn on_level_two_a_link_inside_a_lane_is_drawn_only_while_a_piece_at_one_end_is_hovered(cx: &mut TestAppContext) {
+    let (block, cx) = block(cx, "ynab");
+    press(cx, Role::Button, "Web app, entry point");
+    cx.simulate_keystrokes("enter");
+    redraw(cx);
+    assert_eq!(block.read_with(cx, |block, _| block.trail.depth()), 2);
+    // main.py calls the backend's other modules, which stand in its own lane; the screens call main.py from theirs.
+    let shown = |block: &SystemBlock| {
+        let (_, laid) = block.laid.as_ref().expect("the level is laid out");
+        let map = block.level().expect("the level is read");
+        let drawn = super::arrange::shown(laid, map, &block.hover, block.selected.as_deref());
+        let inside = |id: &str| laid.edges.iter().zip(&drawn).filter(|(edge, _)| edge.lane && laid.nodes[edge.from].id == id).map(|(_, drawn)| *drawn).collect::<Vec<bool>>();
+        let between = laid.edges.iter().zip(&drawn).filter(|(edge, _)| !edge.lane).all(|(_, drawn)| *drawn);
+        (inside("main"), between)
+    };
+    let (inside, between) = block.read_with(cx, |block, _| shown(block));
+    assert!(!inside.is_empty() && inside.iter().all(|drawn| !drawn), "at rest none of main.py's links to its own lane is drawn");
+    assert!(between, "every link between lanes is");
+    let at = find(cx, Role::Button, "main.py, part").expect("main.py is drawn").center();
+    cx.simulate_mouse_move(at, None, Modifiers::default());
+    redraw(cx);
+    assert_eq!(block.read_with(cx, |block, _| block.hover.clone()), super::arrange::Hover::Part("main".into()));
+    let (inside, between) = block.read_with(cx, |block, _| shown(block));
+    assert!(inside.iter().all(|drawn| *drawn), "hovering main.py draws them");
+    assert!(between, "and the links between lanes are still drawn");
+}
