@@ -1400,6 +1400,28 @@ impl JobView {
                 });
             }))
         });
+        // Claims the project's store has not taken: a quiet amber badge by the ring, since the Job needs nothing from him.
+        let unshared = job.claims_unsent.then(|| {
+            labelled(
+                div()
+                    .id("claims-unsent")
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .h(look.length(token::LEADING_SM))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.6))
+                    .bg(look.color(token::STATUS_AWAITING_REVIEW_BG))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::STATUS_AWAITING_REVIEW))
+                    .child(super::claim_waits::UNSENT)
+                    .tooltip(tip(super::claim_waits::UNSENT_TIP.into())),
+                Role::Status,
+                super::claim_waits::UNSENT,
+            )
+        });
         let marks = {
             let stale = job.mod_out_of_date && !matches!(job.mark.map(|mark| mark.state), Some(JobState::Quiet));
             let mod_mark = stale.then(|| {
@@ -1503,6 +1525,7 @@ impl JobView {
                 .child(aa)
                 .children(acts)
                 .children(ring)
+                .children(unshared)
                 .child(div().flex_1())
                 .child(marks)
                 .into_any_element(),
