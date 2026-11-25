@@ -322,6 +322,12 @@ pub(super) fn bind(cx: &mut gpui::App) {
     cx.bind_keys([gpui::KeyBinding::new("shift-f10", ItemMenu, Some(CONTEXT)), gpui::KeyBinding::new("menu", ItemMenu, Some(CONTEXT))]);
 }
 
+/// Whether a card's answer settles its ask: it leaves the sheet and Needs you.
+fn settles(answer: &super::acts::Answer) -> bool {
+    use super::acts::Answer;
+    matches!(answer, Answer::Approved | Answer::Fixed(_) | Answer::SentBack(_) | Answer::Withdrawn | Answer::Dismissed | Answer::Going | Answer::SetAside)
+}
+
 fn instant(at: &str) -> i64 {
     chrono::DateTime::parse_from_rfc3339(at).map_or(0, |then| then.timestamp_millis())
 }
@@ -596,6 +602,14 @@ impl JobView {
         // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
         if let Some(dock) = self.dock_of(id) {
             items.retain(|item| !dock.hidden.contains(&item.id));
+        }
+        // So does one answered on its thread card, in the frame the card takes the answer.
+        if let Some(page) = self.pages.get(id).filter(|page| page.cards.answers.values().any(settles)) {
+            // A sketch drawn again since his answer asks again.
+            let drawn_since = |key: &str| {
+                page.cards.answered_on.get(key).is_some_and(|on| super::sketch_read::card_of(&held.head, &held.items, key.strip_prefix("pin:").unwrap_or(key)).map(super::cards::newest_of).is_some_and(|now| now != *on))
+            };
+            items.retain(|item| !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
         }
         items.sort_by_key(|item| instant(&item.since));
         items

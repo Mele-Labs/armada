@@ -624,8 +624,7 @@ mod tests {
         assert!(drawn(cx, Role::Dialog, A), "a press on the picture opens it over the reader");
     }
 
-    /// The Job's thread with the step bar's card drawn whole: a card that asks is one line pointing to the sheet, so here its
-    /// parts only inform.
+    /// The Job's thread with the step bar's card drawn whole, its parts only informing.
     fn informing_card<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
         view.update(cx, |view, cx| {
@@ -676,7 +675,7 @@ mod tests {
     #[gpui::test]
     fn a_press_on_an_act_of_the_card_does_its_act_and_grows_nothing(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
-        // The card's acts are answered in the review sheet: in the thread it is one line while it asks.
+        // The card's acts, in the review sheet.
         view.update_in(cx, |view, window, cx| view.open_artifact_review(ID, window, cx));
         redraw(cx);
         let act = bounds_of(cx, Role::Button, "Ask for changes");

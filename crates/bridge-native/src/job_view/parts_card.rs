@@ -820,12 +820,6 @@ impl JobView {
             let fold = super::parts_fold::Fold { ix, artifact: id, title: &artifact.title, form: artifact.form, revision: last.map_or(1, |last| last.number), numbered: artifact.revisions.len() > 1, verdict, said };
             return Some(self.folded_parts(fold, page, look, cx));
         }
-        // In the thread, an artifact that asks is one line pointing to the sheet, where it is answered.
-        if !tab && !sheet {
-            if let Some(pointer) = self.parts_pointer("thread", id, look, cx) {
-                return Some(pointer);
-            }
-        }
         // In its own tab it is read only, under the same line: no pick, verdict or Dismiss is drawn there.
         let pointer = if tab && !sheet && self.reads_only(id, cx) { self.parts_pointer("reader", id, look, cx) } else { None };
         let read_only = pointer.is_some();
@@ -2356,8 +2350,6 @@ mod tests {
         view.update(cx, |view, cx| {
             let part = view.artifact_mut(JOB, "draft:Commit words").and_then(|one| one.parts.first_mut()).expect("the card holds its words");
             part.content = PartContent::Words { text: (1..=14).map(|line| format!("Line {line} of a long reply.")).collect::<Vec<_>>().join("\n\n") };
-            // Words that only inform stand on their card in the thread; words that ask are one line pointing to the sheet.
-            part.asks = false;
             view.parts_changed("draft:Commit words", cx);
         });
         redraw(cx);
@@ -2375,9 +2367,6 @@ mod tests {
     #[gpui::test]
     fn copy_on_words_puts_them_on_the_clipboard_and_reads_copied_for_a_moment(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |_| {});
-        // Words that ask are read and answered in the review sheet; in the thread they are one line pointing there.
-        view.update_in(cx, |view, window, cx| view.open_artifact_review("draft:Commit words", window, cx));
-        redraw(cx);
         assert!(drawn(cx, gpui::Role::Button, "Copy"), "words carry Copy");
         assert!(!drawn(cx, gpui::Role::Button, "Copied"));
         let key = part_key("draft:Commit words", "commit");
@@ -2414,7 +2403,7 @@ mod tests {
         view.update_in(cx, |view, window, cx| view.answer_part("draft:Page title", &part, PartHow::SentBack, None, Some("Name it for the question.".into()), window, cx));
         redraw(cx);
         assert!(drawn(cx, gpui::Role::Status, "Page title: Sent back"), "revision 1 stands as one line");
-        assert!(drawn(cx, gpui::Role::Button, "Page title"), "the Job's next drawing asks again, one line pointing to the sheet");
+        assert!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), "the Job's next drawing asks again, in a card of its own");
         view.read_with(cx, |view, cx| {
             let verdict = view.verdict_kept(JOB, "draft:Page title", 1, cx).expect("his words were kept under revision 1");
             assert_eq!(verdict.note.as_deref(), Some("Name it for the question."));
@@ -2431,6 +2420,41 @@ mod tests {
         let mut said = drawn_like(cx, gpui::Role::Status, "Rollout order: Picked");
         said.dedup();
         assert_eq!(said, ["Rollout order: Picked B \u{b7} Votes first"], "the fold names the take he picked");
+    }
+
+    #[gpui::test]
+    fn a_vote_is_picked_on_its_thread_card_and_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        let held = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.artifact_items(JOB, None).iter().any(|one| one.artifact.as_deref() == Some("sketch:Rollout order")));
+        assert!(held(&view, cx), "the sheet holds the vote while it waits");
+        let card = labelled_bounds(cx, gpui::Role::Article, "Artifact: Rollout order");
+        // The take's head, where its radio stands: the picture under it opens the take larger.
+        let take = labelled_in(cx, gpui::Role::RadioButton, "Pick B", card);
+        cx.simulate_click(take.origin + gpui::point(px(16.), px(16.)), gpui::Modifiers::none());
+        redraw(cx);
+        let card = labelled_bounds(cx, gpui::Role::Article, "Artifact: Rollout order");
+        let send = labelled_in(cx, gpui::Role::Button, "Send pick", card);
+        cx.simulate_click(send.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place, with no sheet");
+        let mut said = drawn_like(cx, gpui::Role::Status, "Rollout order: Picked");
+        said.dedup();
+        assert_eq!(said, ["Rollout order: Picked B \u{b7} Votes first"], "the card folds naming the take he picked");
+        assert!(!held(&view, cx), "picked on its card, the vote leaves the sheet");
+    }
+
+    /// The bounds of the first `role` whose name starts `prefix`.
+    fn labelled_bounds(cx: &mut gpui::VisualTestContext, role: gpui::Role, prefix: &str) -> gpui::Bounds<gpui::Pixels> {
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().find(|one| one.role == role && one.name.starts_with(prefix)).map(|one| one.bounds))
+            .unwrap_or_else(|| panic!("{prefix} was not drawn"))
+    }
+
+    /// The bounds of the `role` whose name starts `prefix`, drawn inside `card`.
+    fn labelled_in(cx: &mut gpui::VisualTestContext, role: gpui::Role, prefix: &str, card: gpui::Bounds<gpui::Pixels>) -> gpui::Bounds<gpui::Pixels> {
+        cx.update(|window, cx| {
+            cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name.starts_with(prefix)).map(|one| one.bounds).find(|one| card.contains(&one.center()))
+        })
+        .unwrap_or_else(|| panic!("{prefix} was not drawn in its card"))
     }
 
     #[gpui::test]

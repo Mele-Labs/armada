@@ -85,13 +85,6 @@ impl JobView {
         let going = matches!(answer, Some(Answer::Going));
         let aside = !approved && (card.state == PlanCardState::SetAside || matches!(answer, Some(Answer::SetAside)));
         let item = format!("plan:{}", card.version);
-        // A plan put to him is answered in the review sheet alone: here it is one line that opens the sheet on it.
-        if !approved && !aside && answer.is_none() {
-            if let Some(held) = self.held_item(&job, &item, cx) {
-                page.keys.set(&key, None);
-                return self.ask_pointer(&format!("thread:{key}"), &held, super::ask_line::Stands::Thread, look, cx);
-            }
-        }
         // Once he answered it, his answer card stands where he gave it, and the plan folds.
         let answered = self.record(&job, cx).is_some_and(|held| held.answers.iter().any(|one| one.item == item));
         let folded = self.folded(&key, aside || (approved && (record.is_none() || answered)));
@@ -191,8 +184,8 @@ impl JobView {
             if let Some(why) = page.cards.said.get(&key) {
                 column = column.child(refusal(look, &key, why.clone()));
             }
-            // Sent back or dismissed from the sheet, it waits for the Job's next plan with nothing to press.
-            if !approved && answer.is_none() {
+            // Sent back or dismissed, here or in the sheet, it waits for the Job's next plan with nothing to press.
+            if !approved && !matches!(answer, Some(Answer::SentBack(_) | Answer::Dismissed | Answer::Withdrawn)) {
                 column = column.child(self.plan_answers(ix, &key, card.version, record, reading, &earlier, aside, target, page, look, approve, cx));
             }
         }
