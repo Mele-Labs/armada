@@ -288,6 +288,7 @@ The wire change moves the protocol ID with `crates/ipc/src` and `packages/protoc
 ## The system map
 
 A project's system map is what it is made of and how the parts reach each other, read from its own files with no model.
+Where the project picked folders of a repository, the map, its features and the nine answers read only the files in those folders, and `list_system_folder` lists only the way down to them and refuses a folder outside them with `fleet.system_folder_unknown`.
 `get_system_map` answers one level at a time, so Bridge draws a level without holding the others.
 No query is level one: the people, the entry points, the services behind them, the stores and what the project reaches outside.
 `part` is level two: that part's pieces, the pieces of other parts they call, and the stores and outside parts they reach.

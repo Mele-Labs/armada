@@ -38,6 +38,8 @@ const NO_FEATURE: &str = "fleet.system_feature_unknown";
 pub(crate) struct Member {
     pub(crate) manifest: String,
     pub(crate) root: PathBuf,
+    /// The folders the project picked in it, `/`-separated from its root. Empty for the whole of it.
+    pub(crate) folders: Vec<String>,
     kit: Vec<KitServer>,
 }
 
@@ -97,9 +99,9 @@ fn unheard_apis(det: &detect::Detected, pieces: &[model::Piece], edges: &[model:
     out
 }
 
-/// The map of one repository, held per `HEAD`. **Blocking**: the caller runs it off the main thread.
+/// The map of one repository, held per `HEAD` and per the folders read. **Blocking**: the caller runs it off the main thread.
 fn mapped(member: &Member) -> Arc<Mapped> {
-    let key = member.root.to_string_lossy().into_owned();
+    let key = std::iter::once(member.root.to_string_lossy().into_owned()).chain(member.folders.iter().cloned()).collect::<Vec<_>>().join("\n");
     let head = head_of(&member.root);
     if !head.is_empty() {
         if let Some((at, map)) = held().lock().unwrap_or_else(PoisonError::into_inner).get(&key) {
@@ -108,7 +110,7 @@ fn mapped(member: &Member) -> Arc<Mapped> {
             }
         }
     }
-    let repo = Repo::read(&member.manifest, &member.root, member.kit.clone());
+    let repo = Repo::read(&member.manifest, &member.root, member.kit.clone(), &member.folders);
     let mut det = detect::detect(&repo, &BTreeSet::new());
     let mut pieces = pieces::pieces(&repo, &mut det);
     let mut reach = edges::reach(&repo, &det, &pieces);
@@ -128,7 +130,7 @@ fn mapped(member: &Member) -> Arc<Mapped> {
             api.wire.name = format!("{service} API");
         }
     }
-    let map = Arc::new(Mapped { manifest: member.manifest.clone(), parts, pieces, edges: reach.edges, links: reach.links, files: repo.layout.files, kit, routes: reach.routes });
+    let map = Arc::new(Mapped { manifest: member.manifest.clone(), folders: member.folders.clone(), parts, pieces, edges: reach.edges, links: reach.links, files: repo.layout.files, kit, routes: reach.routes });
     if !head.is_empty() {
         held().lock().unwrap_or_else(PoisonError::into_inner).insert(key, (head, Arc::clone(&map)));
     }
@@ -145,12 +147,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The repositories of `project` Fleet serves, with the servers each one's Manifest declares.
+    /// The repositories of `project` Fleet serves, each with the folders the project picked in it and the servers its
+    /// Manifest declares. A repository listed whole anywhere in the project is read whole.
     pub(crate) async fn system_members(&self, project: &str) -> Result<Vec<Member>, Refusal> {
         let held = self.project_held(project).await?;
         let mut members = Vec::new();
         for id in held.repositories() {
             let Some(served) = self.repositories().serving(id.as_str()) else { continue };
+            let picked: Vec<Option<&core_model::Folder>> = held.members().iter().filter(|member| member.repository() == id).map(core_model::Member::folder_of).collect();
+            let mut folders: Vec<String> = if picked.contains(&None) { Vec::new() } else { picked.into_iter().flatten().map(|folder| folder.as_str().to_string()).collect() };
+            folders.sort();
+            folders.dedup();
             let manifest = served.manifest();
             let kit = manifest
                 .server_names()
@@ -160,7 +167,7 @@ where
                     Some(KitServer { serve: server.serve().to_string(), dir: server.dir().map(str::to_string), links: server.links().iter().map(|link| link.url().to_string()).collect(), name })
                 })
                 .collect();
-            members.push(Member { manifest: id.as_str().to_string(), root: PathBuf::from(served.root()), kit });
+            members.push(Member { manifest: id.as_str().to_string(), root: PathBuf::from(served.root()), folders, kit });
         }
         Ok(members)
     }
@@ -196,7 +203,14 @@ where
 /// One level of the map of the checkout at `root`, for the tests: no store, no Fleet, features given.
 #[cfg(test)]
 pub(crate) fn read_for_test(root: &Path, manifest: &str, part: Option<&str>, feature: Option<&store::KeptFeature>) -> SystemMap {
-    let maps = vec![mapped(&Member { manifest: manifest.to_string(), root: root.to_path_buf(), kit: Vec::new() })];
+    read_in_for_test(root, manifest, &[], part, feature)
+}
+
+/// [`read_for_test`] of a project that picked `folders` of the repository.
+#[cfg(test)]
+pub(crate) fn read_in_for_test(root: &Path, manifest: &str, folders: &[&str], part: Option<&str>, feature: Option<&store::KeptFeature>) -> SystemMap {
+    let folders = folders.iter().map(|folder| (*folder).to_string()).collect();
+    let maps = vec![mapped(&Member { manifest: manifest.to_string(), root: root.to_path_buf(), folders, kit: Vec::new() })];
     let features: Vec<store::KeptFeature> = feature.cloned().into_iter().collect();
     let filed = |_: &str, _: &str| false;
     let ground = Ground { project: "p", maps: &maps, features: &features, filed: &filed, additions: &[], librarian_at: None };

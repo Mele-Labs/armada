@@ -49,6 +49,8 @@ pub(super) struct Edge {
 #[derive(Debug, Default)]
 pub(super) struct Mapped {
     pub(super) manifest: String,
+    /// The folders it was read by, empty where it was read whole.
+    pub(super) folders: Vec<String>,
     pub(super) parts: Vec<Part>,
     pub(super) pieces: Vec<Piece>,
     pub(super) edges: Vec<Edge>,
@@ -92,4 +94,23 @@ impl Mapped {
 pub(super) fn holds(prefix: &str, path: &str) -> bool {
     let prefix = prefix.trim_matches('/');
     prefix.is_empty() || prefix == "." || crate::feature_library::mapping::owns(prefix, path)
+}
+
+/// `paths` kept to `folders`: a path inside one stays, and a path that holds one is that folder. All of them where there are
+/// no folders.
+pub(super) fn within(folders: &[String], paths: &[String]) -> Vec<String> {
+    if folders.is_empty() {
+        return paths.to_vec();
+    }
+    let mut out: Vec<String> = Vec::new();
+    for path in paths {
+        let bare = path.trim_matches('/');
+        let kept: Vec<String> = if super::repo::inside(folders, bare) {
+            vec![path.clone()]
+        } else {
+            folders.iter().filter(|folder| holds(path, folder)).map(|folder| format!("{folder}/")).collect()
+        };
+        out.extend(kept.into_iter().filter(|one| !out.contains(one)).collect::<Vec<_>>());
+    }
+    out
 }
