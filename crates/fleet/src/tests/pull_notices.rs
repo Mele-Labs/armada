@@ -1342,3 +1342,27 @@ async fn a_merge_of_another_authors_pull_request_fixes_no_report() {
 
     assert_eq!(reports_now(&rig).await[0].fixed, None);
 }
+
+/// A pull request whose event stream is attached is read on its events, so the minute reading
+/// asks the forge nothing of it; once the stream stops, the minute reading reads it again.
+#[tokio::test]
+async fn a_pull_request_heard_live_is_left_out_of_the_minute_reading() {
+    let rig = a_rig();
+    rig.a_hosted_session_on(7).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
+    forge.log_of("31", "FAIL tests::one\n");
+    forge.followed_are(Some(vec![failing(7)]));
+    let root = rig.fleet.repositories().first().unwrap().root().to_string();
+    let live = rig.fleet.heard_live().await;
+
+    live.mark(&root, 7, true);
+    rig.reads().await;
+    assert!(!forge.numbers_asked().contains(&7), "asked {:?}", forge.numbers_asked());
+    assert!(rig.runs_sent_to_the_session().is_empty(), "its events tell it");
+
+    live.mark(&root, 7, false);
+    rig.reads().await;
+    assert!(forge.numbers_asked().contains(&7));
+    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the minute reading tells it again");
+}

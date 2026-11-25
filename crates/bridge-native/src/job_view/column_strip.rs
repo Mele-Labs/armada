@@ -375,9 +375,9 @@ impl JobView {
     fn stalled_box(&self, id: &SharedString, stalled: &Stalled, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (name, step) = (stalled.name.clone(), stalled.step);
         let ask = labelled(
-            pressed(press(format!("strip-stalled-ask:{id}"), "Ask the Job".into(), None, None, Weight::Plain, look), cx, move |this, window, cx| this.ask_about_step(&name, window, cx)),
+            pressed(press(format!("strip-stalled-ask:{id}"), "Ask what it's waiting on".into(), None, None, Weight::Plain, look), cx, move |this, window, cx| this.ask_about_step(&name, window, cx)),
             Role::Button,
-            "Ask the Job",
+            "Ask what it's waiting on",
         );
         let skip = stalled.next.as_ref().map(|next| {
             let words = format!("Skip to {next}");
@@ -655,7 +655,7 @@ pub(super) mod tests {
             let (view, cx) = opened(cx, JOB);
             assert!(drawn(cx, Role::Group, "Find the cause is not moving: The step waits on a plan from the Job, and none is recorded."));
             assert!(drawn(cx, Role::Button, "Skip to Fix"));
-            press(cx, "Ask the Job");
+            press(cx, "Ask what it's waiting on");
             let focused = cx.update(|window, cx| view.read(cx).composer.input.read(cx).focus_handle(cx).is_focused(window));
             assert!(focused, "the caret is in the box");
             view.read_with(cx, |view, cx| assert_eq!(view.composer.input.read(cx).value().as_ref(), "What is Find the cause waiting on?", "the question is typed for him, and nothing is sent"));

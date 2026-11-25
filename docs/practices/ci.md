@@ -34,6 +34,14 @@ A pull request runs it only for a change to one of the three, because a native t
 A pull request whose change is inside the crate skips it: the local pre-PR Check ran the native tests, and the queue runs them again on the commit that lands.
 Decided by the owner, 16 Nov 2026, when each run held a `macos-15` runner for 9 to 15 minutes, 12 of them compiling the crate, and the organisation's Mac runners were what PR runs queued behind.
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
+Its `timeout-minutes` is 90: on 25 Nov 2026 the crate compiled in 21 to 39 minutes across 11 runs, and two runs hit the old 60 on a slow Mac.
+
+**A rebuilt queue group cancels its old native job.**
+When an entry fails, the queue rebuilds every group behind it, and each pull request comes back on a new branch, `gh-readonly-queue/main/pr-<n>-<base sha>`.
+GitHub cancels nothing of the abandoned runs, and the workflow's concurrency group is keyed by commit, so their `native` jobs kept their Mac runners for most of an hour.
+On 25 Nov 2026 three such runs held Mac runners while the live groups' `native` jobs waited 10 to 30 minutes or were never picked up, and each of those failures rebuilt the groups behind it again, so four pull requests sat in the queue for hours.
+`plan` reads `<n>` with `.github/ci/queued_pr.py` into its `queued_pr` output, and `native` keys a concurrency group on it with `cancel-in-progress`, so the newer run of a pull request cancels the older one.
+Any other run keys on its own run id and cancels nothing.
 
 **A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.
 The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.

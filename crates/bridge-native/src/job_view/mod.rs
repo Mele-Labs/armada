@@ -234,7 +234,7 @@ pub(crate) enum Extra {
     Waiting,
     /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
     WaitsFor,
-    /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
+    /// The tracker items the Job waits on because another holds them (`claim_waits`).
     ClaimWaits,
     /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
     Moving,
@@ -887,8 +887,7 @@ impl JobView {
 
     /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`).
     fn closed(&self, id: &str, cx: &App) -> bool {
-        self.head.ended(id)
-            || self.record(id, cx).is_none_or(|job| {
+        self.record(id, cx).is_none_or(|job| {
             job.state == SessionState::Ended || job.mark.is_some_and(|mark| matches!(mark.state, JobState::Ended | JobState::Quiet))
         })
     }
@@ -1125,7 +1124,7 @@ impl JobView {
             extras.push(Extra::End);
         }
         // The items it waits on that another holds stand with its other waits.
-        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty() || job.claims_unsent) {
+        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty()) {
             extras.push(Extra::ClaimWaits);
         }
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
