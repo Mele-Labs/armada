@@ -192,6 +192,9 @@ pub(super) fn settles_line(parts: &[ArtifactPart]) -> Option<String> {
 }
 
 /// The glyph and the name of a part's kind, which its caption draws.
+/// The caption of a Words part in an artifact that holds a prototype.
+const FROM_THE_JOB: &str = "From the Job";
+
 pub(super) fn kind_look(kind: PartKind) -> (&'static str, &'static str) {
     match kind {
         PartKind::Words => ("file-text", "Words"),
@@ -292,6 +295,8 @@ struct Ctx<'a> {
     takes: Option<String>,
     /// Two or more votes still ask: each keeps its note box, and one Send picks in the foot sends them all.
     several: bool,
+    /// The artifact holds a prototype: its words are captioned as the Job's own, apart from the build he approves.
+    prototype: bool,
 }
 
 impl PartsState {
@@ -400,6 +405,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: false,
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         if is_pick(&part) {
             let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
@@ -850,6 +856,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
@@ -1000,6 +1007,8 @@ impl JobView {
         let look = c.look;
         let key = part_key(c.id, &part.id);
         let (mark, name) = kind_look(part.content.kind());
+        // Beside a prototype, the Job's words are told apart from the build he approves.
+        let name = if c.prototype && matches!(part.content, PartContent::Words { .. }) { FROM_THE_JOB } else { name };
         let body = match &part.content {
             PartContent::Words { text } => self.words_body(c, &key, text, part, cx),
             PartContent::Takes { question, form, takes, .. } => self.takes_body(c, &key, part, question.as_deref(), *form, takes, cx),
@@ -1844,14 +1853,8 @@ impl JobView {
         let look = c.look;
         let scene = c.sheet.then(|| self.row_tabs.get(&c.job).and_then(|tabs| tabs.sheets.get(c.id))).flatten();
         if let Some((view, _)) = scene {
-            return div()
-                .id(SharedString::from(format!("prototype:{key}")))
-                .w_full()
-                .h(self.tall_most(c))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .child(view.clone())
-                .into_any_element();
+            // The scene draws its own frame.
+            return div().id(SharedString::from(format!("prototype:{key}"))).w_full().h(self.tall_most(c)).child(view.clone()).into_any_element();
         }
         div()
             .id(SharedString::from(format!("prototype:{key}")))
@@ -1974,7 +1977,7 @@ impl JobView {
             return None;
         }
         let key = part_key(artifact, &part.id);
-        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false };
+        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false, prototype: false };
         let open = part.is_open_ask() && *form == VoteForm::Pick;
         let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
         let chosen = if open { c.state().chosen.get(&key).copied().filter(|at| *at < takes.len()) } else { picked };
