@@ -20,7 +20,7 @@ use gpui_component::input::{InputEvent, Position, TextareaState};
 use ipc::SessionTag;
 
 use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
-use super::story::{self, FeatureChoice, Keyed, Story};
+use super::story::{self, FeatureChoice, Keyed, Kind, Story};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::job_view::composer::{attached, clipped_keyed, pick_files, read_files, Attached};
 use crate::job_view::offer::Pick;
@@ -1539,7 +1539,7 @@ fn choices<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, face: &Face, proj
         let mut rows: Vec<FeatureChoice> = Vec::new();
         for one in face.chips.iter().chain(&face.more).filter_map(|chip| chip.project.as_ref()) {
             if !rows.iter().any(|row| row.slug == one.id) {
-                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), slug: one.id.clone(), project: true });
+                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), slug: one.id.clone(), kind: Kind::Project });
             }
         }
         return Cow::Owned(rows);
@@ -2088,7 +2088,7 @@ mod tests {
         let (heard, _sub) = starts_heard(&sheet, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             start_sentence(sheet, "When", "click Pay", window, cx);
-            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), slug: slug.to_string().into(), project: false };
+            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), slug: slug.to_string().into(), kind: Kind::Feature };
             sheet.catalog = Some(("storefront".to_string(), vec![one("Checkout", "checkout-flow"), one("Billing", "billing")]));
             sheet.story.as_mut().expect("a sentence").values[2] = "Checkout".into();
             sheet.act(window, cx);

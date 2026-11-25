@@ -268,7 +268,7 @@ impl DispatchSheet {
     /// The feature list under its blank, with its keys at the foot.
     fn feature_list(&self, rows: Vec<ListRow>, marked: usize, look: &Look, cx: &Context<Self>) -> AnyElement {
         let name = if rows.iter().any(|row| row.project.is_some()) { "Projects" } else { "Features" };
-        let rows = rows.into_iter().map(|row| PopRow { glyph: None, label: row.title, ink: None, says: row.area }).collect();
+        let rows = rows.into_iter().map(|row| PopRow { glyph: None, label: row.title, ink: None, says: if row.area_row { "Area".into() } else { row.area } }).collect();
         let list = self.pop(look, name, rows, marked, vec![("↑↓", "choose"), ("↵", "pick"), ("⇥", "next")], cx, |this, at, window, cx| this.story_row(at, window, cx));
         deferred(div().absolute().top_full().left_0().mt(look.length(token::SPACE_1)).child(list)).with_priority(1).into_any_element()
     }

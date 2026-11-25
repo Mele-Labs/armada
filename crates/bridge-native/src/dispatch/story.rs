@@ -19,18 +19,30 @@ pub struct FeatureChoice {
     pub area: SharedString,
     /// The feature's slug, which a start names; on a project's row, Fleet's id for the project.
     pub slug: SharedString,
-    /// A row of his projects, offered while no project is chosen: taking it chooses the project and does not fill the blank.
-    pub project: bool,
+    pub kind: Kind,
 }
 
-/// A project's features as the list offers them, in the library's order. A feature the Operator has yet to bring to him is no
-/// feature of the catalog.
+/// What a row of the feature blank stands for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Feature,
+    /// A row of his projects, offered while no project is chosen: taking it chooses the project and does not fill the blank.
+    Project,
+    /// An area of the project, for a change to something the catalog does not hold: its title fills the blank, and the slug is the area's.
+    Area,
+}
+
+/// The area pending features are listed under, which is no area of the catalog.
+const PENDING_AREA: &str = "pending";
+
+/// A project's features as the list offers them, in the library's order, then its areas. A feature the Operator has yet to bring to
+/// him is no feature of the catalog, and the area it waits under is no area.
 pub fn catalog_of(library: &ipc::FeatureLibrary) -> Vec<FeatureChoice> {
-    library
-        .areas
-        .iter()
-        .flat_map(|area| area.features.iter().filter(|row| row.state != ipc::FeatureState::Pending).map(|row| FeatureChoice { title: row.title.clone().into(), area: area.title.clone().into(), slug: row.slug.clone().into(), project: false }))
-        .collect()
+    let features = library.areas.iter().flat_map(|area| {
+        area.features.iter().filter(|row| row.state != ipc::FeatureState::Pending).map(|row| FeatureChoice { title: row.title.clone().into(), area: area.title.clone().into(), slug: row.slug.clone().into(), kind: Kind::Feature })
+    });
+    let areas = library.areas.iter().filter(|area| area.slug != PENDING_AREA).map(|area| FeatureChoice { title: area.title.clone().into(), area: SharedString::default(), slug: area.slug.clone().into(), kind: Kind::Area });
+    features.chain(areas).collect()
 }
 
 /// A row of the feature list: the feature, or the kind's own extra row.
@@ -41,6 +53,8 @@ pub struct ListRow {
     pub area: SharedString,
     /// Fleet's id for the project, where the row is one of his projects.
     pub project: Option<SharedString>,
+    /// The row is an area of the project, not a feature: the list names it so where it draws the area.
+    pub area_row: bool,
 }
 
 /// The kinds whose opening begins with what has been typed, in the order the file lists them. Capitals do not matter,
@@ -188,15 +202,26 @@ impl Story {
     /// The feature of the catalog the first feature blank names, by its title.
     fn named<'a>(&self, catalog: &'a [FeatureChoice]) -> Option<&'a FeatureChoice> {
         let named = self.feature()?;
-        catalog.iter().find(|one| !one.project && one.title == named)
+        catalog.iter().find(|one| one.kind == Kind::Feature && one.title == named)
+    }
+
+    /// The area of the catalog the first feature blank names, by its title, where no feature has that title.
+    fn named_area<'a>(&self, catalog: &'a [FeatureChoice]) -> Option<&'a FeatureChoice> {
+        let named = self.feature().filter(|_| self.named(catalog).is_none())?;
+        catalog.iter().find(|one| one.kind == Kind::Area && one.title == named)
     }
 
     /// The words a start sends: the sentence, and a last line `Feature: <slug>` where the blank holds a feature of the catalog,
-    /// which Fleet hands the Job the page of. Words typed that are none of them add no line.
+    /// which Fleet hands the Job the page of. Where it holds an area, the line names the area and tells the Job to name the
+    /// feature itself. Words typed that are none of them add no line.
     pub fn brief(&self, catalog: &[FeatureChoice]) -> String {
         let words = self.words();
-        match self.named(catalog) {
-            Some(one) if !words.is_empty() => format!("{words}\nFeature: {}", one.slug),
+        if words.is_empty() {
+            return words;
+        }
+        match (self.named(catalog), self.named_area(catalog)) {
+            (Some(one), _) => format!("{words}\nFeature: {}", one.slug),
+            (None, Some(area)) => format!("{words}\nArea: {} ({}). Its feature is not in the catalogue: name one and write it as the Feature: line of your commits.", area.title, area.slug),
             _ => words,
         }
     }
@@ -205,9 +230,10 @@ impl Story {
     pub fn starts(&self, catalog: &[FeatureChoice]) -> String {
         let kind = self.kind();
         let says = if self.choice == 1 { kind.later.unwrap_or(kind.starts) } else { kind.starts };
-        match self.feature().filter(|_| self.named(catalog).is_some()) {
-            Some(title) => format!("Starts: {says} · {title} page"),
-            None => format!("Starts: {says}"),
+        match self.feature() {
+            Some(title) if self.named(catalog).is_some() => format!("Starts: {says} · {title} page"),
+            Some(title) if self.named_area(catalog).is_some() => format!("Starts: {says} · {title} area"),
+            _ => format!("Starts: {says}"),
         }
     }
 
@@ -218,8 +244,8 @@ impl Story {
         let typed = self.values[self.at].trim().to_lowercase();
         let rows = extra
             .iter()
-            .map(|title| ListRow { title: (*title).into(), area: SharedString::default(), project: None })
-            .chain(catalog.iter().map(|one| ListRow { title: one.title.clone(), area: one.area.clone(), project: one.project.then(|| one.slug.clone()) }))
+            .map(|title| ListRow { title: (*title).into(), area: SharedString::default(), project: None, area_row: false })
+            .chain(catalog.iter().map(|one| ListRow { title: one.title.clone(), area: one.area.clone(), project: (one.kind == Kind::Project).then(|| one.slug.clone()), area_row: one.kind == Kind::Area }))
             .filter(|row| typed.is_empty() || row.title.to_lowercase().contains(&typed) || row.area.to_lowercase().contains(&typed))
             .take(LIST_ROWS)
             .collect();
@@ -354,7 +380,7 @@ mod tests {
     const IDEA: usize = 2;
 
     fn catalog() -> Vec<FeatureChoice> {
-        let one = |title: &str, area: &str| FeatureChoice { title: title.to_string().into(), area: area.to_string().into(), slug: title.to_lowercase().into(), project: false };
+        let one = |title: &str, area: &str| FeatureChoice { title: title.to_string().into(), area: area.to_string().into(), slug: title.to_lowercase().into(), kind: Kind::Feature };
         vec![one("Login", "Account"), one("Checkout", "Payments"), one("Billing", "Payments")]
     }
 
@@ -486,15 +512,81 @@ mod tests {
         assert_eq!(story.brief(&catalog), "When I click Pay in the pay button", "words typed that are no title add no line");
         story.values[2] = "Checkout".into();
         assert_eq!(story.brief(&[]), "When I click Pay in Checkout", "a catalog not yet in names nothing");
-        let project = FeatureChoice { title: "Checkout".into(), area: SharedString::default(), slug: "storefront".into(), project: true };
+        let project = FeatureChoice { title: "Checkout".into(), area: SharedString::default(), slug: "storefront".into(), kind: Kind::Project };
         assert_eq!(story.brief(&[project]), "When I click Pay in Checkout", "a project's row is no feature");
+    }
+
+    fn library_catalog() -> Vec<FeatureChoice> {
+        catalog_of(&crate::features::mock::library())
+    }
+
+    #[test]
+    fn the_catalog_lists_areas_after_features_and_never_the_pending_one() {
+        let catalog = library_catalog();
+        let kinds: Vec<Kind> = catalog.iter().map(|one| one.kind).collect();
+        let first_area = kinds.iter().position(|kind| *kind == Kind::Area).expect("areas are listed");
+        assert!(kinds[..first_area].iter().all(|kind| *kind == Kind::Feature) && kinds[first_area..].iter().all(|kind| *kind == Kind::Area), "features, then areas");
+        let areas: Vec<(&str, &str)> = catalog.iter().filter(|one| one.kind == Kind::Area).map(|one| (one.title.as_ref(), one.slug.as_ref())).collect();
+        assert_eq!(areas, [("Running a Job", "running-a-job"), ("Job thread and terminal", "job-thread-and-terminal"), ("Pull requests and review", "pull-requests-and-review")], "no pending area");
+        assert!(catalog.iter().all(|one| one.title != "Agent notes on a diff"), "a pending feature is still no feature");
+    }
+
+    #[test]
+    fn area_rows_filter_by_typed_words_and_are_marked_as_areas() {
+        let catalog = library_catalog();
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        let rows = story.list(&catalog).expect("on a feature blank");
+        assert!(rows.iter().filter(|row| row.area_row).count() == 3 && rows.iter().rev().take(3).all(|row| row.area_row), "area rows come last");
+        write(&mut story, "pull requests", &catalog);
+        let rows = story.list(&catalog).expect("on a feature blank");
+        assert_eq!(
+            rows.iter().map(|row| (row.title.to_string(), row.area_row)).collect::<Vec<_>>(),
+            [("Pull request panel".to_string(), false), ("Reviews".to_string(), false), ("Pull requests and review".to_string(), true)],
+            "its features match by their area, and the area by its own title"
+        );
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        write(&mut story, "thread", &catalog);
+        assert_eq!(titles(story.list(&catalog)), ["Thread and composer", "Terminal Jobs", "Sessions without a Job", "Job thread and terminal"], "features, then the area");
+    }
+
+    #[test]
+    fn taking_an_area_fills_its_title_and_the_brief_and_starts_line_name_it() {
+        let catalog = library_catalog();
+        let mut story = Story::new(BUG);
+        story.values[0] = "click Pay".into();
+        story.go_to(2);
+        write(&mut story, "running", &catalog);
+        let at = story.list(&catalog).expect("on a feature blank").iter().position(|row| row.area_row).expect("the area is listed");
+        assert_eq!(story.take_row(at, &catalog), None, "an area is no project");
+        assert_eq!(story.values[2], "Running a Job");
+        assert_eq!(story.at, 4, "taking an area goes on, as taking a feature does");
+        assert_eq!(
+            story.brief(&catalog),
+            "When I click Pay in Running a Job\nArea: Running a Job (running-a-job). Its feature is not in the catalogue: name one and write it as the Feature: line of your commits."
+        );
+        assert_eq!(story.starts(&catalog), format!("{} · Running a Job area", story.starts(&[])));
+    }
+
+    #[test]
+    fn a_feature_still_gives_its_slug_and_typed_words_give_no_line_beside_areas() {
+        let catalog = library_catalog();
+        let mut story = Story::new(BUG);
+        story.values[0] = "click Pay".into();
+        story.values[2] = "Start a Job".into();
+        assert_eq!(story.brief(&catalog), "When I click Pay in Start a Job\nFeature: start-a-job");
+        assert!(story.starts(&catalog).ends_with("· Start a Job page"));
+        story.values[2] = "the pay button".into();
+        assert_eq!(story.brief(&catalog), "When I click Pay in the pay button");
+        assert!(!story.starts(&catalog).contains('·'));
     }
 
     #[test]
     fn a_project_row_taken_fills_nothing_stays_in_the_blank_and_names_the_project() {
         let projects = vec![
-            FeatureChoice { title: "Storefront".into(), area: SharedString::default(), slug: "storefront".into(), project: true },
-            FeatureChoice { title: "Docs".into(), area: SharedString::default(), slug: "docs".into(), project: true },
+            FeatureChoice { title: "Storefront".into(), area: SharedString::default(), slug: "storefront".into(), kind: Kind::Project },
+            FeatureChoice { title: "Docs".into(), area: SharedString::default(), slug: "docs".into(), kind: Kind::Project },
         ];
         let mut story = Story::new(BUG);
         story.go_to(2);
