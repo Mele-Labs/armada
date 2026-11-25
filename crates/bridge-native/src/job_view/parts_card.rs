@@ -292,6 +292,8 @@ struct Ctx<'a> {
     takes: Option<String>,
     /// Two or more votes still ask: each keeps its note box, and one Send picks in the foot sends them all.
     several: bool,
+    /// The artifact holds a prototype: its words are captioned as the Job's own, apart from the build he approves.
+    prototype: bool,
 }
 
 impl PartsState {
@@ -400,6 +402,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: false,
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         if is_pick(&part) {
             let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
@@ -858,6 +861,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
@@ -935,6 +939,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let footer = held_press(self.parts_footer(ix, id, &parts, true, None, page, look, cx));
@@ -2019,7 +2024,7 @@ impl JobView {
             return None;
         }
         let key = part_key(artifact, &part.id);
-        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false };
+        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false, prototype: false };
         let open = part.is_open_ask() && *form == VoteForm::Pick;
         let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
         let chosen = if open { c.state().chosen.get(&key).copied().filter(|at| *at < takes.len()) } else { picked };
