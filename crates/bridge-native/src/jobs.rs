@@ -2533,7 +2533,11 @@ impl JobsList {
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             act("try", "Try it in your app", None, false),
             act("judge", "Judge", Some("scale"), false),
-            act("close", "Close", Some("x"), true),
+            // Fleet carries Close to the Mac that holds the Job, so it stays on.
+            match self.record(&id).and_then(|job| crate::pairing::refusal_to(job, "/sessions/close", cx)) {
+                Some(why) => Entry::Item { id: "close", label: "Close".into(), icon: Some("x"), danger: true, key: None, off: Some(why.into()) },
+                None => Entry::Act { id: "close", label: "Close".into(), icon: Some("x"), danger: true },
+            },
             Entry::Rule,
         ];
         // Fleet pauses a Job it snoozes and Wake now resumes it, so a snoozed Job offers no Resume of its own.
