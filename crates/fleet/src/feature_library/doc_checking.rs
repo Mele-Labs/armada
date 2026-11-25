@@ -269,7 +269,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The served repositories of `project`, by Manifest id and root, in served order. `None` for a project Fleet does not hold.
-    fn served_members(&self, project: &str) -> Option<Vec<(String, PathBuf)>> {
+    pub(super) fn served_members(&self, project: &str) -> Option<Vec<(String, PathBuf)>> {
         let held = self.projects_held();
         let one = held.running().find(|one| one.id().as_str() == project)?;
         let served = self.repositories().served();

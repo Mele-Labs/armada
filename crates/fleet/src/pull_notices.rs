@@ -212,11 +212,14 @@ where
         // and all; the rest are told nothing that needs a check.
         let mine = self.mine_in(&root).await;
         let held = self.held_pulls(served).await;
+        // **One heard live is its events' to read**, and the engine's every ten minutes besides: left
+        // unread here, its queue last seen and its comments stay as its own reads left them.
+        let live = self.heard_live().await;
         let mut read = Vec::new();
         let mut asked = 0;
         for pull in followed.iter_mut() {
             let author = pull.author.as_ref().map(|it| it.as_written());
-            if !held.contains(&pull.number) && !mine.knows(author) {
+            if (!held.contains(&pull.number) && !mine.knows(author)) || live.contains(&root, pull.number) {
                 continue;
             }
             tokio::time::sleep(by_number_gap(asked)).await;
@@ -234,7 +237,7 @@ where
         }
         // The list stops at 100: a pull request someone holds that it left out is read by number.
         let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
-        for number in held.into_iter().filter(|number| !listed.contains(number)) {
+        for number in held.into_iter().filter(|number| !listed.contains(number) && !live.contains(&root, *number)) {
             tokio::time::sleep(by_number_gap(asked)).await;
             asked += 1;
             let gate = gate.clone();
@@ -271,7 +274,9 @@ where
             if pull.queue != PullQueue::Outside {
                 self.wire_told(served, pull).await;
             }
-            self.comments_told(served, pull, &mine).await;
+            if !live.contains(&root, pull.number) {
+                self.comments_told(served, pull, &mine).await;
+            }
         }
         let _ = self.store().lock().await.keep_pulls_queued(&root, &queued);
         self.merges_told(served, &base, &mine).await;

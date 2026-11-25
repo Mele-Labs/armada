@@ -116,3 +116,10 @@ fn a_check_of_the_docs_says_its_shape_and_a_doc_carries_what_it_found() {
     let read = shape::of::<crate::FeatureRead>();
     assert!(read.ends_with(&format!("drifted?: [string], check?: {check}}}")), "{read}");
 }
+
+#[test]
+fn a_library_start_says_its_shape_and_a_draft_names_what_it_kept_and_passed_over() {
+    assert_eq!(shape::of::<crate::LibraryStart>(), "{project: string, modules: [{name: string, slug: string, path: string, held?: boolean}], docs: [string]}");
+    assert_eq!(shape::of::<crate::DraftModules>(), "{project: string}");
+    assert_eq!(shape::of::<crate::ModulesDrafted>(), "{project: string, drafted: [string], held?: [string]}");
+}

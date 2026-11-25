@@ -1,0 +1,19 @@
+[operations.draft_module_features]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Make each module a project's build files name a pending feature, on the owner's press of Draft as Pending, for a project that holds no confirmed or seeded feature. Give the project"
+notes = """
+`POST /features/start/draft`, body `DraftModules`: `project`. Answered with `ModulesDrafted`: `project`, `drafted` (the slugs made) and `held` (the slugs passed over because the library holds them).
+
+**Each module `get_library_start` lists becomes its own pending feature**, in the area `pending` as a feature a Job named is: its slug and title from the module's name, its folder as its one path prefix in the module's repository, so the code map and health read it, and no summary. The root module of a repository owns no prefix. Fleet reads the modules again for the press; Bridge sends only the project. No model is asked.
+
+**A second press drafts nothing twice**: a slug the library holds, in any state, is passed over and named in `held`.
+
+**An area to confirm them into.** Where the project keeps no area, the press keeps one, `modules` titled Modules, so Confirm on a drafted row has a place to put it.
+
+Refused 409 `fleet.library_started` where the project holds a confirmed or seeded feature, 422 `fleet.feature_project` for a project Fleet does not hold, 422 `fleet.start_no_repository` where no repository of the project is served, and 422 `fleet.no_module` where its build files name no module and it has no folders. Nothing is kept on a refusal.
+
+**The Operator and Bridge reach it**, as `answer_retire` is reached. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""
