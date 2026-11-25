@@ -173,6 +173,12 @@ fn buttons(this: &SystemBlock, part: &SystemPart, look: &Look, cx: &mut Context<
                 .into_any_element(),
         );
     }
+    if part.kind != SystemPartKind::Person {
+        out.push(
+            labelled(Btn::new("system-start-work", "Start a Job…", Weight::Secondary).draw(look, cx).tooltip(tip("Start a Job on this part, from a sentence")).on_click(cx.listener(|this, _, window, cx| this.open_work_box(window, cx))), Role::Button, "Start a Job here")
+                .into_any_element(),
+        );
+    }
     if let PartOrigin::Librarian { addition, .. } = &part.origin {
         let (keep, remove, rework) = (addition.clone(), addition.clone(), addition.clone());
         out.push(labelled(Btn::new("system-keep", "Keep", Weight::Primary).draw(look, cx).tooltip(tip("It joins the map as if it were found")).on_click(cx.listener(move |this, _, window, cx| this.answer_addition(&keep, AdditionAnswer::Keep, window, cx))), Role::Button, "Keep").into_any_element());
@@ -196,7 +202,7 @@ fn head(this: &SystemBlock, look: &Look, mark: &'static str, hue: Token, name: S
         PartOrigin::Librarian { why, .. } => Some(why.clone()),
         _ => None,
     });
-    let note = rework_box(this, look, cx);
+    let note = rework_box(this, look, cx).or_else(|| work_box(this, look, cx));
     div()
         .flex()
         .flex_col()
@@ -230,6 +236,18 @@ fn head(this: &SystemBlock, look: &Look, mark: &'static str, hue: Token, name: S
         .children((!buttons.is_empty()).then(|| div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(buttons)))
         .children(note)
         .into_any_element()
+}
+
+/// What a Job started on the part should do, under the buttons.
+fn work_box(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>) -> Option<AnyElement> {
+    let Some(Compose::Work { input, .. }) = &this.compose else { return None };
+    let blank = input.read(cx).value().trim().is_empty();
+    let send = labelled(
+        Btn::new("system-start-job", "Start a Job", Weight::Primary).disabled(blank).pending(this.starting).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.start_job(window, cx))),
+        Role::Button,
+        "Start a Job",
+    );
+    Some(compose_box(look, input, send.into_any_element(), cx))
 }
 
 /// The note to the librarian, under the buttons of a part it added.
@@ -269,7 +287,7 @@ fn compose_box(look: &Look, input: &gpui::Entity<gpui_component::input::Textarea
                 cx.stop_propagation();
             } else if key.key == "enter" && key.modifiers.platform {
                 match &this.compose {
-                    Some(Compose::Feature { .. }) => this.start_job(window, cx),
+                    Some(Compose::Feature { .. } | Compose::Work { .. }) => this.start_job(window, cx),
                     Some(Compose::Rework { addition, .. }) => {
                         let (addition, note) = (addition.clone(), this.words(cx).trim().to_string());
                         if !note.is_empty() {
@@ -393,7 +411,8 @@ fn sections(this: &SystemBlock, part: &SystemPart, answers: &SystemPartAnswers, 
             .child(tile)
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(feature.title.clone())))
             .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)));
-        rows.push(pressable(look, format!("system-feature-row-{}", feature.slug), format!("{}, open the feature", feature.title), row, move |this, _, cx| this.open_feature(&slug, cx), cx));
+        let said = if this.draws_path(&feature.slug) { format!("{}, draw its path", feature.title) } else { format!("{}, open the feature", feature.title) };
+        rows.push(pressable(look, format!("system-feature-row-{}", feature.slug), said, row, move |this, window, cx| this.press_feature(&slug, window, cx), cx));
     }
     let add = div()
         .flex()

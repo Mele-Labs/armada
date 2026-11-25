@@ -138,7 +138,7 @@ fn return_looks_inside_the_selected_part_esc_steps_out_and_esc_at_level_one_puts
     assert!(drawn(cx, Role::Heading, "Bridge"), "the crumb at the end names where he is");
     assert!(drawn(cx, Role::Button, "Step out to Project"));
     assert!(drawn(cx, Role::Button, "project_board, part"), "level two draws the pieces of Bridge");
-    assert!(drawn(cx, Role::Button, "Dashboard, draw its path"), "a feature of level two is a row with a chevron");
+    assert!(drawn(cx, Role::Button, "Dashboard, draw its path"), "on level two the panel's feature rows draw the feature's path");
     cx.simulate_keystrokes("escape");
     redraw(cx);
     assert_eq!(block.read_with(cx, |block, _| block.trail.depth()), 1);
@@ -149,8 +149,9 @@ fn return_looks_inside_the_selected_part_esc_steps_out_and_esc_at_level_one_puts
 }
 
 #[gpui::test]
-fn a_feature_of_level_two_draws_its_path_and_a_crumb_steps_back_out_to_the_project(cx: &mut TestAppContext) {
+fn a_feature_row_of_level_two_draws_its_path_and_a_crumb_steps_back_out_to_the_project(cx: &mut TestAppContext) {
     let (block, cx) = block(cx, ARMADA);
+    assert!(drawn(cx, Role::Button, "Dashboard, open the feature"), "on level one a feature row opens the feature's page");
     press(cx, Role::Button, "Bridge, entry point");
     cx.simulate_keystrokes("enter");
     redraw(cx);
@@ -206,6 +207,25 @@ fn new_feature_takes_a_sentence_and_start_a_job_sends_it_and_clears_the_draft(cx
     assert_eq!(block.read_with(cx, |block, _| block.started.clone()), ["New feature, beginning at Bridge: Show errors on the board"]);
     assert!(block.read_with(cx, |block, _| block.compose.is_none()));
     assert_eq!(cx.update(|_, cx| crate::drafts::kept(&key, cx)), None);
+}
+
+#[gpui::test]
+fn start_a_job_on_a_part_sends_the_part_and_its_code_with_the_sentence(cx: &mut TestAppContext) {
+    let (block, cx) = block(cx, ARMADA);
+    press(cx, Role::Button, "Bridge, entry point");
+    press(cx, Role::Button, "Start a Job here");
+    cx.simulate_input("Make the board load faster");
+    redraw(cx);
+    press(cx, Role::Button, "Start a Job");
+    assert_eq!(block.read_with(cx, |block, _| block.started.clone()), ["Work on Bridge, in crates/bridge-native/: Make the board load faster"]);
+    assert!(block.read_with(cx, |block, _| block.compose.is_none()));
+    assert_eq!(cx.update(|_, cx| crate::drafts::kept(&format!("system.work.{ARMADA}.bridge"), cx)), None);
+}
+
+#[test]
+fn a_job_on_an_outside_part_is_told_what_the_part_is() {
+    let part = ipc::SystemPart { id: "buildkite".into(), name: "Buildkite API".into(), kind: ipc::SystemPartKind::Outside, summary: "api.buildkite.com".into(), within: None, manifest_id: None, paths: Vec::new(), zooms: false, origin: ipc::PartOrigin::Detected { from: "files".into() } };
+    assert_eq!(super::work_request(&part, "Retry a failed build"), "Work on Buildkite API (api.buildkite.com): Retry a failed build");
 }
 
 #[gpui::test]
@@ -275,4 +295,32 @@ fn the_mock_says_of_a_part_what_its_map_says() {
     assert!(!super::mock::answers(ARMADA, "f_daemon").has_screen);
     assert!(!super::mock::answers(ARMADA, "b_jobs").features.is_empty());
     assert!(super::mock::answers("auto-ynab", "s_rev").has_screen);
+}
+
+#[gpui::test]
+fn on_level_two_a_link_inside_a_lane_is_drawn_only_while_a_piece_at_one_end_is_hovered(cx: &mut TestAppContext) {
+    let (block, cx) = block(cx, "ynab");
+    press(cx, Role::Button, "Web app, entry point");
+    cx.simulate_keystrokes("enter");
+    redraw(cx);
+    assert_eq!(block.read_with(cx, |block, _| block.trail.depth()), 2);
+    // main.py calls the backend's other modules, which stand in its own lane; the screens call main.py from theirs.
+    let shown = |block: &SystemBlock| {
+        let (_, laid) = block.laid.as_ref().expect("the level is laid out");
+        let map = block.level().expect("the level is read");
+        let drawn = super::arrange::shown(laid, map, &block.hover, block.selected.as_deref());
+        let inside = |id: &str| laid.edges.iter().zip(&drawn).filter(|(edge, _)| edge.lane && laid.nodes[edge.from].id == id).map(|(_, drawn)| *drawn).collect::<Vec<bool>>();
+        let between = laid.edges.iter().zip(&drawn).filter(|(edge, _)| !edge.lane).all(|(_, drawn)| *drawn);
+        (inside("main"), between)
+    };
+    let (inside, between) = block.read_with(cx, |block, _| shown(block));
+    assert!(!inside.is_empty() && inside.iter().all(|drawn| !drawn), "at rest none of main.py's links to its own lane is drawn");
+    assert!(between, "every link between lanes is");
+    let at = find(cx, Role::Button, "main.py, part").expect("main.py is drawn").center();
+    cx.simulate_mouse_move(at, None, Modifiers::default());
+    redraw(cx);
+    assert_eq!(block.read_with(cx, |block, _| block.hover.clone()), super::arrange::Hover::Part("main".into()));
+    let (inside, between) = block.read_with(cx, |block, _| shown(block));
+    assert!(inside.iter().all(|drawn| *drawn), "hovering main.py draws them");
+    assert!(between, "and the links between lanes are still drawn");
 }
