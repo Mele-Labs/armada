@@ -408,6 +408,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     card_items(scenario, &mut sessions);
+    fleet_places(&mut sessions);
     if scenario == "asks-answered" {
         asks_answered(&mut sessions)?;
     }
@@ -462,6 +463,44 @@ fn card_items(scenario: &str, sessions: &mut [SessionRecord]) {
                 operator_read: None,
                 artifact: None,
             });
+        }
+    }
+}
+
+/// Where the first Job named its own order (`order_waiting`): its two questions first, each with its why.
+const JOB_PLACES: [(&str, &str); 2] = [("ask:call-1", "The chip's colour waits on your pick"), ("ask:call-1#1", "The tooltip's words wait on where the count shows")];
+
+/// Each ask's place and why, as Fleet sends them (`needs_first.rs`): the first Job's own order first, then the rest
+/// by band (blocks the work, a page, a build to try, done) and the list's own order within one, with Fleet's sentence.
+fn fleet_places(sessions: &mut [SessionRecord]) {
+    for one in sessions.iter_mut() {
+        let named = |item: &WaitingItem| if one.id.as_str() == "mock-01" { JOB_PLACES.iter().position(|(id, _)| *id == item.id) } else { None };
+        let band = |item: &WaitingItem| match item.source {
+            WaitingSource::Document => (2, "A page to read"),
+            WaitingSource::ReadyToTry => (3, "Try it once the asks above are answered"),
+            WaitingSource::Done => (4, "The work is done"),
+            _ => (1, "Asked first because the work waits on it"),
+        };
+        let mut keyed: Vec<((usize, usize), WaitingItem)> = std::mem::take(&mut one.waiting_for)
+            .into_iter()
+            .map(|item| {
+                let key = match named(&item) {
+                    Some(at) => (0, at),
+                    None => (band(&item).0, 0),
+                };
+                (key, item)
+            })
+            .collect();
+        keyed.sort_by_key(|(key, _)| *key);
+        for (at, (_, mut item)) in keyed.into_iter().enumerate() {
+            if item.order == 0 {
+                item.why = match named(&item) {
+                    Some(place) => JOB_PLACES[place].1.to_string(),
+                    None => band(&item).1.to_string(),
+                };
+            }
+            item.order = u32::try_from(at + 1).unwrap_or(u32::MAX);
+            one.waiting_for.push(item);
         }
     }
 }

@@ -15,6 +15,7 @@ mod acts;
 mod artifacts_tab;
 mod ask_card;
 mod ask_line;
+mod first_card;
 mod for_you_tab;
 mod questions;
 mod reader_sheet;
@@ -249,8 +250,9 @@ pub(crate) enum Extra {
     Parts(String, u32),
     /// What he sent from the sheet on an ask no card of the thread stands for, by its key (`ask_line::answer_key`).
     Answer(String),
-    /// The open card of questions, by its call: a card for each question that still waits, answered in place (`ask_card`).
-    Asked(String),
+    /// The Job's first open ask in Fleet's order, by its card's key (`first_key`): the one ask that stands as a card, under a bar of the steps
+    /// it leads (`first_card`).
+    First(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -1089,9 +1091,9 @@ impl JobView {
             .unwrap_or_default();
         let (answered, loose_tail) = parts_fold::place(&held.items, &loose);
         cards.extend(loose_tail.into_iter().map(|(key, _)| Extra::Answer(key)));
-        // The open card of questions is answered in place, a card for each question.
-        if let Some(asked) = held.head.asked.as_ref().filter(|asked| !asked.call.questions.is_empty()) {
-            cards.push(Extra::Asked(asked.call.call.clone()));
+        // Of all he is asked, only the first in Fleet's order stands as a card; the next takes its place once it is answered.
+        if let Some(first) = self.first_ask(id, cx) {
+            cards.push(Extra::First(first_card::first_key(&first)));
         }
         let asks: Vec<String> = self
             .review_items(id, cx)

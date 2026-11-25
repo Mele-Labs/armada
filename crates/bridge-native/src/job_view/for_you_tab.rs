@@ -787,16 +787,17 @@ mod tests {
     fn a_question_needs_you_already_lists_has_no_second_row_and_its_line_brings_the_thread_to_its_card(cx: &mut TestAppContext) {
         use super::super::parts_fold::{redraw, rooted_job};
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", gpui::size(gpui::px(1440.), gpui::px(900.)), |_| {});
-        let question = "Where does the chip show how far behind it is?";
+        // The Job's first ask, so it is the one with a card in the thread.
+        let question = "Which colour does the stale chip take?";
         let row = ForYouItem {
-            id: "ask:call-1#1".into(),
+            id: "ask:call-1".into(),
             kind: ipc::ForYouKind::Question,
             title: question.into(),
             line: None,
             placed: false,
             since: ipc::Instant::carried("2026-11-15T14:02:00Z"),
             added_by: ipc::ForYouBy::Fleet,
-            opens: ForYouOpens::Waiting { id: "ask:call-1#1".into() },
+            opens: ForYouOpens::Waiting { id: "ask:call-1".into() },
             approves: false,
         };
         let read = ForYou { job: SessionId::carried("mock-01".to_string()), waiting: vec![row], building: Vec::new(), landing: Vec::new() };

@@ -780,7 +780,7 @@ impl JobView {
                 let answer = self.record(job, cx)?.answers.iter().find(|one| super::ask_line::answer_key(one) == *key)?;
                 return Some(self.answer_card(answer, look, cx));
             }
-            Extra::Asked(call) => return head.asked.as_ref().filter(|asked| asked.call.call == *call).and_then(|asked| self.asked_cards(page.items + at, &asked.call, page, look, cx)),
+            Extra::First(_) => return self.first_card(page.items + at, page, look, cx),
             Extra::Parts(artifact, revision) => return self.parts_card(page.items + at, artifact, *revision, false, false, page, look, cx),
             Extra::Judging(reading) => return Some(self.judging_card(reading, look, cx)),
             Extra::Pending(i) => {

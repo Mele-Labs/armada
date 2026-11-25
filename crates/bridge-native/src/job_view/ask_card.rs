@@ -1,6 +1,6 @@
-//! The open card of questions in the thread: a card for each question that still waits, answered in place (25 Nov). A press
-//! on an option answers it; Answer in words opens a box that takes formatting, pictures and tags. The sheet answers the same
-//! item, and either place's answer takes it out of the other.
+//! A question's answers on the thread's first card (`first_card`): an option to press for each choice, then Answer in words
+//! and Dismiss. A press on an option answers it; Answer in words opens a box that takes formatting, pictures and tags. The
+//! sheet answers the same item, and either place's answer takes it out of the other.
 
 use std::rc::Rc;
 
@@ -8,10 +8,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString,
 use ipc::{AnswerWaiting, DismissWaiting, SessionId, WaitingItem};
 
 use super::acts::{refusal, Mode};
-use super::ask_line::{ask_item_id, ask_tile};
-use super::band_card::{foot_box, frame};
 use super::keys::{Card, Run};
-use super::review::Ask;
 use super::rows::tip;
 use super::sketch_card::{act, Kind};
 use super::{JobView, Page};
@@ -27,53 +24,12 @@ pub(super) fn card_key(item: &str) -> String {
 }
 
 impl JobView {
-    /// The cards of the open card of questions `ask`, drawn at list place `ix`: one for each question the sheet holds that he
-    /// has not answered. None where none waits.
-    pub(super) fn asked_cards(&self, ix: usize, ask: &ipc::CallInFlight, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.clone()?;
-        let record = self.record(&job, cx)?;
-        let cards: Vec<AnyElement> = (0..ask.questions.len())
-            .filter_map(|at| {
-                let item = ask_item_id(&ask.call, at);
-                if self.dock_of(&job).is_some_and(|dock| dock.hidden.contains(&item)) {
-                    return None;
-                }
-                let held = self.held_item(&job, &item, cx)?;
-                let waiting = record.waiting_for.iter().find(|one| one.id == item)?;
-                Some(self.asked_card(ix, waiting, &held.name, &held.since, page, look, cx))
-            })
-            .collect();
-        (!cards.is_empty()).then(|| div().w_full().flex().flex_col().gap(look.length(token::SPACE_3)).children(cards).into_any_element())
-    }
-
-    /// One question as a card: its mark, the question and its age, an option to press for each choice, then Answer in words
-    /// and Dismiss. Answer in words puts the box and Cancel and Send answer in their place.
-    #[allow(clippy::too_many_arguments)]
-    fn asked_card(&self, ix: usize, waiting: &WaitingItem, title: &str, since: &str, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The answers to question `waiting` titled `title`, on the first card at list place `ix`: its options, then Answer in
+    /// words and Dismiss. Answer in words puts the box and Cancel and Send answer in their place.
+    pub(super) fn question_body(&self, ix: usize, waiting: &WaitingItem, title: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let item = waiting.id.clone();
         let key = card_key(&item);
         let noting = page.cards.modes.get(&key) == Some(&Mode::Note);
-        let age = super::rows::age(since, chrono::Local::now());
-        let head = div()
-            .flex()
-            .items_start()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_4))
-            .pt(look.length(token::SPACE_3))
-            .child(ask_tile(look, &key, Ask::Question))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(title.to_string())),
-            )
-            .children(age.map(|age| {
-                div().flex_none().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(age)
-            }));
         let options: Vec<AnyElement> = waiting
             .options
             .iter()
@@ -114,7 +70,7 @@ impl JobView {
             })
             .collect();
         let options = (!options.is_empty() && !noting).then(|| {
-            labelled(div().id(SharedString::from(format!("asked-options:{item}"))).flex().flex_col().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_4)).children(options), Role::Group, "Options")
+            labelled(div().id(SharedString::from(format!("asked-options:{item}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(options), Role::Group, "Options")
         });
         let words: Run = {
             let item = item.clone();
@@ -193,22 +149,13 @@ impl JobView {
                 ))
                 .into_any_element()
         };
-        let spot = page.keys.spot(&format!("card:{key}"), cx);
-        let aim = key.clone();
-        let card = frame(look, self.band_narrow(look))
-            .id(SharedString::from(format!("asked:{item}")))
-            .gap(look.length(token::SPACE_3))
-            .track_focus(&spot.focus)
-            .in_focus(|style| style.border_color(look.color(token::ACCENT)))
-            .on_mouse_down(gpui::MouseButton::Left, cx.listener(move |this, _, _, _| this.aim(&aim)))
-            .child(head)
-            .children(options)
-            .child(
-                foot_box(look)
-                    .children(page.cards.said.get(&key).map(|why| refusal(look, &key, why.clone())))
-                    .child(super::acts::gated(div().id(SharedString::from(format!("answers:{key}"))).child(foot), self.off_shown_to(ANSWER, cx))),
-            );
-        labelled(card, Role::Article, format!("Question: {title}")).into_any_element()
+        let said = page.cards.said.get(&key).map(|why| refusal(look, &key, why.clone()));
+        options
+            .map(IntoElement::into_any_element)
+            .into_iter()
+            .chain(said)
+            .chain([super::acts::gated(div().id(SharedString::from(format!("answers:{key}"))).child(foot), self.off_shown_to(ANSWER, cx)).into_any_element()])
+            .collect()
     }
 
     /// Question `item` answered on its thread card at list place `ix`: by its option `choice`, else in the words of its box.
