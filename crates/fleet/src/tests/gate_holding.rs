@@ -119,6 +119,7 @@ async fn all_done_is_held_while_a_gate_is_open_and_the_last_close_finishes_the_j
 async fn a_call_held_stops_standing_when_he_writes() {
     let rig = rig_placing(None);
     let id = with_gates(&rig, &[("Deliver", PlanGate::Merged)]).await;
+    pull(&rig, &id, "3360", "open").await;
     done(&rig, &id).await;
     rig.send(&id, "one more thing").await;
     assert!(read(&rig, &id).await.plan.expect("a plan").held.is_none());
@@ -182,22 +183,35 @@ async fn a_merged_group_with_a_task_still_open_refuses_all_done_by_name_and_asks
     assert!(done(&rig, &id).await.done_since.is_some());
 }
 
+/// 25 Nov 2026: a group that landed in no pull request of its own asked him "has no open pull request to
+/// merge" with Approve and Skip, which only the agent could answer.
 #[tokio::test]
-async fn a_merge_gate_with_no_pull_request_says_so_and_what_each_choice_does() {
+async fn a_merge_gate_with_no_pull_request_refuses_all_done_with_what_to_do_and_asks_him_nothing() {
     let rig = rig_placing(None);
     let id = with_gates(&rig, &[("Deliver", PlanGate::Merged)]).await;
-    done(&rig, &id).await;
+    let refused = rig.fleet.all_done(None, AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap_err();
+    assert_eq!(refused.error().code, crate::gate_holding::MERGE_UNOPENED);
+    let said = refused.error().message.clone();
+    assert!(said.starts_with("all_done refused. \"Deliver\" waits on a merge, and no pull request for it is open."), "{said}");
     let record = read(&rig, &id).await;
-    let item = gate_item(&record).expect("nothing in the Job can close it");
-    assert_eq!(item.text, "\"Deliver\" has no open pull request to merge");
-    let said: Vec<_> = item.options.iter().map(|one| (one.label.as_str(), one.description.as_deref())).collect();
-    assert_eq!(
-        said,
-        [
-            ("Approve", Some("Count this group as done. The Job ends if nothing else is open.")),
-            ("Skip this group", Some("Close this group as skipped. The Job ends if nothing else is open.")),
-        ]
-    );
+    assert!(record.plan.as_ref().expect("a plan").held.is_none(), "refused, not held");
+    assert!(gate_item(&record).is_none(), "nothing reaches him");
+
+    // A pull request on the way holds the call, still without asking him.
+    pull(&rig, &id, "3360", "open").await;
+    assert!(done(&rig, &id).await.plan.expect("a plan").held.is_some());
+    assert!(gate_item(&read(&rig, &id).await).is_none());
+}
+
+#[tokio::test]
+async fn a_held_call_whose_next_gate_waits_on_a_merge_nothing_is_on_the_way_to_goes_back_to_the_agent() {
+    let rig = rig_placing(None);
+    let id = with_gates(&rig, &[("Draw it", PlanGate::SketchApproved), ("Deliver", PlanGate::Merged)]).await;
+    assert!(done(&rig, &id).await.plan.expect("a plan").held.is_some(), "the sketch is first, and his");
+    let record = pressed(&rig, &id, "gate:g1", 0).await;
+    assert!(record.plan.as_ref().expect("a plan").held.is_none(), "the hold is cleared");
+    assert!(gate_item(&record).is_none(), "and nothing reaches him");
+    eventually(|| async { told(&rig, "waits on a merge, and no pull request for it is open") == 1 }).await;
 }
 
 #[tokio::test]

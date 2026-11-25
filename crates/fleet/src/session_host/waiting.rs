@@ -1085,15 +1085,18 @@ where
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
         let owed = crate::feature_library::sections_owed_text(store, id).map_err(|why| self.ledger_fault(why))?;
         let tasks = if gated { crate::gate_holding::tasks_open_text(store, id) } else { None };
-        let code = match (&later, &unshown, &flying, &owed, &tasks) {
-            (None, None, None, None, None) => return Ok(()),
-            (_, _, Some(_), _, _) => crate::lifecycles::ending::IN_FLIGHT,
-            (Some(_), _, None, _, _) => super::later::LATER_OPEN,
-            (None, Some(_), None, _, _) => super::ways_checking::PICTURE_OWED,
-            (None, None, None, Some(_), _) => crate::feature_library::OWED,
-            (None, None, None, None, Some(_)) => crate::gate_holding::TASKS_OPEN,
+        // A task still open is the reason a merge has not closed the gate, so it is said alone.
+        let unopened = if gated && tasks.is_none() { crate::gate_holding::merge_unopened_text(store, id) } else { None };
+        let code = match (&later, &unshown, &flying, &owed, &tasks, &unopened) {
+            (None, None, None, None, None, None) => return Ok(()),
+            (_, _, Some(_), _, _, _) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None, _, _, _) => super::later::LATER_OPEN,
+            (None, Some(_), None, _, _, _) => super::ways_checking::PICTURE_OWED,
+            (None, None, None, Some(_), _, _) => crate::feature_library::OWED,
+            (None, None, None, None, Some(_), _) => crate::gate_holding::TASKS_OPEN,
+            (None, None, None, None, None, Some(_)) => crate::gate_holding::MERGE_UNOPENED,
         };
-        let reasons: Vec<String> = [later, unshown, flying, owed, tasks].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying, owed, tasks, unopened].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }
