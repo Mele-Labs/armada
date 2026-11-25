@@ -16,6 +16,7 @@ import {
   Play,
   PowerOff,
   RefreshCw,
+  Scale,
   Square,
   SquareTerminal,
 } from "lucide-react";
@@ -58,6 +59,7 @@ import { TryLine, useTryCards } from "./ReadyToTry";
 import {
   artifactPath,
   artifactsPath,
+  judgePath,
   documentPath,
   draftPath,
   filePath,
@@ -429,6 +431,13 @@ const REFRESH_ENTRY = {
 } as const;
 
 /** The entry that opens the Job's artifacts, which a Job that showed none does not carry. */
+const JUDGE_ENTRY = {
+  kind: "item",
+  id: "judge",
+  label: "Judge…",
+  icon: Scale,
+} as const;
+
 const ARTIFACTS_ENTRY = {
   kind: "item",
   id: "artifacts",
@@ -444,6 +453,7 @@ function menuOf(
 ): DropdownMenuEntry[] {
   if (session.waits !== undefined)
     return [
+      JUDGE_ENTRY,
       ...(showed
         ? [
             ARTIFACTS_ENTRY,
@@ -466,6 +476,7 @@ function menuOf(
         label: "Fork",
         icon: GitFork,
       },
+      JUDGE_ENTRY,
       ...(showed
         ? [
             ARTIFACTS_ENTRY,
@@ -505,6 +516,7 @@ function menuOf(
       label: "Fork",
       icon: GitFork,
     },
+    JUDGE_ENTRY,
     ...(showed
       ? [
           ARTIFACTS_ENTRY,
@@ -780,6 +792,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     else if (entry === "end") void run(() => acts.close(job));
     else if (entry === "fork") void run(async () => openJob((await acts.fork(job)).id));
     else if (entry === "artifacts") go(artifactsPath(machine.origin, id));
+    else if (entry === "judge") go(judgePath(machine.origin, id));
     else if (entry === "refresh") void run(() => refreshPreview(machine));
     else if (entry.startsWith("model:") || entry.startsWith("effort:")) {
       const model = entry.startsWith("model:") ? entry.slice("model:".length) : session.model;
