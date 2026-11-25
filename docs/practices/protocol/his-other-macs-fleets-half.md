@@ -81,7 +81,7 @@ Electron's main process ignores a kind it does not know (`apps/desktop/src/main/
 
 ## Acting across Macs
 
-An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `answer_ready_to_try`, `stop_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
+An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `answer_ready_to_try`, `stop_session`, `close_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
 **`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
 `/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
 The row that comes back is kept as that Mac's, and answered with its `mac`.
