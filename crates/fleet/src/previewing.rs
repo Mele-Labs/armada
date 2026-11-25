@@ -27,7 +27,7 @@ use adapters::BuildMerges;
 use crate::building::{commit_in, held_by_merges, held_in, restarting_in, source_in, Held};
 use crate::daemon::Fleet;
 use crate::preview_carried::{carried_lines, Carried};
-use crate::preview_macs::{clash_why, clashed_with, file_of, in_check_order, tips_here, NOT_ON_ORIGIN};
+use crate::preview_macs::{clash_why, clashed_with, file_of, in_check_order, tips_here, Partners, NOT_ON_ORIGIN};
 use crate::pull_notices::short;
 use crate::repositories::Served;
 
@@ -330,7 +330,7 @@ where
         if offers.is_empty() && partners.offers.is_empty() && !shifted {
             // A Mac left out, or back, is something the answer says though no offer is left to check.
             if !partners.left_out.is_empty() || self.left_out_shown() {
-                self.preview_moved().await;
+                self.preview_moved_with(&partners).await;
             }
             return;
         }
@@ -341,13 +341,18 @@ where
         if went || moved || unfinished || shifted || owed {
             self.preview_check_wanted();
         }
-        self.preview_moved().await;
+        self.preview_moved_with(&partners).await;
     }
 
     /// The offers and the Refresh row as Bridge draws them.
     pub(crate) async fn preview_offers_read(&self) -> PreviewOffers {
-        let build = self.preview_build();
         let partners = self.partners_read().await;
+        self.preview_offers_read_with(&partners).await
+    }
+
+    /// `preview_offers_read` where the offers held from other Macs are already read, so a pass reads them once.
+    async fn preview_offers_read_with(&self, partners: &Partners) -> PreviewOffers {
+        let build = self.preview_build();
         let carried = self.preview_carried().await;
         let held: Vec<&str> = carried.iter().filter(|one| one.held).map(|one| one.branch.as_str()).collect();
         let titles = self.titles_of_last(self.build_checkout().as_deref(), &held).await;
@@ -390,7 +395,7 @@ where
         let id = refresh_id(&ready);
         let skipped = store.preview_refresh_skipped().ok().flatten().is_some_and(|skipped| skipped == id);
         let refresh = (!new.is_empty() && !skipped).then_some(PreviewRefresh { id, branches: new, keeps });
-        PreviewOffers { offers: rows, refresh, left_out: partners.left_out }
+        PreviewOffers { offers: rows, refresh, left_out: partners.left_out.clone() }
     }
 
     /// `skip_preview_refresh`: keep the id skipped, so the row is hidden until the ready set changes.
@@ -449,15 +454,21 @@ where
     /// The set of offers moved: write what `scripts/preview` reads and publish the answer, each only where
     /// it differs from what was last written or sent.
     pub(crate) async fn preview_moved(&self) {
+        let partners = self.partners_read().await;
+        self.preview_moved_with(&partners).await;
+    }
+
+    /// `preview_moved` where the offers held from other Macs are already read.
+    async fn preview_moved_with(&self, partners: &Partners) {
         let kept = self.store().lock().await.preview_offered_all().unwrap_or_default();
-        let offers = file_of(&kept, &self.partners_read().await);
+        let offers = file_of(&kept, partners);
         let offered: BTreeSet<String> = offers.lines().filter_map(|line| line.split('\t').next()).map(str::to_string).collect();
         let wanted = carried_lines(&self.preview_carried().await, &offered) + &offers;
         let path = crate::runtime::support_dir(&self.host().home).join(OFFERED);
         if std::fs::read_to_string(&path).ok().as_deref() != Some(wanted.as_str()) {
             let _ = written_atomically(&path, &wanted);
         }
-        let now = self.preview_offers_read().await;
+        let now = self.preview_offers_read_with(partners).await;
         let changed = {
             let mut sent = self.previewing().sent.lock().expect("not poisoned");
             let changed = sent.as_ref() != Some(&now);

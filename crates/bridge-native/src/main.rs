@@ -41,6 +41,9 @@ mod first_run;
 mod fleet;
 mod frames;
 mod history;
+// Nothing draws the Cockpit's home grid yet; its blocks wait for it.
+#[allow(dead_code)]
+mod home;
 mod job_tokens;
 mod job_view;
 mod inspect;
@@ -107,7 +110,7 @@ mod walk;
 mod ways;
 mod whisper;
 
-/// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
+/// Written by `cargo xtask verify-vocabulary --write` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]
 mod generated {
     pub mod actions;
@@ -385,7 +388,7 @@ fn main() -> ExitCode {
         let options = |title: String| WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             // Frameless, as Electron's `titleBarStyle: "hiddenInset"`: the app draws its own title row, and the
-            // traffic lights sit where Electron puts them, 16 down a 44px row (`apps/desktop/src/main/index.ts`).
+            // traffic lights sit where Electron puts them, 16 down a 44px row (`classic-final:apps/desktop/src/main/index.ts`).
             titlebar: Some(TitlebarOptions {
                 title: Some(title.into()),
                 appears_transparent: true,

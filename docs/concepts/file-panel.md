@@ -6,7 +6,7 @@
 
 **Kind:** Concept.
 
-A file opens in the side panel as an item of kind `file` (`apps/desktop/src/renderer/src/shared-panel/store.ts`).
+A file opens in the side panel as an item of kind `file` (`classic-final:apps/desktop/src/renderer/src/shared-panel/store.ts`).
 It shows in a code editor; edits are kept, and ⌘S saves.
 Why CodeMirror and not the text box the Manifest file view uses: `.claude/decisions/2026-10-19-codemirror-is-bridges-one-editor-dependency.md`.
 
@@ -17,7 +17,7 @@ Why CodeMirror and not the text box the Manifest file view uses: `.claude/decisi
 
 | Source | What main checks the path against | Opens |
 |---|---|---|
-| A Session's file | The Session's ledger file artifacts, `namesFile` in `apps/desktop/src/main/session-file.ts` | Yes |
+| A Session's file | The Session's ledger file artifacts, `namesFile` in `classic-final:apps/desktop/src/main/session-file.ts` | Yes |
 | settings.json | The one path Fleet reported | Yes |
 | A picked file | A file chosen in this run's ⌘O dialog | Yes |
 | A Kit item | Nothing: main's Kit rows carry no path, so there is no set to belong to | Refused for now; Kit wiring follows the System sidebar PR |
@@ -43,7 +43,7 @@ Unsaved edits are kept per path across closing the panel, and cleared on save.
 
 ## What does not open for editing
 
-Text that is not UTF-8, and a file over 8 MiB (`MOST_BYTES` in `apps/desktop/src/main/session-file.ts`), do not open for editing. A picture shows and cannot be edited.
+Text that is not UTF-8, and a file over 8 MiB (`MOST_BYTES` in `classic-final:apps/desktop/src/main/session-file.ts`), do not open for editing. A picture shows and cannot be edited.
 `show_file` takes a video up to 256 MiB, which the panel never reads: the thread plays it from disk (`docs/concepts/session/showing-a-file.md`).
 
 ## In their own editor
@@ -55,6 +55,6 @@ The editor is `editor.command` in settings.json, then `$VISUAL`, then `$EDITOR`,
 
 | Part | File |
 |---|---|
-| Editor and panel | `packages/components/src/compositions/FilePanel/CodeEditor.tsx`, `FilePanel.tsx` |
-| Main: read, save, watch, membership | `apps/desktop/src/main/file-panel.ts` |
-| Main: dialog, editor, Finder | `apps/desktop/src/main/file-panel-channels.ts` |
+| Editor and panel | `classic-final:packages/components/src/compositions/FilePanel/CodeEditor.tsx`, `FilePanel.tsx` |
+| Main: read, save, watch, membership | `classic-final:apps/desktop/src/main/file-panel.ts` |
+| Main: dialog, editor, Finder | `classic-final:apps/desktop/src/main/file-panel-channels.ts` |

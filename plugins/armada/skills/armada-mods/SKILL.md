@@ -11,6 +11,17 @@ Bridge arranges, in `layout.json`; a tracker teaches Fleet an issue tracker, in
 tabs the fourth and instruments the last. Pick the kind from the ask: "warmer", "darker" and "higher
 contrast" are themes; "move", "hide", "put first" and "reorder" are layouts; "a tab that shows" is a tab; "on the console", "on a bay" and "an instrument" are instruments.
 
+**What still works.** A theme mod works, from `packages/mods` and a machine's own
+mods folder, and Fleet checks it, lists it and serves it. A tracker mod is
+Fleet's, so it works too. **A tab or an instrument mod is a React component that
+Armada Classic, the Electron Bridge, drew, and the native Bridge cannot run
+one.** The native mod kit, sandboxed WebAssembly written in Rust, is still to
+come (`docs/concepts/native-bridge.md`, decision 3), and the Mods page comes
+back natively (armada-gmue). Until then, tell the owner a tab or an instrument
+cannot be drawn, and stop. A layout mod is checked against
+`crates/ipc/layout-registry.json`; read `crates/bridge-native/src/settings/layout.rs`
+for what the native Bridge applies before you promise one.
+
 # In a Mod Job
 
 **A Mod Job's first message is the owner's note on what he pointed at.**
@@ -53,7 +64,7 @@ preference are his.
 
 | Never | Because |
 |---|---|
-| Edit anything under `apps/desktop` or `packages/` for a local mod | A mod exists so a look needs no source change. In a Mod Job on Armada's repository, the source is for what a mod cannot say |
+| Edit anything under `crates/` or `packages/` for a local mod | A mod exists so a look needs no source change. In a Mod Job on Armada's repository, the source is for what a mod cannot say |
 | Edit `mod.toml` beyond `description` and `version` | `name` must equal the folder, and `kind` is `theme` |
 | Add a second file or a link in the folder | Only `mod.toml` and `theme.css` are read |
 | Promote a mod unprompted | It starts a Job that opens a pull request in the repository, and that is his ask |
@@ -156,7 +167,7 @@ nothing: check the id against the table.
 | `job.panels` | `done`, `now`, `next` | `now` | no | no |
 | `rail` | `operator`, `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | no |
 
-`packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
+`crates/ipc/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Operator, the Cockpit, the Jobs tab (`sessions`) and the System strip's pages.
 The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
@@ -349,6 +360,10 @@ map = """
 
 # Making a tab mod
 
+**Armada Classic drew these, and the native Bridge draws none until its mod kit
+arrives.** What follows is how a tab was made; the paths are at the tag
+`classic-final`.
+
 **A tab is code Bridge runs as part of itself.** It reaches the whole Fleet API
 and Bridge's components, and draws in the body of a tab in a Job's panes. There
 is no sandbox, so what it can do is what Armada's own code can do.
@@ -381,13 +396,13 @@ A plain ES module, no build step. Its default export is a React component with o
 | Use | For |
 |---|---|
 | `host.React` | React. Write `const { createElement: h, useState, useEffect } = host.React;` and call `h(...)`, since there is no JSX |
-| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `apps/desktop/src/shared/api/` for the names |
-| `host.ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table` and the rest of the list in `apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
+| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `classic-final:apps/desktop/src/shared/api/` for the names |
+| `host.ui` | Bridge's primitives by name: `Button`, `Tooltip`, `Table` and the rest of the list in `classic-final:apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
 | `host.glyphs` | Icons by registry name, `host.glyphs["git-pull-request"]` |
 | `host.job.id`, `host.tab.id` | The Job the tab is open in, and the tab |
 
 Set `glyph` in `mod.toml` to a name in `packages/icons/icons/` that
-`apps/desktop/src/renderer/src/job-panes/tab-glyph.ts` draws; any other name draws the Custom glyph.
+`classic-final:apps/desktop/src/renderer/src/job-panes/tab-glyph.ts` drew; any other name draws the Custom glyph.
 
 ## What you must not do
 
@@ -405,6 +420,10 @@ Custom, and in the pane it was built in. Switching the mod off in Mods removes
 its body. **Promotion is his act**, as for the other kinds.
 
 # Making an instrument mod
+
+**Armada Classic drew these, and the native Bridge draws none until its mod kit
+arrives.** What follows is how an instrument was made; the paths are at the tag
+`classic-final`.
 
 **An instrument is code Bridge runs as part of itself.** It has a face drawn on a bay of
 the Cockpit console, and a panel that stands over the field when the bay is pressed.
@@ -437,8 +456,8 @@ A plain ES module, no build step. Its default export is a React component with o
 | Use | For |
 |---|---|
 | `host.React` | React. Write `const { createElement: h, useState, useEffect } = host.React;` and call `h(...)`, since there is no JSX |
-| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `apps/desktop/src/shared/api/` for the names |
-| `host.ui` | Bridge's primitives by name, the list a tab has in `apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
+| `host.armada` | Any Fleet call Bridge makes, such as `getReviewLists()` or `state()`. Read `classic-final:apps/desktop/src/shared/api/` for the names |
+| `host.ui` | Bridge's primitives by name, the list a tab has in `classic-final:apps/desktop/src/renderer/src/job-panes/tab-ui.ts` |
 | `host.glyphs` | Icons by registry name |
 | `host.face` | What is drawn on the bay, below |
 

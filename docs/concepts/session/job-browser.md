@@ -12,8 +12,8 @@ It is not the walk window: [Showing a window](showing-a-window.md) shows the per
 It exists for a Job Fleet holds, once the tab opens or the agent opens a page, and goes when the tab is closed, the Job ends or Bridge quits.
 **The page the agent acts on is the Job's page**: the first Browser tab in pane order that is showing, else the one shown last, else the first.
 An agent's open on the Job on screen, with no Browser tab, makes one, in the pane that holds a Browser, else in a new pane on the right; for a Job not on screen no tab opens until the Job is.
-It runs in its repository's own session as the walk window's page does, with no preload and no channel to main, and it answers permissions, downloads, popups and fullscreen from the person's choices (*Site settings*; `docs/practices/capture-window.md`, *What the page can reach back into*).
-Its code is `apps/desktop/src/main/job-browsers.ts`, `apps/desktop/src/main/job-browser-acts.ts` and `apps/desktop/src/renderer/src/job-browser/`.
+It runs in its repository's own session as the walk window's page does, with no preload and no channel to main, and it answers permissions, downloads, popups and fullscreen from the person's choices (*Site settings*; `classic-final:docs/practices/capture-window.md`, *What the page can reach back into*).
+Its code is `classic-final:apps/desktop/src/main/job-browsers.ts`, `classic-final:apps/desktop/src/main/job-browser-acts.ts` and `classic-final:apps/desktop/src/renderer/src/job-browser/`.
 
 ## In the tab
 
@@ -49,7 +49,7 @@ The agent's acts are never refused on the person's account.
 **The agent mark is first in the toolbar, in a fixed slot**, so the controls after it do not move when it changes.
 It is the `bot` glyph, dim at rest with the tooltip *No agent act running*.
 **While an act runs it is lit in the accent and pulses, and the tooltip names the act**, as *Clicking Apply*.
-The words come from `describeAct` in `apps/desktop/src/shared/browser-act.ts` and arrive as `JobBrowserState.acting`.
+The words come from `describeAct` in `classic-final:apps/desktop/src/shared/browser-act.ts` and arrive as `JobBrowserState.acting`.
 The latest act shows, and each act clears only its own.
 
 ## Site settings

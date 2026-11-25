@@ -1,7 +1,7 @@
 //! Talk's voices, heard on this Mac. Apple's recogniser and Whisper run Armada Voice, a helper app
 //! that prints one JSON object a line; the caller names an engine and gets words back, never a path
 //! or a process. A voice that cannot hear hands over to the next, so the person is asked only for
-//! what macOS withholds. The Electron Bridge does the same in `apps/desktop/src/main/voice.ts`.
+//! what macOS withholds. The Electron Bridge does the same in `classic-final:apps/desktop/src/main/voice.ts`.
 //!
 //! macOS Dictation, the third voice, is started on the main thread (`crate::dictation`), so the
 //! worker here only says when to: `Heard::Dictate`.
@@ -392,8 +392,8 @@ pub fn helper() -> Option<PathBuf> {
     if bundled.is_file() {
         return Some(bundled);
     }
-    let built = exe.ancestors().find(|dir| dir.join("apps/desktop/native/voice").is_dir())?;
-    let built = built.join("apps/desktop/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice");
+    let built = exe.ancestors().find(|dir| dir.join("crates/bridge-native/native/voice").is_dir())?;
+    let built = built.join("crates/bridge-native/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice");
     built.is_file().then_some(built)
 }
 

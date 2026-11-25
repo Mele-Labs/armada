@@ -1,10 +1,7 @@
 //! Workspaces, lifecycles and rules, and what a Job holds, on the wire: every part round-trips,
-//! what is absent leaves no key, and `packages/protocol/src/lifecycles.ts` names every field and
-//! every tag Rust sends.
+//! and what is absent leaves no key.
 
 use std::collections::BTreeMap;
-
-use serde_json::Value;
 
 use crate::{
     decode, encode, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
@@ -13,8 +10,6 @@ use crate::{
     RepositoryLifecycles, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
     RuleTarget, RuleWhen, SessionId, StateReadFrom, StreamMessage,
 };
-
-const MIRROR: &str = include_str!("../../../../packages/protocol/src/lifecycles.ts");
 
 fn entered() -> RuleTarget {
     RuleTarget { among: RuleAmong::Entered, in_state: None }
@@ -64,18 +59,6 @@ fn a_rule() -> LifecycleRule {
         autonomy: Some("asks".to_string()),
         on_failure: RuleOnFailure { retries: 2, then: "ask_owner".to_string() },
     }
-}
-
-fn the_other_whens() -> Vec<RuleWhen> {
-    vec![
-        RuleWhen::StepStarts { step: "plan".to_string() },
-        RuleWhen::StepEnds { step: "plan".to_string() },
-        RuleWhen::Job { event: "landed".to_string() },
-    ]
-}
-
-fn the_other_amongs() -> Vec<RuleAmong> {
-    vec![RuleAmong::LinkingTo { lifecycle: "pr".to_string() }, RuleAmong::Held { lifecycle: "job".to_string() }]
 }
 
 fn a_lifecycle() -> LifecycleDefinition {
@@ -174,20 +157,6 @@ fn a_job() -> JobLifecycles {
         ],
         rules: Vec::new(),
         changes: Vec::new(),
-    }
-}
-
-/// Every key of every object in `value`.
-fn keys(value: &Value, into: &mut Vec<String>) {
-    match value {
-        Value::Object(fields) => {
-            for (key, inside) in fields {
-                into.push(key.clone());
-                keys(inside, into);
-            }
-        }
-        Value::Array(items) => items.iter().for_each(|item| keys(item, into)),
-        _ => {}
     }
 }
 
@@ -297,57 +266,6 @@ fn a_field_this_build_does_not_know_does_not_break_a_read() {
     assert_eq!(back.session_id.as_str(), "job-1");
 }
 
-/// The mirror is written by hand, so it is read here: every key Rust sends is a field in
-/// `lifecycles.ts`, and every tag a word it spells.
-#[test]
-fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
-    let rule = a_rule();
-    let others = the_other_whens().into_iter().map(|when| LifecycleRule { when, ..a_rule() });
-    let amongs = the_other_amongs().into_iter().map(|among| RuleTarget { among, in_state: None });
-    let mut sent = vec![
-        serde_json::to_value(a_job()).unwrap(),
-        serde_json::to_value(AppliedLifecycle { lifecycle: a_lifecycle(), kept: kept_by_kit() }).unwrap(),
-        serde_json::to_value(AppliedRule { rule, kept: kept_by_kit() }).unwrap(),
-        serde_json::to_value(RepositoryLifecycles { manifest_id: ManifestId::carried("01API"), lifecycles: Vec::new(), left_out: Vec::new() }).unwrap(),
-        serde_json::to_value(RepositoryLifecycleRules { manifest_id: ManifestId::carried("01API"), rules: Vec::new(), left_out: Vec::new() }).unwrap(),
-        serde_json::to_value(an_autonomy()).unwrap(),
-        serde_json::to_value(PieceScope::Within { id: "x".to_string() }).unwrap(),
-    ];
-    sent.extend(others.map(|rule| serde_json::to_value(rule).unwrap()));
-    sent.extend(amongs.map(|target| serde_json::to_value(target).unwrap()));
-    let mut fields = Vec::new();
-    sent.iter().for_each(|value| keys(value, &mut fields));
-    fields.sort();
-    fields.dedup();
-    assert!(fields.len() > 60, "{fields:?}");
-    for field in &fields {
-        assert!(
-            MIRROR.contains(&format!("{field}: ")) || MIRROR.contains(&format!("{field}?: ")),
-            "lifecycles.ts does not declare `{field}`"
-        );
-    }
-
-    let tags = [
-        "everywhere", "within", "tracker", "forge", "watch", "fleet", "own", "entered", "linked_from", "linking_to", "held", "enters",
-        "step_starts", "step_ends", "job", "instances", "workflow", "at_step", "pull_request_opened", "tracker_assign",
-        "tracker_move", "tracker_close", "forge_request_reviewers", "forge_mark_ready", "forge_merge", "forge_auto_merge",
-        "draft", "start_job", "start_watch", "tell", "wake", "run_command", "run_skill", "run_drone", "unread", "in",
-        "unmapped",
-    ];
-    for tag in tags {
-        assert!(MIRROR.contains(&format!("\"{tag}\"")), "lifecycles.ts does not spell the tag `{tag}`");
-    }
-
-    // The acts sampled are the acts the mirror spells, no more and no fewer. The leading space
-    // matches the field however the formatter lays its union member out, and no `exact:` or `react:`.
-    let sampled: Vec<String> = every_act()
-        .iter()
-        .map(|act| serde_json::to_value(act).unwrap()["act"].as_str().expect("tagged by act").to_string())
-        .collect();
-    let spelled = MIRROR.matches(" act: \"").count();
-    assert_eq!(sampled.len(), spelled, "{sampled:?}");
-}
-
 /// The step a Job is on says what it waits for on the Job's own row, and a row with nothing to say leaves the key out.
 #[test]
 fn a_rows_waiting_on_line_is_left_out_when_absent_and_read_back_when_there() {
@@ -361,11 +279,9 @@ fn a_rows_waiting_on_line_is_left_out_when_absent_and_read_back_when_there() {
     assert!(bytes.contains(r#""workflow_waiting_on":["Waiting on PR #812: Approved","Waiting on ARM-41: Closed"]"#), "{bytes}");
     let read: SessionRecord = decode("a row", bytes.as_bytes()).expect("reads back");
     assert_eq!(read.workflow_waiting_on, record.workflow_waiting_on, "in the order the step lists them");
-    assert!(include_str!("../../../../packages/protocol/src/sessions.ts").contains("workflow_waiting_on?: string[];"));
 }
 
-/// What the column draws for the step: left out when there is nothing, named field by field when there is, and spelled
-/// the same in the TypeScript mirror.
+/// What the column draws for the step: left out when there is nothing, named field by field when there is.
 #[test]
 fn a_rows_strip_is_left_out_when_absent_and_names_the_tabs_usual_time_stall_and_passed_steps_when_there() {
     use super::session_activity::row;
@@ -394,8 +310,4 @@ fn a_rows_strip_is_left_out_when_absent_and_names_the_tabs_usual_time_stall_and_
     assert_eq!(read.workflow_strip, record.workflow_strip);
     let bare = encode(&SessionRecord { workflow_strip: Some(WorkflowStrip { tabs: vec!["now".into()], ..WorkflowStrip::default() }), ..row(None) }).expect("encodes");
     assert!(bare.contains(r#""workflow_strip":{"tabs":["now"]}"#), "an unset part leaves its key out: {bare}");
-    let ts = include_str!("../../../../packages/protocol/src/sessions.ts");
-    for part in ["workflow_strip?: WorkflowStrip;", "usual_secs?: number;", "passed_unapproved?: number[];", "stalled?: StepStalled;"] {
-        assert!(ts.contains(part), "{part}");
-    }
 }

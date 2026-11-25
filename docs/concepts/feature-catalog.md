@@ -202,6 +202,8 @@ A pending feature is listed under the area `pending`, with no prefix and no line
 > **Rule.** A pending feature is made only in a library that has a feature already.
 > Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
 
+His Draft as Pending is the one exception, see *Starting a library*.
+
 Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
 The Operator brings him one card, with three options.
 
@@ -381,12 +383,36 @@ A move changes the feature's area and nothing else: its slug, prefixes, asks and
 
 The seed's largest area holds eight, so seeding raises none.
 
+## Starting a library
+
+A project that holds no confirmed or seeded feature has nothing a Job can name and nothing the seed fits.
+The Features screen draws a start panel in place of the project's page while that is so, with three ways to start.
+
+| Part | What it does |
+|---|---|
+| Modules in the build files | The modules `get_library_start` reads, as the floor plan reads them, each a chip, with Draft as Pending |
+| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip |
+| Or feed the librarian | A box he pastes or drops docs into, or says what the project does in. Not built |
+
+**Draft as Pending** is `draft_module_features`: each module becomes its own pending feature, in the area `pending`, with no model asked.
+Its slug and title come from the module's name, and its folder is its one prefix in its repository, so the code map and health read it.
+He confirms, merges or renames each as any pending feature, from its row.
+Where the project keeps no area the press keeps one, Modules, so Confirm has a place to put a drafted row.
+The press is refused once the project holds a confirmed or seeded feature, and a slug the library holds is passed over, so a second press drafts only a module that came since.
+The panel goes when the first drafted row is confirmed.
+
+> **Rule.** Drafting is the one way a pending feature is made in a library with no feature of its own.
+> Why: it is his press that starts the library, so the earliest `added_at` is still the moment it started.
+
+Docs in the repo are shown and not yet read: sending them to the librarian waits on its own operation.
+
 ## Librarian
 
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built into a run so far, and a run does nothing else but keep its record.
+The model's part of `drift` is built and runs only on his press of Check on a feature's page, never in a run.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
@@ -434,7 +460,25 @@ Fleet keeps the names that were there and are gone, and the page's `docs` carry 
 > **Rule.** A name has drifted only where the code had it when the document was last changed and does not have it now.
 > Why: a name the document invented, or one it never had right, was never the code's to lose, and flagging it would teach him to ignore the flag.
 
-The model's part of `drift` is not built.
+**The model's part of `drift` checks one feature's docs against its code, only on his press of Check.**
+`check_docs` reads each doc linked to the feature that is a file of a repository of the project at `HEAD`, up to eight a press, and puts each to the small model that sorts his messages, one call a doc.
+With the doc's text it sends the lines of the feature's paths that hold a name the doc gives in backticks, three a name, and the opening lines of its entry points, at most 8000 bytes of code.
+The model answers that they agree, or with the one disagreement that matters most: a short quote of the doc, the `path:line` in the code and what the code does there.
+Fleet keeps the answer for the feature and the doc, with git's ids of the doc's text and of the feature's paths, and the page's `docs` carry it as `check`.
+A reply Fleet cannot read keeps nothing, and its call still counts.
+Each call is spent from the night's share, counted with the runs' calls, and where none is left the press is refused in a sentence and nothing is asked.
+Bridge shows the flag under the doc's row: the doc's words, the code's place and words, then Start a Job and Dismiss.
+A doc a check found agreeing says when in its last line.
+
+**Start a Job** starts a Job in the project, titled "Doc or code: " and the feature's title, and sends it a brief Fleet writes from what it kept: the feature, the doc's words with its path, the code's words with its `path:line`, and that it asks him which is right before it changes anything.
+The flag stays until he dismisses it or a check finds them agreeing.
+**Dismiss** keeps the flag quiet until the doc's text or the feature's code changes: a press does not ask about the doc again while git's ids read the same, and a check that reads either changed clears the dismissal.
+
+> **Rule.** The model's check runs only on his press, and never writes a doc or the code.
+> Why: he wants the model's opinion only where he asks for it, and which of the two is right is his to say.
+
+> **Rule.** A dismissal holds until the doc or the code changes.
+> Why: a flag he answered should not return on every press, as a Keep holds a proposal to retire.
 
 **`retire` and `links` share one free step that reads features and linked docs against the code.**
 It costs no model and asks git once for the files at `HEAD`, and once for each feature for the newest commit that touched its paths.
@@ -462,12 +506,15 @@ The facts then wait: the part's next run reads from the last run that did it.
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
 
-**The Catch up card shows a run's steps before he presses, and each as it moves.**
+**The Catch up card shows a run's steps, each as it moves.**
 `list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `write_gists` last among them where `gists` is on, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
 One run of a project goes at a time, and a press while one runs is refused.
+Bridge's card is one closed line until he presses its button, which reads Catch up, Update where the library is current, or Steps where a run is going.
+A press opens the card and starts the run, a run begun elsewhere opens it only on that press, and he closes it once the run has ended.
+The open card is at most a fifth of the window high, and its steps scroll.
 
 ## Glossary
 
@@ -519,6 +566,11 @@ A Job whose turns were read before searches were counted is in no week until its
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `stop_librarian` | The owner's Stop, or the Operator, stops a project's running librarian run before its next step |
 | `answer_retire` | The owner's Retire or Keep for a feature the librarian proposed to retire |
+| `check_docs` | The owner's Check, or the Operator, puts a feature's docs to the model against its code |
+| `dismiss_doc_flag` | The owner's Dismiss on a doc a check found disagreeing with the code |
+| `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
+| `get_library_start` | The modules a project's build files name and the docs at the top of its repositories, for the start panel |
+| `draft_module_features` | The owner's Draft as Pending, or the Operator, keeps each module of a project with no feature of its own as a pending feature |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |

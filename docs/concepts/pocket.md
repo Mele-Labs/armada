@@ -34,7 +34,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 ## What the app keeps in its own folder
 
-Pocket imports nothing from Bridge Classic's packages, `packages/components` and `packages/screens`.
+Pocket imports nothing from Bridge Classic's packages, `classic-final:packages/components` and `classic-final:packages/screens`.
 The components and screen modules it draws are in `apps/pocket/src/kit/`, copied from those packages and trimmed to what Pocket calls.
 `kit/components/` holds the components with their stylesheets, and `kit/screens/` holds the wire mapping, the page reader for a Job's document and the copy.
 Pocket still shares `@armada/tokens` and `@armada/brand`, which are no one surface's.
@@ -237,6 +237,7 @@ The phone sends Fleet's own body shapes.
 | `POST /api/sessions/change_waiting` | `change_waiting`, for when a waiting Job starts and whether it is approved |
 | `POST /api/sessions/start_waiting` | `start_waiting_now` |
 | `GET /api/queued`, `POST /api/queued/take_back` | `list_queued` and `take_back_queued`, as Fleet answers them |
+| `POST /api/fleet/build/change` | `change_fleet_build`, as Fleet answers it. The phone's Refresh preview sends `{ build: preview, adopt: true }` from a Job's menu and Home's, and Fleet refreshes both Macs where another is linked |
 | `GET /api/sessions/terminals?session_id=` | `list_terminals`, answered as Fleet's `JobTerminals`: each terminal's `terminal`, `name`, `run_id` and whether a program is `running` in it |
 | `POST /api/sessions/terminal/write`, body `{run_id, data}` | `write_session_run`, Fleet's status and body as it said them: 422 for a run that has ended |
 | `GET /api/sessions/terminal/observe?run_id=` | `observe_session_run` as NDJSON, one `SessionRunMessage` a line and an empty line on a quiet beat, as `/api/live` |

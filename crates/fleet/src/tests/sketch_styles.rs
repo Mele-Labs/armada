@@ -217,28 +217,6 @@ fn the_first_tier_with_a_file_is_the_start_and_a_file_that_is_gone_is_passed_ove
 }
 
 #[test]
-fn this_repositorys_job_card_gets_its_sheet_then_the_components_entry_then_the_tokens_with_the_theme_listed() {
-    let root = std::fs::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
-    let start = "packages/components/src/compositions/JobCard/JobCard.tsx";
-    let found = sources_near(&root, Some(start), &[]);
-    let listed = paths(&found);
-    assert_eq!(
-        listed[..3],
-        ["packages/components/src/compositions/JobCard/JobCard.css", "packages/components/src/index.css", "packages/tokens/tokens.css"],
-        "{listed:?}"
-    );
-    assert!(listed.contains(&"packages/tokens/tokens.theme.css"), "{listed:?}");
-    assert!(kind_of(&found, "packages/components/src/compositions/JobCard/JobCard.css").usable);
-    assert!(kind_of(&found, "packages/tokens/tokens.css").usable);
-    // Its 213 imports weigh over a megabyte once they are in, past what a kept sheet is capped at.
-    assert!(!kind_of(&found, "packages/components/src/index.css").usable);
-    assert!(kind_of(&found, "packages/tokens/tokens.theme.css").usable);
-    // The answer leaves out file text and stays small.
-    let weight: usize = found.sources.iter().flat_map(|one| &one.tokens).map(|one| one.name.len() + one.value.len()).sum();
-    assert!(weight < 60 * 1024, "{weight}");
-}
-
-#[test]
 fn the_real_tokens_css_keeps_its_five_plex_faces_with_their_weights_as_written() {
     let root = std::fs::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
     let set = keeping::assemble(&root, &[String::from("packages/tokens/tokens.css")], &BTreeSet::new(), false).unwrap();

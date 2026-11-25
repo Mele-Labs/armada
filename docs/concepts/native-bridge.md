@@ -1,12 +1,13 @@
 # Native Bridge
 
-**What it is:** The core Bridge rebuilt natively in Rust on gpui, in `crates/bridge-native/`, beside the Electron Bridge, which stays until the owner picks the switch day.
+**What it is:** The Bridge, built natively in Rust on gpui, in `crates/bridge-native/`. It replaced Armada Classic, the Electron Bridge, on 24 Nov 2026.
 
 ---
 
 **Kind:** Surface.
 
-The Electron Bridge is described in [Bridge](bridge.md).
+Armada Classic is deleted and read at the tag `classic-final`.
+What is true of the Bridge in general is in [Bridge](bridge.md).
 How a Job works on the native one is in [the native Bridge practice](../practices/native-bridge.md).
 
 ## Why native
@@ -28,13 +29,12 @@ The owner chose native anyway, for three goals at once.
 **The native Bridge is built on gpui-component and its pinned weekly gpui snapshot, gpui-pre.**
 If gpui-component's one maintainer stops, the build pins Zed's own gpui.
 
-### 2. Electron is frozen
+### 2. Electron is deleted
 
-**Electron takes fixes and small features that help the owner daily.**
-Bigger features go native.
-Each Electron feature that lands during the overlap gets a task in the matching step of the build order below.
+**Classic took fixes and small features until switch day, and is gone from the tree.**
+Everything new goes native.
 
-### 3. A native mod kit, after switch day
+### 3. A native mod kit, still to come
 
 **Code mods, such as tabs and instruments, are sandboxed WebAssembly written in Rust.**
 Themes do not wait for the kit.
@@ -43,6 +43,8 @@ Armada's own light and dark follow macOS, whichever of the two is picked.
 A catalogue theme or a mod stays as picked.
 Job track, the owner's tab mod, waits for the kit.
 The custom tab in a Job's + menu arrives with the kit too, since Armada Classic's unsandboxed React module cannot run in gpui.
+The Mods page, Doctor, Cleanup and Lessons come back natively with a new layout: armada-gmue, armada-c7ra, armada-ua7n and armada-sgrk.
+A setting only Classic kept was let go.
 
 ### 4. Walks and annotations
 
@@ -78,23 +80,22 @@ Each step is its own Job, and at most two run at once.
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. Reviews stands in the places strip on live Fleet data, redesigned as the departures table below says. The pull request side panel's Review tab gives the pull request's author the reading Reviews gives a reviewer, from the same head Fleet keeps: where he left it, who has spoken since, the commits after his (his own pushes left out and counted), the range's files behind Diff since you looked, the checks, and Mark as seen. A commit pressed there opens Files on its files alone, as Commits does |
 | Job tools | Terminal, the API Client and the Browser tool |
 | Asides | The side chat: a Side chat button under the composer and ⌘J open a split tab that asks a read-only copy of the Job. The copy's reads, its answer, Tell the Job and Copy, a Told chip, and Ask on the selection bar, read back from `list_asides` after ⌘W |
-| Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
+| Switch-over | VoiceOver pass, the signed app on both Macs |
 
 ### 7. Switch day
 
-**The owner picks the switch day once the native app does everything he uses daily.**
-Both his Macs switch together, the work Mac included.
-Electron is Armada Classic, with a grey icon, from the foundation on, so the Dock tells the two apps apart.
-`armada://` links stay with Armada Classic until switch day, and move to the native app on that day.
-Armada Classic stays installed for two weeks after it.
-Then the Electron app is deleted from the repo, and the packages Pocket uses stay.
+**Switch day was 24 Nov 2026.**
+`armada://` links and both Macs moved to the native app that day.
+Armada Classic was deleted from the repository, and the packages Pocket uses stayed: `tokens`, `brand`, `icons` and `mods`, and `apps/pocket` and `apps/store`.
+Its code and documents are at the tag `classic-final`, and nothing in the tree launches it.
+`scripts/retire-classic` removes what it left on a Mac, on every restart.
 
 ## How the build looks and behaves
 
 | Area | Rule |
 |---|---|
-| Look | Today's Electron layout and features, on the same tokens. Only the spacing and font tweaks he names change |
-| Each screen | Built to match its Electron screen, then walked natively, on its own, before it lands |
+| Look | Classic's layout and features, on the same tokens. Only the spacing and font tweaks he names change |
+| Each screen | Built to match Classic's screen, then walked natively, on its own, before it lands |
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
@@ -106,7 +107,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | A setup screen (owner, 12 Nov) | Opened cold, with no walk: each state shows the one press that moves it on and the reason when there is one. Nothing tells him to go and do something outside Bridge; a state with nothing to press says what stands, in plain facts. If he needs a walk through it, the screen has failed |
 
 **The speed figures tune the build and gate nothing.**
-They are measured against Electron, where a thread's first paint takes 132 to 239 ms today.
+They were measured against Electron, where a thread's first paint took 132 to 239 ms.
 
 **He usually has more than ten Jobs live.**
 He switches from the list, from palette search and from Needs you.
@@ -197,7 +198,7 @@ The parity check takes each row here as chosen.
 | A Job on another Mac (task armada-#203 for the bug list) | Armada Classic draws no chip and no refusal: it reads one Mac's Jobs, and nothing in it names a Mac | With a second Mac linked or asleep in `/admin/macs`, a Jobs row on another Mac carries a muted laptop glyph right before its state glyph, and a row on this Mac carries no mark (the owner, 16 Nov: the dot on every row was too loud). The glyph has no tooltip: the Mac's name, and "Asleep since" and the time when it sleeps, are a line in the row's hover card. A Job moving between Macs keeps the two Macs' dots in its from → to mark. The Job head carries the same muted laptop for another Mac's Job, and nothing for this Mac's (his note, 16 Nov). An asleep Mac's chip is dimmed. `session.removed` drops the row and any open tab. On a Job with a `mac`, the acts Fleet carries to that Mac are on: a message, an answer, a plan approved or sent back, a sketch or document answer, Stop, Merge and Bring here. The rest are left off with "Runs on <Mac>. Act on it there.", in buttons, menus and ⌘K. A send to a Mac that is asleep waits in a Waits for card at the thread's end, one row a send, each with Take back, and a send that Mac refused shows its words under it. Reported bugs carry no chip, because native draws no Reported bugs list yet |
 | Moving a Job to the other Mac (`move_job_to_mac`, owner, 14 Nov) | Armada Classic draws no control: `move_job_to_mac` has none there | With the other Mac linked, Move to Air in a Job row's menu under Snooze, in the tab's menu and in the palette's panel on the Job (⌥⌘M), and in the palette as a command on the open Job; `M` on a row. On a Job Air holds the same act reads Bring here. It is offered only for a Job that has not ended, is not paused and is not moving, and while Air sleeps Move to Air is listed off with when it fell asleep, where Bring here waits in the Waits for card as any send does. While the move waits for the turn, `hosted.moving_to_mac` gives the row an amber edge and, at its end before its marks, the holder's dot, a muted arrow, the target Mac's dot and the amber word Moving, with Moving to Air as its tooltip and name, so the row stays one line. The head carries a ring and the target's chip, and the thread ends on a Moving card pinned like the claims card: an amber dot and Moving to Air over three step chips, Turn ends, Branch pushed and Resumed on Air, the filled one read off the Job, Turn ends while it works and Branch pushed once it has stopped. Once Air has the Job its row here ends with `moved_to_mac` and reads Moved to Air, in the row's state tooltip and at the foot of its thread, where the press opens the Job where it now is; Air's row of the same id then stands in its place. A refusal is said in a toast in Fleet's own sentence |
 | Moving Jobs into a project, and selecting several (`set_session_project`, owner, 15 Nov) | Armada Classic draws no control for it | Move to project in a Job row's menu after Move to Mac, in the tab's menu, in the palette's panel on the Job (⌥⌘P) and as a palette command on the open Job, and `P` on a row. It opens a picker of his projects with their repositories under each name and No project last, the project every Job stands in ticked, and a field that finds one. A row in the selection moves the whole selection; any other row moves alone. A Job on another Mac is left off, with why. The list regroups on the records Fleet publishes, and a refusal is said in a toast in Fleet's words. The selection is ⌘-click to toggle a row, ⇧-click for the range from the row last clicked, Space or `x` on the focused row, and ⇧↓ and ⇧↑ to select the rows the keys move over; a selected row wears the open row's accent fill and edge, no count is drawn, Esc clears the selection while there is one and otherwise keeps its meaning, and a move sent clears it. An idea waiting to start and a project's name are never selected |
-| A Job waiting on a held tracker item, and its claims not sent (new in native; Classic reads neither field) | Armada Classic draws nothing: the wait shows only in Fleet's word in the thread | A claims card at the thread's end, with the Job's other waits: a row for each item in `claim_waits`, a dot in the awaiting-review hue, "Waiting on" the holder's Mac and the holding Job's title, or the holder and the item where either is missing, the Mac's chip, and how long in mono with since when in its tooltip. Under it, muted, "Carries on when the other Job's claim ends" or "Carries on when <person> is unassigned". With `claims_unsent`, "Other Jobs cannot see what this Job holds yet" after `unplug`, and under it "The project's store did not take them. Armada keeps trying" (the owner, 17 Nov: "Claims not sent yet" said nothing of what it meant for him; 18 Nov: "not answering" was wrong for a store that answered and refused, so Fleet's log now keeps the store's words). The Jobs list draws no mark of its own. The claims notice mutes as Disable claims |
+| A Job waiting on a held tracker item, and its claims not sent (new in native; Classic reads neither field) | Armada Classic draws nothing: the wait shows only in Fleet's word in the thread | A claims card at the thread's end, with the Job's other waits: a row for each item in `claim_waits`, a dot in the awaiting-review hue, "Waiting on" the holder's Mac and the holding Job's title, or the holder and the item where either is missing, the Mac's chip, and how long in mono with since when in its tooltip. Under it, muted, "Carries on when the other Job's claim ends" or "Carries on when <person> is unassigned". With `claims_unsent` the card does not draw; the composer's toolbar wears a small amber badge "Not shared yet" after the context ring, whose tooltip reads "Other Jobs cannot see what this Job holds yet. Armada keeps trying" (the owner picked "Pin only what needs you"; 17 Nov: "Claims not sent yet" said nothing of what it meant for him; 18 Nov: "not answering" was wrong for a store that answered and refused, so Fleet's log now keeps the store's words). The Jobs list draws no mark of its own. The claims notice mutes as Disable claims |
 | Look, the way of working `take_in` = look (new in native; Classic has nothing like it) | Needs you lists rows and a question shows its options as words; a done card shows the summary alone | A press on a Needs you row opens that one item in the panel over the message box: Needs you with where it stands, ← or Esc back, ↑ ↓ to the previous or next item. A walk's row is the exception: its press starts the walk, one press as at read, and ↑ ↓ still reach its stops. A sketch is drawn large with Approve, Send back and Open large; a walk is numbered frames with Start the walk; a command is its steps as chips joined by chevrons, the command in a mono well and Run. A question whose options carry pictures draws them in equal columns, the Job's pick ringed and marked My pick, keys 1 to 9 taking an option whole, and each picture's labelled parts pressed into Your mix, sent as `answer_parts` (`look_questions` = pictures_whole turns the parts and the mix off). A done card leads with the picture the Job last showed (`GET /sessions/lead_picture`), then two lines of summary and an Also line with a chip for each other form made: Page, Picture, and Listen, which is drawn off until Listen exists. With `take_in` at read nothing changes |
 | Listen: a Job read out loud (owner, 13 Nov) | Electron is frozen and has no Listen | With take in set to listen, an agent's question, a Job's done summary and, if switched on, each ended plan step are spoken through Armada Voice, one at a time. The thread shows each as a card at its foot: an amber left edge, a pause or play disc, bars that fill as it is said, the time, the words in quotes, Again and the voice's name. Pause stops the voice where it is and holds the line; Play and Again say the card from its start, next in the line. Without the helper, or with a voice the Mac lacks, the card keeps its words, its disc goes off and a short fact says why. Again is `rotate-ccw`, where the sketch draws `refresh-cw`, and the words are upright, since the font ships no italic. A queued card has its disc and Again off. Operator cards have their switch but no source yet |
 | A sketch's arrows, and how a sketch opens (owner, 13 Nov) | Classic keeps only the edge fields it knew before `line`, `head` and `path`, so every arrow is an elbow with a head at its end, dashed unless it says `flow: false`, and the panel plays its steps on open | Native draws `line` (solid, dashed or dotted), `head` (end, start, both or none) and `path` (elbow, straight or curve), in the canvas, the picture and page and the Mermaid copy, where Mermaid has the form. An arrow that says neither `line` nor `flow` is solid, as Fleet's docs have it. Each head has a straight run of two head lengths before it and its tip on the box's edge, and an arrow drawn later hops over one it crosses with a small half circle. The panel opens paused with every step lit, and Play starts from the first |
@@ -258,11 +259,11 @@ The native app and Pocket, which stays web, share those views.
 ## Using it while it is built
 
 **He uses the native app for real work as each screen lands.**
-Refresh preview rebuilds it with Fleet and Electron.
+Refresh preview rebuilds it with Fleet.
 
-## What ships before switch day
+## What shipped by switch day
 
-Everything he uses daily:
+Everything he used daily:
 
 - Jobs list, thread, and the full composer: drafts, attachments, tags, voice, fork, slash commands.
 - Plan and draft approval, Needs you, the command palette and keys.
@@ -275,7 +276,7 @@ Everything he uses daily:
 - Projects, every Settings section, Kit, Reviews, Issues, Usage with Time, Account with phone pairing.
 - Terminal, several per Job, the API Client and the Browser tool.
 
-## What waits for after switch day
+## What native does not have yet
 
 - The mod kit.
 - The Cockpit's map, activity, bays, cleanup grid and flight tiles, and the battlefield, as mods.

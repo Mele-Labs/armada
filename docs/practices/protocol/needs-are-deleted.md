@@ -4,7 +4,7 @@
 
 Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, *Needs are deleted, 17 Oct 2026*.
 **Removal only**: no operation, event kind, route or field is added.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and a pair that disagrees is refused.
 There is no number to take.
 
 **Operations removed (2).** Each has no route, no MCP tool and no Bridge caller; `armada need` was the only caller of the first and an agent's `list_needs` the only reader of the second.
@@ -20,7 +20,7 @@ Neither is wire.
 
 | Where | Side | Change |
 | --- | --- | --- |
-| `NeedAct`, `NeedCall`, `NeedAnswer`, `NeedLine`, `NeedList` | Fleet removes, Bridge stops reading | `ipc::needs` and its mirror in `packages/protocol` are gone. Bridge never read them |
+| `NeedAct`, `NeedCall`, `NeedAnswer`, `NeedLine`, `NeedList` | Fleet removes, Bridge stops reading | `ipc::needs` and its mirror in `classic-final:packages/protocol` are gone. Bridge never read them |
 | `fleet.need_unnamed`, `fleet.need_not_declared` | Fleet stops raising | Both were 422s of `act_on_need` |
 | `ChosenHold.kind` and `HoldMoved.kind` `need` | Fleet stops reading and writing, Bridge stops sending | `release_session_holds` acts on `slot`, `branch` and `pr`. A standing `need` row in a store is no longer acted on, so naming one is `fleet.hold_not_standing` |
 | `SessionAttachment` kind `need` | Fleet stops writing, Bridge stops reading | A row an earlier build wrote still reads and is passed over. The mod no longer reports one |

@@ -96,4 +96,4 @@ Neither change adds an event.
 A saved preference publishes the `settings.changed` that a save already does, and an answered item the `SessionChanged` it already does.
 The unbounded sink is neither better nor worse.
 
-Bridge's half is in `packages/protocol/src/preferences.ts` and `sessions.ts`, written by hand like the rest.
+Bridge's half is in `classic-final:packages/protocol/src/preferences.ts` and `sessions.ts`, written by hand like the rest.

@@ -17,7 +17,7 @@ No new operation.
 
 **Skew.** A Fleet before 23.86 serves neither, and Bridge reads a Job as before.
 The IDs differ, so the two are refused regardless, and the lifeboat serves.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand like the rest.
 **Served.** Fleet derives `standing` and the `done` item from observed facts on every read (`session_host/standing.rs`), for hosted and terminal Jobs, and none of it needs the agent to call a tool.
 A running turn nothing is heard from for ten minutes reads `stuck`, which no event says, so the notice loop's tick republishes the Job when that moves: a `session.changed` per move, in both directions, and no other new traffic.
 `Timeline::session_turn` no longer marks its entry `live`, since a finished turn is not moving.

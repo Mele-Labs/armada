@@ -4,8 +4,8 @@
 
 Autopilot is the one overnight control, and it answers and keeps what it answered ([Autopilot's answers](autopilot-decisions.md)).
 **Removal only**: no operation, event kind, route or field is added.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
-`crates/ipc` and `packages/protocol` are edited together; Bridge's half comes out in its own change, so its type-check is red on these names until then.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and a pair that disagrees is refused.
+`crates/ipc` and `classic-final:packages/protocol` are edited together; Bridge's half comes out in its own change, so its type-check is red on these names until then.
 
 Fleet no longer runs Sleep's pass, so nothing answers behind a switch that is no longer there.
 `OwnerAway` keeps its wire word and now holds where the Job's repository has an Autopilot running; a paused or stopped one is not away.

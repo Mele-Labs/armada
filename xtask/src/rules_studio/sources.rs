@@ -1,8 +1,7 @@
-//! The three places a Studio's sets are spelled, read back as sets.
+//! The places a Studio's sets are spelled, read back as sets.
 //!
-//! The enums in `crates/core-model/src/studio.rs`, the `CHECK` constraints in
-//! `crates/store/src/studio.rs`, and the mirror in
-//! `packages/protocol/src/studio.ts`. Each reader answers a `BTreeSet` of wire
+//! The enums in `crates/core-model/src/studio.rs` and the `CHECK` constraints in
+//! `crates/store/src/studio.rs`. Each reader answers a `BTreeSet` of wire
 //! spellings, and [`super`] does every comparison — so a reader here never
 //! decides whether something is wrong.
 //!
@@ -12,7 +11,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::registry::quoted;
 
 // ------------------------------------------------------------------- Rust
 
@@ -155,57 +153,6 @@ pub fn accepted_on_sight(text: &str) -> BTreeSet<String> {
         .filter(|arm| arm.starts_with('\''))
         .filter_map(|arm| arm.split('\'').nth(1).map(str::to_string))
         .collect()
-}
-
-// ------------------------------------------------------------------- wire
-
-/// One `export type Name = …` declaration's body, up to the `;` that ends it.
-///
-/// **Braces are counted and comment lines do not end it**, because a field ends
-/// in `;` too and so does a sentence of prose. Stopping at either read
-/// `ProposeStudioEdge` as its `from` field, and `StudioNodeContent` as its first
-/// seven kinds — both compared against a set that was short by everything after
-/// the next doc comment.
-fn declaration(text: &str, name: &str) -> Option<String> {
-    let header = format!("export type {name} =");
-    let start = text.find(&header)? + header.len();
-    let mut body = String::new();
-    for line in text[start..].lines() {
-        body.push_str(line);
-        body.push('\n');
-        let head = line.trim_start();
-        if head.starts_with('*') || head.starts_with("/*") || head.starts_with("//") {
-            continue;
-        }
-        let end = line.trim_end();
-        if end.ends_with("};") {
-            return Some(body);
-        }
-        let closed = body.matches('{').count() == body.matches('}').count();
-        if closed && end.ends_with(';') {
-            return Some(body);
-        }
-    }
-    None
-}
-
-/// The `kind: "…"` tags of a discriminated union.
-pub fn tags(text: &str, name: &str) -> BTreeSet<String> {
-    let Some(body) = declaration(text, name) else {
-        return BTreeSet::new();
-    };
-    body.split("kind: \"")
-        .skip(1)
-        .filter_map(|rest| rest.split('"').next().map(str::to_string))
-        .collect()
-}
-
-/// Every string literal in a union of them — `"open" | "closed" | "merged"`.
-pub fn literals(text: &str, name: &str) -> BTreeSet<String> {
-    let Some(body) = declaration(text, name) else {
-        return BTreeSet::new();
-    };
-    quoted(&body).into_iter().collect()
 }
 
 // ---------------------------------------------------------------- lexicon

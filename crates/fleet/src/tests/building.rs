@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, SnapshotState};
 
 use crate::building::{
-    checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
+    broke_in, checkout_of, left_out_in, Broke, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
     NotSwapped,
 };
 use crate::kept_builds::{fleet_label, fleet_program, APP, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
@@ -332,6 +332,47 @@ fn the_branches_left_out_are_read_for_the_running_build_only() {
     assert_eq!(read["armada/b"], LeftOut { tip: "b".repeat(40), why: "does not build: x.rs".into() });
 }
 
+#[test]
+fn the_rounds_that_did_not_build_are_read_a_block_each_and_unreadable_lines_are_skipped() {
+    let support = TempDir::new();
+    assert!(broke_in(support.path()).is_empty(), "no file");
+
+    let (first, second, third) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
+    let (tip_a, tip_b) = ("1".repeat(40), "2".repeat(40));
+    fs::write(
+        support.path().join("preview-broke"),
+        format!(
+            "{first}\nerror[E0063]: missing field `workflow` (crates/x.rs:7)\narmada/a\t{tip_a}\tchanged StartSession, which crates/x.rs uses\nno tab here\narmada/b\t{tip_b}\twas in it\n\n\
+             {second}\nerror: nobody to tell\n\n\
+             not a commit\nerror: skipped\narmada/a\t{tip_a}\twas in it\n\n\
+             {third}\nerror: last\narmada/a\t{tip_a}\tleft out: does not build: crates/x.rs"
+        ),
+    )
+    .unwrap();
+
+    let read = broke_in(support.path());
+    let branch = |name: &str, tip: &String, what: &str| (name.to_string(), tip.clone(), what.to_string());
+    assert_eq!(
+        read,
+        [
+            Broke {
+                commit: first,
+                error: "error[E0063]: missing field `workflow` (crates/x.rs:7)".into(),
+                branches: vec![
+                    branch("armada/a", &tip_a, "changed StartSession, which crates/x.rs uses"),
+                    branch("armada/b", &tip_b, "was in it"),
+                ],
+            },
+            Broke { commit: second, error: "error: nobody to tell".into(), branches: Vec::new() },
+            Broke {
+                commit: third,
+                error: "error: last".into(),
+                branches: vec![branch("armada/a", &tip_a, "left out: does not build: crates/x.rs")],
+            },
+        ]
+    );
+}
+
 #[tokio::test]
 async fn the_report_carries_the_branches_the_preview_left_out_sorted_with_why() {
     let (checkout, support) = rig();
@@ -426,9 +467,9 @@ fn a_preview_that_left_branches_out(support: &Path) {
 /// build `old` holds a stand-in `armada` that writes down what it was run with, in its working directory.
 pub(super) fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
     let builds = support.join(BUILDS);
-    for (name, bridge, jobs) in [("new", "b2", new_jobs), ("old", "b1", old_jobs)] {
+    for (name, native, jobs) in [("new", "n2", new_jobs), ("old", "n1", old_jobs)] {
         fs::create_dir_all(builds.join(name)).unwrap();
-        let mut text = format!("built_at = \"2026-11-05T1{}:20:00Z\"\ncommit = \"{name}{SHA}\"\nsource = \"preview\"\nbridge = \"{bridge}\"\n", if name == "new" { 7 } else { 6 });
+        let mut text = format!("built_at = \"2026-11-05T1{}:20:00Z\"\ncommit = \"{name}{SHA}\"\nsource = \"preview\"\nnative = \"{native}\"\n", if name == "new" { 7 } else { 6 });
         for branch in jobs {
             text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
         }
@@ -577,7 +618,7 @@ async fn an_undo_that_will_not_start_leaves_no_status_behind() {
 fn snapshot_in(support: &Path, jobs: &[&str]) {
     let snap = support.join(BUILDS).join("snap");
     fs::create_dir_all(&snap).unwrap();
-    let mut text = format!("built_at = \"2026-11-05T18:20:00Z\"\ncommit = \"snap{SHA}\"\nsource = \"preview\"\nbridge = \"b3\"\n");
+    let mut text = format!("built_at = \"2026-11-05T18:20:00Z\"\ncommit = \"snap{SHA}\"\nsource = \"preview\"\nnative = \"n3\"\n");
     for branch in jobs {
         text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
     }
@@ -607,7 +648,7 @@ async fn the_report_reads_each_snapshot_state_from_the_files() {
     assert_eq!(ready.state, SnapshotState::Ready);
     assert_eq!((ready.built_at.as_ref().map(|at| at.as_str()), ready.commit), (Some("2026-11-05T18:20:00Z"), Some(format!("snap{SHA}"))));
     assert_eq!(ready.jobs, ["armada/a", "armada/s"], "branches here; Fleet names them by Job");
-    assert!(ready.bridge_reopens, "b3 against b2");
+    assert!(ready.bridge_reopens, "n3 against n2");
     assert_eq!((ready.stage, ready.failed), (None, None));
 
     fs::write(support.path().join("snapshot.status"), "running\nsnapshot\nbuilding_bridge\n").unwrap();

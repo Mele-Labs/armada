@@ -233,7 +233,7 @@ The rules below are what the gate holds that file and its three readers to.
 
 > **Rule.** Capture on another repository's web app happens in a window of its own, opened from a serving Run and pinned to that Run's own loopback origin.
 > Bridge's window loads nothing but itself and that does not change. #1294.
-> Why: what that window may load, what the layer injected into the page may touch and send back, and what is refused outright are settled in `../practices/capture-window.md`.
+> Why: what that window may load, what the layer injected into the page may touch and send back, and what is refused outright are settled in `classic-final:docs/practices/capture-window.md`.
 
 > **Rule.** The development annotation layer stays beside Studio capture, unchanged: ⌥⌘A under `pnpm dev`, a file under `.armada/annotations/`, Start job, and `/annotations`.
 > Why: it is how a person annotates Bridge while building it. See `../practices/running-locally.md`, Annotating Bridge.
@@ -247,12 +247,12 @@ The rules below are what the gate holds that file and its three readers to.
 > **Rule.** A Note draws its frame on the Studio, small, and full size when it is opened.
 > A Note that kept none draws no picture and says nothing about it; one whose frame cannot be read says so where the picture would be.
 > Why: the frame is the field that says *this is what I was looking at*, and a missing picture is a Note without one rather than a failure.
-> See `../practices/bridge.md`, Security posture, for how the bytes reach the window.
+> See `classic-final:docs/practices/bridge.md`, Security posture, for how the bytes reach the window.
 
 > **Rule.** A source file path is kept only where the build gives one, and absent otherwise.
 > Why: React 19 fibers carry no `_debugSource`, and a guessed path sends a reader to the wrong file.
 
-A Note carries what the annotation layer records, in `apps/desktop/src/shared/annotations.ts`, and the fields below that layer does not record.
+A Note carries what the annotation layer records, in `classic-final:apps/desktop/src/shared/annotations.ts`, and the fields below that layer does not record.
 
 | Field | Recorded by the annotation layer today |
 |---|---|
@@ -399,7 +399,7 @@ The four are its last four states in `crates/core-model/domain/studio-kinds.toml
 > This page states the rules those sets serve and spells none of them again.
 > Why: a set nobody's code reads stays a table; a set code reads is a data file with a check over it. See `.claude/skills/armada-documents/SKILL.md`.
 
-> **Rule.** `cargo xtask verify-foundations` holds that file to the enums in `crates/core-model/src/studio.rs`, the `CHECK` constraints in `crates/store/src/studio.rs` and the mirror in `packages/protocol/src/studio.ts`, both ways and on wire spellings.
+> **Rule.** `cargo xtask verify-foundations` holds that file to the enums in `crates/core-model/src/studio.rs`, the `CHECK` constraints in `crates/store/src/studio.rs` and the mirror in `classic-final:packages/protocol/src/studio.ts`, both ways and on wire spellings.
 > `xtask/src/rules_studio.rs` says what it refuses.
 > Why: the three were spelled separately and nothing compared them, so a kind added to one merged green and failed the first time a person met it. `#1313`.
 

@@ -156,6 +156,8 @@ pub struct Dropdown {
     pointed: Option<Option<crate::labels::Drawn>>,
     /// What an item says in its tooltip while it can be picked, by the item's id.
     tips: Vec<(&'static str, SharedString)>,
+    /// Two more rows' worth of room, for names that run long, such as a branch's.
+    wide: bool,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
@@ -176,7 +178,7 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None, tips: Vec::new() };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None, tips: Vec::new(), wide: false };
         if cursor_first {
             this.cursor = this.first();
         }
@@ -186,6 +188,12 @@ impl Dropdown {
     /// The item `id` says `words` in its tooltip.
     pub fn tip(mut self, id: &'static str, words: impl Into<SharedString>) -> Self {
         self.tips.push((id, words.into()));
+        self
+    }
+
+    /// Room for names that run long: a branch shows whole where it would have been cut.
+    pub fn wide(mut self) -> Self {
+        self.wide = true;
         self
     }
 

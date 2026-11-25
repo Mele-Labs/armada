@@ -17,7 +17,7 @@ use api::Refusal;
 use ipc::{
     AnswerReadyToTry, ArtifactForm, BuildNote, BuildNoteFeedbackSent, BuildNotes, DispatchJob, DispatchMessage, DispatchThen, Event,
     Instant, ManifestId, MarkBuildNoteLookedAt, NoteVerdict, PreviewStep, ReadyAnswer, ReadyApproved, ReadyState, SendBuildNoteFeedback,
-    SendSessionMessage, SessionId, StartSession, ThreadReadyToTry, WireError,
+    SendSessionMessage, SessionId, StartSession, ThreadItem, ThreadReadyToTry, WireError,
 };
 use store::{KeptApproval, KeptBuildNote, SessionState};
 
@@ -31,6 +31,7 @@ const NO_REPOSITORY: &str = "fleet.build_note_no_repository";
 const CARD_UNKNOWN: &str = "fleet.ready_to_try_unknown";
 const CARD_SETTLED: &str = "fleet.ready_to_try_settled";
 const REMIND_PAST: &str = "fleet.ready_to_try_remind_past";
+const NOT_IN_BUILD: &str = "fleet.ready_not_in_build";
 
 /// What the Job is told when he says its offer looks good: land it.
 fn landing_text(note: &KeptBuildNote) -> String {
@@ -262,6 +263,33 @@ where
         }
         let build = self.preview_build();
         cards_of(notes, &|branch, tip| self.build_holds(build.as_ref(), branch, tip), self.now().as_str())
+    }
+
+    /// Each Ready to try card in `items` of a Job held from another Mac, read against the build he runs here: that
+    /// Mac read it against its own build.
+    pub(crate) fn ready_cards_restamped(&self, items: &mut [ThreadItem]) {
+        let mut cards = items.iter_mut().filter_map(|item| match item {
+            ThreadItem::ReadyToTry(card) => Some(card),
+            _ => None,
+        }).peekable();
+        if cards.peek().is_none() {
+            return;
+        }
+        let build = self.preview_build();
+        for card in cards {
+            card.in_build = self.build_holds(build.as_ref(), &card.branch, &card.tip);
+        }
+    }
+
+    /// His answer on a card of a Job held from another Mac goes there only where the build he runs here holds the
+    /// card's branch at its tip.
+    pub(crate) fn ready_in_build_here(&self, asked: &AnswerReadyToTry) -> Result<(), Refusal> {
+        let build = self.preview_build();
+        if self.build_holds(build.as_ref(), &asked.branch, &asked.tip) {
+            return Ok(());
+        }
+        let said = "Your build does not hold this branch yet. Refresh preview first.";
+        Err(Refusal::IllegalMove(WireError::raised(NOT_IN_BUILD, said, self.run_id())))
     }
 
     /// The Job's cards moved: its thread, where a client holds it, is folded again with them, and its record, whose

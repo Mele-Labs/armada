@@ -1,5 +1,5 @@
 //! The walk's and the tests' Fleet for Settings. Its settings.json is Classic's mock
-//! (`packages/surfaces/settings/src/fake-settings.ts`, written out as `mock-settings.json`), so the two apps
+//! (`classic-final:packages/surfaces/settings/src/fake-settings.ts`, written out as `mock-settings.json`), so the two apps
 //! are compared on the same rows. A save is answered as Fleet answers it (`savedInto`), and refused as
 //! `crates/config/src/settings/check.rs` refuses one.
 
@@ -38,7 +38,7 @@ pub struct MockFleet {
     pub drafts: super::mock_workflows::Drafts,
     /// The versions each place's workflows have had, and what each copy began from.
     pub versions: super::mock_workflows::Versions,
-    /// What `GET /models` answers: Classic's mock models (`apps/desktop/src/renderer/src/mock/kit-models.ts`).
+    /// What `GET /models` answers: Classic's mock models (`classic-final:apps/desktop/src/renderer/src/mock/kit-models.ts`).
     pub models: ipc::ModelChoices,
     /// The Phone Gateway Settings › Macs reads (`gateway.rs`).
     pub gateway: super::gateway::MockGateway,

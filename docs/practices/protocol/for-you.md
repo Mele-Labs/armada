@@ -4,7 +4,7 @@
 
 Since 14 Nov 2026, `armada-ehhu.22`. The native For you tab lists only the open Job's own items: what waits on him, the live Jobs it started, and its own pull requests still open.
 **Additive**: five operations, five routes, one event kind and the types they carry. No field on an existing type changes.
-Bridge's half is `packages/protocol/src/for-you.ts`, written by hand, field for field from `crates/ipc/src/for_you.rs`.
+Bridge's half is `classic-final:packages/protocol/src/for-you.ts`, written by hand, field for field from `crates/ipc/src/for_you.rs`.
 
 | Where | Side | Carries |
 | --- | --- | --- |

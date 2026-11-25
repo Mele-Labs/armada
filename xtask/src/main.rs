@@ -22,23 +22,17 @@ mod docs;
 mod roadmap;
 mod rules;
 mod rules_actions;
-mod rules_bundled;
 mod rules_design;
 mod rules_docs;
 mod rules_enums;
 mod rules_errors;
 mod rules_gitnexus;
-mod rules_guides;
 mod rules_icons;
-mod rules_layers;
 mod rules_list_files;
 mod rules_node;
 mod rules_privacy;
 mod rules_protocol;
-mod rules_stories;
 mod rules_studio;
-mod rules_stylesheets;
-mod rules_surfaces;
 mod rules_tests;
 mod rules_tokens;
 mod rules_transcripts;
@@ -50,6 +44,7 @@ mod sentences;
 mod skill_regions;
 mod tokens;
 mod tokens_emit;
+mod vocabulary;
 mod wire;
 
 /// One rule's outcome. `Warn` never fails the gate; `Fail` always does.
@@ -96,6 +91,10 @@ fn main() -> ExitCode {
             let write = std::env::args().any(|a| a == "--write");
             verify_wire(write)
         }
+        Some("verify-vocabulary") => {
+            let write = std::env::args().any(|a| a == "--write");
+            verify_vocabulary(write)
+        }
         Some("verify-roadmap") => verify_roadmap(),
         Some("verify-error-codes") => verify_error_codes(),
         Some("verify-docs") => {
@@ -104,12 +103,12 @@ fn main() -> ExitCode {
         }
         Some(other) => {
             eprintln!("xtask: unknown task `{other}`");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-vocabulary [--write], verify-roadmap");
             ExitCode::FAILURE
         }
         None => {
             eprintln!("xtask: no task given");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-vocabulary [--write], verify-roadmap");
             ExitCode::FAILURE
         }
     }
@@ -138,28 +137,19 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_icons::every_glyph_in_use_is_registered,
     rules_icons::contract::the_contract_and_the_registry_agree_on_meaning,
     rules_actions::every_action_carries_three_columns,
-    rules_stories::every_story_names_its_own_path,
-    rules_guides::every_guides_piece_is_drawn,
-    rules_layers::every_package_imports_downward,
-    rules_layers::nothing_in_the_main_process_reads_the_draft_schema,
-    rules_surfaces::every_surface_is_a_whole_package,
-    rules_bundled::no_workspace_package_is_left_for_node,
     rules_node::the_pinned_node_satisfies_the_declared_floor,
-    rules_stylesheets::every_stylesheet_reaches_the_sheet_the_app_loads,
-    rules_stylesheets::claims::no_two_compositions_claim_one_class,
     rules_tests::every_test_file_is_declared,
     rules_list_files::a_list_is_a_directory_of_entries,
     rules_transcripts::no_bare_transcript_read_in_a_test,
     rules_protocol::the_router_serves_what_the_inventory_names,
     rules_protocol::unserved::every_operation_the_inventory_names_is_served,
     rules_protocol::ask_tools::every_agent_tool_has_a_place_in_the_ask_list,
-    rules_protocol::id::bridge_hashes_the_wire_the_way_fleet_does,
+    rules_protocol::id::the_restart_script_hashes_the_wire_the_way_fleet_does,
     rules_protocol::nulls::no_optional_field_is_sent_as_null,
     rules_errors::one_code_names_one_failure,
     rules_enums::every_registry_key_is_a_variant,
     rules_studio::the_kinds_are_one_set_everywhere,
     rules_vocabulary::the_generated_vocabulary_says_what_the_registries_say,
-    rules_vocabulary::readers::every_generated_vocabulary_has_a_reader,
 ];
 
 /// `--timings` lists each rule's wall time on stderr, slowest first, so stdout
@@ -200,15 +190,15 @@ fn verify_foundations(timings: bool) -> ExitCode {
 /// commit. What the file would add is a way to be stale.
 fn verify_error_codes() -> ExitCode {
     let root = repo_root();
-    let (rust, bridge) = rules_errors::collect(&root);
-    for declared in rust.iter().chain(&bridge) {
+    let rust = rules_errors::collect(&root);
+    for declared in &rust {
         let site = declared.site();
         match &declared.meaning {
             Some(meaning) => println!("{:<34}  {site:<44}  {meaning}", declared.code),
             None => println!("{:<34}  {site}", declared.code),
         }
     }
-    println!("\n{} Rust, {} Bridge", rust.len(), bridge.len());
+    println!("\n{} Rust", rust.len());
     render(
         "verify-error-codes",
         &[rules_errors::one_code_names_one_failure(&root)],
@@ -330,6 +320,12 @@ fn verify_wire(write: bool) -> ExitCode {
 
 fn verify_tokens(write: bool) -> ExitCode {
     regenerate("verify-tokens", tokens::outputs, write)
+}
+
+/// The vocabulary and the acts the native Bridge renders, from the registries in
+/// `crates/core-model/domain/`.
+fn verify_vocabulary(write: bool) -> ExitCode {
+    regenerate("verify-vocabulary", vocabulary::outputs, write)
 }
 
 /// The online half of the capability check. Not a gate rule on purpose — see

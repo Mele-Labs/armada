@@ -10,6 +10,7 @@ pub(crate) mod asks;
 pub(crate) mod chosen;
 mod curate;
 mod curate_view;
+mod doc_checks;
 mod dossier;
 mod floor_map;
 pub(crate) mod floor_home;
@@ -31,6 +32,7 @@ mod read_rows;
 // Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
 #[allow(dead_code)]
 pub mod shots;
+mod start;
 pub mod story_link;
 mod steps;
 mod view;
@@ -51,6 +53,7 @@ use model::{Line, Listed};
 use page::{FeaturePageEvent, FeaturePageView};
 use project_model::ProjectPage;
 use project_page::ProjectPageView;
+use start::{StartEvent, StartPanel};
 
 /// The area colours the list draws, for a Job's Story tab to draw the same.
 pub(crate) use dossier::{hue_among, hue_square};
@@ -116,6 +119,9 @@ pub struct FeaturesScreen {
     project_page: Option<Entity<ProjectPageView>>,
     project_sub: Option<Subscription>,
     on_project: Option<ProjectPage>,
+    /// The start panel in the page's place while the project holds no confirmed or seeded feature (`start.rs`).
+    start: Option<Entity<StartPanel>>,
+    start_sub: Option<Subscription>,
     /// The project the library on screen belongs to.
     library_project: Option<String>,
     read_for: Option<Key>,
@@ -123,6 +129,8 @@ pub struct FeaturesScreen {
     work: Option<Task<()>>,
     /// Where the librarian's press stands, and the press itself while it is in flight.
     press: librarian::Press,
+    /// Whether the card is open, and the buttons the keys reach on it.
+    lib_card: librarian::Shell,
     ran: Option<Task<()>>,
     /// The run shown under the card's line: going on now, or the last one this screen watched end.
     run: Option<steps::Run>,
@@ -216,11 +224,14 @@ impl FeaturesScreen {
             project_page: None,
             project_sub: None,
             on_project: None,
+            start: None,
+            start_sub: None,
             library_project: None,
             read_for: None,
             entered: false,
             work: None,
             press: librarian::Press::Idle,
+            lib_card: librarian::Shell::new(cx),
             ran: None,
             run: None,
             stopping: false,
@@ -355,6 +366,7 @@ impl FeaturesScreen {
         if gone {
             self.close_page(cx);
         }
+        self.keep_start(cx);
         self.preview(cx);
         self.tune_page(cx);
         if self.want_open.as_deref().is_some_and(|slug| self.listed.find(slug).is_some()) {
@@ -378,6 +390,13 @@ impl FeaturesScreen {
         if self.stacked {
             return;
         }
+        // The start panel stands in the page's place: a page opens by Enter or a press, and moving the keys puts it away.
+        if self.start.is_some() {
+            if self.page.is_some() || self.project_page.is_some() {
+                self.close_page(cx);
+            }
+            return;
+        }
         let (me, handle) = (cx.entity(), self.window);
         // On a project row its page is the one beside the list; where the library holds no feature, nothing is chosen and the Overview is.
         let project = self.on_project.or_else(|| (self.cursor.is_none() && self.opened.is_none() && matches!(self.library, Load::Read(_))).then_some(ProjectPage::Overview));
@@ -399,6 +418,54 @@ impl FeaturesScreen {
                 })
             });
         });
+    }
+
+    /// The start panel for the project on screen where its library holds no confirmed or seeded feature, made once for it,
+    /// and none where it holds one.
+    fn keep_start(&mut self, cx: &mut Context<Self>) {
+        let wanted = match &self.library {
+            Load::Read(library) if model::starts(library) => Some(library.project.clone()),
+            _ => None,
+        };
+        if wanted.as_deref() == self.start.as_ref().map(|start| start.read(cx).project.as_str()) {
+            return;
+        }
+        self.start_sub = None;
+        self.start = wanted.map(|project| match &self.source {
+            Source::Live(fleet) => cx.new(|cx| StartPanel::live(fleet, project, cx)),
+            Source::Mock => cx.new(|cx| StartPanel::mock(project, cx)),
+        });
+        if let Some(start) = &self.start {
+            let handle = self.window;
+            self.start_sub = Some(cx.subscribe(start, move |this, panel, event: &StartEvent, cx| match event {
+                StartEvent::Drafted => match &this.source {
+                    Source::Live(_) => this.read(cx),
+                    Source::Mock => {
+                        if let page::Load::Read(start) = &panel.read(cx).start {
+                            this.library = Load::Read(mock::drafted(start));
+                        }
+                        this.relist(cx);
+                    }
+                },
+                StartEvent::Escape => {
+                    let me = cx.entity();
+                    cx.defer(move |cx| {
+                        let _ = handle.update(cx, |_, window, cx| me.update(cx, |this, cx| if this.stacked { this.back(window, cx) } else { this.focus_list(window, cx) }));
+                    });
+                }
+            }));
+        }
+    }
+
+    /// The keys go to the start panel, which stacked is drawn alone at the full width.
+    fn show_start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(start) = self.start.clone() else { return };
+        if self.page.is_some() || self.project_page.is_some() {
+            self.close_page(cx);
+        }
+        self.showing = self.stacked;
+        start.update(cx, |start, cx| start.focus_body(window, cx));
+        cx.notify();
     }
 
     // ---- what the keys are on ----------------------------------------------------------------
@@ -523,6 +590,10 @@ impl FeaturesScreen {
     }
 
     fn open_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.cursor.is_none() && self.on_project.is_none() {
+            self.show_start(window, cx);
+            return;
+        }
         if let Some(which) = self.on_project {
             self.open_project(which, window, cx);
             self.show_page(window, cx);
@@ -752,6 +823,7 @@ impl FeaturesScreen {
             "features_pane" => match (self.project_page.clone(), self.page.clone()) {
                 (Some(page), _) => page.update(cx, |page, cx| page.focus_body(window, cx)),
                 (None, Some(page)) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
+                (None, None) if self.start.is_some() => self.show_start(window, cx),
                 (None, None) => return false,
             },
             "features_project" => return act.digit.is_some_and(|digit| self.choose_number(digit, cx)),
@@ -783,6 +855,8 @@ mod ask_tests;
 #[cfg(test)]
 mod curate_tests;
 #[cfg(test)]
+mod doc_check_tests;
+#[cfg(test)]
 mod floor_home_tests;
 #[cfg(test)]
 mod floor_tests;
@@ -794,6 +868,8 @@ mod of_path_tests;
 mod page_tests;
 #[cfg(test)]
 mod project_tests;
+#[cfg(test)]
+mod start_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

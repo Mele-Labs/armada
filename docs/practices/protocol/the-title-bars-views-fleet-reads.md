@@ -6,8 +6,8 @@ Since 9 Nov 2026. Fleet works out what the Electron Bridge derived in TypeScript
 **Additive only**: every change is a new field, one new operation and one new event, and nothing Electron reads changes shape.
 Electron keeps its own TypeScript for now, so a field here has no reader in it yet.
 **States, not words**, as [the merge line](the-merge-line-fleet-reads.md) is: no field is a sentence.
-The Rust halves are `crates/ipc/src/ring_band.rs`, `job_compact.rs`, `building.rs` and `clashes.rs`; Bridge's halves are `ring-band.ts`, `job-compact.ts`, `building.ts` and `clashes.ts` in `packages/protocol/src`, written by hand, field for field.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The Rust halves are `crates/ipc/src/ring_band.rs`, `job_compact.rs`, `building.rs` and `clashes.rs`; Bridge's halves are `ring-band.ts`, `job-compact.ts`, `building.ts` and `clashes.ts` in `classic-final:packages/protocol/src`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and the
 
 ## What Fleet reads
 
-**The ring band** is `usageLevel` in `packages/components/src/usage.ts`, the two lines held once in Rust.
+**The ring band** is `usageLevel` in `classic-final:packages/components/src/usage.ts`, the two lines held once in Rust.
 A plan window is banded where Fleet takes the reading, before it is compared with the one held, so a repeat of a banded reading still says nothing.
 A Job's context is banded off its two figures when the record is built, so every `session.changed` carries it.
 

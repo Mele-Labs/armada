@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Move the running Fleet — and Bridge and the native Bridge, once they need to — onto whatever is in
+# Move the running Fleet — and the native Bridge, once it needs to — onto whatever is in
 # this working tree. Two callers: an agent, through Bash, after a merge that
 # touches Fleet or Bridge; and Bridge itself, from its own "restart on latest
 # build" act. Never on an allow list — `.claude/skills/preview-app/SKILL.md`
@@ -36,12 +36,8 @@ plist="$support/$label.plist"
 domain="gui/$(id -u)"
 service="$domain/$label"
 
-bridge_label="$label.bridge"
-bridge_plist="$support/$bridge_label.plist"
-bridge_service="$domain/$bridge_label"
-
-# The native Bridge (`crates/bridge-native`) is a job of its own beside Bridge's, so a quit of
-# one is never read as the other's.
+# The native Bridge (`crates/bridge-native`) runs as a job of its own. Armada Classic, the Electron
+# Bridge, had `$label.bridge` beside it, and `scripts/retire-classic` removes what is left of that.
 native_label="$label.native"
 native_plist="$support/$native_label.plist"
 native_service="$domain/$native_label"
@@ -138,8 +134,8 @@ fi
 src="$root"
 if [[ -n "$from" ]]; then
   src=$(cd "$caller_pwd" && cd "$from" 2>/dev/null && pwd) || fail "--from $from is not a directory"
-  [[ -f "$src/crates/armada/Cargo.toml" && -d "$src/apps/desktop" ]] \
-    || fail "--from $src has no crates/armada and apps/desktop — it is not a checkout of this repository"
+  [[ -f "$src/crates/armada/Cargo.toml" && -d "$src/crates/bridge-native" ]] \
+    || fail "--from $src has no crates/armada and crates/bridge-native — it is not a checkout of this repository"
 fi
 $dry_run && [[ -z "$from" ]] && fail "--dry-run is for --from"
 
@@ -586,7 +582,7 @@ pocket_stale() {
 # Fleet then reports the previous ID. Compared here so the install below can be
 # made to rebuild `ipc`; compared again against what Fleet reports.
 tree_protocol() {
-  node "$src/apps/desktop/codegen/protocol-id.mjs"
+  "$src/scripts/protocol-id" "$src"
 }
 ipc_built_protocol() {
   local out
@@ -594,23 +590,6 @@ ipc_built_protocol() {
   [[ -n "$out" ]] || return 0
   sed -n 's/^const PROTOCOL_ID_HASH: &str = "\([0-9a-f]*\)";$/\1/p' "$out"
 }
-# Whether the Bridge in `out/` was built for another protocol than the tree's.
-# Its build compiles the ID into `out/main/index.js`, and the wire files it
-# hashes include `crates/ipc` and `crates/api`, which the mtime check never
-# reads. Confirmed 14 Oct 2026: a restart moved Fleet to a new protocol, said
-# "Bridge is unchanged", and left Bridge unable to connect.
-bridge_protocol_stale() {
-  local main="$src/apps/desktop/out/main/index.js"
-  [[ -f "$main" ]] && ! grep -qF "\"$(tree_protocol)\"" "$main"
-}
-
-# **Bridge runs from a copy of Electron.app that is named Armada Classic**, made by
-# `scripts/armada-electron`, which has the reason. Prints the binary Bridge is
-# run with. `scripts/keep-build` makes it for a real restart; only the dry run asks here.
-armada_electron() {
-  "$root/scripts/armada-electron" $($dry_run && echo --dry-run) "$src"
-}
-
 # **The native Bridge builds with cargo from its own manifest**: it has its own workspace and
 # lockfile, so the root build never reaches it. Its stamp sits beside the binary and holds the
 # protocol the build was made for, because `ipc` is linked in and nothing in the binary says
@@ -660,41 +639,18 @@ if $dry_run; then
   echo "the new Fleet would speak protocol $(tree_protocol)"
   echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
   echo "would drop, after each cargo build, the build output that build superseded (scripts/prune-build)"
-  if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
-    echo "would build Bridge from $src — no build stamp there"
-  elif bridge_protocol_stale; then
-    echo "would build Bridge from $src — it was built for another protocol than $(tree_protocol)"
-  elif [[ -n "$(find "$src/apps" "$src/packages" -type f -not -path '*/node_modules/*' -not -path "$src/apps/desktop/out/*" \
-      -not -path "$src/apps/desktop/release/*" -not -name '*.tsbuildinfo' -newer "$src/apps/desktop/out/.armada-restart-stamp" -print 2>/dev/null | head -n 1)" ]]; then
-    echo "would build Bridge from $src — apps/ or packages/ moved since its last build"
-  else
-    echo "would not build Bridge — unchanged since its last build in $src"
-  fi
-  if [[ "$(cat "$support/restart-source" 2>/dev/null || true)" != "$src" ]]; then
-    echo "would rebuild and reopen Bridge — the running one was built from $(cat "$support/restart-source" 2>/dev/null || echo "$root")"
-  fi
   if [[ -f "$support/armada.db" ]]; then
     echo "would snapshot $support/armada.db to $backups/armada-<UTC stamp>.db, keeping the newest 5"
   else
     echo "would take no snapshot — there is no database yet"
   fi
-  kept_lock=$(shasum -a 256 "$src/pnpm-lock.yaml" 2>/dev/null | cut -c1-16 || true)
-  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada in Armada Fleet.app (bundle id dev.armada.fleet, signed by scripts/signing-identity), a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
+  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada in Armada Fleet.app (bundle id dev.armada.fleet, signed by scripts/signing-identity), the native Bridge's app where it keeps one, and the launcher bridge-launch"
   echo "would have the kept build open a copy of $support/armada.db first, and swap nothing if it cannot"
   echo "would copy its Armada Fleet.app to $support/fleet, renaming each file over the last build's, and point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds, then unregister every other bundle Launch Services lists under $builds and register current's native Bridge, where it keeps one, and the placed Fleet"
   echo "would write $plist: [$fleet_program, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would wait up to 60 s for the new Fleet to answer /health, and otherwise mark the build and swap back onto the one before"
-  echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
-  echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's main, preload or Electron differ from the build before's; where only its page differs, Bridge reloads it in place"
-  if bridge_electron=$(armada_electron); then
-    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada Classic with the Classic icon, signed by scripts/signing-identity, made if missing, kept once per Electron version in $support/electron"
-  else
-    echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
-  fi
-  echo "Bridge would run the kept copy of $src/apps/desktop/out, built from $src"
-  dry_bridge "Bridge" "$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)" "$kept_current/bridge" \
-    classic --support "$support"
+  "$root/scripts/retire-classic" --dry-run
   if native_present; then
     if native_stale; then
       echo "would build the native Bridge from $src — $native_why"
@@ -814,69 +770,8 @@ elif ! { claude plugin marketplace update armada-local && claude plugin update a
 fi
 fi
 
-# **A stamp this script writes, not a build output's own mtime.** A first
-# attempt compared source files against `out/main/index.js`, and every build
-# leaves `out/preload/index.js` and `out/renderer/**` newer than that one file
-# — so the "did anything change" question always answered yes, on a tree that
-# had not moved since the previous run.
-#
-# **The stamp's value is when the build started, and it is written when the
-# run stops being able to vouch for Bridge running it.** Both matter, and
-# each fixes its own incident. On 12 Sep a run built Bridge, stamped it right
-# there, and then failed at the late Drone check before Fleet or Bridge were
-# touched: the old process kept running, but the stamp said it was current,
-# so nothing later reopened it — the *write* is deferred to wherever this
-# script finishes deciding whether the running Bridge matches the build:
-# after a successful reopen, or after deciding none was needed. Separately,
-# `pnpm build` can run for minutes, and a source file edited while it runs
-# is newer than "now" once the run finally ends — stamping "now" there would
-# mark this run as covering an edit it never saw. `bridge_pending` is
-# touched immediately before the build starts, so its mtime is the instant
-# this run stopped being able to vouch for anything past it; that mtime, not
-# "now", is what is later renamed into the stamp — `mv` carries a file's
-# mtime with it.
-bridge_stamp="$src/apps/desktop/out/.armada-restart-stamp"
-bridge_pending="$src/apps/desktop/out/.armada-restart-stamp.pending"
-bridge_rebuilt=false
-# **A different source than the running Bridge was built from is a rebuild**
-# whatever the stamp says: the stamp is per tree, and the window open is the
-# other tree's. Only a `--from` run leaves the record, and the next plain run
-# removes it, so a machine that never uses `--from` never has one.
-source_record="$support/restart-source"
-if [[ -n "$from" && "$(cat "$source_record" 2>/dev/null || true)" != "$src" ]]; then
-  bridge_rebuilt=true
-elif [[ -z "$from" && -f "$source_record" ]]; then
-  bridge_rebuilt=true
-elif [[ ! -f "$bridge_stamp" ]]; then
-  bridge_rebuilt=true
-elif bridge_protocol_stale; then
-  bridge_why="it was built for another protocol than $(tree_protocol)"
-  bridge_rebuilt=true
-else
-  changed=$(find "$src/apps" "$src/packages" -type f \
-      -not -path '*/node_modules/*' \
-      -not -path "$src/apps/desktop/out/*" \
-      -not -path "$src/apps/desktop/release/*" \
-      -not -name '*.tsbuildinfo' \
-      -newer "$bridge_stamp" -print 2>/dev/null | head -n 1 || true)
-  # **`|| true`, because `head` closing the pipe is the point.** With more than
-  # one file changed, `find` dies of SIGPIPE once `head` has its line, and under
-  # `pipefail` that is exit 141: `set -e` then ended the whole restart right
-  # after the install, silently, with Fleet untouched. Confirmed 30 Sep 2026.
-  [[ -n "$changed" ]] && bridge_rebuilt=true
-fi
-
-if $bridge_rebuilt; then
-  say "Building Bridge — ${bridge_why:-apps/ or packages/ moved since its last build}"
-  mkdir -p "$src/apps/desktop/out"
-  touch "$bridge_pending"
-  (cd "$src" && pnpm --filter @armada/desktop build)
-else
-  say "Bridge is unchanged since its last build"
-fi
-
 # **The native Bridge, built before Fleet is stopped**, so a build that fails stops the restart
-# with everything still running, as Bridge's does. The stamp is written once the build took, from a
+# with everything still running. The stamp is written once the build took, from a
 # file touched before it started, so an edit made while cargo ran still reads as newer. The
 # target directory is named, so a `CARGO_TARGET_DIR` in the environment cannot move the binary.
 native_arg=""
@@ -931,14 +826,10 @@ $keep_only || refuse_if_drone_working
 # flips the links back and reboots the two jobs; it never builds. What was kept
 # and how is `scripts/keep-build`'s own header.
 #
-# The old build's Bridge key is read first: `point` moves `current` off it.
+# The old build's native key is read first: `point` moves `current` off it.
 kept_source=main
 [[ -n "$from" ]] && kept_source=preview
-old_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
-old_bridge_shell=$(sed -n 's/^bridge_shell = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
-old_electron=$(sed -n 's/^electron = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
 old_native_key=$(sed -n 's/^native = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
-old_page_reload=$(sed -n 's/^page_reload = \(.*\)$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
 kept_build=$("$root/scripts/keep-build" make "$src" "$armada_bin" "$kept_source" "$(tree_protocol)" ${native_arg:+"$native_arg"}) \
   || fail "could not keep the build from $src"
 say "Keeping the build in $kept_build"
@@ -952,9 +843,6 @@ if $keep_only; then
   exit 0
 fi
 "$root/scripts/keep-build" point "$kept_build" || fail "could not point $kept_current at $kept_build"
-new_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
-new_bridge_shell=$(sed -n 's/^bridge_shell = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
-new_electron=$(sed -n 's/^electron = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
 new_native_key=$(sed -n 's/^native = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
 
 # A copy of the database the new build is about to open, so a migration that
@@ -1091,153 +979,10 @@ fi
 # protocol, so a restart that failed before here leaves the old record true.
 git -C "$src" rev-parse HEAD >"$support/restart-commit" 2>/dev/null || rm -f "$support/restart-commit"
 
-# Reopen Bridge, only if it was rebuilt or is not the kept build. Otherwise it
-# reconnects on its own — apps/desktop/src/main/socket.ts.
-#
-# **Not the kept build** is two things, neither a rebuild. A Bridge job loaded
-# from anywhere but `builds/current/bridge` is the first restart onto kept
-# builds, and its plist still names a tree. A `bridge` key that differs from the
-# build before's is `out/` changed without this run building it. A job that is
-# not loaded at all, or a first build with nothing before it to differ from, is
-# not a reason: a Bridge someone started by hand is left alone as it always was.
-# `bridge_rebuilt` is left as it was, because the stamp below says what *this
-# run built*, and a reopen that built nothing must not vouch for an edit it never saw.
-#
-# **Where only the page differs**, Bridge is not reopened: the running one reloads
-# its window from `builds/current` once Fleet is back
-# (`apps/desktop/src/main/page-reload.ts`), which is safe only while main, preload
-# and Electron are the same, and only where the running build says it can.
-bridge_reopened=false
-bridge_reloads=false
-bridge_reopen=$bridge_rebuilt
-loaded_bridge_dir=$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)
-if [[ -n "$loaded_bridge_dir" && "$loaded_bridge_dir" != "$kept_current/bridge" ]]; then
-  say "Bridge runs from $loaded_bridge_dir, not the kept build — reopening it there"
-  bridge_reopen=true
-elif [[ -n "$old_bridge_key" && "$old_bridge_key" != "$new_bridge_key" ]]; then
-  if [[ "$old_page_reload" == true && -n "$old_bridge_shell" && "$old_bridge_shell" == "$new_bridge_shell" && "$old_electron" == "$new_electron" ]]; then
-    say "Only Bridge's page differs from the build before's — Bridge reloads it in place"
-    bridge_reopen=false
-    bridge_reloads=true
-  else
-    say "Bridge's files differ from the build before's — reopening it"
-    bridge_reopen=true
-  fi
-fi
-# **What the running Bridge was built for, read off its process**, not what the build
-# before was: a restart that died after it moved `builds/current` leaves the next one seeing
-# no difference. A page reloaded in place does not change the protocol its main speaks.
-IFS=$'\t' read -r protocol_verdict protocol_why < <("$root/scripts/running-bridge" classic --support "$support" --want "$protocol") || true
-if [[ "$protocol_verdict" == reopen ]] && ! $bridge_reopen; then
-  say "Bridge: $protocol_why. Reopening it"
-  bridge_reopen=true
-  bridge_reloads=false
-fi
-if $bridge_reopen; then
-  # **Quit the running Bridge by a handle proven to be this repository's,
-  # never by name.** The owner's Bridge today is as likely to be a plain
-  # `electron-vite preview` from `scripts/dev` in his terminal as anything
-  # this script started, so there is no service to kickstart in place. What
-  # is provable without guessing: Electron's own binary lives under this
-  # repository's `node_modules`, nowhere else, so a process running exactly
-  # that binary with no arguments but `.` is this repository's Bridge and
-  # nothing else's — a path match, not a name pattern. Exactly one match is
-  # quit by its pid; more than one, or one that will not quit, is left alone
-  # and reported rather than guessed at.
-  bridge_pattern="^${root}/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) \\.\$"
-  # With `--from`, the window already open may be either tree's.
-  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) \\.\$"
-  # **A Bridge run from a kept build** is the binary under `$support/node_modules/`
-  # given a folder of `$support/builds/`. The support folder has a space in it and
-  # dots, so it is escaped for the regex.
-  support_re=$(printf '%s' "$support" | sed 's/[][\\.*^$+?(){}|]/\\&/g')
-  bridge_pattern="(${bridge_pattern})|(^${support_re}/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) ${support_re}/builds/[^/]+/bridge\$)"
-  # **Out of launchd before any pid is quit**: a Bridge launchd holds and is
-  # killed is reopened (`scripts/bridge-launch`), so it would come back old.
-  if launchctl print "$bridge_service" >/dev/null 2>&1; then
-    launchctl bootout "$bridge_service" 2>/dev/null || true
-    for _ in $(seq 40); do
-      launchctl print "$bridge_service" >/dev/null 2>&1 || break
-      sleep 0.25
-    done
-  fi
-  existing=$(pgrep -f "$bridge_pattern" 2>/dev/null || true)
-  existing_count=0
-  [[ -n "$existing" ]] && existing_count=$(printf '%s\n' "$existing" | grep -c .)
-
-  reopen_ok=true
-  if [[ "$existing_count" -eq 1 ]]; then
-    old_bridge_pid="$existing"
-    say "Quitting the running Bridge (pid $old_bridge_pid) for this repository"
-    kill -TERM "$old_bridge_pid" 2>/dev/null || true
-    for _ in $(seq 40); do
-      kill -0 "$old_bridge_pid" 2>/dev/null || break
-      sleep 0.25
-    done
-    if kill -0 "$old_bridge_pid" 2>/dev/null; then
-      echo "restart: Bridge (pid $old_bridge_pid) did not quit in time — leaving it. Restart Bridge by hand." >&2
-      reopen_ok=false
-    fi
-  elif [[ "$existing_count" -gt 1 ]]; then
-    echo "restart: more than one Bridge window is open for this repository — not guessing which to quit. Restart Bridge by hand." >&2
-    reopen_ok=false
-  fi
-
-  if $reopen_ok; then
-    # **The kept build's own launcher, through `current`, not pnpm.** Nothing
-    # names a tree, so the build kept above is the build run, and a flipped link
-    # is all a revert needs. `launch-bridge` names the Electron it was kept with
-    # (the Armada Classic copy `scripts/armada-electron` made, else Electron's own,
-    # which says "Electron" in the menu bar but runs).
-    bridge_dir="$kept_current/bridge"
-    [[ -x "$kept_current/bridge-launch" && -x "$kept_current/launch-bridge" ]] \
-      || fail "$kept_current has no executable bridge-launch and launch-bridge — the build was not kept whole"
-    # **Reopened by launchd when it stops without a quit**: `scripts/bridge-launch`
-    # turns a crash or a kill into exit 1, and a quit the person meant into exit 0.
-    python3 - "$bridge_plist" "$bridge_label" "$bridge_dir" "$home" "$PATH" "$kept_current/bridge-launch" "$kept_current/launch-bridge" "$support/bridge-quit" <<'PY'
-import plistlib, sys
-
-path, label, root, home, path_env, launch, launch_bridge, quit_mark = sys.argv[1:9]
-env = {"HOME": home, "PATH": path_env, "ARMADA_BRIDGE_QUIT_MARK": quit_mark}
-plistlib.dump(
-    {
-        "Label": label,
-        "ProgramArguments": [launch, launch_bridge],
-        "WorkingDirectory": root,
-        "RunAtLoad": True,
-        "KeepAlive": {"SuccessfulExit": False},
-        "ThrottleInterval": 10,
-        "ProcessType": "Interactive",
-        "StandardOutPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "StandardErrorPath": f"{home}/Library/Logs/Armada/{label}.log",
-        "EnvironmentVariables": env,
-    },
-    open(path, "wb"),
-)
-PY
-    chmod 644 "$bridge_plist"
-    # **Boot the job out and back in; never kickstart it.** `kickstart -k`
-    # restarts the definition launchd already holds and ignores the plist just
-    # written, so a Bridge loaded from the main checkout kept running there
-    # while the file on disk named the preview. Confirmed 6 Oct: the loaded job
-    # said WorkingDirectory main, the plist said .armada/preview.
-    say "Reopening Bridge from $bridge_dir"
-    if launchctl print "$bridge_service" >/dev/null 2>&1; then
-      launchctl bootout "$bridge_service" 2>/dev/null || true
-      for _ in $(seq 40); do
-        launchctl print "$bridge_service" >/dev/null 2>&1 || break
-        sleep 0.25
-      done
-    fi
-    launchctl bootstrap "$domain" "$bridge_plist"
-    loaded_dir=$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p')
-    if [[ "$loaded_dir" != "$bridge_dir" ]]; then
-      fail "launchd loaded Bridge from ${loaded_dir:-nowhere}, not $bridge_dir — it would show the wrong tree"
-    fi
-    echo "Bridge runs $bridge_dir/out (kept from $src)" >&2
-    bridge_reopened=true
-  fi
-fi
+# **Armada Classic is retired here, every restart**: nothing launches it any more, so its launchd job,
+# plist and installed app are removed where they are still there (`scripts/retire-classic`).
+# A Classic somebody started by hand from a terminal is not ours to stop.
+"$root/scripts/retire-classic" || echo "restart: warning: Armada Classic could not be fully removed — run scripts/retire-classic to see why" >&2
 
 # **The native Bridge is opened when it is not open from the kept build**, and otherwise left alone,
 # so a restart that changed nothing in it does not close the window the person is using. That is:
@@ -1311,35 +1056,17 @@ PY
   fi
 fi
 
-# The running Bridge now matches this build only if it was actually reopened
-# onto it — not merely built. Left false (a quit that did not land, or more
-# than one window open), `bridge_pending` is left where it is and the build
-# already on disk stays unstamped, so the next run still finds Bridge
-# changed and tries the reopen again rather than trusting a build nobody is
-# running yet. Nothing needed here when Bridge was never rebuilt — the
-# existing stamp already covers it, and touching it would only move its
-# time later for no reason.
-if $bridge_rebuilt && { $bridge_reopened || $bridge_reloads; }; then
-  mkdir -p "$src/apps/desktop/out"
-  if [[ -f "$bridge_pending" ]]; then
-    mv -f "$bridge_pending" "$bridge_stamp"
-  else
-    touch "$bridge_stamp"
-  fi
-fi
-
+# **The tree this run built from is recorded when it is not this one**, and the next plain run
+# removes the record, so a machine that never uses `--from` never has one. Fleet's panel and a
+# plain restart read it to tell a preview from `main` (`scripts/preview`, `crates/fleet/src/building.rs`).
+source_record="$support/restart-source"
 if [[ -n "$from" ]]; then
-  { $bridge_reopened || $bridge_reloads; } && printf '%s\n' "$src" > "$source_record"
+  printf '%s\n' "$src" > "$source_record"
   echo "Built from $src; serving $root"
-elif $bridge_reopened || $bridge_reloads; then
+else
   rm -f "$source_record"
 fi
 
 say "Done"
 echo "Fleet: pid ${old_pid:-none} -> $new_pid, port $new_port, protocol $protocol"
-echo "Bridge reopened: $bridge_reopened"
 echo "Native Bridge reopened: $native_reopened"
-# An `if`, not `&&`: as the last command, a false `&&` would be the script's exit status.
-if $bridge_reloads; then
-  echo "Bridge reloads its page in place"
-fi

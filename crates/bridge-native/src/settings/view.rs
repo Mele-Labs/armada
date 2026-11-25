@@ -1,5 +1,5 @@
 //! Settings drawn: the overlay's frame, the sidebar, and each entry's page. A schema setting is drawn by its
-//! kind, as Classic's `SettingField` draws it (`packages/components/src/compositions/SettingField/`).
+//! kind, as Classic's `SettingField` draws it (`classic-final:packages/components/src/compositions/SettingField/`).
 
 use std::collections::BTreeMap;
 

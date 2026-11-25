@@ -13,4 +13,4 @@
 
 **A bundle that is the agent's first context is not a row.** Fleet renders it as prose and puts it ahead of the person's first message.
 A session closed or released from a pilot clears its own lease, so its next write leases a slot as any session's does.
-Bridge's half is in `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.

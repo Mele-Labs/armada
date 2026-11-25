@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 12 Oct 2026. **Additive only**: one operation, one event kind, one fact, five optional fields.
-Bridge's half is `packages/protocol/src/plan-usage.ts`, `sessions.ts`, `protocol.ts` and `events.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/plan-usage.ts`, `sessions.ts`, `protocol.ts` and `events.ts`, written by hand.
 Nothing here is the lifeboat's.
 
 | Where | Carries | Notes |
@@ -13,7 +13,7 @@ Nothing here is the lifeboat's.
 | `SessionFact::Measured.plan?` (mod to Fleet) | `PlanWindow[]` | Left out off a subscription. An empty report never clears the reading held |
 | `SessionFact::Limited` (mod to Fleet) | `resets_at` | The turn ended on the plan's limit |
 | `SessionFact::Measured.context_breakdown?` (mod to Fleet) | `ContextBreakdown` | What fills the context window. Names, paths and counts; the ten heaviest MCP tools. Fleet keeps the latest and an absent one leaves it |
-| `SessionRecord.context_breakdown?` | `ContextBreakdown`: `categories` (`name`, `tokens`, `kind` of `used`, `free`, `buffer` or `deferred`), `memory_files` (`path`, `tokens`), `mcp_tools` (`name`, `server`, `tokens`), `total_tokens`, `max_tokens`, `autocompact_threshold?` | Mirrored in `packages/protocol/src/context-breakdown.ts`. `kind` is a plain enum Bridge matches on, so a fifth value is a change to tell every reader |
+| `SessionRecord.context_breakdown?` | `ContextBreakdown`: `categories` (`name`, `tokens`, `kind` of `used`, `free`, `buffer` or `deferred`), `memory_files` (`path`, `tokens`), `mcp_tools` (`name`, `server`, `tokens`), `total_tokens`, `max_tokens`, `autocompact_threshold?` | Mirrored in `classic-final:packages/protocol/src/context-breakdown.ts`. `kind` is a plain enum Bridge matches on, so a fifth value is a change to tell every reader |
 | `SessionRecord.held_until?` | an instant | The job is held for the limit and is woken a minute after it |
 | `JobSummary.paused.until?` | an instant | The Job's Drone was stopped by the limit; admission starts it again a minute after |
 

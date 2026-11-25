@@ -4,12 +4,11 @@
 //! a redaction decision nobody made.**
 //!
 //! `ProtocolId` is a hash `build.rs` takes of these types, the operation
-//! inventory, the route table and Bridge's mirror of them, and
-//! `apps/desktop/codegen/protocol-id.mjs` takes the same hash for Bridge.
+//! inventory and the route table, and `scripts/protocol-id` takes the same hash
+//! from a tree that has not been built.
 //! Pocket's TypeScript for the types it reads is generated from this crate by
 //! `cargo xtask verify-wire` and checked in under `apps/pocket/src/wire/`, so a
-//! change here that leaves it stale fails the gate. Bridge's own mirror in
-//! `packages/protocol` is still written by hand.
+//! change here that leaves it stale fails the gate.
 //! This is one of two crates permitted to deserialize.
 //!
 //! **The conversion lives here rather than in Fleet.** The *decision* is
@@ -53,6 +52,8 @@ mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
 mod librarian;
+mod doc_checks;
+mod library_start;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -148,6 +149,7 @@ mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
 mod project_store;
+mod metrics;
 mod project_board;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
@@ -174,6 +176,8 @@ pub mod key_bindings;
 pub mod ask_tools;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
+/// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
+pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
@@ -397,6 +401,8 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
@@ -572,7 +578,12 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use values_merging::VALUE_KEYS;
+pub use metrics::{
+    MetricAnswer, MetricCall, MetricCredential, MetricHeader, MetricPoint, MetricReading, MetricReadings, MetricRecipe, MetricRow, MetricSaved,
+    MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
+};
 pub use projects::MergeProjects;
+pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,
 };

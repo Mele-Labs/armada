@@ -1,16 +1,20 @@
 # Protocol: the Fleet/Bridge seam
 
-Armada has exactly one place where Rust stops and TypeScript starts: the wire
-between Fleet (the daemon, Rust) and Bridge (the desktop app, Electron). Every
-other boundary in the system is a function call or a file. This one is a
-process boundary between two binaries with independent release cadence and
-independent lifetimes, and everything in this document exists because that
-combination has already gone wrong once, in v1, and cost real debugging time
-figuring out which side was lying.
+Armada has exactly one place where Fleet's types leave Rust: the wire between
+Fleet (the daemon) and its clients, Bridge (the native desktop app) and Pocket
+(the phone app). Every other boundary in the system is a function call or a
+file. This one is a process boundary between binaries with independent release
+cadence and independent lifetimes, and everything in this document exists
+because that combination has already gone wrong once, in v1, and cost real
+debugging time figuring out which side was lying.
 
-If your change touches `crates/ipc`, `packages/protocol`, the route table in
-`crates/api/src/routes/`, anything under `apps/desktop/src/preload`, or the
-WebSocket event stream, read this first.
+Bridge links `crates/ipc`, so it shares Fleet's types. Pocket's types are
+generated from them. **Armada Classic, the Electron Bridge, kept a hand-written
+TypeScript copy in `classic-final:packages/protocol` and is deleted.** An entry below that
+names Classic's half cites it at the tag `classic-final`.
+
+If your change touches `crates/ipc`, the route table in
+`crates/api/src/routes/`, or the WebSocket event stream, read this first.
 
 <!-- split: one file per section; re-run the split on the whole doc -->
 
@@ -244,14 +248,16 @@ WebSocket event stream, read this first.
 | [A question and the reply that answers it: `list_job_questions`, `mark_answer_read`, `SessionRecord.answer_unread`](protocol/a-question-and-the-reply-that-answers-it.md) |
 | [A message asks for one of Armada's tools: `TagKind::Tool`](protocol/a-message-asks-for-one-of-armadas-tools.md) |
 | [A message tags a request: `TagKind::Request`](protocol/a-message-tags-a-request.md) |
+| [A check of a feature's docs against its code: `check_docs`, `dismiss_doc_flag`, `start_doc_job` and `check` on `FeatureRead`](protocol/a-check-of-a-features-docs.md) |
+| [A project starts its library: `get_library_start` and `draft_module_features`](protocol/a-project-starts-its-library.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
 
 Since 17 Oct 2026. `docs/concepts/session.md`.
 **Additive only**: one operation, one route and the types they carry; no event kind, no error and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-notes.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-notes.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -292,8 +298,8 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 Since 18 Oct 2026. `docs/concepts/kit.md`, *Flight controls*.
 **Additive only**: three operations, three routes and the types they carry; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/flight-controls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -319,8 +325,8 @@ The open risk below is neither better nor worse.
 
 Since 18 Oct 2026. `docs/concepts/tracker.md`.
 **Additive only**: fields on one existing answer and the types they carry; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/issues.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/issues.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -339,8 +345,8 @@ A tracker that reads only a title and a state (Jira) answers the new fields empt
 
 Since 19 Oct 2026. `docs/concepts/kit.md`, `docs/concepts/session/installing-the-claude-code-mod.md`.
 **Bridge's half only**: Fleet serves these routes already, and no operation, route or error is added here.
-The protocol ID moves with `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-import.ts` and `run-memory.ts`, with `CreateProject` in `setup.ts`, written by hand, field for field.
+The protocol ID moves with `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-import.ts` and `run-memory.ts`, with `CreateProject` in `setup.ts`, written by hand, field for field.
 
 | Bridge calls (`window.armada`) | Route | Answers |
 | --- | --- | --- |
@@ -353,7 +359,7 @@ Bridge's half is `packages/protocol/src/session-import.ts` and `run-memory.ts`, 
 | `dropRunFact(body)` | `POST /repositories/runs/drop` | `RunMemory`, as it now stands |
 
 Every call but `createProject` answers `OnboardingAnswer<T>`: `{ ok: true, value }` or `{ ok: false, outcome }`.
-The waits: the two reads of past sessions wait 120 s and the install 7 min, past Fleet's own bounds, by the comment in `apps/desktop/src/main/onboarding.ts`.
+The waits: the two reads of past sessions wait 120 s and the install 7 min, past Fleet's own bounds, by the comment in `classic-final:apps/desktop/src/main/onboarding.ts`.
 
 **The event stream.** Untouched: nothing here publishes an event. The open risk below is neither better nor worse.
 
@@ -361,8 +367,8 @@ The waits: the two reads of past sessions wait 120 s and the install 7 min, past
 
 Since 19 Oct 2026. `docs/concepts/session/the-plan.md`.
 **Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field for field. Bridge draws nothing from it yet.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-plan.ts`, written by hand, field for field. Bridge draws nothing from it yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -376,8 +382,8 @@ Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field
 
 Since 19 Oct 2026. `docs/concepts/session/a-job-fleet-hosts.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/calls.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/calls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -394,8 +400,8 @@ The open risk below is slightly worse: an ask's frame grows with its command, wh
 
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Flight controls*.
 **Additive only**: two operations, one route path and the types they carry; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/flight-controls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -418,7 +424,7 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Commit to repository*.
 **One route for every kind of piece**: the body's `piece` says which, so a fourth kind is a variant and not a route.
 It replaces the parked approach of committing tiles as a save place: `save_repository_flight_controls` never writes the repository.
-Bridge's half is `packages/protocol/src/committing.ts` and `in_repository` in `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/committing.ts` and `in_repository` in `classic-final:packages/protocol/src/flight-controls.ts`, written by hand, field for field.
 Bridge reads `in_repository` with the open Job's `session_id`, and sends a commit from a tile's sheet, a Kit workflow or a Kit review tool.
 
 | Where | Side | Carries |
@@ -443,8 +449,8 @@ Were a pair to meet anyway, a Fleet without the route answers 404, and an older 
 
 Since 19 Oct 2026. `docs/concepts/workflow.md`, *Where a definition comes from*, and `docs/concepts/pull-review.md`, *Review tools*.
 **Additive only**: one field on two existing types; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts` and `review-runs.ts`, written by hand, field for field.
 Bridge marks a workflow row that carries it with the eclipse glyph, its tooltip naming what it hides, and draws it on a review tool's row in the tools menu and in the empty tools pane's list, and on its tab's head, naming what it hides; the menu row's hover also says what it replaces.
 
 | Where | Side | Carries |
@@ -461,8 +467,8 @@ Bridge marks a workflow row that carries it with the eclipse glyph, its tooltip 
 
 Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
 **Additive only**: one field on an existing type and the two types it carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand, field for field.
 Bridge marks each Check or Command of `names` with `hides` on the Manifest surface's list, with the eclipse glyph.
 
 | Where | Side | Carries |
@@ -478,8 +484,8 @@ Bridge marks each Check or Command of `names` with `hides` on the Manifest surfa
 
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Kept on this Mac*.
 **Additive only**: two operations, one route path, the type they carry and one error code; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/run-memory.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/run-memory.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -495,8 +501,8 @@ Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge 
 
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Flight controls*; `docs/design/who-sees-each-piece-of-configuration.md`, *A tile a teammate committed asks before it runs*.
 **Additive only**: one operation, one route, the types it carries, and optional fields on two existing types.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/flight-controls.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/flight-controls.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -523,7 +529,7 @@ A tile has no working directory yet, so the hash covers the command text alone.
 Since 19 Oct 2026. `docs/concepts/kit.md`, *Share*; `docs/design/who-sees-each-piece-of-configuration.md`, *Share is a package*.
 **Additive only**: five operations, five paths under `/share` and the types they carry; no event kind and no field on an existing type.
 **Fleet makes the text and reads it**: Bridge writes the file and the clipboard, and takes the text from a dropped file or a paste.
-Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/sharing.ts`, written by hand, field for field.
 Bridge calls all five: Share and Copy on a piece, and Import for a package dropped or pasted on its window.
 
 | Where | Side | Carries |
@@ -558,8 +564,8 @@ Were a pair to meet anyway, a Fleet without the routes answers 404.
 
 Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/concepts/kit.md`, *Commit to repository*.
 **One new variant on a type that exists, and no operation, route, event kind or error code.**
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/committing.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/committing.ts`, written by hand, field for field.
 Bridge sends it nowhere yet.
 
 | Where | Side | Carries |
@@ -593,8 +599,8 @@ Were a pair to meet anyway, an older Fleet refuses a `manifest` piece as a body 
 
 Since 19 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*; `docs/design/who-sees-each-piece-of-configuration.md`, *Every piece takes the same places*.
 **Additive only**: one operation, one route, and the two types it carries.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/sharing.ts`, written by hand, field for field, and Bridge sends it nowhere.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/sharing.ts`, written by hand, field for field, and Bridge sends it nowhere.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -624,8 +630,8 @@ Anything else is refused with a message that starts *Nothing was saved.*, and a 
 
 Since 20 Oct 2026. `docs/concepts/manifest.md`, *Kit's copy*.
 **Additive only**: two optional fields on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand, field for field.
 Bridge draws nothing from it yet.
 
 | Where | Side | Carries |
@@ -645,8 +651,8 @@ Neither field is sent as `null`.
 
 Since 21 Oct 2026. `docs/concepts/kit.md`, *Commit to repository*, and `.claude/decisions/2026-10-21-commit-starts-a-job-of-its-own.md`.
 **Not additive**: a field leaves a body, an error code goes, and fields are added to an answer.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/committing.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/committing.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -670,8 +676,8 @@ The Job is a hosted Session that runs no agent, and holds its pull request on it
 ## A Fleet notice is muted: `set_notice_mute`, and `notice` on a message row
 
 Since 21 Oct 2026. **Additive only**: one operation and route, the types it carries, and one optional field on an existing row.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/notices.ts` and `notice` on `message` in `hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/notices.ts` and `notice` on `message` in `hosted-sessions.ts`, written by hand, field for field.
 Bridge calls neither yet.
 
 | Where | Side | Carries |
@@ -689,8 +695,8 @@ A notice it holds back is not marked told, so lifting the mute resumes it, and a
 ## The Logbook: `get_logbook` and four acts on an entry
 
 Since 22 Oct 2026. `docs/concepts/logbook.md`. **Additive only**: five operations and routes and the types they carry; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field. Bridge calls none of them yet.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/logbook.ts`, written by hand, field for field. Bridge calls none of them yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -712,11 +718,11 @@ A Bridge that predates it ignores the field.
 
 Since 22 Oct 2026. **Additive only**: three operations and routes and the types they carry; no event kind and no field on an existing type but `taught_on` on `ModSummary` and three `ModKind` words.
 Since 23 Oct 2026 the words part's `address` is `{ template, found }` and not a string (the one read of it is Bridge's, and the IDs differ), `WordRule` gains `found`, `ModSummary` gains `entry`, and `ModChecked` gains `words` and `fleet`.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 Since 23 Oct 2026, again, a Fleet rule gains `matches` and `when` and the proposal's `fleet` part gains `untestable`, all optional and left out when absent.
 Since 30 Oct 2026 a proposal gains a sixth part, `rule`, a lifecycle rule with `untestable`, `TeachingSourceKind` gains `ticket`, and `SavedTeaching` gains `rule`, the rule piece written; all optional, and no number to take.
-Bridge's half is `packages/protocol/src/teaching.ts` and the `ModKind` union in `packages/protocol/src/mods.ts`, written by hand, field for field.
-Its calls are `readTeaching`, `saveTeaching` and `listWordRules` (`apps/desktop/src/shared/api/teaching.ts`, served by `apps/desktop/src/main/teaching.ts`); `read_teaching` waits as a model call does.
+Bridge's half is `classic-final:packages/protocol/src/teaching.ts` and the `ModKind` union in `classic-final:packages/protocol/src/mods.ts`, written by hand, field for field.
+Its calls are `readTeaching`, `saveTeaching` and `listWordRules` (`classic-final:apps/desktop/src/shared/api/teaching.ts`, served by `classic-final:apps/desktop/src/main/teaching.ts`); `read_teaching` waits as a model call does.
 **A teaching is a Logbook entry for the agent note, mods by what it changes and a rule piece for a rule**; `save_teaching` makes all three, so Bridge files nothing itself.
 `docs/concepts/mods.md` is the mod files.
 
@@ -746,8 +752,8 @@ A Bridge before this reads an item of a source it does not know; the IDs differ 
 
 Since 19 Oct 2026. `docs/concepts/session/what-fleet-tells-a-job.md`.
 **Additive only**: one operation, one route, the types it carries and one thread row; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is the `disputed` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -766,8 +772,8 @@ Bridge's half is the `disputed` row in `packages/protocol/src/hosted-sessions.ts
 
 Since 29 Oct 2026. `crates/ipc/src/bug_reports.rs`.
 **Additive only**: four operations, four routes, one event kind and the `bug_reports` table; no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/bug-reports.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/bug-reports.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -810,7 +816,7 @@ Since 14 Nov 2026. `crates/ipc/src/job_asks.rs`.
 
 Since 31 Oct 2026. `crates/ipc/src/hosted_sessions.rs`, `crates/ipc/src/bug_reports.rs`.
 **Additive only**: one `TagKind`, one optional field on `BugReport`, one `bug_reports` migration; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -828,7 +834,7 @@ It runs for the pull requests `Mine` owns, one a Job holds but another account o
 ## Keep on this Mac is gone: `get_kept_on_this_mac`, `set_kept_on_this_mac`
 
 Since 21 Oct 2026. `docs/concepts/kit.md`, *A private repository*; `.claude/decisions/2026-10-21-the-place-rows-are-the-choice.md`.
-**Removal only**: the two operations, the `/repositories/kept_on_this_mac` route, `KeptOnThisMac` and `SetKeptOnThisMac` in `packages/protocol/src/run-memory.ts`, and the refusal `fleet.run_place_kept_here`.
+**Removal only**: the two operations, the `/repositories/kept_on_this_mac` route, `KeptOnThisMac` and `SetKeptOnThisMac` in `classic-final:packages/protocol/src/run-memory.ts`, and the refusal `fleet.run_place_kept_here`.
 The earlier section on them stands as what the 19 Oct build did.
 Bridge called neither, so nothing in it changes.
 
@@ -845,8 +851,8 @@ Bridge called neither, so nothing in it changes.
 
 Since 19 Oct 2026; rewritten 21 Oct 2026, before any build shipped it, so nothing here is kept for an older client.
 The per-host kept header is retired: `set_request_cookie`, `forget_request_cookie`, `list_request_hosts`, `list_request_environments` and `save_request_environments` are gone, with their types and the global `~/.armada/requests.toml`.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/requests.ts` and the `requested` and `saved` rows in `hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/requests.ts` and the `requested` and `saved` rows in `hosted-sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -905,8 +911,8 @@ A run is written to the store and not published, so the two reads add nothing to
 
 Since 22 Oct 2026. `docs/concepts/fleet.md`, *Write clashes*, has the write table it checks against.
 **Additive only**: one operation, one route and the type it answers; no event kind, no error on an existing operation and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `SessionFileChange` in `packages/protocol/src/territory.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `SessionFileChange` in `classic-final:packages/protocol/src/territory.ts`, written by hand, field for field.
 Bridge's call is `ClashesHost.fileChange` in main; no channel, preload entry or screen reads it yet.
 
 | Where | Side | Carries |
@@ -924,8 +930,8 @@ Bridge's call is `ClashesHost.fileChange` in main; no channel, preload entry or 
 
 Since 22 Oct 2026. `docs/concepts/cockpit.md`, *A Job open*.
 **Additive only**: one optional field on an existing thread row and the type it carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `CheckBlame` and `blame` on the `check` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `CheckBlame` and `blame` on the `check` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -945,8 +951,8 @@ The open risk below is neither better nor worse.
 
 Since 22 Oct 2026. `docs/concepts/logbook.md`, *Recall*.
 **Additive only**: two operations, two routes and the types they answer; no event kind, no error on an existing operation and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/logbook.ts`, written by hand, field for field; no screen reads either yet.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/logbook.ts`, written by hand, field for field; no screen reads either yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -961,8 +967,8 @@ A mod newer than its Fleet gets a 404 from `/logbook/subagent` and hands the sub
 
 Since 22 Oct 2026. The design is *Fleet watches CI and deploys for a Job*, under `docs/design/`, and spike 36 is what backs it.
 Four operations, four routes, one event kind and the types they carry. `weigh_watch`'s `ours` carries a `sentence` since its first build, which a body without one is refused for.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/watches.ts`, written by hand, field for field; no main-process call, channel or screen reads it yet.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/watches.ts`, written by hand, field for field; no main-process call, channel or screen reads it yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -989,8 +995,8 @@ A reading that reads the same is published at most every 5 minutes, so Bridge's 
 ### Setting a watch up: `try_watch`, `list_watch_recipes`, `save_watch_recipe`, and a terminal watch
 
 Since 26 Oct 2026. Three operations, three routes and the types they carry, and four optional fields on what was there.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/watches.ts`, written by hand; nothing in Bridge reads the new types yet.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/watches.ts`, written by hand; nothing in Bridge reads the new types yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1010,7 +1016,7 @@ The seven watch tools were called by a fifth of Jobs at most and run from 0.8k t
 
 ### Tidying a Job's watches: a run of readings, ended watches on asking, and `delete_watch`
 
-Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1023,7 +1029,7 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 
 ### A watch that ended not ours: `not_ours` and `watch_not_ours`
 
-Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1042,7 +1048,7 @@ Since 26 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 
 ### A pull request dismissed from what holds a Job open: `dismiss_wait`
 
-Since 30 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Since 30 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1056,8 +1062,8 @@ Since 30 Oct 2026. The protocol ID moves with `crates/ipc/src`, the operation fi
 
 Since 23 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A question that asks nothing*.
 **Additive only**: one optional field on an existing body; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `misread` on `DismissWaiting` in `packages/protocol/src/sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `misread` on `DismissWaiting` in `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1072,7 +1078,7 @@ Bridge's half is `misread` on `DismissWaiting` in `packages/protocol/src/session
 
 Since 23 Oct 2026, the thumbs up beside *Not a question* above.
 **One operation and one field**: a new route, and an optional field on an existing type; no event kind or error.
-Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/protocol/src/sessions.ts`, written by hand.
+Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1089,7 +1095,7 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 
 Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *A closed item is kept whole*.
 **Two operations and one field**: a command Bridge sends, a query an agent reads, and a list on the Session's record; no event kind.
-Bridge's half is `ClosedWaiting`, `ClosedWaitingList`, `ReopenWaiting` and `closed` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand.
+Bridge's half is `ClosedWaiting`, `ClosedWaitingList`, `ReopenWaiting` and `closed` on `SessionRecord` in `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1109,7 +1115,7 @@ The record gains up to 50 small entries, so the open risk below is neither bette
 
 Since 23 Oct 2026. The pinned note above, `docs/concepts/session.md`.
 **One optional field on an existing type**: no operation, route, event kind or error.
-Bridge's half is `job` on `SessionNote` in `packages/protocol/src/session-notes.ts`, written by hand.
+Bridge's half is `job` on `SessionNote` in `classic-final:packages/protocol/src/session-notes.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1127,8 +1133,8 @@ Bridge sends them on the first note of a send alone, and none to the Job that is
 
 Since 27 Oct 2026. `docs/concepts/session/proposing-a-draft.md`.
 **One operation and one enum value**: a new route, its body, and a value on an existing enum; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
-Bridge's half is `"withdrawn"` in `DraftHow` in `packages/protocol/src/hosted-sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `classic-final:packages/protocol/src` for Bridge's half.
+Bridge's half is `"withdrawn"` in `DraftHow` in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1145,8 +1151,8 @@ Bridge's half is `"withdrawn"` in `DraftHow` in `packages/protocol/src/hosted-se
 
 Since 28 Oct 2026. `docs/concepts/session.md`, *A Job an agent started*.
 **Two enum values and one optional field**: no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `held_child` on `WaitingSource` in `packages/protocol/src/sessions.ts`, and `queued` on `StartHeld` and `started` on `LinkedEvent` in `hosted-sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `held_child` on `WaitingSource` in `classic-final:packages/protocol/src/sessions.ts`, and `queued` on `StartHeld` and `started` on `LinkedEvent` in `hosted-sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1167,8 +1173,8 @@ The open risk below is neither better nor worse.
 
 Since 28 Oct 2026. `crates/ipc/operations/answer_sketch.toml`.
 **One operation and keys of a sketch's `detail`**: a new route, its body and one enum; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
-Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessions.ts`, written by hand, `answerSketch` on its Fleet client, and the `detail` keys read by `sketchOf` in `packages/screens/src/sessions-wire.ts`.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `classic-final:packages/protocol/src` for Bridge's half.
+Bridge's half is `AnswerSketch` and `SketchHow` in `classic-final:packages/protocol/src/sessions.ts`, written by hand, `answerSketch` on its Fleet client, and the `detail` keys read by `sketchOf` in `classic-final:packages/screens/src/sessions-wire.ts`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1186,8 +1192,8 @@ The job is told as his message, as a draft's answer is, and the rail reads an ap
 
 Since 28 Oct 2026. Fleet stopped raising `preview_offer` on 13 Nov 2026 and the module is gone; the value stays on the wire.
 **One enum value and one optional field**: no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `preview_offer` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `moved` on `left_out` in `building.ts`, written by hand, and it came first.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `preview_offer` on `WaitingSource` in `classic-final:packages/protocol/src/sessions.ts` and `moved` on `left_out` in `building.ts`, written by hand, and it came first.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1208,7 +1214,7 @@ The open risk below is neither better nor worse.
 
 Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`.
 **Five operations, one event kind and a table.** The protocol ID moves with `crates/ipc/src` and `crates/ipc/operations/`, and there is no number to take.
-`packages/protocol/src` has no half of these yet: no Bridge draws the row, and the native Bridge reads the answer when it is built to.
+`classic-final:packages/protocol/src` has no half of these yet: no Bridge draws the row, and the native Bridge reads the answer when it is built to.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1233,8 +1239,8 @@ A second, `preview_notes.table`, adds `look` and `steps` to `preview_offered` an
 
 Since 30 Oct 2026. `crates/fleet/src/session_host/rule_asks.rs`, `crates/fleet/src/lifecycles/acting.rs`.
 **Two enum values**: no operation, route, event kind, error or type on the wire.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `rule_act` on `WaitingSource` in `packages/protocol/src/sessions.ts` and `lifecycle_rule` in `notices.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `rule_act` on `WaitingSource` in `classic-final:packages/protocol/src/sessions.ts` and `lifecycle_rule` in `notices.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1255,7 +1261,7 @@ The open risk below is neither better nor worse.
 Since 29 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`.
 **One new value of an open field**: no operation, route, event kind, error or type on the wire.
 `Attachment.detail` is already a map of strings, so the form needs no new type; the protocol ID moves with `crates/ipc/src`, where the note file's reading and rewriting live, and there is no number to take.
-Bridge's half is `apps/desktop/src/shared/note-artifacts.ts`, which reads the detail into `NoteArtifact`.
+Bridge's half is `classic-final:apps/desktop/src/shared/note-artifacts.ts`, which reads the detail into `NoteArtifact`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1269,8 +1275,8 @@ The open risk below is neither better nor worse: a close settling notes publishe
 
 Since 29 Oct 2026. `crates/fleet/src/session_host/sketching.rs`, `sketch_items`.
 **One enum value**: no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `sketch` on `WaitingSource` in `packages/protocol/src/sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `sketch` on `WaitingSource` in `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1289,8 +1295,8 @@ Bridge draws a Job's lanes from `get_job_lifecycles`, kept current by `job_lifec
 A Job whose read carries `acts` has its repository's `list_lifecycle_rules` read as well, since an act is drawn on the edge its rule is.
 The other three reads are drawn by nothing yet.
 **The two Workspace reads are gone.** A Workspace is a project now, and `list_projects` and `list_holding_projects` answer what they did: `docs/practices/protocol/projects.md`.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/lifecycles.ts`, written by hand, field for field, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/lifecycles.ts`, written by hand, field for field, and `classic-final:apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1348,7 +1354,7 @@ Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*, *Changing o
 The agent changes its own Job's copy of its workflow, lifecycles and rules with a tool, the owner does the same from the Job's lanes, and both go through the same operations.
 **A change applies to that Job at once and to no other**: the files in the repository and in Kit, and every other Job's copy, stay as they are.
 Only Keep for every Job proposes it for the others, and that waits on the owner's Approve.
-Bridge's half is `packages/protocol/src/job-copy.ts`, written by hand, and `apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
+Bridge's half is `classic-final:packages/protocol/src/job-copy.ts`, written by hand, and `classic-final:apps/desktop/src/shared/api/lifecycles.ts` with its main-process host.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1397,8 +1403,8 @@ Fleet writes nothing to a tracker or a forge for any of this.
 Since 30 Oct 2026. The design is *Workspaces, lifecycles and rules*; `crates/ipc/src/piece_saving.rs`.
 **Additive only** when it was written: two operations and two routes, and a field and four variants on types that exist, all optional or new.
 Since 10 Nov 2026 the `workspace` variant is gone from `PieceToCommit`, from `piece` and from `LifecyclePieceKind`, with nothing to take: the protocol ID moves with the files.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is the mirror in `packages/protocol/src`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is the mirror in `classic-final:packages/protocol/src`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1436,7 +1442,7 @@ Were a pair to meet anyway, a Fleet without the routes answers 404, and one with
 
 Since 3 Nov 2026. `crates/ipc/src/piece_saving.rs` and `crates/fleet/src/piece_saving/teaching.rs`.
 **Additive only**: one operation, one route and one detail key, all new.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1462,8 +1468,8 @@ The burst is bounded by the live Jobs in the scope and adds nothing the unbounde
 
 Since 30 Oct 2026. `crates/ipc/operations/answer_document.toml`, `crates/fleet/src/session_host/document_answers.rs`.
 **One operation, one enum value and keys of a document's `detail`**: a new route, its body and one enum; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `packages/protocol/src` for Bridge's half.
-Bridge's half is `AnswerDocument` and `DocumentHow` in `packages/protocol/src/sessions.ts`, written by hand, and `document` on its `WaitingSource`.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and with `classic-final:packages/protocol/src` for Bridge's half.
+Bridge's half is `AnswerDocument` and `DocumentHow` in `classic-final:packages/protocol/src/sessions.ts`, written by hand, and `document` on its `WaitingSource`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1485,7 +1491,7 @@ The revision is settled only once the message is sent.
 
 Since 30 Oct 2026. `crates/ipc/src/holding.rs`, `crates/adapters/src/leasing/reading.rs`.
 **One optional field on an existing type**: no route, no event kind and no enum value.
-Bridge's half is `ahead` on `WorktreeSlot` in `packages/protocol/src/holding.ts`, written by hand and read by nothing yet.
+Bridge's half is `ahead` on `WorktreeSlot` in `classic-final:packages/protocol/src/holding.ts`, written by hand and read by nothing yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1498,7 +1504,7 @@ Bridge's half is `ahead` on `WorktreeSlot` in `packages/protocol/src/holding.ts`
 
 Since 2 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/fleet/src/session_host/account.rs`, `crates/store/migrations/20261102T1200Z-session_so_far.table.sql`.
 **One optional field on an existing type**: no route, no event kind and no enum value.
-The protocol ID moves with `crates/ipc/src`, and Bridge's half is `so_far` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, and Bridge's half is `so_far` on `SessionRecord` in `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1510,8 +1516,8 @@ The protocol ID moves with `crates/ipc/src`, and Bridge's half is `so_far` on `S
 
 ## The debug report: `get_debug_report`
 
-Since 2 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `DebugReport` in `packages/protocol/src/debug-report.ts`, written by hand.
+Since 2 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `DebugReport` in `classic-final:packages/protocol/src/debug-report.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1532,12 +1538,12 @@ Its `msg` and every other field are free text and are never read, and a line tha
 A newest file last written more than a day ago is named as such and its lines are not printed.
 **`armada report`** prints the same text on standard output and exits 0. Where Fleet does not answer it prints `Install`, the line `Fleet   did not answer`, `Recent trouble` and `taken <time>`, with no fleet protocol.
 **Bridge adds its own protocol** by putting `bridge protocol <id>  ` ahead of the last line of either text, since only Bridge knows it.
-It reads Fleet's text over the connection and, where that fails or Fleet is not connected, has main run `armada report` (`apps/desktop/src/main/debug-report.ts`).
+It reads Fleet's text over the connection and, where that fails or Fleet is not connected, has main run `armada report` (`classic-final:apps/desktop/src/main/debug-report.ts`).
 
 ## The Revert press: `revert_fleet_build`, and four fields on `FleetBuildReport`
 
-Since 5 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `running`, `previous`, `carried` and `reverting` on `FleetBuildReport`, and `FleetBuildReverting`, in `packages/protocol/src/building.ts`, written by hand.
+Since 5 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `running`, `previous`, `carried` and `reverting` on `FleetBuildReport`, and `FleetBuildReverting`, in `classic-final:packages/protocol/src/building.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1556,8 +1562,8 @@ The command removes the file on success, and on failure writes `failed`, the bui
 
 ## The snapshot: `pick_fleet_build_job`, `swap_fleet_build`, `keep_fleet_build`, and four fields on `FleetBuildReport`
 
-Since 6 Nov 2026. The protocol ID moves with `crates/ipc/src`, the three operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `picked`, `snapshot`, `trying` and `swapping` on `FleetBuildReport`, `PickedJob`, `KeptSnapshot`, `SnapshotState`, `PickFleetBuildJob`, `FleetBuildSnapshotting`, `FleetBuildSwapping` and `FleetBuildKept`, in `packages/protocol/src/building.ts`, written by hand.
+Since 6 Nov 2026. The protocol ID moves with `crates/ipc/src`, the three operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `picked`, `snapshot`, `trying` and `swapping` on `FleetBuildReport`, `PickedJob`, `KeptSnapshot`, `SnapshotState`, `PickFleetBuildJob`, `FleetBuildSnapshotting`, `FleetBuildSwapping` and `FleetBuildKept`, in `classic-final:packages/protocol/src/building.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1597,16 +1603,6 @@ A branch no live Job holds is skipped, and so is a Job that could not be told.
 
 Naming these rather than deciding them, per this document's brief:
 
-- **[protocol-codegen]** What generates the TypeScript from `ipc`. Hand-rolled build script,
-  `ts-rs`, `specta`, something else — not decided. Whatever it is, it must not
-  reach `core-model` or `adapter-traits` (their `cargo tree` is a gate rule:
-  no codegen framework belongs under either).
-- **[verify-protocol-task]** What checks the rest of the generated half. The
-  protocol ID is held by an `xtask` rule that hashes the wire both ways; the
-  DTO types are generated by nothing, so there is no candidate output to
-  compare the checked-in ones against. Whether the remainder
-  is a rule in `verify-foundations` or a `verify-protocol` task of its own
-  follows from what `[protocol-codegen]` decides, and neither is decided.
 - **[broadcast-capacity]** The bounded broadcast channel's capacity, and whether it's one number
   for all event types or tuned per event type.
 - **[lifeboat-router]** Whether the lifeboat's four routes live inside the
@@ -1617,7 +1613,8 @@ Naming these rather than deciding them, per this document's brief:
 
 Since 30 Oct 2026. `crates/ipc/operations/organize_logbook.toml`, `crates/ipc/operations/apply_organize_logbook.toml`, `crates/fleet/src/logbook/organizing.rs`, `crates/fleet/src/logbook/sorting.rs`.
 **Additive only**: two operations and routes, one optional field and new types. `tidy_logbook` stays.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`. Bridge's half is written by hand in `packages/protocol/src/logbook.ts`.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`.
+Bridge's half is written by hand in `classic-final:packages/protocol/src/logbook.ts`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1642,7 +1639,7 @@ An act the Operator would take, with no kept rule to cover it, is kept as a sugg
   Words sent on it with no choice are never refused: they go to the Operator as `talk_to_operator` with `about` set to the suggestion's arrival id, the row stays, and the reply lands in the Operator's conversation.
   It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
 - **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
-  `OperatorRead` in `packages/protocol/src/sessions.ts` is its type.
+  `OperatorRead` in `classic-final:packages/protocol/src/sessions.ts` is its type.
 
 A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
 A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
@@ -1692,7 +1689,7 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   It answers 200 whatever became of the error: while the Operator is off it is let go with `repeated: false`, so Bridge never shows a refusal for it.
   `id` is `error:<fingerprint>:<local day>`; an error with an id already waiting, out on a call or in the Log answers `repeated: true` and arrives no more.
   It leads `next` ahead of every waiting item that is not an error, as a `report`.
-  The types are in `packages/protocol/src/operator-errors.ts`.
+  The types are in `classic-final:packages/protocol/src/operator-errors.ts`.
 - **`switched` is the last twenty moves of the master switch**, newest first: `[{ on, at }]` with `at` in RFC 3339, left out while there are none.
   Fleet keeps one when the `operator` setting changes value, whether by a save or a hand edit of settings.json, and none for a save of the value it already had (`operator_switches`, `20261109T1200Z-operator.switches.sql`).
   A Bridge without the field reads every board.
@@ -1700,13 +1697,13 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
 - **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main, a Later item, a note, an error, a Job's end and a pull request's merge are each a `report`.
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
-- **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.
+- **The types are in `classic-final:packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.
 
 ## A plan group's gate: `gate` on `PlanGroupInput` and `SessionPlanGroup`
 
 Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/store/migrations/20261108T2100Z-session_plan.group_gate.sql`.
 **One enum and one optional field on two existing types**: no operation, route, event kind or error.
-Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts`, written by hand.
+Bridge's half is `PlanGate` and `gate` in `classic-final:packages/protocol/src/session-plan.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1720,7 +1717,7 @@ Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts
 
 Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_keeping.rs`, `crates/store/migrations/20261108T2200Z-session_gates.table.sql`.
 **One type and one optional field on an existing type**: no operation, route, event kind or error.
-Bridge's half is `GateClose` and `gate_closed` in `packages/protocol/src/session-plan.ts`, written by hand.
+Bridge's half is `GateClose` and `gate_closed` in `classic-final:packages/protocol/src/session-plan.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1734,7 +1731,7 @@ Bridge's half is `GateClose` and `gate_closed` in `packages/protocol/src/session
 
 Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_checks.rs`, `crates/store/migrations/20261108T2300Z-session_gate_checks.table.sql`.
 **One type and one optional field on an existing type**: no operation, route, event kind or error.
-Bridge's half is `GateChecks` and `gate_checks` in `packages/protocol/src/session-plan.ts`, written by hand.
+Bridge's half is `GateChecks` and `gate_checks` in `classic-final:packages/protocol/src/session-plan.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1748,7 +1745,7 @@ The latest run of a Job is one `session_gate_checks` row, replaced by the next r
 
 Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/ipc/src/notices.rs`, `crates/fleet/src/gate_holding.rs`, `crates/store/migrations/20261109T0000Z-session_gate_holds.table.sql`.
 **Two notice words, one source, one optional field and one receipt field**: no operation, route, event kind or error.
-Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices.ts`, `gate` in `WaitingSource` and `GateHeld` and `held` in `packages/protocol/src/session-plan.ts`, written by hand.
+Bridge's half is `gate_closed` and `gate_hold` in `classic-final:packages/protocol/src/notices.ts`, `gate` in `WaitingSource` and `GateHeld` and `held` in `classic-final:packages/protocol/src/session-plan.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1766,7 +1763,7 @@ Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices
 
 Since 8 Nov 2026. `crates/ipc/src/lifecycles.rs`, `crates/core-model/src/rule/when.rs`, `crates/config/src/rule/moment.rs`.
 **One variant on an existing enum**: no operation, route, event kind or error.
-Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/src/lifecycles.ts`, written by hand.
+Bridge's half is the `gate_closes` member of `RuleWhen` in `classic-final:packages/protocol/src/lifecycles.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1779,7 +1776,7 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 
 Since 8 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/ipc/src/session_plan.rs`, `crates/ipc/src/hosted_sessions.rs`, `crates/store/migrations/20261109T0100Z-session_gate_walks.table.sql`, `crates/store/migrations/20261109T0100Z-session_plan.asked_version.sql`.
 **Three optional fields on existing types**: no operation, route, event kind or error code that was not there.
-Bridge's half is `group` on `ShowWindow` in `packages/protocol/src/sessions.ts`, `group` on the `window` row in `packages/protocol/src/hosted-sessions.ts` and `ask_again` on `RecordPlan` in `packages/protocol/src/session-plan.ts`, written by hand.
+Bridge's half is `group` on `ShowWindow` in `classic-final:packages/protocol/src/sessions.ts`, `group` on the `window` row in `classic-final:packages/protocol/src/hosted-sessions.ts` and `ask_again` on `RecordPlan` in `classic-final:packages/protocol/src/session-plan.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1795,8 +1792,8 @@ Bridge's half is `group` on `ShowWindow` in `packages/protocol/src/sessions.ts`,
 
 Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1808,8 +1805,8 @@ Bridge and Pocket draw no row for it: the row that started the old Job stands fo
 
 Since 10 Nov 2026. `docs/concepts/session/proposing-a-draft.md`.
 **One operation, one route and two types**: no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take.
+Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1827,8 +1824,9 @@ One paused between that check and the send has the turn kept for its Resume, as 
 
 Since 10 Nov 2026. `docs/concepts/session/editing-a-sent-message.md`.
 **One operation, one route and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field. Electron draws nothing from it yet.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron draws nothing from it yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1847,8 +1845,8 @@ A row with `edited_at` reads on a Bridge that does not know it as an unedited on
 
 Since 10 Nov 2026. `docs/concepts/session/waiting-on-the-person.md`.
 **Three operations, one route each, and the types they carry**: no event kind and no field on an existing type. `NeedsYou` is not carried on `SessionRecord`, so no list and no `session.changed` grows.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `NeedsYou`, `NeedsYouSection`, `NeedsYouRow`, `NeedsYouGlyph`, `NeedsYouAct`, `WithdrawDocument` and `DoneWaiting` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `NeedsYou`, `NeedsYouSection`, `NeedsYouRow`, `NeedsYouGlyph`, `NeedsYouAct`, `WithdrawDocument` and `DoneWaiting` in `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field.
 Electron draws nothing from it: it is frozen.
 The native Bridge reads it.
 
@@ -1874,8 +1872,8 @@ The open risk below is neither better nor worse.
 
 Since 12 Nov 2026. `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
 **Additive only**: one optional query parameter and the optional field it fills on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `upto` on `JobThreadRead` in `packages/protocol/src/job-thread.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and `classic-final:packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `upto` on `JobThreadRead` in `classic-final:packages/protocol/src/job-thread.ts`, written by hand, field for field.
 The native Bridge passes the `forked_from` attachment's `detail.at` to draw the thread a fork was cut from.
 
 | Where | Side | Carries |
@@ -1898,8 +1896,8 @@ An approved plan's card stays when its `plan` row is inside the cut.
 Since 12 Nov 2026. The thread Fleet folds is `docs/practices/protocol/a-jobs-thread-fleet-folds.md`.
 **Two fields on existing types and one event kind**: no operation, route or error.
 The route table gains the `session.subagent` line the event stream lists, and the operation file `crates/ipc/operations/session.subagent.toml`.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `report` on `ToolSubagent`, `items` on `SessionSubagent` and `SessionSubagentChanged` with the `session.subagent` member of `Event`, in `packages/protocol/src/hosted-sessions.ts` and `events.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `report` on `ToolSubagent`, `items` on `SessionSubagent` and `SessionSubagentChanged` with the `session.subagent` member of `Event`, in `classic-final:packages/protocol/src/hosted-sessions.ts` and `events.ts`, written by hand, field for field.
 Electron draws none of it: it is frozen.
 The native Bridge reads it.
 
@@ -1921,9 +1919,9 @@ A reconnecting client reads the subagent again, as it reads a Job, rather than t
 
 Since 12 Nov 2026. `docs/concepts/session/showing-a-file.md`.
 **One operation, one route and one type**: no event kind and no field on an existing type. Error codes are declared outside the protocol ID's files and move nothing.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-The native Bridge's file panel and Pocket do not read the agent's disk, so Fleet reads the file by the rules Electron's panel reads it by (`locate`, `inCheckout` and `read` in `apps/desktop/src/main/file-panel.ts`, `namesFile` and `typeOfFile` in `session-file.ts`), and Electron keeps its own read.
-Bridge's half is `RepositoryFile` in `packages/protocol/src/repository-file.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take: `armada need` has nothing to order.
+The native Bridge's file panel and Pocket do not read the agent's disk, so Fleet reads the file by the rules Electron's panel reads it by (`locate`, `inCheckout` and `read` in `classic-final:apps/desktop/src/main/file-panel.ts`, `namesFile` and `typeOfFile` in `session-file.ts`), and Electron keeps its own read.
+Bridge's half is `RepositoryFile` in `classic-final:packages/protocol/src/repository-file.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1947,8 +1945,8 @@ A refusal is never an answer of `RepositoryFile`, so a client that gets a `Repos
 
 Since 12 Nov 2026. `docs/concepts/session/waiting-on-the-person.md` names neither; the native Bridge's composer and Operator page read them.
 **Additive only**: one type, one optional field on two existing types and three on a third; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `SentSketch` and the fields in `packages/protocol/src/hosted-sessions.ts` and `operator-page.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `SentSketch` and the fields in `classic-final:packages/protocol/src/hosted-sessions.ts` and `operator-page.ts`, written by hand, field for field.
 Electron draws none of it: it is frozen, and keeps its chip in window memory as it did.
 Every field is optional and defaults empty, so an older answer and an older row read on a Bridge that knows them.
 
@@ -1970,8 +1968,8 @@ Bridge draws no chip on a terminal Job's rows until that is decided.
 
 Since 12 Nov 2026. `docs/concepts/session.md`, *A terminal session's thread*.
 **Additive only**: two optional fields on an existing variant and two new types, `ToolMessage` and `MessagePeer`; no operation, route, event kind or error, and no new `SessionRow` or `SessionVoice` variant.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `image`, `message`, `ToolMessage` and `MessagePeer` in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `image`, `message`, `ToolMessage` and `MessagePeer` in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
 Electron draws a `tool` row's `text` as it did and reads neither field.
 The native Bridge draws the picture on the row and names the Job a message went to.
 
@@ -2006,8 +2004,8 @@ The open risk is otherwise as it was.
 Since 12 Nov 2026. `docs/concepts/session/a-side-job.md`.
 Named a quick terminal until 13 Nov 2026, when the owner renamed it a Side Job everywhere: `start_terminal_job`, `POST /sessions/terminal/start`, `StartTerminalJob`, `TerminalJobStarted` and `quick_terminal` took the names below, and the store's `hosted_sessions.quick_terminal` column became `side_job` in the breaking migration `hosted_sessions.side_job`.
 **One operation, one route, two types and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `StartSideJob`, `SideJobStarted` and `side_job` on `SessionRecord` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `StartSideJob`, `SideJobStarted` and `side_job` on `SessionRecord` in `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field.
 Electron draws none of it: it is frozen.
 The native Bridge sends it from the dispatch sheet, a key and the command palette.
 
@@ -2029,8 +2027,8 @@ A record with `side_job` reads on a Bridge that does not know it as a plain Job.
 
 Since 13 Nov 2026. `docs/concepts/session/a-jobs-checks.md`.
 **Additive only**: one optional field on an existing thread row; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `tool_row` on the `check` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `tool_row` on the `check` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
 Electron reads none of it. The native Bridge opens a run from the `tool` row that ran it.
 
 | Where | Side | Carries |
@@ -2052,8 +2050,8 @@ A row with `tool_row` reads on a Bridge that does not know it as a `check` row.
 
 Since 13 Nov 2026. `docs/practices/running-locally.md`.
 **Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `OriginBranch` in `packages/protocol/src/building.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `OriginBranch` in `classic-final:packages/protocol/src/building.ts`, written by hand, field for field.
 Electron reads none of it. The native Bridge draws each as a row of the build switcher, whose press is `pick_fleet_build_job` with the `branch`.
 
 | Where | Side | Carries |
@@ -2073,8 +2071,8 @@ A pick names the branch, and `scripts/preview --picked` takes a branch no slot h
 
 Since 14 Nov 2026.
 **Additive only**: one field on an existing type, one optional field on `OriginBranch`, and the type `holds` carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `HeldBranch` and `OriginBranch.title` in `packages/protocol/src/building.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `HeldBranch` and `OriginBranch.title` in `classic-final:packages/protocol/src/building.ts`, written by hand, field for field.
 Electron reads none of it.
 
 | Where | Side | Carries |
@@ -2095,8 +2093,8 @@ A branch no Job here ever held, such as one worked in a worktree cut by hand, ha
 
 Since 14 Nov 2026. `docs/concepts/session/a-job-whose-sign-in-expired.md`.
 **Additive only**: one field on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/agent-sign-in.ts`, written by hand, field for field.
 Electron reads none of it. The native Bridge names the account with it on the signed-out toast, and says "the agent" where it is absent.
 
 | Where | Side | Carries |
@@ -2112,8 +2110,8 @@ Electron reads none of it. The native Bridge names the account with it on the si
 
 Since 16 Nov 2026. `docs/concepts/fleet.md`, *A forge that does not answer*.
 **Additive only**: one optional field on two existing types, and the type it carries; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/merge-lines.ts` and `merge-line-view.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/merge-lines.ts` and `merge-line-view.ts`, written by hand, field for field.
 Electron reads none of it. The native strip says GitHub is rate-limiting us, until `until` where it is present, in place of not answering.
 
 | Where | Side | Carries |
@@ -2130,8 +2128,8 @@ An older Fleet's hub has no field, which a newer Bridge reads as no reason given
 
 Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
 **Additive only**: one optional field on an existing type; no operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/pull-reviews.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/pull-reviews.ts`, written by hand, field for field.
 Electron reads none of it. The native inbox puts the longest wait first under Review requested from you.
 
 | Where | Side | Carries |
@@ -2149,8 +2147,8 @@ An older Fleet's row has no field, which a newer Bridge reads as a wait it does 
 
 Since 19 Nov 2026. `docs/concepts/account.md`, `docs/contracts/central-store.md`, *A store per project*.
 **Additive only**: one optional field on two existing types; no operation, route, event kind or error. Two fields stop being filled.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/projects.ts` and `project-store.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/projects.ts` and `project-store.ts`, written by hand, field for field.
 Electron sends neither field, so its join keeps the login the project picked.
 
 | Where | Side | Carries |
@@ -2171,8 +2169,8 @@ A project that picked none sends nothing, and its store state says "No login is 
 Since 20 Nov 2026. `docs/concepts/artifact.md`, *Parts*; `docs/concepts/session/waiting-on-the-person.md`.
 The owner ruled it on 19 Nov 2026: one ask, one item, one place, each titled with its question.
 **Additive only**: optional fields on existing types and two new types; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/sessions.ts` and `job-artifacts.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `crates/ipc/operations`, and there is no number to take.
+Classic's half was `classic-final:packages/protocol/src/sessions.ts` and `job-artifacts.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

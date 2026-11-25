@@ -95,6 +95,10 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// from another Mac does.
     fn mac_holding_pull(&self, repository: &str, number: u64) -> impl Future<Output = Option<(String, SessionId)>> + Send;
 
+    /// Whether his answer on Ready to try card `asked`, of a Job held from another Mac, may go there: **the build he
+    /// runs here holds the card's branch at its tip**, so he answers what he tried. [`Refusal::IllegalMove`] where it does not.
+    fn ready_in_this_build(&self, asked: &ipc::AnswerReadyToTry) -> Result<(), Refusal>;
+
     /// `act` sent to Mac `mac`, which holds the Job, and its answer passed back as it was said. **202 with the
     /// `Queued` where that Mac cannot be reached or has acts waiting**; a Mac this one is not linked to is refused by name.
     fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> impl Future<Output = Result<ActAnswered, Refusal>> + Send;
@@ -173,6 +177,12 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// `hold_other_mac_kit` — what Mac `mac`'s Kit offers, kept, and taken here where it changed there only. Takes
     /// the `Arc` because what is queued for that Mac is sent on a task of its own.
     fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `share_home_layout` — the Cockpit home's layout this Mac keeps, with the stamp of the save that made it.
+    fn share_home_layout(&self) -> impl Future<Output = Result<ipc::HomeLayout, Refusal>> + Send;
+
+    /// `hold_other_mac_home_layout` — what Mac `mac` keeps of the layout, taken here where its save is the later one.
+    fn hold_other_mac_home_layout(&self, held: ipc::OtherMacHomeLayout) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 
     /// `kit_settle_from_mac` — a clash Mac `mac` settled, recorded here so the kept side crosses.
     /// [`Refusal::NotFound`] for a Mac this one is not paired with.

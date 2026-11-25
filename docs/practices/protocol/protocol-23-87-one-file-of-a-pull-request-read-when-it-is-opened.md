@@ -14,5 +14,5 @@
 Fleet reads the pages and keeps the one file, so a person opening a file pays for the pull request's files and not for a patch on every page read.
 
 **Skew.** A Fleet before 23.87 has no route and answers 404, and the IDs differ, so the two are refused regardless.
-Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/pull-requests.ts`, written by hand like the rest.
 There is no number to take: `armada need --status` shows nothing standing, and the sections above carry no ordering to follow.

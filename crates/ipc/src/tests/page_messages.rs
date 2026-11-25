@@ -1,6 +1,5 @@
-//! The messages between a sealed page and its host, as `PageToHost` and `HostToPage` in
-//! `packages/protocol/src/job-artifacts.ts` spell them: every message carries `armada: 1`, and one that
-//! carries another number does not parse.
+//! The messages between a sealed page and its host, as `PageToHost` and `HostToPage` spell them:
+//! every message carries `armada: 1`, and one that carries another number does not parse.
 
 use std::collections::BTreeMap;
 
@@ -9,8 +8,6 @@ use serde_json::{json, Value};
 use crate::{
     decode, encode, HostToPage, Instant, PageAct, PageMessage, PagePress, PageToHost, PressDid, SessionId, VoteCast, VoteResult,
 };
-
-const MIRROR: &str = include_str!("../../../../packages/protocol/src/job-artifacts.ts");
 
 fn a_press() -> PagePress {
     PagePress {
@@ -120,42 +117,4 @@ fn a_kind_the_page_has_no_word_for_is_refused() {
     let bytes = br#"{"armada":1,"kind":"explode"}"#;
     assert!(decode::<PageMessage<PageToHost>>("a page's message", bytes).is_err());
     assert!(decode::<PageMessage<HostToPage>>("a host's message", bytes).is_err());
-}
-
-/// The mirror is written by hand, so it is read here: the keys and the `kind` words Rust sends are the ones
-/// `PageToHost` and `HostToPage` declare in `job-artifacts.ts`, and nothing else is declared there.
-#[test]
-fn the_typescript_mirror_spells_every_key_and_kind_rust_sends_and_no_other() {
-    let start = MIRROR.find("export type PageToHost").expect("PageToHost is mirrored");
-    let end = MIRROR[start..].find("/** What a link on a For line").expect("a type follows") + start;
-    let mirrored = &MIRROR[start..end];
-
-    let mut sent: Vec<Value> = to_host().into_iter().map(|m| serde_json::to_value(PageMessage::new(m)).unwrap()).collect();
-    sent.extend(to_page().into_iter().map(|m| serde_json::to_value(PageMessage::new(m)).unwrap()));
-    let mut keys: Vec<String> = sent.iter().flat_map(|m| m.as_object().unwrap().keys().cloned()).collect();
-    keys.sort();
-    keys.dedup();
-    // `armada`, `kind`, then every field of the six messages. `result` is a `VoteResult`, named in the file.
-    assert_eq!(
-        keys,
-        ["action", "armada", "artifact", "cast", "code", "kind", "message", "press", "result", "revision", "vote", "words"]
-    );
-    for key in &keys {
-        assert!(
-            mirrored.contains(&format!(" {key}: ")) || mirrored.contains(&format!(" {key}?: ")),
-            "job-artifacts.ts does not declare `{key}` on a page message"
-        );
-    }
-
-    let kinds: Vec<String> = sent.iter().map(|m| m["kind"].as_str().unwrap().to_string()).collect();
-    for kind in ["press", "vote", "pressed", "voted", "refused"] {
-        assert!(kinds.iter().any(|k| k == kind), "no sample for `{kind}`");
-        assert!(mirrored.contains(&format!("kind: \"{kind}\"")), "job-artifacts.ts does not spell the kind `{kind}`");
-    }
-    assert_eq!(mirrored.matches("kind: \"").count(), 5, "a kind is spelled there that Rust does not send");
-    assert_eq!(mirrored.matches("armada: 1;").count(), 5, "every message carries `armada: 1`");
-    // The optional ones are optional there, and the required ones are not.
-    for optional in ["words", "action", "vote"] {
-        assert!(mirrored.contains(&format!(" {optional}?: string")), "`{optional}` is optional");
-    }
 }

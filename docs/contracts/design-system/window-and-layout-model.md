@@ -48,7 +48,7 @@ menu        account · Settings (⌘,) · Doctor
 > of them. Worktree Slots, Merge line, Manifest and Checks are reached by name,
 > and a navigation derived from the roster could not express that without
 > deleting the destination. The declaration is `DECK_TABS`, `SYSTEM_PAGES` and
-> `PLACES` in `packages/shell/src/surfaces.ts`.
+> `PLACES` in `classic-final:packages/shell/src/surfaces.ts`.
 
 > **Rule.** No page is reachable only by a place the window does not draw.
 > Why: a page with no tab and no System entry was a row in the rail, and the rail
@@ -205,7 +205,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 > **Rule.** The main process sets no `minWidth`. `--window-floor` is a layout
 > tier, and the touch client never reads it.
 > Why: a floor on the window decides for the person how much of their screen
-> Bridge takes. `packages/shell/src/floor.ts` answers whether the window is at
+> Bridge takes. `classic-final:packages/shell/src/floor.ts` answers whether the window is at
 > or under the tier, and a touch client has no window to bound.
 
 **One breakpoint at ~1100px, and one client boundary at the desktop floor:**

@@ -1,5 +1,5 @@
 //! The `armada-mods` skill keeps a table of the regions a layout mod may name, and
-//! `packages/shell/layout-registry.json` is the list Fleet and Bridge both check. The table is written
+//! `crates/ipc/layout-registry.json` is the list Fleet and Bridge both check. The table is written
 //! by hand, so a panel added to the registry and not to the table tells a session that a real id is a
 //! typo, which is ignored without a word. This reads the table back against the registry.
 //!
@@ -56,7 +56,7 @@ fn names(cell: &str) -> Vec<String> {
 fn the_skill_names_the_registrys_regions_ids_and_flags() {
     let root = crate::repo_root();
     let skill = fs::read_to_string(root.join("plugins/armada/skills/armada-mods/SKILL.md")).expect("the skill is there");
-    let shipped = registry(&fs::read_to_string(root.join("packages/shell/layout-registry.json")).expect("the registry is there"));
+    let shipped = registry(&fs::read_to_string(root.join("crates/ipc/layout-registry.json")).expect("the registry is there"));
     assert!(!shipped.is_empty(), "the registry file was read as no regions");
 
     let rows: Vec<Vec<&str>> = skill

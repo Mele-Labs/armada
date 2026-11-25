@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   Play,
   PowerOff,
+  RefreshCw,
   Square,
   SquareTerminal,
 } from "lucide-react";
@@ -44,6 +45,7 @@ import { documentAnswerOf, sketchAnswerOf } from "./kit/screens/thread-cards";
 import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";
 import type { ModelsBody } from "./gateway";
+import { refreshPreview } from "./refresh";
 import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from "./jobState";
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
@@ -418,6 +420,14 @@ function useModels(machine: Machine): ModelsBody | undefined {
   return models;
 }
 
+/** Refresh preview, on every Job's menu: it moves the Mac onto the preview, and not the Job. */
+const REFRESH_ENTRY = {
+  kind: "item",
+  id: "refresh",
+  label: "Refresh preview",
+  icon: RefreshCw,
+} as const;
+
 /** The entry that opens the Job's artifacts, which a Job that showed none does not carry. */
 const ARTIFACTS_ENTRY = {
   kind: "item",
@@ -439,6 +449,7 @@ function menuOf(
             ARTIFACTS_ENTRY,
           ]
         : []),
+      REFRESH_ENTRY,
       {
         kind: "item",
         id: "end",
@@ -460,6 +471,7 @@ function menuOf(
             ARTIFACTS_ENTRY,
           ]
         : []),
+      REFRESH_ENTRY,
     ];
   const model = session.model ?? models?.session;
   const efforts = models?.offered?.find((one) => one.name === model)?.efforts ?? EFFORTS;
@@ -498,6 +510,7 @@ function menuOf(
           ARTIFACTS_ENTRY,
         ]
       : []),
+    REFRESH_ENTRY,
     ...(models === undefined || models.models.length === 0
       ? []
       : [
@@ -767,6 +780,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     else if (entry === "end") void run(() => acts.close(job));
     else if (entry === "fork") void run(async () => openJob((await acts.fork(job)).id));
     else if (entry === "artifacts") go(artifactsPath(machine.origin, id));
+    else if (entry === "refresh") void run(() => refreshPreview(machine));
     else if (entry.startsWith("model:") || entry.startsWith("effort:")) {
       const model = entry.startsWith("model:") ? entry.slice("model:".length) : session.model;
       const effort = entry.startsWith("effort:") ? entry.slice("effort:".length) : session.effort;

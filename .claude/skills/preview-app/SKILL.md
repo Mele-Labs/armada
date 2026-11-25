@@ -11,8 +11,8 @@ the owner.
 
 ## When to restart
 
-- After merging a fix to Fleet (`crates/`) or Bridge (`apps/desktop/`,
-  `packages/`) that the owner is about to rely on. A Job was left undelivered on
+- After merging a fix to Fleet or the native Bridge (`crates/`) that the owner is
+  about to rely on. A Job was left undelivered on
   12 Sep because Fleet kept serving a binary from before the fix.
 - **After merging a change to `.armada/workflows/`.** Fleet reads the catalogue
   once at boot and freezes a copy onto every Job at creation. Confirmed 18 Sep
@@ -37,8 +37,7 @@ owner's real Fleet and reopen Bridge in front of him, so Claude Code's own
 permission prompt is his confirmation, the same reason an agent does not run
 `scripts/dev` (`armada-local`). Dry-run first and put what it printed in front
 of him. Say what it will do, not "restarting Fleet": whether a Drone is working
-now, whether Bridge reopens (only if `apps/` or `packages/` changed since its
-last build), whether the native Bridge builds and opens (the dry run names why: its
+now, whether the native Bridge builds and opens (the dry run names why: its
 crates or `packages/tokens/` moved, another protocol, or it is not open from the kept
 build; a window opens in front of him the first time, and after a quit he meant it
 stays closed unless the app changed), and that it updates his installed armada plugin, which leaves
@@ -89,12 +88,11 @@ busy, not dead: poll `/health` for a few minutes and run it again, never kill
 it (2 Oct 2026, #1424). A restart that died holding the lock names the pid and
 the lock file; tell the owner, never remove it yourself.
 
-**What runs after `--restart` is the preview's.** Bridge is launched from
-`.armada/preview/apps/desktop` with its own `electron-vite`, and the run fails
-if launchd loaded any other tree or Fleet reports a protocol ID other than the
-one the preview's wire files hash to
-(`node apps/desktop/codegen/protocol-id.mjs`). Read the `Bridge runs ...` line.
-The native Bridge runs from `builds/current/Armada.app` through its own job, `com.armada.fleet.native`; read the last two lines of the output, `Bridge reopened` and `Native Bridge reopened`.
+**What runs after `--restart` is the preview's.** The run fails if launchd loaded
+any other tree or Fleet reports a protocol ID other than the one the preview's
+wire files hash to (`scripts/protocol-id`).
+The native Bridge runs from `builds/current/Armada.app` through its own job, `com.armada.fleet.native`; read the last line of the output, `Native Bridge reopened`.
+Every restart also removes what Armada Classic left (`scripts/retire-classic`): its launchd job, plist and installed app. Nothing launches it.
 
 **A `libsqlite3-sys` compile error in the preview is a stale build script, not
 the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the

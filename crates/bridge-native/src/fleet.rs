@@ -1483,6 +1483,11 @@ impl FleetConnection {
         }
     }
 
+    /// A Job's record, as a read of the list would hold it.
+    pub fn hold_job(&mut self, record: SessionRecord) {
+        self.held.jobs.push(record);
+    }
+
     /// Fleet's calls, as a read of them would hold them.
     pub fn hold_calls(&mut self, calls: StandingCalls) {
         self.held.calls = Some(calls);

@@ -1,0 +1,15 @@
+[operations.dismiss_doc_flag]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Dismiss the flag a press of Check put on a doc of a feature that disagrees with its code. Give the project, the feature's slug and the doc's target"
+notes = """
+`POST /features/docs/dismiss`, body `DocFlag`: `project`, `slug` and `target`, the doc as the page's `docs` name it. Answered with the same `DocFlag`.
+
+The flag goes quiet: `get_feature_page` serves the doc's `check` with `dismissed`, and Bridge draws no flag. **It stays quiet until the doc's text or the feature's code changes**: Fleet keeps git's ids of both with the dismissal, a press of Check does not ask about the doc again while they read the same, and a check that reads either changed clears it, as Keep holds a proposal to retire.
+
+Refused 409 `fleet.doc_not_flagged` where no disagreement stands on that doc, 404 `fleet.feature_unknown` for an unknown slug. Nothing is kept on a refusal.
+
+**The Operator and Bridge reach it**, as `answer_retire` is reached. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""

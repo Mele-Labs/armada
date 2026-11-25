@@ -14,7 +14,7 @@ use store::{feature_link_kind, upkeep_kind, KeptFeatureDecision, KeptFeature, Ke
 use super::health::Health;
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
 use super::mapping::FeatureMap;
-use super::staleness::stale_since;
+use super::staleness::{owned, stale_since, OwnedMerge};
 use super::whos_on_what::elsewhere_of;
 use crate::daemon::Fleet;
 use crate::my_pulls::Mine;
@@ -115,14 +115,21 @@ pub(super) fn sections_marked(store: &Store, loaded: &Loaded, feature: &KeptFeat
     let Some(oldest) = sections.iter().map(|one| one.written_at.as_str()).min() else {
         return Ok(Vec::new());
     };
-    let merges = store.feature_merges_after(&feature.manifest_id, oldest)?;
-    Ok(sections
+    let merges = owned(&loaded.map, store.feature_merges_after(&feature.manifest_id, oldest)?);
+    Ok(marked(feature, sections, &merges))
+}
+
+/// The sections of `feature`, each with the merge it is stale since. `merges` may hold every repository's: a feature that
+/// names its repository is read against that one's alone.
+pub(super) fn marked(feature: &KeptFeature, sections: Vec<KeptSection>, merges: &[OwnedMerge]) -> Vec<(KeptSection, Option<u64>)> {
+    let here = |one: &&OwnedMerge| feature.manifest_id.is_empty() || one.merge.manifest_id == feature.manifest_id;
+    sections
         .into_iter()
         .map(|section| {
-            let since = stale_since(&loaded.map, &feature.id, &section, &merges);
+            let since = stale_since(&feature.id, &section, merges.iter().filter(here));
             (section, since)
         })
-        .collect())
+        .collect()
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -206,8 +213,14 @@ where
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
         let mut health = Health::new(&store, &loaded, self.repositories_of(&store, &loaded.project));
         let upkeep = store.upkeep_in(&chosen).map_err(|why| self.feature_fault(why))?;
-        for feature in loaded.map.features() {
-            let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
+        // Every feature's sections are read against one read of the merges after the oldest of them.
+        let sections = loaded.map.features().iter().map(|feature| store.feature_sections(&feature.id)).collect::<Result<Vec<_>, _>>().map_err(|why| self.feature_fault(why))?;
+        let merges = match sections.iter().flatten().map(|one| one.written_at.as_str()).min() {
+            Some(oldest) => owned(&loaded.map, store.feature_merges_after("", oldest).map_err(|why| self.feature_fault(why))?),
+            None => Vec::new(),
+        };
+        for (feature, sections) in loaded.map.features().iter().zip(sections) {
+            let marked = marked(feature, sections, &merges);
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
             let jobs = on.get(&feature.id).cloned().unwrap_or_default();
             let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug));
@@ -296,6 +309,7 @@ where
             for doc in docs.iter_mut().filter(|doc| gone.contains(&doc.target)) {
                 doc.state = "gone".to_string();
             }
+            super::doc_checking::checks_onto(&store, &feature.id, &mut docs).map_err(|why| self.feature_fault(why))?;
         }
         let upkeep = store.upkeep_in(&loaded.project).map_err(|why| self.feature_fault(why))?;
         let tickets = reads_of(&links, feature_link_kind::TICKET);
@@ -469,6 +483,7 @@ fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
             at: instant(&link.at),
             state: link.state.clone(),
             drifted: Vec::new(),
+            check: None,
         });
     }
     reads

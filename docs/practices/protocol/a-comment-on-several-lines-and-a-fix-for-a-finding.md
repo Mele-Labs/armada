@@ -4,7 +4,7 @@
 
 Since 10 Nov 2026. `docs/concepts/pull-review.md`, *A review* and *Agent runs*.
 **Additive only**: one optional field on a line comment, one optional field on a run's start, one kind of run and one shape of result.
-Bridge's half is `packages/protocol/src/pull-reviews.ts` and `review-runs.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/pull-reviews.ts` and `review-runs.ts`, written by hand like the rest.
 There is no number to take: the protocol ID moves with the wire files.
 
 | Where | Side | Change |
@@ -26,7 +26,7 @@ A finding past the end of its file, an empty `after`, or an `after` equal to `be
 The store keeps `kind` as text with no check on it, so `review_runs` takes `fix` with no migration.
 A Fleet built before this, moved back onto the same store, reads a kept `fix` row as an `ask` whose result no longer reads, and serves it as a failed run.
 
-**Bridge's mirror matches on `shape` with a default.** `accountOf` in `apps/desktop/src/renderer/src/pr-review/runs.ts` answers nothing for a shape it does not draw, so a `fix` result draws nothing until a surface draws it, and breaks nothing.
+**Bridge's mirror matches on `shape` with a default.** `accountOf` in `classic-final:apps/desktop/src/renderer/src/pr-review/runs.ts` answers nothing for a shape it does not draw, so a `fix` result draws nothing until a surface draws it, and breaks nothing.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet that differ are refused regardless, and the lifeboat serves. Nothing here touches the four `/v0/` routes.
 

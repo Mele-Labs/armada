@@ -44,6 +44,10 @@
 # A failure that names no branch still merged is reported as it is. Before each
 # restart, `Armada/preview-left-out` records the commit and why each was skipped, and
 # `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
+# Each round that fails adds a block to `Armada/preview-broke`, emptied when the run starts:
+# the commit, the first error, and the branches it names, which Fleet tells at once. Besides
+# those left out, it names a branch that changed a type the error names, the other side of two
+# branches that build alone and not together; naming none, it names every branch merged.
 #
 # **`--restart` pulls the main checkout first**, when it is on `main`, and runs the
 # script it pulled, so a merged fix to these scripts runs on the next refresh. On any
@@ -85,12 +89,12 @@ NEVER = ("main", "preview")
 PUSHED = "preview/"
 # Exit code of `--at` when the ref has moved to a newer commit: scripts/restart-build reads it.
 SUPERSEDED = 75
-# What `git clean` keeps: the build directories, the Bridge, native Bridge and
+# What `git clean` keeps: the build directories, the native Bridge and
 # phone app build stamps `scripts/restart` compares sources against, the test
 # list Fleet's build script writes (a recompile of Fleet when it goes), and the
 # notes the owner pins from the Bridge he runs here, which the annotation layer
 # writes under the checkout.
-KEEP = ("/target", "node_modules", "/apps/desktop/out", "/crates/bridge-native/target",
+KEEP = ("/target", "node_modules", "/crates/bridge-native/target",
         "/apps/pocket/dist", "/crates/fleet/src/tests/mods.inc", "/.armada/annotations")
 
 
@@ -594,6 +598,40 @@ def error_paths(output, wt):
     return paths
 
 
+PLACED = re.compile(r"^\s*--> (.+?):(\d+):\d+\s*$")
+
+
+def errors(output, wt):
+    """[(header, repo-relative file, line)] for each error in `output`, in order: a rustc error with the
+    place under it, or a script error's own line with the place in it. File and line are '' where none is said."""
+    found, pending = [], None
+    for line in ANSI.sub("", output).splitlines():
+        line = line.rstrip()
+        if m := DIAGNOSTIC.match(line):
+            if pending:
+                found.append((pending, "", ""))
+            pending = line if m.group(1) == "error" and not line.startswith(("error: could not compile", "error: aborting")) else None
+        elif pending and (m := PLACED.match(line)):
+            found.append((pending, relative(m.group(1), wt), m.group(2)))
+            pending = None
+        elif (m := re.search(r"([^\s()'\"]+\.(?:[cm]?[jt]sx?|vue|css))(?:\((\d+),\d+\)|:(\d+):\d+)", line)) and "error" in line.lower():
+            found.append((line.strip(), relative(m.group(1), wt), m.group(2) or m.group(3)))
+    if pending:
+        found.append((pending, "", ""))
+    return found
+
+
+def said_of(error):
+    """One error as a line: its header, then where it is."""
+    header, path, line = error
+    return f"{header} ({path}:{line})" if path else header
+
+
+def names_file(path, file):
+    """Whether an error's `path`, maybe relative to its package, is `file`."""
+    return bool(path) and (path == file or file.endswith("/" + path))
+
+
 def does_not_build(root, base, rows, tips, output, wt):
     """{branch: files} for the merged branches that changed a file the compiler errors name,
     whole or by its tail."""
@@ -604,7 +642,7 @@ def does_not_build(root, base, rows, tips, output, wt):
             continue
         touched = set(out(root, "diff", "--name-only", f"{base}...{tips[branch]}").splitlines())
         # pnpm, tsc and vite print paths relative to the package (`src/App.tsx` for
-        # `apps/desktop/src/App.tsx`), so a path no branch file equals is matched by its tail.
+        # `apps/pocket/src/App.tsx`), so a path no branch file equals is matched by its tail.
         files = []
         for path in named:
             files += [path] if path in touched else sorted(f for f in touched if f.endswith("/" + path))
@@ -726,9 +764,62 @@ def cannot_take(root, base, rows, tips, output, wt):
         return named
     culprits = does_not_build(root, base, rows, tips, output, wt)
     if culprits:
-        return {branch: "does not build: " + ", ".join(files) for branch, files in culprits.items()}
+        said = errors(output, wt)
+
+        def why(files):
+            first = next((e for e in said if any(names_file(e[1], f) for f in files)), None)
+            return "does not build: " + ", ".join(files) + (f": {said_of(first)}" if first else "")
+        return {branch: why(files) for branch, files in culprits.items()}
     return {branch: "does not build: " + "; ".join(what[:3]) + (f"; and {len(what) - 3} more" if len(what) > 3 else "")
             for branch, what in removed_by(root, base, rows, tips, output, wt).items()}
+
+
+DEFINES = r"\b(?:struct|enum|trait|type|union|fn)\s+{}\b"
+
+
+def changed_what_fails(root, base, rows, tips, output, wt, blamed):
+    """{branch: what} for the merged branches not in `blamed` that changed a type a Rust error names, in a
+    file that defines it, on a line holding a name from that error: the other side of two branches that
+    build alone and not together, such as a field one adds to a struct whose literal the other writes."""
+    found = {}
+    for header, path, _ in errors(output, wt):
+        names = list(dict.fromkeys(n.split("::")[-1] for n in re.findall(r"`([\w:]+)`", header)))
+        types = [n for n in names if n[:1].isupper()]
+        if not types:
+            continue
+        for branch, what, _ in rows:
+            if what != "merged" or branch in blamed or branch in found:
+                continue
+            touched = [f for f in out(root, "diff", "--name-only", f"{base}...{tips[branch]}").splitlines() if f.endswith(".rs")]
+            for kind in types:
+                if not touched:
+                    break
+                defines = re.compile(DEFINES.format(re.escape(kind)))
+                files = [f for f in touched
+                         if defines.search(git(root, "show", f"{tips[branch]}:{f}", check=False).stdout)]
+                word = re.compile(r"\b(?:" + "|".join(map(re.escape, names)) + r")\b")
+                hit = any(word.search(line) for f in files
+                          for line in out(root, "diff", "-U0", f"{base}...{tips[branch]}", "--", f).splitlines()
+                          if line.startswith(("+", "-")) and not line.startswith(("+++", "---")))
+                if hit:
+                    found[branch] = f"changed {kind}, which {path or 'the code that fails'} uses"
+                    break
+    return found
+
+
+def write_broke(wt, rows, tips, output, left_out, changed, name="preview-broke"):
+    """Add a block to `Armada/preview-broke` for a build round that failed: the preview commit, the first error,
+    then `branch<TAB>tip<TAB>what` for each branch the error names, else for every branch merged. Fleet tells
+    each branch's Job once, and names the other Jobs told, so they agree which of them fixes it."""
+    first = next(iter(errors(output, wt)), None)
+    lines = [out(wt, "rev-parse", "HEAD"), said_of(first) if first else "the build failed"]
+    named = {**{b: f"left out: {why}" for b, why in left_out.items()}, **changed}
+    if not named:
+        named = {branch: "was in it" for branch, what, _ in rows if what == "merged"}
+    lines += [f"{branch}\t{tips[branch]}\t{what}" for branch, what in named.items()]
+    path = os.path.join(support_dir(), name)
+    with open(path, "a") as f:
+        f.write("\n".join(lines) + "\n\n")
 
 
 def restart(root, wt, dry_run, adopt, keep_only=False):
@@ -845,6 +936,12 @@ def main():
             return 0
     if args.restart:
         dropped = {}
+        # A preview build that fails is told to the Jobs it names; a kept-only build, a dry run and another Mac's
+        # commit, which holds no branches, are not.
+        telling = not (args.dry_run or args.keep_only or args.at)
+        if telling:
+            os.makedirs(support_dir(), exist_ok=True)
+            open(os.path.join(support_dir(), "preview-broke"), "w").close()
         while True:
             # What a kept-only build held goes beside the running build's record, not over it.
             kept_only = "snapshot" if args.keep_only else "preview"
@@ -855,6 +952,8 @@ def main():
             code, output = restart(root, wt, args.dry_run, args.adopt, args.keep_only)
             # A commit built elsewhere has no branch to leave out: its failure is the failure.
             more = cannot_take(root, base, rows, tips, output, wt) if code != 0 and not args.at else {}
+            if code != 0 and telling:
+                write_broke(wt, rows, tips, output, more, changed_what_fails(root, base, rows, tips, output, wt, more))
             if not more:
                 return code
             print("\n".join(f"{b}: {why}; merging again without it" for b, why in more.items()), flush=True)

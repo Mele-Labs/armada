@@ -1,7 +1,7 @@
 # Running Armada locally
 
 **Kind:** practice. **Governs:** starting, checking and stopping a local Fleet,
-running Bridge with no Fleet at all, running a Check by hand, and giving a Job's
+running a Check by hand, and giving a Job's
 worktrees back.
 
 `README.md` carries the commands. This carries what they do and what they
@@ -54,8 +54,9 @@ for the same reason: a release build is a minute every time and the same program
 ours are not: serde_json, SQLite and tokio set Fleet's request latency. It lives apart from `dev` so an
 agent's first build in a slot does not compile them at `opt-level = 3`. Its build is in `target/installed/`.
 
-**Ctrl-C stops both, which the script does and Armada does not.** Closing
-Bridge in earnest leaves Fleet running.
+**Ctrl-C stops Fleet, which the script does and Armada does not.** Closing
+Bridge in earnest leaves Fleet running. The script starts no Bridge:
+`scripts/restart` builds and starts the native one.
 
 **Arguments to `pnpm dev` reach `cargo install` and nothing else.** `--force` is
 the one worth knowing: `cargo install` refuses a binary name another package
@@ -63,19 +64,8 @@ owns, which is what an install left behind by a renamed or deleted crate looks
 like.
 
 **`scripts/dev` is not an agent's to run.** It kills the Fleet in use and
-reinstalls the binary. An agent starts Bridge alone against a Fleet already up,
-and works from `target/debug/armada` rather than an installed copy.
-
-**The app is called Electron until it is packaged.** `pnpm dev` and
-`pnpm --filter @armada/desktop start` launch Electron's own bundle, and macOS
-reads the dock and the app switcher from whichever bundle it launched — so both
-say `Electron` there whatever `app.setName` is given, and the dock tile is only
-right because Bridge sets it at runtime after the window is ready.
-`pnpm --filter @armada/desktop package` builds an `Armada Classic.app` that carries its
-own name and its own icon, and connects to a running Fleet exactly as the
-unpackaged app does. It is unsigned, so it runs on the machine that built it and
-nowhere else. `apps/desktop/electron-builder.yml` says where it lands and what
-goes in it.
+reinstalls the binary. An agent works against a Fleet already up, from
+`target/debug/armada` rather than an installed copy.
 
 ## Starting Fleet
 
@@ -110,7 +100,7 @@ and the next start replaces it, saying so.
 
 ## Restarting onto a new build
 
-**`scripts/restart` moves the running Fleet — and Bridge and the native Bridge, once they need to —
+**`scripts/restart` moves the running Fleet — and the native Bridge, once it needs to —
 onto the latest `main`**, without the owner leaving Bridge for a terminal. A
 checkout on `main` is fast-forwarded to `origin/main` first; the restart
 refuses if it cannot be. Two callers: an agent, through Bash, after a merge that touches
@@ -126,14 +116,11 @@ The first line printed is `restart: log <path>`; the command then follows the lo
 `ARMADA_RESTART_DETACHED` tells a script called inside one not to detach again, and `scripts/restart-build` sets it, since Fleet already starts it in a session of its own.
 A dry run and `--keep-only` stop no Fleet and run as they are.
 
-**Bridge is launched from a copy of Electron's app named Armada Classic**, made under
-`node_modules/.cache/armada-bridge/` with a changed `Info.plist`, the grey
-`ClassicIcon.icns` in place of Electron's icon, and the signature
-`scripts/signing-identity` gives (no Apple certificate either way), and handed to `electron-vite preview` as
-`ELECTRON_EXEC_PATH`. That is what puts "Armada Classic" in the menu bar, Dock and app
-switcher of an unpackaged Bridge, apart from the native Armada. The name has a space, so every script quotes the path.
-It is rebuilt only when Electron's version
-changes, the name or icon does, or what signs it does.
+**Nothing launches Armada Classic, the Electron Bridge, any more, and every restart removes what it left.**
+`scripts/retire-classic` boots `com.armada.fleet.bridge` out of launchd, deletes its plist, and deletes an `Armada Classic.app` in `~/Applications`, or in `/Applications` where `$HOME` is the account's own.
+Where none of that is there it does nothing, so it runs every time, and a dry run says what it would remove.
+A Classic started by hand from a terminal is left running.
+It also deletes `Armada/electron/` and `Armada/node_modules/`, which kept builds used to fill for it.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
@@ -193,25 +180,6 @@ its holder when a restart itself was killed, which happens rarely, so a
 person clearing it by hand beats a machine racing to guess it is safe — the
 one case this lock exists for.
 
-**The Bridge build stamp records when the build it reflects started, not
-when the run around it ended.** A marker is written the moment Bridge's
-build begins, before `pnpm build` runs, and only that marker's time — never
-"now" — becomes the stamp once this run decides the running Bridge matches
-it: after a successful reopen, or after deciding none was needed. Stamping
-"now" at the end would mark a run as covering edits made *during* its own
-multi-minute build, which a later run would then never see as changed. A
-run that fails or refuses anywhere after the build (the late Drone check,
-Fleet's own restart, a Bridge that would not quit) leaves the stamp exactly
-as it was, so the next run still finds Bridge changed and rebuilds and
-reopens it rather than trusting a build nobody is running yet.
-
-**A Bridge built for another protocol is rebuilt whatever the stamp says.**
-The stamp only sees `apps/` and `packages/`, and the protocol ID also hashes
-`crates/ipc` and `crates/api/src/routes`. So the restart reads the ID compiled
-into `out/main/index.js` and rebuilds when it is not the tree's. Confirmed 14
-Oct 2026: a wire change in `crates/` alone moved Fleet's protocol, the restart
-said "Bridge is unchanged", and Bridge could not connect.
-
 **It runs Fleet under a launchd job it bootstraps on first use**, the design
 `docs/concepts/fleet.md` (Daemon lifecycle, Restarting Fleet) specifies: the
 plist lives beside the runtime file, outside `~/Library/LaunchAgents` so it is
@@ -226,12 +194,6 @@ loaded program back and refuses if it is not that path. It is
 never a second `armada serve`, which is the "two Fleets" failure `armada-local`
 already warns about, this time from a script rather than a name.
 
-**It rebuilds Bridge only where `apps/` or `packages/` moved since its last
-build**, and reopens it only then — otherwise Bridge reconnects to the new
-Fleet on its own (`apps/desktop/src/main/socket.ts`). Reopening is a second,
-separate launchd job for the same reason Fleet's is one: the window has to
-outlive the job that asked for it.
-
 **It builds and opens the native Bridge too.**
 `cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/`, `packages/tokens/` or the root `Cargo.toml` moved since the last build, or the last build was for another protocol.
 The root `Cargo.toml` is watched because `ipc` and `core-model` take their lints and edition from it.
@@ -244,7 +206,7 @@ A build that fails stops the restart before Fleet is stopped.
 Cargo keeps every old hash's output and rustc an older session in every incremental cache, so on 19 Nov 2026 the preview's two build folders held 29 GB, 16 of it never read again.
 Cargo's JSON names every unit the build used, fresh ones too; files under any other hash go, and each crate keeps its newest cache and that cache's newest session.
 A unit dropped by mistake is compiled again, nothing worse.
-It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
+It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.
 The app writes `Armada/bridge-native-quit` when it quits after its window opened (`crates/bridge-native/src/main.rs`), and `bridge-launch` reads that as a quit the person meant.
 **One live app runs at a time**, however it was opened (`crates/bridge-native/src/instance.rs`).
@@ -262,7 +224,7 @@ A restart opens it where its job is not loaded or runs from anywhere but `builds
 **The protocol is read off the running process**, not the build before: `scripts/running-bridge` finds the build the app's binary is in and reads that build's `protocol_id`.
 A restart that died after it moved `builds/current` left the next one seeing no difference, and native on the old protocol (13 Nov 2026).
 A running app whose build cannot be read is reopened.
-Its job is booted out and in, never kickstarted, for the reason Bridge's is.
+Its job is booted out and in, never kickstarted: `kickstart -k` ignores the plist just written.
 
 **The Phone Gateway runs inside Fleet, not as a job of its own, and it is
 opt-in.** Fleet starts it while an empty file, `pocket`, sits beside the runtime
@@ -293,14 +255,13 @@ owner's own `com.armada.fleet`.
 ### Kept builds
 
 **Every restart keeps the build it installs**, so going back to the build before is two links and two launchd reboots, with nothing compiled.
-`scripts/keep-build make` copies the `armada` binary, Bridge's `out/`, `sounds/`, launchers and the native Bridge as `Armada.app` into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, a hash of Bridge's `out/`, and on a preview each branch merged in as a `[[job]]` row.
+`scripts/keep-build make` copies the `armada` binary, the `bridge-launch` launcher and the native Bridge as `Armada.app` into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, and on a preview each branch merged in as a `[[job]]` row.
 `keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
-Its `tree` line is that tree's path, where Bridge's annotation layer writes notes, since a kept Bridge has no repository above it.
-`node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
-Electron is kept once per version under `Armada/electron/<version>/`, and `launch-bridge` runs that copy, so a relaunch onto an older build gets its own Electron.
-**`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name, as for Electron's copy.
+Its `tree` line is that tree's path, where the annotation layer writes notes, since a kept Bridge has no repository above it.
+A build kept before Armada Classic was retired still carries `bridge`, `bridge_shell`, `electron`, `node_modules` and `page_reload` rows; they are read past and nothing writes them now.
+**`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name.
 `scripts/native-app` makes it, and the release job makes the app it ships with the same script, so a restart's app and a release's app are the same bundle.
-`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node apps/desktop/native/voice/build.mjs` when `Armada Voice.app` is missing from `apps/desktop/native/voice/build/` or older than a file in that folder.
+`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node crates/bridge-native/native/voice/build.mjs` when `Armada Voice.app` is missing from `crates/bridge-native/native/voice/build/` or older than a file in that folder.
 It needs Xcode's command line tools (`swiftc`); where the build fails it prints one line saying so and makes the app without the helper, so Talk falls back to macOS Dictation.
 `NATIVE_APP_TREE` names another tree to build and take the helper from, which `scripts/keep-build` sets to the tree it keeps, so a preview's helper is its own.
 Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed by `scripts/signing-identity`.
@@ -327,29 +288,19 @@ A build kept before Fleet had its bundle cannot be copied there, so revert and s
 The first build signed with the certificate asks once more, since its requirement is new, and every build after keeps the answer.
 Deleting the certificate in Keychain Access puts builds back to ad hoc.
 `build.toml` holds a `native` hash of the binary and the icon, and a build kept before the native Bridge has neither.
-A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.
-
-**Bridge reloads its page in place where only the page changed.**
-A swap, a revert or a restart reopens Bridge only where the two builds' `bridge_shell` (a hash of `out/main` and `out/preload`) or `electron` differ.
-A restart also reopens it where the running Bridge was built for another protocol than the new Fleet's, read off its process as the native Bridge's is, and a page reload does not stand in for that.
-Otherwise the running Bridge, once Fleet is back, loads its window's page from the build `current` names (`apps/desktop/src/main/page-reload.ts`), which keeps the window, its process and the voice addon in it.
-A build kept before Bridge could do this has no `page_reload = true` line, and is reopened as before.
-Only the main window reloads; another window keeps its page until it is opened again.
-
-**Launchd runs Bridge through `builds/current`, and Fleet from the copy of `current`'s bundle in `Armada/fleet/`.**
-A tree's `target/` and `out/` are rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
-The first restart onto kept builds reopens Bridge, because its job still names a tree.
-**A revert or a swap reopens the native Bridge where the two builds' `native` hashes differ**, as it reopens Bridge: `armada build revert` boots `com.armada.fleet.native` after Fleet, from `builds/current`.
+**Launchd runs the native Bridge through `builds/current`, and Fleet from the copy of `current`'s bundle in `Armada/fleet/`.**
+A tree's `target/` is rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
+**A revert or a swap reopens the native Bridge where the two builds' `native` hashes differ**: `armada build revert` boots `com.armada.fleet.native` after Fleet, from `builds/current`.
 It is left open where they match, where the build moved to keeps no native app, and where the job was never written (`scripts/restart` writes it).
-A swap back from a Fleet that did not answer leaves it as it is, as it leaves Bridge.
+A swap back from a Fleet that did not answer leaves it as it is.
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, when that build keeps no `Armada Fleet.app`, or when Fleet's plist does not name `Armada/fleet/Armada Fleet.app/Contents/MacOS/armada`.
 A build kept before that plist runs this check against `builds/current/armada`, so reverting from the first build that runs Fleet from `Armada/fleet/` to one before it is refused; `scripts/restart` moves onto any commit instead.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, copies the previous build's Fleet to `Armada/fleet/`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' main, preload or Electron differ, and the native Bridge only where their `native` hashes do.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, copies the previous build's Fleet to `Armada/fleet/`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots the native Bridge only where the two builds' `native` hashes differ.
 A second revert swaps back.
-**The app menu's "Revert to the build before…" and the palette's row start it too**, from Bridge's main process, so they work with the page blank.
-Both ask with a native dialog, and where Fleet does not answer they run `builds/previous/armada build revert` themselves (`apps/desktop/src/main/revert-asked.ts`).
+**The app menu's "Revert to the build before…" and the palette's row start it too** (`crates/bridge-native/src/revert.rs`).
+Both ask with a native dialog, and where Fleet does not answer they run `builds/previous/armada build revert` themselves.
 **The Fleet panel's Revert press starts it**: `revert_fleet_build` writes `Armada/revert.status` as `running`, then runs `builds/previous/armada build revert` detached from Fleet.
 The command removes the file when the swap took, and when it did not writes `failed`, the build `current` names, and one line, which the panel shows until a restart moves `current`.
 A `running` file older than two minutes reads as no revert.
@@ -430,9 +381,7 @@ from where, the two guard numbers, the snapshot, the files it would write and
 whether a Drone would refuse it. It takes no lock and writes no file. It is
 only for `--from`.
 
-**A switch of source reopens Bridge.** The build stamp belongs to a tree, so
-moving between trees rebuilds and reopens Bridge whatever either stamp says.
-`Armada/restart-source` records which tree the open Bridge came from; only
+**`Armada/restart-source` records which tree the running build came from**; only
 `--from` writes it and the next `scripts/restart --main` removes it.
 
 ## A preview of unlanded work
@@ -515,7 +464,7 @@ it merged or was abandoned. Use it, and land from the branch.
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
 **The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, moved and cleaned between runs
-with `target/`, `node_modules/`, Bridge's build output, the native Bridge's `target/`, the phone app's `dist/` and Fleet's generated `crates/fleet/src/tests/mods.inc` kept, so
+with `target/`, `node_modules/`, the native Bridge's `target/`, the phone app's `dist/` and Fleet's generated `crates/fleet/src/tests/mods.inc` kept, so
 builds stay warm.
 The merge commits are built first, without the worktree, and the worktree then lands on the last of them in one step.
 Git rewrites only the files whose content differs from the last preview, so a file an in-flight branch changes keeps its mtime when nothing in it moved.
@@ -541,7 +490,7 @@ Git merges a branch cut before a deletion without a word, and `cargo install` th
 error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths relative
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
-branch that changed one, and the table says `skipped (does not build: <files>)`.
+branch that changed one, and the table says `skipped (does not build: <files>: <the first error naming one>)`.
 A branch can break the build in a file it never touched, by removing what that file still uses.
 When no merged branch changed a file the errors name, the rustc errors are read for what is missing instead.
 A module file the errors say is not found (`file not found for module`, and the paths in its `create file` help) is blamed on a merged branch that deleted it.
@@ -557,6 +506,16 @@ Each round drops at least one branch, so it ends.
 Fleet reads it only while that commit is the build it runs, tells each branch's Job
 why it is not in the preview. The Job offers a branch that moved again with `offer_preview`, and the
 owner presses Refresh preview himself (`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
+
+**A round that failed is written down for Fleet at once.** `Armada/preview-broke` is emptied when a
+`--restart` starts, and each round whose restart fails adds a block: the preview commit, the first
+error with its place, and a `branch<TAB>tip<TAB>what` line for each branch the error names.
+A branch it leaves out is `left out: <why>`.
+A branch that changed a type a Rust error names, in a file defining it, on a line holding a name from that error, is `changed <Type>, which <file> uses`.
+That is the other side of two branches that build alone and not together, such as a field one adds to a struct whose literal the other writes.
+When the error names no branch, every branch merged is `was in it`.
+A dry run, `--keep-only` and `--at` write none.
+Fleet tells each named branch's Job, while the old Fleet still runs (`docs/concepts/fleet.md`, *Telling jobs a preview did not build*).
 
 **What the preview holds is written down too.** `Armada/preview-held` gets the preview commit on its
 first line, the main commit it stands on on its second, and a `branch<TAB>tip` line for every branch
@@ -627,13 +586,15 @@ The log is matched for `incremental compilation`, `dep graph` or `dep-graph`, an
 `scripts/restart` would otherwise build from whatever it holds.
 
 **`preview` takes the two-Mac forms too.** `--push-as <name>` passes through to
-`scripts/preview`. `--push-as <name> --tell <mac>` merges and pushes with no
-restart, posts `{mac, build: "preview", commit, ref}` to the local Fleet's
-`POST /macs/update` so `<mac>` builds that commit, then restarts this Mac with
-`--at <commit> --ref preview/<name>`. The commit is read from the preview
-worktree's `HEAD`, since a merge with no restart writes no `preview-held`. A
-failed push or post is logged and the restart goes on. `--at <sha> --ref <ref>`
-is the other Mac's side. `main` and `snapshot` take none of these.
+`scripts/preview`. `--push-as <name> --tell <mac>` builds this Mac first, with
+`scripts/preview --restart --push-as <name>`, so a branch that does not build is
+left out here and the rest built.
+Only once that build has taken does it post `{mac, build: "preview", commit, ref}` to the local Fleet's
+`POST /macs/update`, so `<mac>` builds the very commit built here, read from the preview worktree's `HEAD`.
+A failed build tells `<mac>` nothing, and nor does a run whose last push to `preview/<name>` was not that commit.
+A failed post is logged and the run still succeeds.
+Until 25 Nov 2026 it merged, told the other Mac and then built with `--at`, which leaves nothing out, so one branch that broke the build failed both Macs and no Job was told.
+`--at <sha> --ref <ref>` is the other Mac's side. `main` and `snapshot` take none of these.
 `ARMADA_FLEET_URL` names the Fleet `--tell` posts to, else the port in
 `Armada/fleet.json`. The route is `docs/concepts/pocket.md`, *Updating*.
 
@@ -658,7 +619,7 @@ hands the person, `scripts/preview --restart` or `scripts/restart --main` with
 `--adopt` at most, as this switch: ▶ on its waiting item, or on a shell block of
 it, presses the button rather than running a shell. A shell run is Fleet's
 child, so it died with the Fleet it stopped and never reopened Bridge, which was
-left on the old protocol. Seen 13 Oct 2026. `apps/desktop/src/renderer/src/build-change.ts`.
+left on the old protocol. Seen 13 Oct 2026. `crates/bridge-native/src/job_view/dock.rs` is the press.
 
 **Fleet then tells the other jobs.** Once `restart-commit` names a new build,
 each live job that holds a branch or waits on one of these restarts is told
@@ -685,8 +646,7 @@ read from — transcripts, logs, briefs, Check output, attachments; leave it off
 for an empty store. Nothing else under `.armada/` is copied: the rest is build
 caches and Job checkouts, hundreds of gigabytes.
 
-**Reach for it when you want a Job as Fleet serves it, without your Fleet** — to
-record one for the mock with `scripts/record-job.mjs`, or to point a surface at a
+**Reach for it when you want a Job as Fleet serves it, without your Fleet** — to point a surface at a
 real daemon. A second plain `armada serve` is not the same thing on another
 port: Fleet's store is found through `HOME`, so it would share yours, and its
 boot reconciliation would escalate your running Jobs as `interrupted`.
@@ -699,225 +659,29 @@ scratch directory inside the repository and answers a second start with the pid
 already running. Stop it the way you stop Fleet, then delete the directory — with
 `--copy-store` it holds a copy of your transcripts.
 
-## Recording a Job for the mock
-
-**`node scripts/record-job.mjs <job> <slug> "<the state, as a sentence>"` records
-one Job off a running Fleet** into `packages/screens/src/fixtures/recorded/<slug>/`,
-and a scenario row built with `holding` can replay it. It
-writes what Fleet answered — every read the job-detail screen makes, and every
-message on the Job's two sockets — and the mock replays that through the same
-fold Bridge runs, so what you see there is what the app would draw.
-
-**Run it when a Job is sitting in a state the mock does not have yet.** Pass
-`--dev-fleet <scratch-dir>` to read a dev Fleet (above) rather than yours. It
-needs a running Fleet and nothing else. A Job still running is recorded as far
-as it had got: each socket is cut after two quiet seconds, and the mock draws
-it still watching.
-
-**It scrubs before it writes, and writes nothing it could not scrub.** Home paths
-become `~`, your account name `owner`, and the machine's name and any email
-address are replaced. A line naming what was left means nothing was written —
-this repository is public. On success it prints each read's status and how many
-messages each socket carried. A read that answered 409 is recorded as the
-refusal it was, and the mock draws it that way.
-
-**`node scripts/record-job.mjs --board <slug>` records the whole Board instead**:
-every row the Job list serves, and the workflows and manifests they name, into
-`packages/screens/src/fixtures/boards/<slug>.json`. The mock holds no scenario
-for one now; a slug needs its own row in
-`apps/desktop/src/renderer/src/mock/scenarios/`. It makes only those three reads, so it changes
-nothing on the Fleet it reads, and it scrubs and refuses exactly as above. It
-prints how many Jobs and workflows it wrote.
-
-## Bridge on a mock Fleet
-
-**`pnpm mock`, from `apps/desktop`, opens Bridge's renderer in your browser on
-a fake Fleet.** It runs `App.tsx` unchanged, with no Electron, no Fleet and no
-network, so you can see the real app in a state no running Fleet will hold still
-for. It needs `pnpm install` and nothing else, and it opens the page itself.
-
-**Run it when you change something Bridge draws and want to see it in place.**
-Vite prints the address and reloads the page as you edit. Ctrl-C stops it, and
-nothing is left running or written.
-
-**A key the browser owns never reaches the mock.** Chrome takes `⌘[` and `⌘]`
-as its own Back and Forward before the page sees them, so the owner's walk of
-the history keys on 7 Oct 2026 did nothing there, while Electron binds neither.
-A binding like that is walked on the preview (`scripts/preview --restart`).
-
-**`?scenario=<name>` picks what the window shows**, and the picker at the foot
-of the left column switches by reloading onto another. An unknown name falls
-back to the first scenario and says so in the browser console.
-
-**The picker is in the left column, so it never sits over the thing you are
-reading.** It rests as one control saying which scenario is on — a glyph alone
-where the column is at its rail, with the scenario in its tooltip. Pressing it
-opens the list over the content, and only then: type to narrow it, which is a
-fuzzy search, so `mlfch` reaches `merge-line-failed-check`; the arrows walk
-what is left, Enter takes the top row and Esc gives up. Every row is a link to
-this page on `?scenario=`, which is the reload that puts the window on it. The
-walks come first, under *Walks*, above the scenarios, each as a link on `?walk=`
-named in words (`cockpit sessions list` for `cockpitSessionsList`, and the search matches
-those words), so Enter on an empty query plays the first walk. The picker stays
-on a walk page, resting on the walk that is playing, so you can switch walks or
-return to a scenario without editing the address.
-
-| Scenario | What the window holds |
-|---|---|
-| `default` | Fleet serving two repositories, a Studio worth looking at, and a Job in none. The page opens here |
-| `fleet-not-running` | No runtime file, so what Bridge draws with no Fleet |
-| `nothing-set-up` | Two repositories served and neither set up, so no surface that needs a Manifest has one |
-| `first-launch` | A Fleet serving no repository, so Add a repository opens by itself |
-| `empty-store` | One repository and no Job yet |
-| `setting-up` | A set-up repository and a folder nobody set up, over a Fleet that scans, proposes, applies each Setup edit and Write, and adds or clones a repository |
-| `manifest` | This repository's own Manifest, on a Fleet that saves the file, applies the forms' edits, and lists runs, drift and an always-allowed command |
-| `studios` | This repository's Studios, on a Fleet that keeps them and takes the writes a Job on your words makes on one |
-
-**Every Job the mock holds is a Storybook fixture, never data made up for the mock.**
-Fleet still serves Jobs, so a few rows hold one as the thing a merge line's
-batch or a worktree's holder names, built in `mock/scenario.ts`.
-**A row of its own** — for a walk — is a file in
-`apps/desktop/src/renderer/src/mock/scenarios/` and nothing else;
-`scenario.ts` reads the directory and is not edited, so two branches adding rows do not conflict.
-`docs/practices/list-files.md`.
-
-**A moment can hold no Job.** `Scenario.draft` is what a moment carries that
-Fleet cannot serve yet, in the draft types under `packages/screens/src/draft/`. **It is held on
-the scenario rather than on a read**, because no operation answers it; a board
-built in this milestone takes it as props, and a shape promoted to the wire
-(`#1545`) moves onto the fixture's own reads instead.
-
-### What the fake answers
-
-**The fake is typed against `BridgeApi` member by member**, in
-`apps/desktop/src/renderer/src/mock/fake.ts`. A capability added to the preload
-fails typecheck there until the fake answers it.
-
-| Call | Answer |
-|---|---|
-| A per-Job read — `watchJob`, `readHistory`, `readDiff` and the rest | The fixture's read, published as main would publish it |
-| A read that returns a value — `readFrame`, `readCheckOutput` | The fixture's answer, where it has one |
-| Any read the scenario holds nothing for | A failure whose sentence says it is not in this mock scenario |
-| An act | Succeeds. Where it changes one field on a Job — approve, kill, reject, a model, a clear — that field moves |
-| A Studio read or write | The scenario's own Studios, kept by the fake and written to as Fleet would |
-| A plan edit — `addTask`, `dropTask` | The open Job's plan changes, in its `work_plan` and in the moment's draft groups: a new open task, the next free `T<n>`, after the one named; or the task dropped, with its reason. Refused where no plan is open. `mock/plan-fleet.ts` |
-
-**Every scenario keeps Studios**, so the surface opens wherever it is reached. A
-scenario naming none keeps an empty list and draws its empty state, never a read
-failure — the defect #1341 fixed. `default` keeps one Studio holding a node
-of every kind and an edge of every kind, and a second nobody has named.
-
-**Anything a Fleet would have to decide moves nothing.** A redispatch makes no
-new Job, a review approval does not advance the Job, and a proposal comes back
-unanswered. Guessing Fleet's next state would draw a Fleet that does not exist.
-
-**A scenario can answer a flow as Fleet would.** Its `behaves` replaces the
-fake's answer to the calls it names, over state it can publish. `setting-up`
-does this for Setup and Locate in `setup-fleet.ts`, and `manifesting()` in
-`manifest-fleet.ts` does it for the Manifest surface's saves, edits, runs and
-drift, because an edit is only worth drawing if the next read shows it
-applied.
-
-**A little is made up, and none of it is what a real Fleet says.** The Fleet
-panel's pid and port, the model list, and the root folder of a repository a
-recording names are invented. Bridge's clock is real while the fixtures' times
-are fixed, so how long ago something happened reads in days.
-
-### In a browser test
-
-**`mountApp` in `apps/desktop/src/renderer/src/mock/mount.tsx` mounts `App` on a
-scenario** for a vitest browser test. Name the file `.test.tsx` under
-`apps/desktop/src/renderer/` and it runs in Chromium with `pnpm -C apps/desktop
-test`.
-
-**`testing.ts` is what a test starts from.** `mount(scenario)` mounts it and
-`unmountAfterEach()` takes it down. `mountTwo` sets two windows on one main. `onBoard(jobs, …)` in
-`scenario.ts` builds a scenario from rows a test picks. A test that used to be a
-Storybook `play` asserts what `App` does with a press — the dialog, the
-composer, the file written — rather than that a callback was called.
-
-### Walks
-
-**To show the owner something, write a walk and send him the link, or capture
-it and send him the pictures.** Not a list of what to open and press: a walk is
-those steps, played in the real app, from one definition. A walk is also how a
-visual change is shown to him before it lands, and it waits there for his OK.
-
-```ts
-// apps/desktop/src/renderer/src/mock/walks/back-from-a-drone.ts
-export const backFromADrone = walk("arc/executing-sequential", [
-  { press: tab("Workflow"), say: "The run, top to bottom" },
-  { press: card("Implement"), say: "Its panel lists every Drone on the step" },
-  { look: button("Back to Implement"), say: "The way back is in its head" },
-]);
-```
-
-A step **presses**, **looks**, **hovers** — the pointer held on its target
-past the tooltip delay, so the picture shows what the hover opens — or
-**types** into a field (a select takes the option of that value), at a target found the
-way the mock tests find one: `tab`, `button`, `card`, `dialog`, `row`, `region`,
-`text`, or `role(kind, name)` for any other, and `inside(scope, target)` to look
-in one place only. A name is matched anywhere in the accessible name, in any
-case, unless it is a pattern or `{ exact: true }`; of several matches the last
-is taken, as the tests take `.last()`. The walk is named by its export.
-`walk.ts` beside the walks is the whole vocabulary.
-
-| | |
-|---|---|
-| **The link** | `?walk=<name>` on a running mock, or its row in the picker, `&autoplay` to play it unattended. It opens the walk's scenario on a window that remembers nothing, rings each step's target and captions it; **Next** performs a press or a type and moves on. After the last step the app is left where it ended. **Bridge reads the link by its form**: `http://localhost` or `http://127.0.0.1`, any port, with a `walk` query parameter. In a Job's thread that opens it as a walk tab of the Job, so a link written another way is a web link |
-| **The pictures** | `pnpm -C apps/desktop walk <name>` photographs each step, and `--video` records the walk too. It starts the mock on a free port and stops it after, or uses `--url` for one already running, at 1440×900 or `--size 1512x817`. It prints the folder it wrote, `.armada/walks/<name>-<when>/`: one PNG per step named by its number and caption, the end as the last, and `<name>.webm` |
-| **The test** | Every walk in `walks/` runs in one of the `walks-*of4.test.tsx` files, played by the same engine the link uses, so a walk that stops matching the app fails `desktop_test` |
-| **A scratch walk** | A file in `walks/scratch/`, which git ignores. The link and the pictures play it; no test does. Commit it to `walks/` once it is worth keeping |
-
-**A walk stops on the step whose target never came.** After five seconds its
-card says which step and what it looked for, the capture photographs the stop
-and exits 1, and the test fails with the same sentence. A throw while it plays
-fails the capture and the test as well, since Bridge draws one as a banner and
-carries on. That stop is what makes a walk evidence rather than a tour.
-
 ## Annotating Bridge
 
 A note on what a Job drew, showed or wrote is another thing, sent to that Job from the viewer: `docs/concepts/session/noting-what-you-read.md`.
 
-**⌥⌘A turns the annotation layer on** in Bridge under `pnpm dev` and in the mock
-above, and it is absent from a packaged app. Click anything, write a note, and
-⌘Enter saves it as one file under `.armada/annotations/` at the repository root,
-gitignored. Each file names the component under the click and the ones around
-it, a selector, the screen and the mock scenario, which is what an agent needs to
-find the code without asking where you clicked. In Bridge the save also keeps a
-screenshot of the element beside it, as `<id>.png`, taken with the layer out of
-the picture; in a browser nothing can capture the window, so a note there has
-none.
+**⌥⌘A turns the annotation layer on**, in every build of the native Bridge.
+Point at an element or draw a box, write a note, and it becomes a numbered pin on the screen and one file under `.armada/annotations/` at the repository root, gitignored.
+Each file names the element under the pin, the screen and the window's picture, which is what an agent needs to find the code without asking where you pointed.
+A kept build has no repository above it, so the layer writes into the tree its `build.toml` names on its `tree` line.
 
-**Screenshot window, or ⌥⌘S while the layer is on, leaves a note on the whole
-window** — for when what is wrong is the state of the app rather than one thing
-on it. The picture is the window, taken as the keys are pressed, and the note
-carries `scope: "window"` and a `context`: the connection to Fleet, Doctor's
-read, and the Job whose page was open, as Fleet last said them. It
-draws no pin; the panel lists it under the screen it was left on.
+**⌥⌘S, while the layer is on, leaves a note on the whole window** — for when what is wrong is the state of the app rather than one thing on it.
+The note carries `scope: "window"` and a `context`: the connection to Fleet, Doctor's read, and the Job whose page was open, as Fleet last said them.
 
-**Debug Bridge does all of that in one press**, with the layer off: ⌘K
-`debug` ↵, or ⇧⌘D. It shoots the window once the palette has gone, keeps it as a
-whole-window note, starts a Job on Bridge's repository and opens it with the
-note and the picture as a draft in its message box. No turn runs until you add what you know and press Enter. A Fleet that refuses the Job is
-told in a toast, and the note stays a file for `/annotations`. Like the layer it
-is dev only: a packaged app draws the row dormant.
+**Debug Bridge does all of that in one press**, with the layer off: ⌘K `debug` ↵, or ⇧⌘D.
+It shoots the window once the palette has gone, keeps it as a whole-window note, starts a Job on Bridge's repository and opens it with the note and the picture as a draft in its message box.
+No turn runs until you add what you know and press Enter.
+A Fleet that refuses the Job is told in a toast, and the note stays a file for `/annotations`.
 
 **A note reaches work one of two ways.**
 
 | Way | What happens |
 |---|---|
-| *Start session*, or *Send to a Session*, on the note or for every open note on the screen | The note goes to a new Job or to the one picked, through `send_session_note`. Fleet searches the checkout that served the page for the words on screen and delivers the words, ranked `file:line` candidates, the nearby labels, what was selected and the note's screenshot as the picture (*What a Job's note carries* in `docs/practices/capture-window.md`). A note saved before screenshots were kept takes one at send where its element is on screen, and goes without one otherwise. The note keeps its id, so the Job can mark it done, and the pin says where it went |
+| The bar over the screen, or a note's card | The notes go to the Job picked from a menu, or to a new Job started held on its start card with the notes' words as its request |
 | `/annotations`, in a job | The agent reads the open notes, asks what is the owner's to decide, dispatches a subagent for each change, verifies it, and marks it done — `.claude/skills/annotations/` |
-
-**Send needs Bridge and its Fleet.** In the mock there is no Fleet, so the layer
-says so and the note stays a file for `/annotations`.
-
-**A note marked done draws no pin and takes no number**, so the numbers run over
-the open notes alone and a new note takes the next one rather than counting
-everything ever written. Its file stays where it was; the bar says how many are
-done and *Show done notes* draws them again, unnumbered, for as long as the layer
-is on.
 
 ## Running a Check or a Command by hand
 
@@ -939,7 +703,7 @@ on a loaded machine it takes longer than the same Check run by CI.
 `ARMADA_CHECK_PRIORITY=normal armada check <name>` runs it at normal priority.
 `../concepts/manifest.md`, *At what priority a Check runs*.
 
-**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check packages/screens:screens_test`, `armada check apps/desktop:typecheck`.
+**A Bridge Check's name is its key**, `<directory>:<name>`: `armada check apps/pocket:pocket_test`, `armada check apps/store:store_test`.
 It runs in that directory, and `armada covers` prints the keys a change reaches.
 
 **`armada check <name> <test>` runs one test** through the Check's `one_test`.
@@ -1174,8 +938,8 @@ gh pr create --base main        # then stop
 and the tests of what you changed, once. The pull request carries the full run.
 
 **GitHub runs the `checks` workflow on the pull request.** The `ci` job is the
-gate, and `desktop_test` reports beside it. `docs/practices/ci.md` says what the
-workflow runs and what is owed before it gates.
+gate. `docs/practices/ci.md` says what the
+workflow runs.
 
 **The description says what the diff cannot** (`commit-message`) and ends with
 "Merge with Create a merge commit".
@@ -1201,7 +965,6 @@ the agent. It reads `gh pr checks <n>`, then `gh run view --log-failed`, fixes o
 the same branch and pushes again; the pull request updates and it watches the new
 run. It stops and tells him only where the failure is not its to fix: the same
 failure on `main`, a decision that is his, or one that survives two fixes.
-`desktop_test` reports beside `ci` without gating it.
 
 **`ci` is not listed until the Checks it waits on finish**, so a `--watch` that
 ends, or a `grep '^ci'` over `gh pr checks`, can come back with nothing while

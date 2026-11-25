@@ -1,9 +1,9 @@
 //! The Workflows page's routes on the walk's mock Fleet: a definition step by step, its text, a save, a copy reset
 //! or deleted, and a proposal to Armada. They answer from the definitions in `mock-workflow-definitions.json`, the
-//! ones Classic's Workflows page is walked on (`apps/desktop/src/renderer/src/mock/workflows-managed.ts`), and keep
+//! ones Classic's Workflows page is walked on (`classic-final:apps/desktop/src/renderer/src/mock/workflows-managed.ts`), and keep
 //! the list `GET /workflows` answers in step with them, as Fleet reads the three places again before answering.
 //! A change asked of an agent is `drafting` for one read and drafted on the next, as Classic's mock drafts it
-//! (`apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
+//! (`classic-final:apps/desktop/src/renderer/src/mock/workflows-fleet.ts`, `settled`).
 
 use ipc::{AffectedJob, AffectedJobs, BasedOn, ManifestId, MigrateJobs, MigrateResult, MigratedJobs, DraftBy, DraftChange, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions, PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PublishWorkflowDraft, PutPieceDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, ArmadaProposed, AskWorkflowChange, ChangeOrigin, ChangeState, ChangeStep, Instant, OverriddenWorkflow, ProposeToArmada, SaveWorkflow, SendBackWorkflowChange, SessionId, StepId, StepReading, WorkflowChange, WorkflowChangeApproved, WorkflowChanges, WorkflowCopy, WorkflowCopyDeleted, WorkflowDefinition, WorkflowId, WorkflowSaved, WorkflowScope, WorkflowSteps, WorkflowSupportBuilding};
 use serde::Deserialize;

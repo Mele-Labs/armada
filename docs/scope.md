@@ -53,7 +53,7 @@ Fleet holds projects now, each with members that are whole repositories or folde
 Still to come are the project's values key by key, its own tracker, its review lists, its Operator rules and the title-bar switcher.
 See [Project](concepts/project.md).
 
-The core Bridge is being rebuilt natively beside the Electron Bridge, decided 8 Nov 2026.
+The Bridge is native, built in Rust on gpui; it replaced the Electron Bridge on 24 Nov 2026.
 See [Native Bridge](concepts/native-bridge.md).
 
 **A project's settings override Fleet's defaults key by key.**

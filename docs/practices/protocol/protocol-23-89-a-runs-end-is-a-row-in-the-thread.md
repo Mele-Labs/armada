@@ -14,4 +14,4 @@ A terminal Job's thread is the transcript its CLI keeps and Fleet cannot write t
 **Skew.** A Bridge before 23.89 reads a `ran` row as a kind it does not know and draws nothing for it, or draws it badly.
 A Fleet before sends the message.
 The IDs differ, so the two are refused regardless, and the lifeboat serves.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.

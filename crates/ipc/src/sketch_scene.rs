@@ -1,4 +1,4 @@
-//! A sketch's scene as a client draws it: `scene.ts`'s `parseScene` in Rust, so the native Bridge
+//! A sketch's scene as a client draws it: Classic's `parseScene` (`classic-final:packages/components/src/compositions/SketchScene/scene.ts`) in Rust, so the native Bridge
 //! reads a [`RawScene`] without decoding JSON itself. **All of it or nothing**, as there: a scene that
 //! does not read is `None` and draws nothing.
 

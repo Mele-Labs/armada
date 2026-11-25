@@ -148,6 +148,14 @@ where
     pub(crate) fn requests(&self) -> &crate::requesting::Requesting {
         &self.requests
     }
+    /// The keychain a project's metric tokens are kept in. See [`crate::project_metrics`].
+    pub(crate) fn metric_tokens(&self) -> &Arc<dyn adapter_traits::RequestSecrets + Send + Sync> {
+        &self.metric_tokens
+    }
+    /// What each project's metric recipes last read. See [`crate::project_metrics`].
+    pub(crate) fn metrics_held(&self) -> &crate::project_metrics::Readings {
+        &self.metric_readings
+    }
     pub(crate) fn mods(&self) -> &crate::mods::Told {
         &self.mods
     }

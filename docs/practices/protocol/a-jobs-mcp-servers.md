@@ -4,8 +4,8 @@
 
 Since 21 Oct 2026. What a hosted Job's process has connected, and a person's Reconnect, Turn on, Turn off and Sign in on one server.
 **Additive only**: two operations, two routes and the types they carry; no event kind, no field on an existing type, nothing kept.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-mcp.ts`, written by hand, field for field, and `readSessionMcp` and `actOnSessionMcp` on the BridgeApi.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-mcp.ts`, written by hand, field for field, and `readSessionMcp` and `actOnSessionMcp` on the BridgeApi.
 
 | Where | Side | Carries |
 | --- | --- | --- |

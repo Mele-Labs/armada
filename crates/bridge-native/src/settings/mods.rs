@@ -1,6 +1,6 @@
 //! The mods on this machine, one row each: its kind, whether it is on, what is wrong with it if anything, and
-//! Promote. Classic's `ModList` over `ModRow` and `ModRules` (`packages/surfaces/settings/src/ModList.tsx`,
-//! `packages/components/src/compositions/ModRow/`, `ModRules/`). Theme lists the theme mods; All lists the theme in
+//! Promote. Classic's `ModList` over `ModRow` and `ModRules` (`classic-final:packages/surfaces/settings/src/ModList.tsx`,
+//! `classic-final:packages/components/src/compositions/ModRow/`, `ModRules/`). Theme lists the theme mods; All lists the theme in
 //! force with the Fleet and tracker mods; Tracker and Fleet list theirs. A Fleet or tracker row is a taught one
 //! (`fleet-taught.ts`): what it says comes from the file Fleet checked for it, and a refusal is a toast.
 //!

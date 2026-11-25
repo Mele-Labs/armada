@@ -4,8 +4,8 @@
 
 Since 27 Oct 2026. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`, *On the wired walk*.
 **Removal only**: no operation, event kind, route or field is added.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
-`crates/ipc` and `packages/protocol` are edited together.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and a pair that disagrees is refused.
+`crates/ipc` and `classic-final:packages/protocol` are edited together.
 
 No Trigger has fired since Jobs left the wire on 17 Oct, and the Workflow editor that alone saved one went with the Workflows page.
 Fleet no longer reads `.armada/triggers/` or `machine/triggers/`, and a file left there is inert.

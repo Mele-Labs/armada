@@ -4,7 +4,7 @@
 
 Since 16 Oct 2026. `docs/concepts/session.md`, *The plan*.
 **Additive.** No protocol number moves; the protocol ID changes with the wire it hashes.
-Types live in `crates/ipc/src/session_plan.rs` and `packages/protocol/src/session-plan.ts`, apart from `SessionRecord`'s file so a parallel change to the record merges cleanly.
+Types live in `crates/ipc/src/session_plan.rs` and `classic-final:packages/protocol/src/session-plan.ts`, apart from `SessionRecord`'s file so a parallel change to the record merges cleanly.
 
 | Where | Side | Change |
 | --- | --- | --- |

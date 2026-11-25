@@ -267,9 +267,11 @@ impl FeaturesScreen {
             .child(back)
     }
 
-    /// The right of the list. A feature's page is drawn here once one is open.
+    /// The right of the list. A feature's page is drawn here once one is open, and the start panel where none is and the
+    /// project holds no confirmed or seeded feature.
     fn render_page_slot(&self, look: &Look, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        labelled(panel(look).id("feature-page").flex_1().min_w_0().h_full().flex().flex_col().children(self.stacked.then(|| self.render_back(look, cx))).child(div().flex_1().min_h_0().children(self.project_page.clone().map(gpui::IntoElement::into_any_element).or_else(|| self.page.clone().map(gpui::IntoElement::into_any_element)))), Role::Region, "Feature page")
+        let shown = self.project_page.clone().map(gpui::IntoElement::into_any_element).or_else(|| self.page.clone().map(gpui::IntoElement::into_any_element)).or_else(|| self.start.clone().map(gpui::IntoElement::into_any_element));
+        labelled(panel(look).id("feature-page").flex_1().min_w_0().h_full().flex().flex_col().children(self.stacked.then(|| self.render_back(look, cx))).child(div().flex_1().min_h_0().children(shown)), Role::Region, "Feature page")
     }
 }
 

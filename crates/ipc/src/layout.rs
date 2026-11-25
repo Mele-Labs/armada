@@ -2,9 +2,8 @@
 //! its Cockpit panels, an open Job's panels and its places. `docs/concepts/layout-mods.md`.
 //!
 //! **Here for `codec`'s reason**: reading JSON nobody typed is bytes entering the process, and
-//! `serde_json::from_*` may appear only in `ipc` and `store`. The rules are the ones `parseLayout`
-//! in `packages/shell/src/layout.tsx` applies to the same text, and Bridge parses again what
-//! Fleet returned, so the two must agree on what is invalid. Whether an id exists is Bridge's
+//! `serde_json::from_*` may appear only in `ipc` and `store`. Bridge parses again what
+//! Fleet returned through this same reader, so the two cannot disagree on what is invalid. Whether an id exists is Bridge's
 //! registry and never a reason to refuse a file: an id or a region this build does not have is
 //! ignored by both.
 
@@ -19,9 +18,9 @@ pub const MOST_BYTES: usize = 4096;
 const MOST_IDS: usize = 32;
 const MOST_ID: usize = 40;
 
-/// The regions Bridge arranges, from the file both sides check. `packages/shell/layout-registry.json`
+/// The regions Bridge arranges, from the file both sides check. `crates/ipc/layout-registry.json`
 /// is the shipped list; Bridge's registry has a test that it agrees with it.
-const REGISTRY: &str = include_str!("../../../packages/shell/layout-registry.json");
+const REGISTRY: &str = include_str!("../layout-registry.json");
 
 /// Every region a layout may name, in the registry's order.
 pub fn regions() -> Vec<String> {

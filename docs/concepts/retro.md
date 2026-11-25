@@ -230,7 +230,7 @@ nothing on `/events` says a retro was written. What Fleet serves for acting is
 words with their marks beside them and each its own hue, then the `title`, what
 happened, the `fix` under the label `What would change`, and the answers.
 The cited record rows sit behind an `Evidence` control.
-`packages/components/src/compositions/LessonCard`.
+`classic-final:packages/components/src/compositions/LessonCard`.
 The Retros page splits the open item: its title and answers are the head's, its route is the record's, and its card keeps the rest. The sheet and the review draw it whole, answers in the card.
 
 **The hues are not status hues.** Whose way: Agent `--tool-change`, You
@@ -288,7 +288,7 @@ Another repository pick starts its own review. The review says how old it is,
 again; it throws the held place and threads away and has no confirmation. Nothing
 is written to disk, so a restart starts a review again, which is also why Review
 mode is held and not remembered like the tab: stored, it would start a model call
-as Retros opened. `packages/screens/src/lessons/LessonsReview.tsx`.
+as Retros opened. `classic-final:packages/screens/src/lessons/LessonsReview.tsx`.
 
 ### A Job's retro, in its thread
 

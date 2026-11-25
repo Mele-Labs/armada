@@ -27,7 +27,7 @@
    Bridge's chrome around another repository's running app, pinned to that
    Run's own loopback origin, with no rail to lose and no history to go back
    through. What it may load, what it refuses and what it never claims is
-   `../practices/capture-window.md`.
+   `classic-final:docs/practices/capture-window.md`.
 3. **Status colors are never chosen.** They map to the Job state machine
    one to one. Never assign a status color by aesthetic judgment. **Below
    Job level, hue exists only where `tokens/status.css` declares it**,

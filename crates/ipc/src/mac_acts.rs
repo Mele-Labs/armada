@@ -55,6 +55,9 @@ pub enum JobAct {
     ArtifactPartAnswer(crate::AnswerPart),
     /// His End job. Since 20 Nov 2026.
     Close(crate::CloseSession),
+    /// His answer on a Ready to try card, sent only where the sending Mac's running build holds the card's branch at
+    /// its tip. Since 24 Nov 2026.
+    ReadyAnswer(crate::AnswerReadyToTry),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -132,6 +135,7 @@ impl JobAct {
             JobAct::ArtifactVote(one) => Some(&one.session_id),
             JobAct::ArtifactSeen(one) => Some(&one.session_id),
             JobAct::ArtifactPartAnswer(one) => Some(&one.session_id),
+            JobAct::ReadyAnswer(one) => Some(&one.session_id),
             JobAct::ArtifactArchive(one) | JobAct::ArtifactRestore(one) => one.session_id.as_ref(),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
@@ -175,6 +179,7 @@ impl JobAct {
             JobAct::ArtifactArchive(_) => "artifact_archive",
             JobAct::ArtifactRestore(_) => "artifact_restore",
             JobAct::ArtifactPartAnswer(_) => "artifact_part_answer",
+            JobAct::ReadyAnswer(_) => "ready_answer",
         }
     }
 }

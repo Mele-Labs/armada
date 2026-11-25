@@ -422,39 +422,31 @@ fn covering_refuses_a_directory_with_no_manifest() {
     assert!(refused.contains("armada.yml"), "{refused}");
 }
 
-/// **This repository's own Manifests.** A Bridge-only change does not pay for
-/// `acceptance`, and a Rust one does. The Bridge's Checks are keyed by the
+/// **This repository's own Manifests.** A Pocket-only change does not pay for
+/// `acceptance`, and a Rust one does. The TypeScript Checks are keyed by the
 /// workspace that declares them, and a change to one package gates that
 /// package and what reads it.
 #[test]
 fn this_repositorys_checks_are_chosen_by_their_when() {
-    let bridge = hits(&["apps/desktop/src/x.ts"]);
+    let pocket = hits(&["apps/pocket/src/x.ts"]);
     assert!(
-        bridge.contains(&"apps/desktop:typecheck".to_string()),
-        "{bridge:?}"
+        pocket.contains(&"apps/pocket:typecheck".to_string()),
+        "{pocket:?}"
     );
-    assert!(!bridge.contains(&"acceptance".to_string()), "{bridge:?}");
+    assert!(!pocket.contains(&"acceptance".to_string()), "{pocket:?}");
     assert!(
-        !bridge.iter().any(|key| key.starts_with("packages/")),
-        "nothing under `packages/` reads `apps/desktop`: {bridge:?}"
+        !pocket.iter().any(|key| key.starts_with("packages/")),
+        "nothing under `packages/` reads `apps/pocket`: {pocket:?}"
     );
 
-    let components = hits(&["packages/components/src/Badge.tsx"]);
-    for key in [
-        "packages/components:components_test",
-        "packages/screens:screens_test",
-        "apps/desktop/unit:desktop_test",
-    ] {
-        assert!(
-            components.contains(&key.to_string()),
-            "{key}: {components:?}"
-        );
-    }
-    let screens = hits(&["packages/screens/src/x.ts"]);
-    assert!(screens.contains(&"packages/screens:screens_test".to_string()));
+    let tokens = hits(&["packages/tokens/x.css"]);
     assert!(
-        !screens.contains(&"packages/components:components_test".to_string()),
-        "components does not read screens: {screens:?}"
+        tokens.contains(&"apps/pocket:pocket_test".to_string()),
+        "Pocket reads the tokens: {tokens:?}"
+    );
+    assert!(
+        !tokens.contains(&"apps/store:store_test".to_string()),
+        "the store imports no other package: {tokens:?}"
     );
 
     let rust = hits(&["crates/fleet/src/lib.rs"]);
@@ -514,7 +506,6 @@ fn what_the_narrowed_checks_read_still_selects_them() {
         "Cargo.toml",
         "Cargo.lock",
         ".cargo/config.toml",
-        "packages/protocol/src/connection.ts",
         ".armada/workflows/bug.json",
         "armada.yml",
     ] {
@@ -522,21 +513,15 @@ fn what_the_narrowed_checks_read_still_selects_them() {
         assert!(hit.contains(&"build".to_string()), "{path}: {hit:?}");
         assert!(hit.contains(&"test".to_string()), "{path}: {hit:?}");
     }
-    // `xtask`'s own tests read the Bridge tree, and nothing compiles it in.
-    // The root owns only what no workspace claims, so a path under a
-    // workspace reaches that run through `apps/desktop:xtask_test`, and a
-    // package nobody owns still reaches the root's `test`.
-    for path in ["apps/desktop/src/x.ts", "packages/components/src/Badge.tsx"] {
+    // `xtask`'s own tests read the TypeScript trees, and nothing compiles them
+    // in. The root owns only what no workspace claims, so a package nobody owns
+    // reaches the root's `test` and `xtask_test`, and not `build`.
+    for path in ["packages/tokens/x.css", "packages/icons/x.toml"] {
         let hit = hits(&[path]);
-        assert!(
-            hit.contains(&"apps/desktop:xtask_test".to_string()),
-            "{path}: {hit:?}"
-        );
+        assert!(hit.contains(&"test".to_string()), "{path}: {hit:?}");
+        assert!(hit.contains(&"xtask_test".to_string()), "{path}: {hit:?}");
         assert!(!hit.contains(&"build".to_string()), "{path}: {hit:?}");
     }
-    let unowned = hits(&["packages/tokens/x.css"]);
-    assert!(unowned.contains(&"test".to_string()), "{unowned:?}");
-    assert!(!unowned.contains(&"build".to_string()), "{unowned:?}");
 }
 
 /// **`armada check` lowers a Check and never a Command.** `main` hands in the

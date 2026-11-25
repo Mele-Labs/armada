@@ -11,7 +11,7 @@ run. The CSS map as of `armada/session-0814bfed` before the rebuild.
 
 ## What was run
 
-`apps/desktop/scripts/trace-map.mjs` (`pnpm -C apps/desktop trace-map`) serves the mock and opens
+`classic-final:apps/desktop/scripts/trace-map.mjs` (`pnpm -C apps/desktop trace-map`) serves the mock and opens
 the `battlefield-progress` scenario, one repository with a few drones, then drives three phases.
 Each phase is measured twice on a fresh page, since a trace perturbs what it measures: once
 from CDP counters (`Performance.getMetrics`, `SystemInfo.getProcessInfo`, `LayerTree`), once from

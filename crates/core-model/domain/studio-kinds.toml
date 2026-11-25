@@ -9,7 +9,7 @@
 # The sets were spelled in three places nothing compared — the enums in
 # `crates/core-model/src/studio.rs`, the `CHECK` constraints in
 # `crates/store/src/studio.rs`, and the mirror in
-# `packages/protocol/src/studio.ts`. Adding a kind to one and not the others
+# `classic-final:packages/protocol/src/studio.ts`. Adding a kind to one and not the others
 # merged green and failed the first time a person met that kind. `#1313`.
 #
 # **The table key is the wire value**, so the comparison is a set lookup with

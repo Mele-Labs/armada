@@ -1,6 +1,6 @@
 //! The text of Copy debug report: laid out as the approved fixture is, with the home folder as `~`, and
 //! nothing a person wrote reaching it from Fleet's log.
-//! `apps/desktop/src/renderer/src/mock/debug-report-fixtures.ts` is the layout.
+//! `classic-final:apps/desktop/src/renderer/src/mock/debug-report-fixtures.ts` is the layout.
 
 use crate::debug_report::{render, Facts, FleetFacts, Install, JobFacts, Log, ModFacts, RepositoryFacts, Trouble};
 use crate::log_trouble::trouble_in;

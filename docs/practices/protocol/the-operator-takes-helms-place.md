@@ -16,7 +16,7 @@ The older pages that name Helm are records of what was.
 `AskHelm`, `Blank`, `Freshness`, `HelmAsked`, `HelmContext`, `HelmFresh`, `HelmScreen`, `HelmSession`, `HelmText` and `HelmUnanswered`.
 `HelmDebugInfo`, `HelmDebugLine`, `HelmDebugSaid` and `HelmDebugText`.
 `ThoughtSent`.
-The mirror files `helm.ts` and `helm-debug.ts` in `packages/protocol/src` are gone with them.
+The mirror files `helm.ts` and `helm-debug.ts` in `classic-final:packages/protocol/src` are gone with them.
 
 ## Gone with the dock
 
@@ -33,7 +33,7 @@ They were named `list_helm_calls`, `answer_helm_call`, `helm.asking_to_run` and 
 
 ## Renames
 
-Calls, in Fleet's `ipc` and in `packages/protocol/src/calls.ts`, which was `helm-calls.ts`:
+Calls, in Fleet's `ipc` and in `classic-final:packages/protocol/src/calls.ts`, which was `helm-calls.ts`:
 
 | Was | Is |
 |---|---|

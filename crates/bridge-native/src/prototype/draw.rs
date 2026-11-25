@@ -264,7 +264,7 @@ impl<'a> Walk<'a> {
                 let ink = self.colour(node, "tone").unwrap_or_else(|| look.color(token::FG_DEFAULT));
                 let step = match node.attr("size") {
                     None => look.length(token::SPACE_4),
-                    Some(word) => look.length_named(&format!("space-{word}")).unwrap_or_else(|_| {
+                    Some(word) => look.length_named(&super::style::space_token(word)).unwrap_or_else(|_| {
                         self.trouble.push(format!("<glyph> size=\"{word}\" is no space step"));
                         look.length(token::SPACE_4)
                     }),

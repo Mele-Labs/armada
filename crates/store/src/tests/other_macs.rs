@@ -129,3 +129,17 @@ fn an_act_run_for_another_mac_is_kept_by_its_id_and_forgetting_the_mac_drops_it(
     store.forget_mac("home").expect("forgot");
     assert_eq!(store.act_run("home", "x").expect("reads"), None);
 }
+
+#[test]
+fn every_write_of_what_another_mac_shares_moves_the_count_and_a_read_does_not() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let start = store.held_moves();
+    store.held_from_macs(FromMac::Sessions).expect("reads");
+    assert_eq!(store.held_moves(), start, "a read moved nothing");
+
+    store.replace_from_mac(FromMac::Sessions, "work", &pairs(&[("j1", "one")])).expect("kept");
+    store.keep_from_mac(FromMac::PreviewOffers, "work", "armada/x", "offer").expect("kept");
+    store.forget_mac("work").expect("forgot");
+    assert_eq!(store.held_moves(), start + 3);
+}
