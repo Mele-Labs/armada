@@ -194,6 +194,31 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/project/:project/ranked_issues",
     },
     Route {
+        operation: "get_system_map",
+        method: "GET",
+        path: "/projects/project/:project/system",
+    },
+    Route {
+        operation: "get_system_part",
+        method: "GET",
+        path: "/projects/project/:project/system/part",
+    },
+    Route {
+        operation: "list_system_folder",
+        method: "GET",
+        path: "/projects/project/:project/system/folder",
+    },
+    Route {
+        operation: "map_system_with_librarian",
+        method: "POST",
+        path: "/projects/project/:project/system/librarian",
+    },
+    Route {
+        operation: "answer_system_addition",
+        method: "POST",
+        path: "/projects/project/:project/system/answer",
+    },
+    Route {
         operation: "get_project_store",
         method: "GET",
         path: "/projects/project/:project/store",

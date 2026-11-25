@@ -12,6 +12,7 @@ mod metric_view;
 mod mock;
 mod model;
 mod presets;
+pub mod system;
 #[cfg(test)]
 mod tests;
 mod view;
