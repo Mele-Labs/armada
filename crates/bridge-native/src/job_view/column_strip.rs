@@ -430,7 +430,7 @@ impl JobView {
         if !picking {
             return div().id(SharedString::from(format!("strip-flow:{id}"))).flex_none().tooltip(tip("Workflow")).child(name).into_any_element();
         }
-        let said = format!("Workflow {}", strip.flow);
+        let said = format!("Change workflow, {}", strip.flow);
         let open = self.pop.as_ref().is_some_and(|pop| pop.menu.read(cx).name().as_ref() == "Workflow");
         let button = div()
             .id(SharedString::from(format!("strip-flow:{id}")))
@@ -945,7 +945,7 @@ pub(super) mod tests {
             assert!(!drawn(cx, Role::Button, "Feature Reviews"), "the third is behind +1");
             assert!(drawn(cx, Role::Group, "1 more: Reviews"));
             // The mock Job is not hosted by Fleet, so no picker is offered: the name stands alone, as the Spine head draws it.
-            assert!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Workflow ").is_empty());
+            assert!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Change workflow").is_empty());
         }
 
         #[gpui::test]
