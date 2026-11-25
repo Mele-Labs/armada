@@ -15,4 +15,4 @@ A `took` for a need nobody declared is `fleet.need_not_declared`, and a call tha
 
 **The ledger gains rows, not columns.** A Job's own slot and branch are written as `slot` and `branch` rows held by the Job, exclusive as a session's are, and `who_owns` answers them.
 `kind=need` is not exclusive.
-Bridge's half was a file of `packages/protocol`, written by hand like the rest, and is deleted.
+Bridge's half was a file of `classic-final:packages/protocol`, written by hand like the rest, and is deleted.

@@ -28,7 +28,7 @@ next person cannot find.
 | Contracts, practices, concepts, journeys, spikes, open questions | The repository |
 | Registries code reads — tokens, icons, settings, the domain model | The repository |
 | What is being built and in what order | Beads issues, with milestones as epics |
-| A component as built, and how it is agreed | Storybook, `packages/components` |
+| A component as built, and how it is agreed | Storybook, `classic-final:packages/components` |
 
 **Nothing sits outside the repository.** A component that should exist and does
 not is a beads issue.

@@ -8,7 +8,7 @@ be in no project, and is then loose. The rows are kept in Fleet's store on this 
 the repository or its Manifest. **A project's name and members are a file Fleet holds**, kept where he chose for it (this Mac, a
 synced folder or the cloud), and a project is also what a Workspace was: the set of repositories a lifecycle or a rule is scoped to.
 The protocol ID moves with the files below, and there is no number to take.
-Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/projects.ts`, written by hand, field for field.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `Projects.left_out` | Fleet writes, Bridge reads | `[{ place, path, why }]`, every project file that would not read, `place` `this_mac`, `synced` or `cloud`, `path` the file or the object a bucket holds it as. A file a project of his names is here too, and that project says `unread` |
 | `Projects.left_behind` | Fleet writes, Bridge reads | `[{ place, path, why }]`, **absent while empty**. A project file an act took out of its place and could not take away: `place` `cloud`, `path` the object a bucket holds it as, `why` the bucket's words. Only the answer to `delete_project` or `edit_project` with a `place` carries it, and `projects.changed` does not |
 | `list_holding_projects` | Bridge calls | `GET /projects/holding?manifest_id=`, the repository Fleet started in where absent: the projects whose members include it, whole or by a folder, answered as `Projects` with every `rows` and `loose` empty. It replaces `list_repository_workspaces`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
-| `list_forge_repositories` | Bridge calls | `GET /repositories/forge?q=`, `q` optional: the repositories his forge account can see, to pick one to clone into a project. Answers `ForgeRepositories { repositories, cut? }`, each `ForgeRepository { owner, name, url, private, pushed_at?, local_path? }`, newest pushed first; `url` is what `clone_repository` takes, and `local_path` the root of the served repository whose remote is this one, absent where Fleet serves none. At most 200, `cut` where more matched or the forge held more than the 1,000 Fleet reads. 422 `fleet.forge_repositories_unreadable` where the forge would not list them. Bridge's half is `packages/protocol/src/setup.ts` |
+| `list_forge_repositories` | Bridge calls | `GET /repositories/forge?q=`, `q` optional: the repositories his forge account can see, to pick one to clone into a project. Answers `ForgeRepositories { repositories, cut? }`, each `ForgeRepository { owner, name, url, private, pushed_at?, local_path? }`, newest pushed first; `url` is what `clone_repository` takes, and `local_path` the root of the served repository whose remote is this one, absent where Fleet serves none. At most 200, `cut` where more matched or the forge held more than the 1,000 Fleet reads. 422 `fleet.forge_repositories_unreadable` where the forge would not list them. Bridge's half is `classic-final:packages/protocol/src/setup.ts` |
 | `ProjectRow` | Fleet writes, Bridge reads | Tagged by `kind`: `task { id, manifest_id, title, notes, state, held_by?, parent?, issues?, pulls? }`, `state` `open`, `done`, `held` or `asked`, `held_by { session_id, title? }` present for `held` and for an `asked` a Job raised, `parent` the id of the task a subtask belongs to, `issues` `[{ issue, title?, state? }]` the issues linked to it, `pulls` `[{ number, title?, state? }]` the pull requests linked to it, `state` `open`, `merged` or `closed`; or `issue { id, manifest_id, issue, title?, state? }`, `state` `open` or `closed`. `manifest_id` is the repository of the row, and a subtask takes its parent's |
 | `start_session` | Bridge calls | `project_rows?: [{ row }]` on `StartSession`: the rows the Job starts with, each named by its id alone. Each written task among them is held by the Job; an issue row is only named, so the brief can carry it |
 | `StartSession.project` | Bridge calls | `project?: string`, the project of his the Job is for. 404 `fleet.no_such_project`, 422 `fleet.project_not_member` where the Job's repository is not a member. **Absent or blank, the Job is in the one project of his that holds its repository**, and in none where none does or more than one; a fork and a handoff keep their source Job's project, and a Job an agent starts takes its starter's, or this default where the starter has none |
@@ -256,7 +256,7 @@ Nothing is made on a refusal.
 The task keeps the repository it was filed in, and the Job its own: holding is a link between the two, and the store never compared them.
 422 for a repository Fleet does not serve, as every repository route answers it, on a task or an issue row written into one.
 
-**Skew.** There is no number to take: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, all of which changed here.
+**Skew.** There is no number to take: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, all of which changed here.
 The values are additive on top of that: `values` on `Project`, `NewProject` and `EditProject` and on `HostedFacts` is absent for none, and `get_values`, `save_kit_values` and `list_project_issues` are routes a Fleet without them answers 404.
 The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. A Bridge that still calls `GET /workspaces/all`, `GET /workspaces` or
 `POST /projects/project/:project/rename` would meet a 404 on a Fleet that has them gone, which is why the two are never run together.
@@ -274,7 +274,7 @@ Run starts one review run per tool through `start_review_run`, and Not now dismi
 A tool is offered only when the repository defines it as a review tool, and the item is withdrawn when the pull request closes.
 The first look at a repository records what is open and offers none of it, so turning the setting on does not offer the backlog.
 Fleet keeps the numbers it has seen in the store table `review_offered`, so a restart offers nothing twice.
-The wire change is `review_on_new_pr` on `ValuesSet`, absent for none, and it moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+The wire change is `review_on_new_pr` on `ValuesSet`, absent for none, and it moves the protocol ID with `crates/ipc/src` and `classic-final:packages/protocol/src`.
 
 ## The board
 
@@ -283,7 +283,7 @@ A project's Dashboard keeps where each of its blocks stands in the project's fil
 A project that saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so `system`, `docs` or `errors` add without a wire change and a kind this build does not know is passed back as it was saved.
 A layer other than the project's ignores `board`: it is never laid over another.
-The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+The wire change moves the protocol ID with `crates/ipc/src` and `classic-final:packages/protocol/src`.
 
 ## The system map
 
@@ -347,7 +347,7 @@ A Fleet replaces its layout only where the one handed in has the later `saved_at
 A layout taken is kept with its stamp and is not told on, so two Macs settle and stop; `settings.changed` tells Bridge as for any write.
 A Mac on a build from before this answers 404 to the read, and the link stays up without it.
 Clocks are the order: two Macs whose clocks differ by more than the time between his saves can take the earlier save for the later.
-The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+The wire change moves the protocol ID with `crates/ipc/src`.
 ## Metrics
 
 A project's Dashboard can show live metric blocks, and Fleet reads each one with no model.
@@ -384,4 +384,4 @@ It is held in memory, so a restart starts it again, and Graph draws it where the
 A recipe that cannot read is refused 422 `fleet.metric_unreadable` with the scrubbed why, and nothing is kept.
 `try_metric` runs a recipe once and keeps nothing.
 These routes have no agent door: the librarian's Job reaches `save_metric`'s work through Fleet directly.
-The wire change moves the protocol ID with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`.
+The wire change moves the protocol ID with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`.

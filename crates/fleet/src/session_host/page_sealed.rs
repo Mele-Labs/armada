@@ -25,8 +25,9 @@ pub(super) const ARTIFACT_REVISION_UNKNOWN: &str = "fleet.artifact_revision_unkn
 const KIT_SCRIPT: &str = include_str!("page_kit.js");
 /// The look of what the kit's script draws, on the page's tokens.
 const KIT_LOOK: &str = include_str!("page_kit.css");
-/// Bridge's `armada-kit.css`, which a page links by a relative href, read out of the one place it is written.
-const KIT_SOURCE: &str = include_str!("../../../../packages/screens/src/document-kit.ts");
+/// `armada-kit.css`, which a page links by a relative href: Armada's type and colour tokens as plain styling for
+/// headings, lists, tables and code, so a page with no CSS of its own still reads right.
+const KIT_CSS: &str = include_str!("armada_kit.css");
 /// The one stylesheet a page may link.
 const KIT_HREF: &str = "armada-kit.css";
 
@@ -46,13 +47,6 @@ fn policy_allowing(scripts: &str) -> String {
     format!(
         "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src {scripts}; connect-src 'none'; form-action 'none'; base-uri 'none'"
     )
-}
-
-/// The rules of `armada-kit.css`, as `packages/screens/src/document-kit.ts` writes them.
-fn kit_css() -> &'static str {
-    let from = KIT_SOURCE.find("KIT_CSS = `").map_or(KIT_SOURCE.len(), |at| at + "KIT_CSS = `".len());
-    let to = KIT_SOURCE[from..].find('`').map_or(KIT_SOURCE.len(), |at| from + at);
-    &KIT_SOURCE[from..to]
 }
 
 /// Every design token at its shipped value, so the kit's rules read here as they read in Bridge. One that names an
@@ -174,7 +168,7 @@ fn sealed_tag(name: &str, tag: &str, name_len: usize) -> String {
         "link" => {
             let stylesheet = said("rel").is_some_and(|rel| rel.split_whitespace().any(|one| one.eq_ignore_ascii_case("stylesheet")));
             match stylesheet && said("href").as_deref() == Some(KIT_HREF) {
-                true => format!("<style>{}</style>", kit_css()),
+                true => format!("<style>{KIT_CSS}</style>"),
                 false => String::new(),
             }
         }

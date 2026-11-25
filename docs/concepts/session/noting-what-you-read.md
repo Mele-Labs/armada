@@ -3,7 +3,7 @@
 **Part of:** [Job](../session.md).
 
 **A person reading a sketch, a file or a picture in Bridge can note what he is pointing at and send it to a Job without closing the viewer.**
-The code is `packages/components/src/compositions/ViewerNotes/`, mounted for Sessions by `apps/desktop/src/renderer/src/viewer-notes.tsx`; the walk is `job-notes`.
+The code is `classic-final:packages/components/src/compositions/ViewerNotes/`, mounted for Sessions by `classic-final:apps/desktop/src/renderer/src/viewer-notes.tsx`; the walk is `job-notes`.
 
 | Reading | Point at it with | Note on |
 |---|---|---|
@@ -32,7 +32,7 @@ Held notes and the pick stay per sketch, file or picture until sent, in memory: 
 
 **A Job's document is read in a floating sheet over the Job, and the notes are made on the page itself.**
 The Job writes the next revision as its reply: Changes marks the words that came and went, and each sent note in the Notes card shows the change that answered it.
-The sheet is `apps/desktop/src/renderer/src/session-view/DocumentLayer.tsx`; the walk is `job-document`.
+The sheet is `classic-final:apps/desktop/src/renderer/src/session-view/DocumentLayer.tsx`; the walk is `job-document`.
 `docs/concepts/document.md` owns what a document is, how it is written, sealed and shared.
 
 **These notes are not the annotation layer.** The layer (⌥⌘A, `docs/practices/running-locally.md`, *Annotating Bridge*) is for notes on Armada itself and saves a file for `/annotations`; these go to a Job as a message.

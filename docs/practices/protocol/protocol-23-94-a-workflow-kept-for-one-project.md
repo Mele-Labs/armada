@@ -24,7 +24,7 @@ A project's copy that does not fit is left out with `project` set, and the next 
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 A Fleet that is still before this change sends no `project` and never `project` as a `source`.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand like the rest.
 
 **The event stream.** Untouched in kind: a save or a project's change publishes the `repositories.changed` a re-read already did.
 The open risk below is neither better nor worse.

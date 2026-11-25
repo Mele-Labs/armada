@@ -1,7 +1,7 @@
 //! The Fleet connection, on a thread and a tokio runtime of its own. gpui's main thread never
 //! waits on it: everything it learns crosses one channel to [`crate::fleet::FleetConnection`].
 //!
-//! Mirrors `apps/desktop/src/main/socket.ts`: read the runtime file, check the pid and the
+//! Mirrors `classic-final:apps/desktop/src/main/socket.ts`: read the runtime file, check the pid and the
 //! protocol, connect, and keep trying on a drop. Reconnects back off from one second to ten and
 //! start over after a connection that said something. A socket that accepts and stays silent is
 //! `Starting` while the Fleet process is younger than the boot window and `Unreachable` after.
@@ -40,7 +40,7 @@ const JOBS_TRIES: u32 = 3;
 
 /// How often the build is read while a connection stands. No event says the build moved: a fetch in
 /// Fleet moves its position, and a restart moves the build with the socket down
-/// (`apps/desktop/src/main/fleet-build.ts`).
+/// (`classic-final:apps/desktop/src/main/fleet-build.ts`).
 const BUILD_WATCH: Duration = Duration::from_secs(60);
 
 /// Where the connection stands. Never leaves stale state reading as live.

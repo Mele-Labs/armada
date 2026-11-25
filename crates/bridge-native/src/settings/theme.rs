@@ -1,6 +1,6 @@
 //! Settings → Theme: one field holding the theme in force, which opens Dark, Light and the themes mods ship, each
 //! with its colours, and narrows them as it is typed in. Classic's `ThemeSettings` over `ThemePicker`
-//! (`packages/components/src/compositions/ThemePicker/`). Under it, the theme mods and the tweaks (`mods.rs`).
+//! (`classic-final:packages/components/src/compositions/ThemePicker/`). Under it, the theme mods and the tweaks (`mods.rs`).
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;

@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. A sketch, a draft or a page says what it is for in one sentence, with links. `docs/concepts/artifact.md`, *The For line*.
 **Additive only**: two optional fields on two agent bodies and one optional field on four served shapes. No route, event kind or error kind is new; `fleet.draft_refused` is a new 422 code.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
 
 | Where | Side | Carries |
 | --- | --- | --- |

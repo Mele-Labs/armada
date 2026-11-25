@@ -1099,10 +1099,7 @@ describe("rowStateOf", () => {
 
 describe("the headers and the thread's width", () => {
   const css = readFileSync(new URL("./pocket.css", import.meta.url), "utf8");
-  const depth = readFileSync(
-    new URL("../../../packages/components/src/depth.css", import.meta.url),
-    "utf8",
-  );
+  const depth = readFileSync(new URL("./kit/components/depth.css", import.meta.url), "utf8");
   const rule = (selector: string) => {
     const at = css.indexOf(`${selector} {`);
     expect(at).toBeGreaterThan(-1);

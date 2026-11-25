@@ -11,4 +11,4 @@
 | `save_settings` (`POST /settings/save`) | `SaveSettings`: `changes`, a key to a value or `null`, which removes it | 422 `fleet.unacceptable_settings` naming the key, and nothing written; 500 `fleet.settings_not_written`. `agent_access` is `On your words` |
 | `settings.changed` (event) | `SettingsList`, whole | After a save, a hand edit, or a hand edit refused. A resync does not carry it |
 
-Bridge's half is `packages/protocol/src/settings.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/settings.ts`, written by hand like the rest.

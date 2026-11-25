@@ -4,8 +4,8 @@
 
 Since 29 Oct 2026. The person approving a plan sees whether it means one pull request or two.
 **Additive**: one field in, one field out, three small types; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-plan.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-plan.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

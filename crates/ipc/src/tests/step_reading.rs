@@ -1,4 +1,4 @@
-//! A step's ends on the wire, as `StepReading` in `packages/protocol/src/setup.ts` spells them.
+//! A step's ends on the wire, as `StepReading` in `classic-final:packages/protocol/src/setup.ts` spells them.
 
 use serde_json::json;
 

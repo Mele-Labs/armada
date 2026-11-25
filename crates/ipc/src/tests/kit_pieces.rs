@@ -1,4 +1,4 @@
-//! Kit's Add and Remove on the wire, in the bytes `packages/protocol/src/kit.ts` reads: tagged by
+//! Kit's Add and Remove on the wire, in the bytes `classic-final:packages/protocol/src/kit.ts` reads: tagged by
 //! `found` and `state`, and a plugin's `trashed` sent as `null` rather than left out.
 
 use crate::{
