@@ -2723,7 +2723,7 @@ pub static WALKS: &[Walk] = &[
             step("The box asks what to verify", Verb::Type("existing sign-ins survive the switch"), "textbox", "Verify that"),
             step("Enter runs the Judge; the press reads as reading", Verb::Key("enter"), "button", "Judge plan"),
             step("⌥E opens the plan's note, as Suggest does", Verb::Key("alt-e"), "textbox", "Note"),
-            step("The suggestion is typed", Verb::Type("Name the colour in the tooltip"), "textbox", "Note"),
+            step("The suggestion is typed", Verb::Typed("Name the colour in the tooltip"), "textbox", "Note"),
             step("Send changes goes to Fleet", Verb::Open("button", "Send changes"), "button", "Suggest"),
             step("Not yet puts the plan away", Verb::Open("button", "Not yet"), "button", "Plan set aside"),
             step("⌥X asks which waiting card to withdraw", Verb::Key("alt-x"), "radiogroup", "Waiting cards"),
