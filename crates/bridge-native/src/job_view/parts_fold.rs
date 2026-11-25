@@ -452,9 +452,7 @@ mod tests {
             assert!(page.anchors.iter().any(|one| one.artifact == "draft:Merge line wording" && one.revision == 1), "revision 1 stands under an item of the thread, not at its foot");
         });
         assert!(drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 1"));
-        // Revision 2 asks, so in the thread it is one line pointing to the sheet, where it is answered.
-        assert!(drawn(cx, Role::Button, "Merge line wording"), "the asking revision is one line naming it");
-        assert!(!drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 2"), "no card answers it in the thread");
+        assert!(drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 2"), "the asking revision is a card answered in the thread");
     }
 
     #[gpui::test]

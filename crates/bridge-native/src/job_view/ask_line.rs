@@ -1,5 +1,6 @@
 //! One ask as one line, wherever something points to it: the mark of its kind in its hue, the question itself and its age.
-//! A press opens the review sheet on it, the one place an ask is answered.
+//! An ask is answered on its card in the thread or in the review sheet (25 Nov, reversing one place of 19 Nov). A line in
+//! Needs you brings the thread to the ask's card, and opens the sheet on it only where the thread holds no card for it.
 //! `.claude/decisions/2026-11-19-one-ask-one-item-one-place.md`.
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString, Window};
@@ -9,7 +10,7 @@ use super::acts::Answer;
 use super::reader_sheet::artifact_in;
 use super::review::{Ask, Item};
 use super::rows::{glyph, tip, Size};
-use super::{JobView, Page};
+use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
@@ -81,37 +82,49 @@ impl JobView {
         self.review_items(job, cx).into_iter().chain(self.artifact_items(job, None)).find(|one| same_item(&one.id, key) || (plan && one.kind == super::review::Kind::Plan))
     }
 
-    /// The line a thread card draws in its place while the sheet holds its ask: a page, a sketch or a draft is answered
-    /// there, not on its card. None for any other item, for one that joined an artifact of parts, and once a verdict
-    /// stands on the card, so its folded verdict draws.
-    pub(super) fn card_pointer(&self, item: &ThreadItem, thread: &[ThreadItem], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.clone()?;
-        let (card_key, settled, part) = match item {
-            ThreadItem::Sketch(card) => (card.id.clone(), card.settled.is_some() || page.cards.pressed(&card.id, card).is_some(), card.sketch.clone()),
-            ThreadItem::Document(card) => (card.id.clone(), card.settled.is_some() || page.cards.answers.contains_key(&card.id), card.page.clone()),
-            ThreadItem::Row { row: SessionRow::Draft { id, title, settled, .. } } => {
-                let key = format!("draft:{id}");
-                (key.clone(), settled.is_some() || page.cards.answers.contains_key(&key), format!("draft:{title}"))
-            }
-            _ => return None,
+    /// A press on a line in Needs you: the panel folds and the thread comes to the ask's card, where it is answered. An ask the
+    /// thread holds no card for opens the sheet on it.
+    pub(super) fn go_to_ask(&mut self, item: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let place = self.held_item(&job, item, cx).and_then(|held| self.ask_place(&job, &held, cx));
+        let Some((at, key)) = place else {
+            self.open_ask(item, window, cx);
+            return;
         };
-        if settled || self.is_part(&job, &part) {
-            return None;
+        self.set_needs(false, None, window, cx);
+        self.aim(&key);
+        if let Some(page) = self.pages.get_mut(&job) {
+            page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: gpui::px(0.) });
         }
-        let key = card_item(item, thread)?;
-        let held = self.held_item(&job, &key, cx)?;
-        Some(self.ask_pointer(&format!("thread:{card_key}"), &held, Stands::Thread, look, cx))
+        cx.notify();
     }
 
-    /// The sketch pinned over the thread, as one line while the sheet holds it.
-    pub(super) fn pin_pointer(&self, card: &ipc::ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let key = format!("pin:{}", card.id);
-        if card.settled.is_some() || page.cards.pressed(&key, card).is_some() {
-            return None;
+    /// Where the thread draws the card that answers `item`, and the card's key: the open card of questions, the card of an
+    /// artifact of parts, the plan, the pinned sketch, or the thread card of a sketch, page or draft.
+    pub(super) fn ask_place(&self, job: &str, item: &Item, cx: &gpui::App) -> Option<(usize, String)> {
+        let page = self.pages.get(job)?;
+        let held = self.thread(job, cx)?;
+        let extra = |is: &dyn Fn(&super::Extra) -> bool| page.extras.iter().position(is).map(|at| page.items + at);
+        if item.id.starts_with("ask:") {
+            let at = extra(&|one| matches!(one, super::Extra::Asked(call) if of_card(&item.id, call)))?;
+            return Some((at, format!("asked:{}", item.id)));
         }
-        let job = self.shown.clone()?;
-        let held = self.held_item(&job, &card.sketch, cx)?;
-        Some(self.ask_pointer(&format!("thread:{key}"), &held, Stands::Thread, look, cx))
+        if let Some(artifact) = artifact_in(item) {
+            return self.parts_ix(artifact).map(|at| (at, artifact.to_string()));
+        }
+        let plan = held.head.plan.as_ref().filter(|plan| item.kind == super::review::Kind::Plan || same_item(&format!("plan:{}", plan.version), &item.id));
+        if let Some(plan) = plan {
+            if let Some(at) = extra(&|one| matches!(one, super::Extra::Plan(_))) {
+                return Some((at, plan.id.clone()));
+            }
+        }
+        if let Some(sketch) = held.head.sketch.as_ref().filter(|sketch| sketch.sketch == item.id) {
+            if let Some(at) = extra(&|one| matches!(one, super::Extra::Sketch(_))) {
+                return Some((at, format!("pin:{}", sketch.id)));
+            }
+        }
+        let at = held.items.iter().rposition(|one| card_item(one, &held.items).is_some_and(|key| same_item(&key, &item.id)))?;
+        Some((at, card_key(&held.items[at])?))
     }
 
     /// The artifact of parts in the thread, its takes among them, as one line while it asks.
@@ -139,24 +152,6 @@ impl JobView {
         }
         page.list.remeasure();
         cx.notify();
-    }
-
-    /// The open card of questions at the foot of the thread: each question the sheet holds, one line pointing to it. Once
-    /// he answers, the card leaves the head and his answer stands where he gave it. None where the sheet holds none.
-    pub(super) fn asked_lines(&self, ask: &ipc::CallInFlight, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.clone()?;
-        let answered = |key: &str| self.dock_of(&job).is_some_and(|dock| dock.hidden.contains(key));
-        let lines: Vec<AnyElement> = (0..ask.questions.len())
-            .filter_map(|at| {
-                let key = ask_item_id(&ask.call, at);
-                if answered(&key) {
-                    return None;
-                }
-                let item = self.held_item(&job, &key, cx)?;
-                Some(self.ask_pointer(&format!("thread:{key}"), &item, Stands::Thread, look, cx))
-            })
-            .collect();
-        (!lines.is_empty()).then(|| div().w_full().flex().flex_col().gap(look.length(token::SPACE_1)).children(lines).into_any_element())
     }
 
     /// What he sent from the sheet, in the thread, drawn as his own act is (his pick, 13 Nov): a gold band with how he
@@ -337,19 +332,24 @@ pub(super) fn card_item(item: &ThreadItem, thread: &[ThreadItem]) -> Option<Stri
     }
 }
 
+/// The key a thread card takes an answer under, for a card that asks.
+fn card_key(item: &ThreadItem) -> Option<String> {
+    match item {
+        ThreadItem::Sketch(card) => Some(card.id.clone()),
+        ThreadItem::Document(card) => Some(card.id.clone()),
+        ThreadItem::Row { row: SessionRow::Draft { id, .. } } => Some(format!("draft:{id}")),
+        ThreadItem::Plan(plan) => Some(plan.id.clone()),
+        _ => None,
+    }
+}
+
 /// The keys the thread cards of item `item` take an answer under: a page's newest card, a sketch's card and its pin over
 /// the thread, a draft's row and a plan's card.
 pub(super) fn card_keys(item: &str, head: &ThreadHead, thread: &[ThreadItem]) -> Vec<String> {
     let mut keys: Vec<String> = thread
         .iter()
         .filter(|one| card_item(one, thread).is_some_and(|key| same_item(&key, item)))
-        .filter_map(|one| match one {
-            ThreadItem::Sketch(card) => Some(card.id.clone()),
-            ThreadItem::Document(card) => Some(card.id.clone()),
-            ThreadItem::Row { row: SessionRow::Draft { id, .. } } => Some(format!("draft:{id}")),
-            ThreadItem::Plan(plan) => Some(plan.id.clone()),
-            _ => None,
-        })
+        .filter_map(card_key)
         .collect();
     let plan = head.plan.as_ref().filter(|plan| format!("plan:{}", plan.version) == item || (item.starts_with("plan:") && plan.state == ipc::PlanCardState::Waiting)).map(|plan| plan.id.clone());
     keys.extend(plan.filter(|id| !keys.contains(id)));
@@ -373,21 +373,10 @@ pub(super) fn answer_in_place(answer: &AnsweredAsk, head: &ThreadHead, thread: &
 /// The line itself, for an ask whose kind, question and time are known.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn pointer(key: &str, item: &str, ask: Ask, question: &str, since: &str, stands: Stands, look: &Look, cx: &Context<JobView>) -> AnyElement {
-    let (icon, said, hue) = ask.mark();
     let age = super::rows::age(since, chrono::Local::now());
     let open = item.to_string();
     let question = super::dock::first_line(question).to_string();
-    let tile = div()
-        .id(SharedString::from(format!("ask-kind:{key}")))
-        .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
-        .size(look.length(token::LEADING_SM))
-        .rounded(look.length(token::RADIUS_SM))
-        .bg(look.color(hue).opacity(0.16))
-        .tooltip(tip(said))
-        .child(glyph(look, icon, Size::Mark, look.color(hue)));
+    let tile = ask_tile(look, key, ask);
     let line = div()
         .id(SharedString::from(format!("ask-line:{key}")))
         .flex()
@@ -418,8 +407,28 @@ pub(super) fn pointer(key: &str, item: &str, ask: Ask, question: &str, since: &s
         .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)))
         .tab_index(0)
         .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
-        .on_click(cx.listener(move |this, _, window, cx| this.open_ask(&open, window, cx)));
+        // Needs you brings the thread to the ask's card; a line in a card or a tab opens the sheet on it.
+        .on_click(cx.listener(move |this, _, window, cx| match stands {
+            Stands::List => this.go_to_ask(&open, window, cx),
+            Stands::Thread => this.open_ask(&open, window, cx),
+        }));
     labelled(line, Role::Button, question).into_any_element()
+}
+
+/// The mark of an ask's kind: its glyph in its hue on a tile of that hue, named in the tooltip.
+pub(super) fn ask_tile(look: &Look, key: &str, ask: Ask) -> gpui::Stateful<gpui::Div> {
+    let (icon, said, hue) = ask.mark();
+    div()
+        .id(SharedString::from(format!("ask-kind:{key}")))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(look.length(token::LEADING_SM))
+        .rounded(look.length(token::RADIUS_SM))
+        .bg(look.color(hue).opacity(0.16))
+        .tooltip(tip(said))
+        .child(glyph(look, icon, Size::Mark, look.color(hue)))
 }
 
 #[cfg(test)]
@@ -454,24 +463,80 @@ mod tests {
         }
     }
 
+    /// The bounds of the `role` named `name` drawn inside `card`.
+    fn within(cx: &mut gpui::VisualTestContext, role: Role, name: &str, card: gpui::Bounds<gpui::Pixels>) -> gpui::Bounds<gpui::Pixels> {
+        cx.update(|window, cx| {
+            cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name.as_ref() == name).map(|one| one.bounds).find(|one| card.contains(&one.center()))
+        })
+        .unwrap_or_else(|| panic!("{name} was not drawn in its card"))
+    }
+
+    fn sheet_holds(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, item: &str) -> bool {
+        view.read_with(cx, |view, cx| view.review_items("mock-01", cx).iter().any(|one| one.id == item))
+    }
+
     #[gpui::test]
-    fn the_open_question_is_one_line_in_the_thread_that_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+    fn a_question_is_a_card_in_the_thread_answered_there_and_it_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
-        // The thread and the right column's Needs you band each point to it; neither answers it.
-        for question in [FIRST, SECOND] {
-            let lines = drawn_like(cx, Role::Button, question);
-            assert!(!lines.is_empty() && lines.iter().all(|line| line == question), "{question} is one line of its own: {lines:?}");
+        assert!(sheet_holds(&view, cx, "ask:call-1"), "the sheet holds the question while it waits");
+        let card = bounds(cx, Role::Article, &format!("Question: {FIRST}"));
+        assert!(drawn(cx, Role::Article, &format!("Question: {SECOND}")), "each question is a card of its own");
+        for choice in ["Amber", "Orange", "Grey"] {
+            within(cx, Role::Button, choice, card);
         }
-        for choice in ["Amber", "Orange", "Grey", "In the tooltip", "In the chip"] {
-            assert!(drawn_like(cx, Role::Button, choice).is_empty() && drawn_like(cx, Role::RadioButton, choice).is_empty(), "{choice} is answered in the sheet, not the thread");
-        }
-        let first = bounds(cx, Role::Button, FIRST);
-        cx.simulate_click(first.center(), gpui::Modifiers::none());
+        within(cx, Role::Button, "Answer in words", card);
+        let amber = within(cx, Role::Button, "Amber", card).center();
+        cx.simulate_click(amber, gpui::Modifiers::none());
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("ask:call-1"), "the sheet opens on that question");
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place, with no sheet");
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the answered question leaves the thread");
+        assert!(drawn(cx, Role::Article, &format!("Question: {SECOND}")), "the one still asking stays");
+        assert!(!sheet_holds(&view, cx, "ask:call-1"), "and leaves the sheet");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(true, None, window, cx)));
+        redraw(cx);
+        assert!(drawn_like(cx, Role::Button, FIRST).is_empty(), "nor does Needs you list it");
+    }
+
+    #[gpui::test]
+    fn both_questions_are_answered_on_their_cards_once_needs_you_brought_the_thread_there(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("ask:call-1", window, cx)));
+        redraw(cx);
+        let card = bounds(cx, Role::Article, &format!("Question: {FIRST}"));
+        let amber = within(cx, Role::Button, "Amber", card).center();
+        cx.simulate_click(amber, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the first leaves the thread");
+        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "and the next question, there since the first, opens no panel over it");
+        let card = bounds(cx, Role::Article, &format!("Question: {SECOND}"));
+        let tooltip = within(cx, Role::Button, "In the tooltip", card).center();
+        cx.simulate_click(tooltip, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {SECOND}")), "the second leaves the thread too");
+        assert!(!sheet_holds(&view, cx, "ask:call-1#1"), "and the sheet");
+    }
+
+    #[gpui::test]
+    fn a_question_answered_in_words_on_its_card_sends_his_words(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let card = bounds(cx, Role::Article, &format!("Question: {FIRST}"));
+        let words = within(cx, Role::Button, "Answer in words", card).center();
+        cx.simulate_click(words, gpui::Modifiers::none());
+        redraw(cx);
+        let card = bounds(cx, Role::Article, &format!("Question: {FIRST}"));
+        assert!(drawn_like(cx, Role::Button, "Amber").is_empty(), "the box takes the options' place");
+        within(cx, Role::Button, "Cancel", card);
+        cx.simulate_input("Amber, as the other waiting marks");
+        redraw(cx);
+        let send = within(cx, Role::Button, "Send answer", card).center();
+        cx.simulate_click(send, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "sent, the question leaves the thread");
+        assert!(!sheet_holds(&view, cx, "ask:call-1"), "and the sheet");
     }
 
     #[gpui::test]
@@ -479,8 +544,7 @@ mod tests {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
-        let line = bounds(cx, Role::Button, FIRST).center();
-        cx.simulate_click(line, gpui::Modifiers::none());
+        cx.update(|window, cx| view.update(cx, |view, cx| view.open_ask("ask:call-1", window, cx)));
         redraw(cx);
         let amber = bounds(cx, Role::RadioButton, "Amber").center();
         cx.simulate_click(amber, gpui::Modifiers::none());
@@ -488,36 +552,60 @@ mod tests {
         let send = bounds(cx, Role::Button, "Send answer").center();
         cx.simulate_click(send, gpui::Modifiers::none());
         redraw(cx);
-        cx.simulate_keystrokes("escape");
-        redraw(cx);
+        if view.read_with(cx, |view, _| view.review_open()) {
+            cx.simulate_keystrokes("escape");
+            redraw(cx);
+        }
         assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc shuts the sheet");
-        assert!(drawn_like(cx, Role::Button, FIRST).is_empty(), "the answered question leaves the thread's foot");
-        assert!(!drawn_like(cx, Role::Button, SECOND).is_empty(), "the one still asking stays");
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the question answered in the sheet leaves the thread");
+        assert!(drawn(cx, Role::Article, &format!("Question: {SECOND}")), "the one still asking stays");
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(true, None, window, cx)));
         redraw(cx);
         assert!(drawn_like(cx, Role::Button, FIRST).is_empty(), "nor does Needs you list it");
     }
 
     #[gpui::test]
-    fn a_question_in_needs_you_is_one_line_that_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+    fn a_question_pressed_in_needs_you_brings_the_thread_to_its_card(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
-        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        cx.update(|window, cx| {
+            view.update(cx, |view, cx| {
+                view.set_needs(false, None, window, cx);
+                if let Some(page) = view.pages.get_mut("mock-01") {
+                    page.list.scroll_to(gpui::ListOffset { item_ix: 0, offset_in_item: px(0.) });
+                }
+                cx.notify();
+            })
+        });
         redraw(cx);
-        let in_thread = bounds(cx, Role::Button, FIRST);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "at the thread's top the card is out of sight");
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(true, None, window, cx)));
         redraw(cx);
-        let lines: Vec<gpui::Bounds<gpui::Pixels>> = cx.update(|window, cx| {
-            cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == Role::Button && one.name.as_ref() == FIRST).map(|one| one.bounds).collect()
-        });
-        let listed = lines.into_iter().find(|one| *one != in_thread).expect("Needs you lists the question as one line");
-        for choice in ["Amber", "Orange", "Grey", "In the tooltip", "In the chip", "Discuss", "Answer"] {
-            assert!(drawn_like(cx, Role::Button, choice).is_empty() && drawn_like(cx, Role::RadioButton, choice).is_empty() && drawn_like(cx, Role::CheckBox, choice).is_empty(), "{choice} is not drawn in Needs you");
+        for choice in ["Amber", "Orange", "Grey", "In the tooltip", "In the chip"] {
+            assert!(drawn_like(cx, Role::Button, choice).is_empty() && drawn_like(cx, Role::RadioButton, choice).is_empty(), "{choice} is not drawn in Needs you");
         }
+        let listed = bounds(cx, Role::Button, FIRST);
         cx.simulate_click(listed.center(), gpui::Modifiers::none());
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("ask:call-1"), "the sheet opens on that question");
-        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "Needs you folds as the sheet opens");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the sheet stays shut while the thread holds the card");
+        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "Needs you folds");
+        assert!(drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the thread is brought to the question's card");
+    }
+
+    #[gpui::test]
+    fn review_all_in_needs_you_opens_the_sheet_on_every_open_ask(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(true, None, window, cx)));
+        redraw(cx);
+        let all = bounds(cx, Role::Button, "Review all").center();
+        cx.simulate_click(all, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "Review all opens the sheet");
+        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "Needs you folds as it opens");
+        let held = view.read_with(cx, |view, cx| view.review_items("mock-01", cx).iter().map(|one| one.id.clone()).collect::<Vec<_>>());
+        for item in ["ask:call-1", "ask:call-1#1", "plan:2"] {
+            assert!(held.iter().any(|one| one == item), "the sheet holds {item}: {held:?}");
+        }
     }
 
     #[gpui::test]
@@ -544,7 +632,7 @@ mod tests {
         assert!(drawn(cx, Role::Group, "Question"), "the ask is quoted");
         assert!(drawn(cx, Role::Group, "Attached: stale-chip.png"), "his picture stands on it by name");
         assert!(drawn(cx, Role::Group, "Tagged: chip-colour"), "and what he tagged");
-        assert!(drawn_like(cx, Role::Button, FIRST).is_empty(), "an answered question points nowhere");
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "an answered question has no card to answer");
     }
 
     #[gpui::test]
@@ -577,26 +665,37 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_waiting_plan_in_the_thread_is_one_line_that_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+    fn a_waiting_plan_is_a_card_in_the_thread_approved_there_and_it_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
-        let name = view.read_with(cx, |view, cx| view.held_item("mock-01", "plan:2", cx).map(|item| item.name)).expect("plan v2 waits on him");
-        assert_eq!(drawn_like(cx, Role::Button, &name), [name.clone()], "the plan is one line in the thread");
-        for answer in ["Approve", "Suggest", "Not yet", "Send changes"] {
-            assert!(!drawn(cx, Role::Button, answer), "{answer} is the sheet's, not the thread's");
-        }
-        let line = bounds(cx, Role::Button, &name);
-        cx.simulate_click(line.center(), gpui::Modifiers::none());
+        assert!(sheet_holds(&view, cx, "plan:2"), "the sheet holds the plan while it waits");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("plan:2", window, cx)));
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("plan:2"), "the line opens the sheet on the plan");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the thread holds its card, so the sheet stays shut");
+        let card = bounds(cx, Role::Article, "Plan to approve");
+        for answer in ["Approve", "Not yet"] {
+            within(cx, Role::Button, answer, card);
+        }
+        // The plan is long: its answers stand at its foot, a wheel further down.
+        let (thread, foot) = (bounds(cx, Role::Region, "Thread"), within(cx, Role::Button, "Approve", card).center());
+        if !thread.contains(&foot) {
+            view.update(cx, |view, _| view.pages.get("mock-01").map(|page| page.list.scroll_by(foot.y - thread.center().y)));
+            redraw(cx);
+        }
+        let card = bounds(cx, Role::Article, "Plan to approve");
+        let approve = within(cx, Role::Button, "Approve", card).center();
+        cx.simulate_click(approve, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place");
+        assert!(!sheet_holds(&view, cx, "plan:2"), "approved on its card, the plan leaves the sheet");
     }
 
     #[gpui::test]
-    fn a_page_and_a_sketch_that_ask_are_one_line_each_in_the_thread_and_fold_once_answered_in_the_sheet(cx: &mut gpui::TestAppContext) {
-        const PAGE: &str = "Stale branch design";
+    fn a_page_and_a_sketch_that_ask_are_approved_on_their_cards_and_leave_the_sheet(cx: &mut gpui::TestAppContext) {
         const CARD: &str = "Document: Stale branch design, Revision 2";
+        const PIN: &str = "Sketch to approve: Tail layout";
         let (view, cx) = rooted_job_with(
             cx,
             "job-view",
@@ -617,26 +716,20 @@ mod tests {
         );
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
-        assert_eq!(drawn_like(cx, Role::Button, PAGE), [PAGE], "the page is one line in the thread");
-        assert!(!drawn(cx, Role::Article, CARD), "its card with Approve, Ask for changes and Dismiss is not drawn");
-        assert!(!drawn_like(cx, Role::Button, "Tail layout").is_empty(), "the pinned sketch is one line too");
-        let line = bounds(cx, Role::Button, PAGE).center();
-        cx.simulate_click(line, gpui::Modifiers::none());
+        let sketch = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, cx| view.review_items("mock-01", cx).iter().any(|one| one.name.contains("Tail layout")));
+        assert!(sheet_holds(&view, cx, "document:design") && sketch(&view, cx), "the sheet holds both while they wait");
+        let card = bounds(cx, Role::Article, CARD);
+        within(cx, Role::Button, "Ask for changes", card);
+        let approve = within(cx, Role::Button, "Approve", card).center();
+        cx.simulate_click(approve, gpui::Modifiers::none());
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("document:design"), "the sheet opens on the page");
-        let approves: Vec<gpui::Bounds<gpui::Pixels>> = cx.update(|window, cx| {
-            cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == Role::Button && one.name.as_ref() == "Approve").map(|one| one.bounds).collect()
-        });
-        assert_eq!(approves.len(), 1, "the sheet's Approve is the only one drawn");
-        cx.simulate_click(approves[0].center(), gpui::Modifiers::none());
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place");
+        assert!(!sheet_holds(&view, cx, "document:design"), "approved on its card, the page leaves the sheet");
+        let pin = bounds(cx, Role::Article, PIN);
+        let approve = within(cx, Role::Button, "Approve", pin).center();
+        cx.simulate_click(approve, gpui::Modifiers::none());
         redraw(cx);
-        if view.read_with(cx, |view, _| view.review_open()) {
-            cx.simulate_keystrokes("escape");
-            redraw(cx);
-        }
-        assert!(drawn_like(cx, Role::Button, PAGE).is_empty(), "approved in the sheet, it points nowhere");
-        assert!(drawn(cx, Role::Article, CARD), "its card folds to the verdict where it was asked");
+        assert!(!sketch(&view, cx), "approved on its card, the sketch leaves the sheet");
     }
 
     #[test]
