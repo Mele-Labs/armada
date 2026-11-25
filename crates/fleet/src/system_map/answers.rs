@@ -9,7 +9,7 @@ use api::Refusal;
 use ipc::{FeatureJob, ManifestId, PartIssue, PartOwner, PartPull, PartWatch, SessionId, SystemPartAnswers};
 
 use super::levels::Ground;
-use super::model::{holds, Mapped};
+use super::model::{holds, within, Mapped};
 use super::repo::{extension_of, text_at};
 use super::scanning::literals;
 use crate::daemon::Fleet;
@@ -174,9 +174,9 @@ where
         let slugs: BTreeSet<String>;
         let mut kept: Option<&store::KeptFeature> = None;
         if let Some(slug) = feature.as_deref().filter(|one| !one.is_empty()) {
-            let one = features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(ipc::WireError::raised("fleet.feature_unknown", format!("the project holds no feature `{slug}`"), self.run_id())))?;
+            let one = features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(ipc::WireError::raised("fleet.system_feature_unknown", format!("the project holds no feature `{slug}`"), self.run_id())))?;
             for (repo, mapped) in maps.iter().enumerate().filter(|(_, mapped)| one.manifest_id.is_empty() || one.manifest_id == mapped.manifest) {
-                let mut paths: Vec<String> = one.paths.clone();
+                let mut paths: Vec<String> = within(&mapped.folders, &one.paths);
                 paths.extend(map.filed_of(&one.id).filter(|file| mapped.files.iter().any(|(held, _)| held == file) && !one.paths.iter().any(|prefix| owns(prefix, file))).map(str::to_string).take(MOST_FILED));
                 if paths.is_empty() {
                     continue;
@@ -202,9 +202,16 @@ where
         } else {
             for (repo, mapped) in maps.iter().enumerate() {
                 let folder = members.iter().find(|member| member.manifest == mapped.manifest).and_then(|member| member.root.file_name().map(|name| name.to_string_lossy().into_owned()));
-                code.push(if maps.len() > 1 { format!("{}/", folder.unwrap_or_else(|| mapped.manifest.clone())) } else { "./".to_string() });
+                let folder = folder.unwrap_or_else(|| mapped.manifest.clone());
+                // A repository read by folders is those folders, everywhere the whole one is its root.
+                let paths: Vec<String> = if mapped.folders.is_empty() { vec!["./".to_string()] } else { mapped.folders.iter().map(|one| format!("{one}/")).collect() };
+                if mapped.folders.is_empty() {
+                    code.push(if maps.len() > 1 { format!("{folder}/") } else { "./".to_string() });
+                } else {
+                    code.extend(paths.iter().map(|path| if maps.len() > 1 { format!("{folder}/{path}") } else { path.clone() }));
+                }
                 screen |= mapped.parts.iter().any(|one| one.screen);
-                scopes.push(Scope { repo, manifest: mapped.manifest.clone(), root: root_of(&mapped.manifest), paths: vec!["./".to_string()], at: None });
+                scopes.push(Scope { repo, manifest: mapped.manifest.clone(), root: root_of(&mapped.manifest), paths, at: None });
             }
             shown = ground.all_features();
             slugs = features.iter().map(|one| one.slug.clone()).collect();
@@ -247,15 +254,22 @@ where
             }
             docs.extend(read.docs);
             let logs = read.logs;
-            if whole {
+            if whole && mapped.folders.is_empty() {
                 monitor.extend(self.system_kit(&scope.manifest));
+            } else if whole {
+                // Read by folders: the servers that run in them.
+                for (_, server) in &mapped.kit {
+                    if !monitor.iter().any(|one| one.kind == "server" && one.label == server.name) {
+                        monitor.push(PartWatch { label: server.name.clone(), kind: "server".to_string() });
+                    }
+                }
             } else {
                 monitor.extend(self.system_monitor(mapped, scope.at, &scope.manifest, &scope.paths, logs));
             }
             let (found, has) = self.system_issues(&project, &scope.manifest, &features, &slug_refs, &map).await;
             tracker |= has;
             issues.extend(found.into_iter().filter(|issue| !issues.iter().any(|one| one.id == issue.id)).collect::<Vec<_>>());
-            let open = if whole { self.system_pulls_open(&scope.manifest).await } else { self.system_pulls(&scope.manifest, &scope.paths).await };
+            let open = if whole && mapped.folders.is_empty() { self.system_pulls_open(&scope.manifest).await } else { self.system_pulls(&scope.manifest, &scope.paths).await };
             pulls.extend(open.into_iter().filter(|pull| !pulls.iter().any(|one| one.number == pull.number)).collect::<Vec<_>>());
         }
         if let Some(one) = kept {

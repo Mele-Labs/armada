@@ -538,3 +538,31 @@ pub fn who() -> ipc::WhosOnWhat {
         ],
     }
 }
+
+/// The project the start panel's mock belongs to: one with no feature of its own.
+pub const BARE: &str = "ledger-api";
+
+/// A library with no area and no feature, for the start panel.
+pub fn bare() -> FeatureLibrary {
+    FeatureLibrary { project: BARE.into(), areas: Vec::new(), librarian: librarian(Reading::Never) }
+}
+
+/// What a bare project starts from: five modules out of its build files, and a README, a docs folder and an architecture file.
+pub fn start(project: &str) -> ipc::LibraryStart {
+    let module = |name: &str, path: &str| ipc::StartModule { name: name.into(), slug: super::curate::slug_of(name), path: path.into(), held: false };
+    ipc::LibraryStart {
+        project: project.into(),
+        modules: vec![module("api", "crates/api"), module("billing", "crates/billing"), module("ledger-core", "crates/ledger-core"), module("web", "web"), module("worker", "crates/worker")],
+        docs: vec!["README.md".into(), "docs/".into(), "ARCHITECTURE.md".into()],
+    }
+}
+
+/// The library after Draft as Pending on `start`: the Modules area Fleet keeps to confirm into, and each module pending.
+pub fn drafted(start: &ipc::LibraryStart) -> FeatureLibrary {
+    let pending = |one: &ipc::StartModule| FeatureRow { state: FeatureState::Pending, summary: String::new(), ..feature(super::curate::PENDING_AREA, &one.slug, &one.name, "") };
+    FeatureLibrary {
+        project: start.project.clone(),
+        areas: vec![area("modules", "Modules", Vec::new()), area(super::curate::PENDING_AREA, "pending", start.modules.iter().map(pending).collect())],
+        librarian: librarian(Reading::Never),
+    }
+}

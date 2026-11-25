@@ -245,6 +245,7 @@ WebSocket event stream, read this first.
 | [A message asks for one of Armada's tools: `TagKind::Tool`](protocol/a-message-asks-for-one-of-armadas-tools.md) |
 | [A message tags a request: `TagKind::Request`](protocol/a-message-tags-a-request.md) |
 | [A check of a feature's docs against its code: `check_docs`, `dismiss_doc_flag`, `start_doc_job` and `check` on `FeatureRead`](protocol/a-check-of-a-features-docs.md) |
+| [A project starts its library: `get_library_start` and `draft_module_features`](protocol/a-project-starts-its-library.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

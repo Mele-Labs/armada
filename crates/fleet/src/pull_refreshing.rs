@@ -71,6 +71,8 @@ where
                 kept.push(number);
             }
             let _ = self.store().lock().await.keep_pulls_queued(root, &kept);
+            // As the pull reading files them, so a pull request it leaves to its events still has them.
+            self.comments_told(served, &pull, &mine).await;
         }
         self.pulls_attached(served, std::slice::from_ref(&pull)).await;
     }

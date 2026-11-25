@@ -1,9 +1,11 @@
 //! One repository as detection reads it: its modules, the source files whose text evidence comes from, the compose services
 //! and the Kit servers it declares. **Read from the checkout, never run.** A file that does not read says nothing.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use crate::feature_library::{layout_with_files, ModuleLayout};
+use crate::feature_library::mapping::owns;
+use crate::feature_library::{layout_with_files, Module, ModuleLayout};
 
 /// The most source files read, and the largest one.
 const MOST_SOURCES: usize = 2500;
@@ -97,12 +99,55 @@ pub(super) fn text_at(root: &Path, rel: &str, limit: u64) -> Option<String> {
     std::fs::read_to_string(abs).ok()
 }
 
+/// Whether `path` lies in one of `folders`.
+pub(super) fn inside(folders: &[String], path: &str) -> bool {
+    folders.iter().any(|folder| owns(folder, path))
+}
+
+/// The layout as if the repository held only `folders`: their files and the modules inside them. **A folder that holds code
+/// and no module is read as the deepest module around it**, rooted and named at the folder, so a root package does not
+/// swallow the map and a folder of its code still makes a part.
+fn scope(layout: &mut ModuleLayout, folders: &[String]) {
+    layout.files.retain(|(file, _)| inside(folders, file));
+    let all = std::mem::take(&mut layout.modules);
+    // Which module of the whole each one kept was read from.
+    let mut from: Vec<usize> = Vec::new();
+    for (at, module) in all.iter().enumerate().filter(|(_, module)| !module.root.is_empty() && inside(folders, &module.root)) {
+        from.push(at);
+        layout.modules.push(module.clone());
+    }
+    for folder in folders {
+        let own = layout.modules.iter().any(|module| owns(folder, &module.root));
+        let code = layout.files.iter().any(|(file, _)| owns(folder, file) && SOURCE_EXTS.contains(&extension_of(file)));
+        let around = all.iter().enumerate().filter(|(_, module)| module.root.is_empty() || owns(&module.root, folder)).max_by_key(|(_, module)| module.root.len());
+        if let Some((at, module)) = around.filter(|_| code && !own) {
+            from.push(at);
+            layout.modules.push(Module { root: folder.clone(), ..module.clone() });
+        }
+    }
+    let uses: BTreeSet<(usize, usize)> = std::mem::take(&mut layout.uses);
+    for (one, was) in from.iter().enumerate() {
+        for (other, then) in from.iter().enumerate() {
+            if one != other && uses.contains(&(*was, *then)) {
+                layout.uses.insert((one, other));
+            }
+        }
+    }
+}
+
 impl Repo {
-    /// **Blocking**: the caller runs it off the main thread.
-    pub(super) fn read(manifest: &str, root: &Path, kit: Vec<KitServer>) -> Repo {
+    /// The repository at `root`, or only `folders` of it where the project picked some. **Blocking**: the caller runs it off
+    /// the main thread.
+    pub(super) fn read(manifest: &str, root: &Path, kit: Vec<KitServer>, folders: &[String]) -> Repo {
         let mut layout = layout_with_files(root);
         if layout.files.is_empty() {
             layout.files = walked(root);
+        }
+        let mut kit = kit;
+        if !folders.is_empty() {
+            scope(&mut layout, folders);
+            // A server with no folder runs at the root, and stays only where its command names a module that is left.
+            kit.retain(|server| server.dir.as_deref().is_none_or(|dir| inside(folders, dir.trim_start_matches("./"))));
         }
         let mut sources = Vec::new();
         for (path, bytes) in &layout.files {

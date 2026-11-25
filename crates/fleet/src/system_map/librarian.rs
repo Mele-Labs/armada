@@ -3,7 +3,7 @@
 //! until he answers. Keep makes it a detected part, Rework stores his note and the next press redoes it, Remove drops it and
 //! it is not proposed again. `docs/practices/protocol/projects.md`, *The system map*.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -14,13 +14,14 @@ use store::{addition_state, KeptAddition, KeptFeature};
 use super::detect::{humanize, slug};
 use super::levels::Addition;
 use super::model::Mapped;
-use super::repo::extension_of;
+use super::repo::{extension_of, inside};
 use super::tables::known;
 use crate::daemon::Fleet;
+use crate::feature_library::mapping::owns;
 
 const UNKNOWN: &str = "fleet.system_addition_unknown";
 const NOTE: &str = "fleet.system_addition_note";
-const RUNNING: &str = "fleet.librarian_running";
+const RUNNING: &str = "fleet.system_librarian_running";
 /// A folder of source this big, that no part covers, is worth a part.
 const WORTH_A_PART: usize = 8;
 /// Folders that hold other folders' worth of code: a part is one level below them.
@@ -75,6 +76,20 @@ fn uncovered(map: &Mapped) -> Vec<(String, String, SystemPartKind, String, Strin
         .collect()
 }
 
+/// Whether the repositories read keep `feature`: one read whole keeps every feature, one read by folders only a feature with a
+/// file in them. A feature of no repository read stays, as it did before folders.
+fn feature_kept(maps: &[Arc<Mapped>], feature: &KeptFeature, filed: &[(String, String)]) -> bool {
+    let mine: BTreeSet<&str> = filed.iter().filter(|(id, _)| *id == feature.id).map(|(_, path)| path.as_str()).collect();
+    let mut own = maps.iter().filter(|map| feature.manifest_id.is_empty() || feature.manifest_id == map.manifest).peekable();
+    own.peek().is_none()
+        || own.any(|map| map.folders.is_empty() || map.files.iter().any(|(file, _)| mine.contains(file.as_str()) || feature.paths.iter().any(|path| owns(path, file))))
+}
+
+/// Whether a part the librarian added stays: its repository is read whole, or one of its paths is in the folders read.
+fn addition_kept(maps: &[Arc<Mapped>], added: &Addition) -> bool {
+    maps.iter().find(|map| map.manifest == added.manifest).is_none_or(|map| map.folders.is_empty() || added.paths.iter().any(|path| inside(&map.folders, path.trim_matches('/'))))
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -86,12 +101,12 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// What the levels are built from beyond the files: the catalog's features, the files Jobs filed under them, the parts
-    /// the librarian added that he has not removed, and when it last mapped.
+    /// the librarian added that he has not removed, and when it last mapped. **Kept to the folders the maps were read by.**
     #[allow(clippy::type_complexity)]
-    pub(super) async fn system_ground(&self, project: &str, _maps: &[Arc<Mapped>]) -> Result<(Vec<KeptFeature>, Vec<(String, String)>, Vec<Addition>, Option<Instant>), Refusal> {
+    pub(super) async fn system_ground(&self, project: &str, maps: &[Arc<Mapped>]) -> Result<(Vec<KeptFeature>, Vec<(String, String)>, Vec<Addition>, Option<Instant>), Refusal> {
         let store = self.store().lock().await;
-        let features = store.features_in(project).map_err(|why| self.ledger_fault(why))?;
         let filed = store.feature_filed_paths(project).map_err(|why| self.ledger_fault(why))?;
+        let features = store.features_in(project).map_err(|why| self.ledger_fault(why))?.into_iter().filter(|feature| feature_kept(maps, feature, &filed)).collect();
         let additions = store
             .system_additions(project)
             .map_err(|why| self.ledger_fault(why))?
@@ -107,6 +122,7 @@ where
                 paths: one.paths,
                 manifest: one.manifest,
             })
+            .filter(|added| addition_kept(maps, added))
             .collect();
         let at = store.system_librarian_at(project).map_err(|why| self.ledger_fault(why))?.map(Instant::carried);
         Ok((features, filed, additions, at))

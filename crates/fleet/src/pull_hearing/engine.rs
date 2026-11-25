@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{PullEvents, PullEventsFailure, PullStreamAction, PullStreamEnd, PullStreamSignal};
@@ -24,6 +24,9 @@ const RENEW_BEFORE: Duration = Duration::from_secs(3600);
 const OFF_FOR: Duration = Duration::from_secs(6 * 3600);
 /// Another try at the account's switch after a failure that was not the switch.
 const PROBE_AGAIN: Duration = Duration::from_secs(60);
+/// A pull request heard live is still read in full this often, for what no event says: a plain
+/// comment, and any event the stream missed. The owner chose ten minutes on 25 Nov 2026.
+const SAFETY: Duration = Duration::from_secs(600);
 /// The forge's limit for one token. The newest pull requests are subscribed and the rest wait for the sweep.
 const MOST: usize = 100;
 /// The wait before a stream the forge asked to have reopened is reopened.
@@ -46,6 +49,7 @@ pub(crate) struct Timing {
     pub(crate) backoff_first: Duration,
     pub(crate) backoff_longest: Duration,
     pub(crate) limit_wait: Duration,
+    pub(crate) safety: Duration,
 }
 
 impl Timing {
@@ -59,6 +63,7 @@ impl Timing {
         backoff_first: BACKOFF_FIRST,
         backoff_longest: BACKOFF_LONGEST,
         limit_wait: LIMIT_WAIT,
+        safety: SAFETY,
     };
 }
 
@@ -70,11 +75,43 @@ pub(crate) struct Want {
     pub(crate) number: u64,
 }
 
+/// The pull requests whose stream is attached now, by root and number: **the minute sweep leaves
+/// these to their events** and the engine's own safety read. Written only by the engine.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Live(Arc<Mutex<BTreeSet<(String, u64)>>>);
+
+impl Live {
+    pub(crate) fn contains(&self, root: &str, number: u64) -> bool {
+        self.0.lock().is_ok_and(|live| live.contains(&(root.to_string(), number)))
+    }
+
+    /// A stream attached or stopped, as a test of the sweep stands in for the engine.
+    #[cfg(test)]
+    pub(crate) fn mark(&self, root: &str, number: u64, live: bool) {
+        if let Ok(mut held) = self.0.lock() {
+            match live {
+                true => held.insert((root.to_string(), number)),
+                false => held.remove(&(root.to_string(), number)),
+            };
+        }
+    }
+
+    fn set(&self, now: BTreeSet<(String, u64)>) {
+        if let Ok(mut live) = self.0.lock() {
+            *live = now;
+        }
+    }
+}
+
 /// What a stream's reader tells the engine.
 #[derive(Debug)]
 pub(crate) enum Heard {
-    /// The pull request changed, or its stream attached.
+    /// The pull request changed.
     Changed(Want),
+    /// The subscription's stream attached: it is read once, as nothing is replayed after a gap.
+    Attached(Want, String),
+    /// The subscription's stream stopped, for whatever reason; until it attaches again the sweep reads it.
+    Detached(Want, String),
     /// The subscription is over, as the forge said it.
     Ended(Want, String),
     /// The forge will not stream it, and asking again changes nothing.
@@ -91,6 +128,9 @@ enum Mode {
 struct Held {
     id: String,
     renew_at: Instant,
+    attached: bool,
+    /// When it was last read on the engine's say, an event's or the safety read's.
+    read_at: Option<Instant>,
     stop: Arc<AtomicBool>,
     task: JoinHandle<()>,
 }
@@ -121,6 +161,7 @@ pub(crate) struct Hearing {
     failures: u32,
     due: BTreeMap<Want, Instant>,
     heard: mpsc::UnboundedSender<Heard>,
+    live: Live,
 }
 
 impl Hearing {
@@ -128,6 +169,7 @@ impl Hearing {
         source: Arc<dyn PullEvents>,
         timing: Timing,
         told: Arc<dyn Fn(&str) + Send + Sync>,
+        live: Live,
     ) -> (Hearing, mpsc::UnboundedReceiver<Heard>) {
         let (heard, rx) = mpsc::unbounded_channel();
         let hearing = Hearing {
@@ -141,6 +183,7 @@ impl Hearing {
             failures: 0,
             due: BTreeMap::new(),
             heard,
+            live,
         };
         (hearing, rx)
     }
@@ -234,7 +277,7 @@ impl Hearing {
                     self.heard.clone(),
                     self.timing,
                 ));
-                self.held.insert(want.clone(), Held { id: subscription.id, renew_at, stop, task });
+                self.held.insert(want.clone(), Held { id: subscription.id, renew_at, attached: false, read_at: None, stop, task });
                 true
             }
             Err(PullEventsFailure::NotEnabled) => {
@@ -291,6 +334,17 @@ impl Hearing {
                     self.due.entry(want).or_insert_with(|| Instant::now() + self.timing.coalesce);
                 }
             }
+            Heard::Attached(want, id) => {
+                if let Some(held) = self.held.get_mut(&want).filter(|held| held.id == id) {
+                    held.attached = true;
+                    self.due.entry(want).or_insert_with(|| Instant::now() + self.timing.coalesce);
+                }
+            }
+            Heard::Detached(want, id) => {
+                if let Some(held) = self.held.get_mut(&want).filter(|held| held.id == id) {
+                    held.attached = false;
+                }
+            }
             Heard::Ended(want, id) => self.released(&want, &id, false),
             Heard::Refused(want, id) => self.released(&want, &id, true),
             Heard::Off => self.turned_off(Instant::now()),
@@ -312,6 +366,22 @@ impl Hearing {
         }
     }
 
+    /// Each attached pull request not read for [`SAFETY`] is due now: no event covers every change.
+    fn safety_due(&mut self, now: Instant) {
+        for (want, held) in &self.held {
+            let stale = held.read_at.is_none_or(|at| now.duration_since(at) >= self.timing.safety);
+            if held.attached && stale {
+                self.due.entry(want.clone()).or_insert(now);
+            }
+        }
+    }
+
+    /// Tell the sweep which pull requests are heard live, as of now.
+    fn publish(&self) {
+        let live = self.held.iter().filter(|(_, held)| held.attached).map(|(want, _)| (want.root.clone(), want.number));
+        self.live.set(live.collect());
+    }
+
     /// When the next pull request is due to be read.
     pub(crate) fn next_due(&self) -> Option<Instant> {
         self.due.values().min().copied()
@@ -323,6 +393,9 @@ impl Hearing {
         let due: Vec<Want> = self.due.iter().filter(|(_, at)| **at <= now).map(|(want, _)| want.clone()).collect();
         for want in &due {
             self.due.remove(want);
+            if let Some(held) = self.held.get_mut(want) {
+                held.read_at = Some(now);
+            }
         }
         due
     }
@@ -353,6 +426,7 @@ impl Hearing {
                 _ = ticker.tick() => {
                     let wanted = wanted().await;
                     self.pass(&wanted).await;
+                    self.safety_due(Instant::now());
                 }
                 Some(said) = heard.recv() => self.took(said),
                 _ = async {
@@ -368,6 +442,7 @@ impl Hearing {
                     }
                 }
             }
+            self.publish();
         }
     }
 }
@@ -387,8 +462,8 @@ async fn listening(
         if stop.load(Ordering::SeqCst) {
             return;
         }
-        let (source, url, flag, out, one) =
-            (Arc::clone(&source), events_url.clone(), Arc::clone(&stop), told.clone(), want.clone());
+        let (source, url, flag, out, one, sub) =
+            (Arc::clone(&source), events_url.clone(), Arc::clone(&stop), told.clone(), want.clone(), id.clone());
         let opened = Instant::now();
         let read = tokio::task::spawn_blocking(move || {
             let mut attached = false;
@@ -399,7 +474,7 @@ async fn listening(
                 match signal {
                     PullStreamSignal::Attached => {
                         attached = true;
-                        let _ = out.send(Heard::Changed(one.clone()));
+                        let _ = out.send(Heard::Attached(one.clone(), sub.clone()));
                     }
                     PullStreamSignal::Changed => {
                         let _ = out.send(Heard::Changed(one.clone()));
@@ -412,6 +487,9 @@ async fn listening(
         })
         .await;
         let Ok((end, attached)) = read else { return };
+        if attached {
+            let _ = told.send(Heard::Detached(want.clone(), id.clone()));
+        }
         // A stream that held for a while was a good one, whatever ended it.
         if attached && opened.elapsed() >= timing.backoff_first {
             failures = 0;

@@ -73,6 +73,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/docs/job",
     },
     Route {
+        operation: "get_library_start",
+        method: "GET",
+        path: "/features/start",
+    },
+    Route {
+        operation: "draft_module_features",
+        method: "POST",
+        path: "/features/start/draft",
+    },
+    Route {
         operation: "seed_features",
         method: "POST",
         path: "/features/seed",

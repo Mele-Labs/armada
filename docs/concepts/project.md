@@ -325,6 +325,7 @@ A kind a later Bridge adds crosses without a wire break, and a block of a kind t
 ### The System block
 
 **Fleet reads a project's parts from its own files, with no model.**
+Where the project picked folders of a repository, it reads only those folders, so a part, a feature or an owner outside them is not shown.
 Build manifests, workspaces, compose files and Kit servers name the entry points people use, the services behind them, the stores and what the project reaches outside.
 A library every part uses folds into the parts that use it, and shows as a piece when a part is zoomed into.
 A package's description names its part, as `Bridge Classic: the Electron desktop application` names Bridge Classic.

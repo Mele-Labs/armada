@@ -19,6 +19,11 @@ fn rows() -> Vec<(Option<InProject>, gpui::SharedString)> {
     super::live::rows_of(&super::live::served(&served), &projects)
 }
 
+/// The features the walks' mock holds for a project, as a sentence's feature list offers them: the same library the Features tab walks.
+pub fn features(project: &str) -> Vec<super::story::FeatureChoice> {
+    super::story::catalog_of(&crate::features::mock::library_of(project))
+}
+
 /// The live Jobs of the Jobs list, as the sheet offers them to wait on or tag.
 pub fn live(records: &[SessionRecord]) -> Vec<Offered> {
     records

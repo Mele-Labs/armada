@@ -8,7 +8,7 @@ use ipc::{PartOrigin, SystemMap, SystemPartKind};
 use store::KeptFeature;
 
 use super::tmp::TempDir;
-use crate::system_map::read_for_test;
+use crate::system_map::{read_for_test, read_in_for_test};
 
 pub(super) fn write(root: &Path, path: &str, text: &str) {
     let file = root.join(path);
@@ -298,4 +298,52 @@ fn kind_word(kind: SystemPartKind) -> &'static str {
         SystemPartKind::Outside => "outside",
         _ => "other",
     }
+}
+
+#[test]
+fn a_project_over_one_app_of_a_web_app_maps_that_app_alone() {
+    let home = TempDir::new();
+    a_web_app(home.path());
+    let whole = read_for_test(home.path(), "importer", None, None);
+    assert!(linked(&whole, "frontend", "fastapi-backend").is_some(), "read whole, the frontend reaches the backend");
+
+    let map = read_in_for_test(home.path(), "importer", &["frontend"], None, None);
+    let ids: Vec<&str> = map.parts.iter().map(|one| one.id.as_str()).collect();
+    assert_eq!(ids, ["people", "frontend"], "the folder's app and whoever uses it, nothing outside the folder");
+    assert_eq!(part(&map, "frontend").paths, ["frontend/"], "paths stay the repository's own");
+    let links: Vec<(&str, &str)> = map.links.iter().map(|link| (link.from.as_str(), link.to.as_str())).collect();
+    assert_eq!(links, [("people", "frontend")]);
+
+    let feature = KeptFeature {
+        id: "f1".to_string(),
+        project: "p".to_string(),
+        area: "review".to_string(),
+        slug: "review".to_string(),
+        title: "Review".to_string(),
+        summary: String::new(),
+        state: "confirmed".to_string(),
+        manifest_id: String::new(),
+        entry_points: Vec::new(),
+        paths: vec!["frontend/src/screens/Review.jsx".to_string(), "backend/app/main.py".to_string()],
+        position: 0,
+        added_at: String::new(),
+    };
+    let path = read_in_for_test(home.path(), "importer", &["frontend"], None, Some(&feature));
+    let stops: Vec<(&str, &[String])> = path.stops.iter().map(|stop| (stop.part.as_str(), stop.files.as_slice())).collect();
+    assert_eq!(stops, [("frontend", &["frontend/src/screens/Review.jsx".to_string()][..])], "a feature's path keeps only its files in the folder");
+}
+
+#[test]
+fn a_folder_with_code_and_no_manifest_of_its_own_is_a_part_of_the_package_that_holds_it() {
+    let home = TempDir::new();
+    let root = home.path();
+    write(root, "package.json", "{ \"name\": \"shop\", \"dependencies\": { \"react\": \"^18\", \"express\": \"^4\" } }\n");
+    write(root, "web/index.html", "<div id=root></div>\n");
+    write(root, "web/src/App.jsx", "export default function App() {}\n");
+    write(root, "server/index.js", "const app = require(\"express\")();\napp.get(\"/api/cart\", () => {});\n");
+
+    let map = read_in_for_test(root, "shop", &["web"], None, None);
+    let found: Vec<(&str, &[String])> = map.parts.iter().map(|one| (one.id.as_str(), one.paths.as_slice())).collect();
+    assert!(map.parts.iter().any(|one| one.paths == ["web/"] && one.kind == SystemPartKind::Entry), "the root package is read as the folder: {found:?}");
+    assert!(map.parts.iter().all(|one| one.paths.iter().all(|path| path.starts_with("web/"))), "and nothing outside it: {found:?}");
 }

@@ -84,7 +84,7 @@ async fn a_feature_answers_its_own_files_jobs_and_screen() {
     assert!(!other.has_screen, "a server draws nothing");
 
     match rig.fleet.get_system_part(project, None, Some("nothing-of-the-kind".to_string())).await {
-        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.feature_unknown"),
+        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.system_feature_unknown"),
         other => panic!("{other:?}"),
     }
 }
@@ -103,4 +103,103 @@ async fn a_piece_within_an_app_that_draws_a_screen_has_one() {
 
     let app = rig.fleet.get_system_part(project, Some("bridge-native".to_string()), None).await.expect("answered");
     assert!(app.has_screen);
+}
+
+/// `git` in `root` as `author`.
+fn git_as(root: &std::path::Path, author: &str, args: &[&str]) {
+    let ran = std::process::Command::new("git")
+        .args(["-c", &format!("user.name={author}"), "-c", "user.email=someone@example.com", "-C"])
+        .arg(root)
+        .args(args)
+        .output()
+        .expect("git runs");
+    assert!(ran.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&ran.stderr));
+}
+
+/// [`a_project_laid_out`] committed, the app by Ann and the server by Bob, and a second project listing the repository as
+/// `members` does: whole, or by folders.
+async fn a_project_over(rig: &Rig, members: &[Option<&str>]) -> String {
+    a_project_laid_out(rig).await;
+    let root = PathBuf::from(rig.fleet.repositories().first().expect("a served repository").root());
+    git_as(&root, "Ann", &["init", "-q"]);
+    git_as(&root, "Ann", &["add", "crates/bridge-native"]);
+    git_as(&root, "Ann", &["commit", "-q", "-m", "the app"]);
+    git_as(&root, "Bob", &["add", "."]);
+    git_as(&root, "Bob", &["commit", "-q", "-m", "the server"]);
+    let members = members.iter().map(|folder| ipc::ProjectMember { manifest_id: rig.manifest.clone(), folder: folder.map(str::to_string) }).collect();
+    let new = ipc::NewProject { name: "The app".to_string(), members: Some(members), place: None, values: None };
+    let id = rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone();
+    let seeded = UpsertFeatures {
+        project: id.clone(),
+        areas: vec![AreaSeed { slug: "board".into(), title: "Board".into() }],
+        features: ["jobs-list", "routing"]
+            .into_iter()
+            .zip([JOBS, "crates/server/src/routes.rs"])
+            .map(|(slug, path)| FeatureSeed {
+                slug: slug.to_string(),
+                area: "board".to_string(),
+                title: slug.to_string(),
+                summary: "One line.".to_string(),
+                state: None,
+                paths: vec![path.to_string()],
+                entry_points: Vec::new(),
+                manifest_id: None,
+            })
+            .collect(),
+    };
+    rig.fleet.upsert_features(None, seeded).await.expect("seeded");
+    id
+}
+
+#[tokio::test]
+async fn a_project_over_one_folder_maps_and_answers_only_what_is_in_it() {
+    let rig = rig(None);
+    let project = a_project_over(&rig, &[Some("crates/bridge-native")]).await;
+
+    let map = rig.fleet.get_system_map(project.clone(), None, None).await.expect("mapped");
+    let ids: Vec<&str> = map.parts.iter().map(|one| one.id.as_str()).collect();
+    assert!(ids.contains(&"bridge-native"), "the folder's app is a part: {ids:?}");
+    assert!(!ids.contains(&"server"), "the server outside the folder is not: {ids:?}");
+    assert!(map.links.iter().all(|link| link.from != "server" && link.to != "server"), "nor is anything linked to it: {:?}", map.links);
+    let slugs: Vec<&str> = map.features.iter().map(|one| one.slug.as_str()).collect();
+    assert_eq!(slugs, ["jobs-list"], "only a feature with a file in the folder is listed");
+    match rig.fleet.get_system_map(project.clone(), None, Some("routing".to_string())).await {
+        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.system_feature_unknown"),
+        other => panic!("a feature outside the folder has no path: {other:?}"),
+    }
+
+    let all = rig.fleet.get_system_part(project.clone(), None, None).await.expect("answered");
+    assert_eq!(all.code, ["crates/bridge-native/"], "the folder is the project's code");
+    assert_eq!(all.features.iter().map(|one| one.slug.as_str()).collect::<Vec<_>>(), ["jobs-list"]);
+    assert_eq!(all.owners.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["Ann"], "owners are who committed in the folder");
+    assert!(all.docs.is_empty(), "the root's documents are outside the folder: {:?}", all.docs);
+
+    let root = rig.fleet.list_system_folder(project.clone(), String::new()).await.expect("listed");
+    assert_eq!(root.entries, ["crates/"], "above the folder only the way down to it is listed");
+    let crates = rig.fleet.list_system_folder(project.clone(), "crates".to_string()).await.expect("listed");
+    assert_eq!(crates.entries, ["bridge-native/"]);
+    let inside = rig.fleet.list_system_folder(project.clone(), "crates/bridge-native".to_string()).await.expect("listed");
+    assert_eq!(inside.entries, ["src/", "Cargo.toml"]);
+    match rig.fleet.list_system_folder(project, "crates/server".to_string()).await {
+        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.system_folder_unknown"),
+        other => panic!("a folder outside the project's is refused: {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn a_repository_listed_whole_is_read_whole() {
+    let rig = rig(None);
+    let project = a_project_over(&rig, &[None]).await;
+
+    let map = rig.fleet.get_system_map(project.clone(), None, None).await.expect("mapped");
+    let ids: Vec<&str> = map.parts.iter().map(|one| one.id.as_str()).collect();
+    assert!(ids.contains(&"bridge-native") && ids.contains(&"server"), "{ids:?}");
+    assert_eq!(map.features.iter().map(|one| one.slug.as_str()).collect::<Vec<_>>(), ["jobs-list", "routing"]);
+    let all = rig.fleet.get_system_part(project.clone(), None, None).await.expect("answered");
+    assert_eq!(all.code, ["./"]);
+    let mut owners: Vec<&str> = all.owners.iter().map(|one| one.name.as_str()).collect();
+    owners.sort_unstable();
+    assert_eq!(owners, ["Ann", "Bob"]);
+    let root = rig.fleet.list_system_folder(project, String::new()).await.expect("listed");
+    assert!(root.entries.contains(&"README.md".to_string()), "{:?}", root.entries);
 }

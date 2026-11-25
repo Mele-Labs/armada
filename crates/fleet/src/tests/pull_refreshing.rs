@@ -15,7 +15,7 @@ use super::main_ci::{run, ONE};
 use super::pull_notices::{a_rig, failing, pull, written_by, Rig};
 
 /// What the forge answers for `pull` read by number, and its standing.
-fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<FollowedPull>) {
+pub(super) fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<FollowedPull>) {
     let vcs = rig.fleet.vcs();
     let failed = followed.iter().any(FollowedPull::failed);
     if let Some(one) = followed.first() {
@@ -60,7 +60,7 @@ fn listed(number: u64, title: &str) -> OpenPull {
     }
 }
 
-async fn refreshed(rig: &Rig, number: u64) -> Result<PullRequestState, Refusal> {
+pub(super) async fn refreshed(rig: &Rig, number: u64) -> Result<PullRequestState, Refusal> {
     Arc::clone(&rig.fleet)
         .refresh_pull_request(ManifestId::carried(rig.manifest()), number)
         .await
