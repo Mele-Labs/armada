@@ -229,7 +229,7 @@ where
     }
 
     /// The list as the wire carries it.
-    async fn issue_list(
+    pub(crate) async fn issue_list(
         &self,
         manifest_id: ManifestId,
         held: Held,

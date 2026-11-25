@@ -11,7 +11,7 @@ use crate::{Instant, ManifestId, TrackedIssue};
 /// One block of the board, in the grid's columns and rows.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoardBlock {
-    /// What the block shows, as Bridge spells it: `needs`, `run`, `reviews`, `issues`, `features` or `checks`, and any
+    /// What the block shows, as Bridge spells it: `needs`, `run`, `reviews`, `issues`, `features`, `checks` or `system`, and any
     /// kind a later Bridge adds.
     pub kind: String,
     pub x: u8,

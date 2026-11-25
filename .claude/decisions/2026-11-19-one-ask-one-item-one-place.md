@@ -18,4 +18,4 @@
 
 ## Where it landed
 
-Not yet built. The layout he picks and the plan follow in Job 3c0cd6ea, "Redesign Review Sheet".
+Built in #4030. On 25 Nov he took back the sheet as the one place an ask is answered: `2026-11-25-asks-answered-in-the-thread-or-the-sheet.md`.

@@ -19,11 +19,17 @@ pub mod style;
 mod tests;
 pub mod window;
 
-use gpui::{div, prelude::*, Context, EventEmitter, FocusHandle, Focusable, IntoElement, Render, Role, SharedString, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{
+    canvas, div, prelude::*, App, Bounds, Context, EventEmitter, FocusHandle, Focusable, Global, IntoElement, Pixels, Point, Render, Role,
+    SharedString, WeakEntity, Window, WindowId,
+};
 
 use self::fixtures::Fixtures;
 use self::markup::Scene;
-use crate::labels::labelled;
+use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::parts::{self, button::Kind, chip::chip, text::TextStyle, Tone};
 
@@ -79,7 +85,38 @@ pub struct PrototypeView {
     /// The state drawn.
     state: Option<String>,
     home: Home,
+    /// The Job whose scene this is: a note made over it goes there (`prototype_at`).
+    job: Option<SharedString>,
+    /// Where the scene was drawn last, in its window.
+    drawn: Rc<Cell<Option<Bounds<Pixels>>>>,
     pub(crate) focus: FocusHandle,
+}
+
+/// The name the scene's whole drawing is labelled with: what a note made on it says it is in.
+const LABEL: &str = "Prototype";
+
+/// Every scene drawn for a Job, so a note made over one goes to its Job.
+#[derive(Default)]
+struct Drawn(Vec<WeakEntity<PrototypeView>>);
+
+impl Global for Drawn {}
+
+/// The Job and scene of the prototype drawn at `at` in `window` this frame, if one is. A view drawn
+/// last frame and not this one (a tab behind another, a sheet closed) is not in the window's label
+/// book, so it answers nothing.
+pub fn prototype_at(window: WindowId, at: Point<Pixels>, cx: &App) -> Option<(SharedString, String)> {
+    let drawn = cx.try_global::<Drawn>()?;
+    let book = cx.try_global::<LabelBook>()?;
+    let shown = book.drawn(window);
+    drawn.0.iter().filter_map(|view| view.upgrade()).find_map(|view| {
+        let view = view.read(cx);
+        let job = view.job.clone()?;
+        let bounds = view.drawn.get()?;
+        shown
+            .iter()
+            .any(|one| one.role == Role::Group && one.name.as_ref() == LABEL && one.bounds.contains(&bounds.center()) && one.shown.contains(&at) && bounds.contains(&at))
+            .then(|| (job, view.source.scene.clone()))
+    })
 }
 
 impl PrototypeView {
@@ -91,10 +128,21 @@ impl PrototypeView {
             trouble: Vec::new(),
             state: None,
             home,
+            job: None,
+            drawn: Rc::default(),
             focus: cx.focus_handle(),
         };
         view.read(source, cx);
+        let me = cx.entity().downgrade();
+        let drawn = cx.default_global::<Drawn>();
+        drawn.0.retain(|one| one.upgrade().is_some());
+        drawn.0.push(me);
         view
+    }
+
+    /// The Job the scene belongs to, which a note made on it goes to.
+    pub fn set_job(&mut self, job: SharedString) {
+        self.job = Some(job);
     }
 
     /// The prototype saved again: the scene is read from its markup, and the state drawn is the
@@ -295,7 +343,8 @@ impl Render for PrototypeView {
         let head = (!shot).then(|| self.head(cx));
         let trouble = if shot { None } else { self.trouble_line(cx) };
         let look = cx.look();
-        div()
+        let drawn = Rc::clone(&self.drawn);
+        let root = div()
             .id("prototype")
             .track_focus(&self.focus)
             .when(self.home != Home::Window, |view| {
@@ -307,6 +356,7 @@ impl Render for PrototypeView {
                     }
                 }))
             })
+            .relative()
             .size_full()
             .flex()
             .flex_col()
@@ -314,5 +364,10 @@ impl Render for PrototypeView {
             .children(head)
             .children(trouble)
             .child(div().id("prototype-scene").flex_1().min_h_0().overflow_y_scroll().child(body))
+            .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
+        if shot {
+            return root.into_any_element();
+        }
+        labelled(root, Role::Group, LABEL).into_any_element()
     }
 }
