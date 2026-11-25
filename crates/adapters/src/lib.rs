@@ -84,6 +84,8 @@ mod harness_home;
 mod github_api;
 mod harness;
 mod held_forge;
+/// What a link on a Job points at: a Claude artifact, a document site, or any other page.
+mod link_site;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
 mod inline_comments;
@@ -207,6 +209,7 @@ pub use conversing::{
 pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, links_in, pull_linked_in, remote_of, ForgeAddress};
+pub use link_site::{link_site, LinkSite};
 pub use store_worker::{CLOUDFLARE_TOKEN_PAGE, STORE_WORKER};
 pub use pull_events::ApiPullEvents;
 pub use github_api::{
