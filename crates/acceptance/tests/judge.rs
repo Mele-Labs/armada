@@ -128,7 +128,8 @@ fn his_line_reaches_the_brief_and_without_one_the_question_is_what_was_missed() 
 
     let asked = brief_of(&plan, line);
     assert!(asked.contains(line), "his line is not in the brief:\n{asked}");
-    assert!(!asked.contains("what the person or the agent missed"), "an open question beside his line:\n{asked}");
+    // His line is laid after the type's prompt and no longer replaces it.
+    assert!(asked.contains("what the person or the agent missed"), "the type's prompt is gone beside his line:\n{asked}");
 
     let open = brief_of(&plan, "  ");
     assert!(open.contains("what the person or the agent missed"), "the open question is not asked:\n{open}");
