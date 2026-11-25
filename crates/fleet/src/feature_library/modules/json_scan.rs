@@ -2,7 +2,7 @@
 //! parser**: bytes enter Fleet as JSON only through `store` and `ipc`, and nothing here builds a value.
 
 /// The members of the object `text` opens with, each as its key and the text of its value.
-pub(super) fn members(text: &str) -> Vec<(String, &str)> {
+pub(crate) fn members(text: &str) -> Vec<(String, &str)> {
     let bytes = text.as_bytes();
     let Some(mut at) = text.find('{').map(|open| open + 1) else { return Vec::new() };
     let mut out = Vec::new();
@@ -32,7 +32,7 @@ pub(super) fn members(text: &str) -> Vec<(String, &str)> {
 }
 
 /// Every string literal in `text`, in order: the elements of an array of strings.
-pub(super) fn strings(text: &str) -> Vec<String> {
+pub(crate) fn strings(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut at = 0;
     while let Some(found) = text[at..].find('"') {
@@ -48,7 +48,7 @@ pub(super) fn strings(text: &str) -> Vec<String> {
 }
 
 /// The value of `key` among the top-level members of `text`.
-pub(super) fn member<'a>(text: &'a str, key: &str) -> Option<&'a str> {
+pub(crate) fn member<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     members(text).into_iter().find(|(name, _)| name == key).map(|(_, value)| value)
 }
 

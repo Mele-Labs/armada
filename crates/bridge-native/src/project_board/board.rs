@@ -9,13 +9,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use chrono::Utc;
-use gpui::{AnyWindowHandle, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
+use gpui::{AnyWindowHandle, App, AppContext, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState};
 use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, MetricReading, MetricReadings, MetricState, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
 
 use super::layout::{BlockKind, Layout, View};
 use super::model::{self, Fill, Item, Press, Project, Repository, Shown};
 use super::presets::{self, Kind};
+use super::system::{SystemBlock, SystemEvent};
 use super::{metric, mock, wire};
 use crate::features::chosen;
 use crate::fleet::FleetConnection;
@@ -153,6 +154,8 @@ pub struct Board {
     /// Where each block's body is scrolled, by its element id, so a body that has rows to scroll keeps the wheel.
     pub(super) bodies: std::cell::RefCell<HashMap<String, gpui::ScrollHandle>>,
     pub(super) root: FocusHandle,
+    /// The System block, which reads and draws its own map.
+    pub(super) system: Entity<SystemBlock>,
     /// The cell the pointer was in, relative to the block's own corner, when the block was lifted.
     pub(super) grab: Option<(i16, i16)>,
     entered: bool,
@@ -205,6 +208,16 @@ impl Board {
         if let Some(page) = crate::operator::live(cx) {
             subs.push(cx.observe(&page, |_, _, cx| cx.notify()));
         }
+        let system = match &source {
+            Source::Live(fleet) => cx.new(|cx| SystemBlock::live(fleet, cx)),
+            Source::Mock => cx.new(SystemBlock::mock),
+        };
+        subs.push(cx.observe(&system, |_, _, cx| cx.notify()));
+        subs.push(cx.subscribe(&system, |this, _, event: &SystemEvent, cx| match event {
+            SystemEvent::Feature(slug) => cx.emit(BoardEvent::Feature(slug.clone())),
+            SystemEvent::Job(id) => this.press(Press::Job(id.clone()), cx),
+            SystemEvent::Held { id, words } => crate::toasts::dispatch_held(id, words, cx),
+        }));
         Board {
             source,
             reviews,
@@ -224,6 +237,7 @@ impl Board {
             handles: BlockKind::ALL.into_iter().map(|kind| (kind, cx.focus_handle().tab_stop(true))).collect(),
             bodies: Default::default(),
             root: cx.focus_handle(),
+            system,
             grab: None,
             entered: false,
             read_for: None,
@@ -555,6 +569,7 @@ impl Board {
             self.runs.clear();
             self.drafts.clear();
         }
+        self.follow_system(cx);
         self.read_layout(cx);
         self.read_metrics(cx);
         self.read_features(cx);
@@ -568,6 +583,13 @@ impl Board {
             });
         }
         cx.notify();
+    }
+
+    /// The System block reads the map of the project on screen.
+    fn follow_system(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        let manifests = project.repositories.iter().map(|one| one.id.clone()).collect();
+        self.system.update(cx, |system, cx| system.follow(&project.id, &project.name, manifests, cx));
     }
 
     /// Ask Fleet what each recipe of the project reads. Fleet fetches again only where a reading is stale, so asking is cheap; the
@@ -837,6 +859,8 @@ impl Board {
     pub fn fill(&self, kind: BlockKind, project: &Project, cx: &App) -> Fill {
         let now = Utc::now();
         match kind {
+            // The block draws itself, from the map it reads.
+            BlockKind::System => Fill::Reading,
             BlockKind::Needs => match &self.source {
                 Source::Mock => Fill::items(mock::needs()),
                 Source::Live(fleet) => {
@@ -1167,6 +1191,7 @@ impl Board {
         self.readings_changed(cx);
         self.apply_kept(&project.id, self.kept.get(&project.id).cloned(), cx);
         self.apply_preset(&project.id);
+        self.follow_system(cx);
         cx.notify();
     }
 

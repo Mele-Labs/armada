@@ -297,16 +297,17 @@ pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<
             }
             continue;
         }
-        if kept.iter().chain(&closed).any(|one| one.gate == word && one.source == fact.source) {
-            continue;
-        }
-        // A merge tied to a group closes that group's gate; one tied to none closes nothing.
+        // A merge tied to a group closes that group's gate; one tied to none closes nothing. One pull
+        // request may land several groups, so a merge is kept once per group, not once per source.
         if fact.gate == PlanGate::Merged {
             if let Some(group) = fact.group.as_deref().filter(|group| plan.groups.iter().any(|one| one.id == *group && one.gate.as_deref() == Some(word))) {
                 if !is_closed(&closed, group, word) {
                     closed.push(row(&closed, group));
                 }
             }
+            continue;
+        }
+        if kept.iter().chain(&closed).any(|one| one.gate == word && one.source == fact.source) {
             continue;
         }
         if let Some(group) = gated.into_iter().find(|group| !is_closed(&closed, &group.id, word)) {

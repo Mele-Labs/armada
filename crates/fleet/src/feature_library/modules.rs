@@ -6,7 +6,7 @@
 //! of its top folders is a module. **The walk is bounded** by folders, by depth and by modules, and skips what other people
 //! wrote or a build wrote.
 
-mod json_scan;
+pub(crate) mod json_scan;
 mod manifests;
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -15,7 +15,7 @@ use std::path::Path;
 use super::mapping::owns;
 
 /// Folders that hold what other people wrote or what a build wrote.
-pub(super) const SKIPPED: &[&str] = &["target", "node_modules", "dist", "build", "out", "vendor", "venv", "__pycache__", "bin", "obj", "Pods", "coverage"];
+pub(crate) const SKIPPED: &[&str] = &["target", "node_modules", "dist", "build", "out", "vendor", "venv", "__pycache__", "bin", "obj", "Pods", "coverage"];
 
 /// The most folders looked at, so a very large tree costs a bounded read.
 pub(super) const MOST_FOLDERS: usize = 3000;

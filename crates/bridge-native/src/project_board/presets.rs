@@ -2,6 +2,7 @@
 //! already names (`MapRoom::kind`: `npm`, `cargo`, `go`), so no second reading is made. The table is the whole of it.
 
 use super::layout::{BlockKind::*, Layout, Placed, View};
+use super::system::{BOARD_COLUMNS, BOARD_ROWS};
 
 /// What the code map says a project is made of.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,7 +28,7 @@ pub fn kind_of<'a>(kinds: impl IntoIterator<Item = &'a str>) -> Kind {
     if compiled { Kind::Compiled } else { Kind::Unknown }
 }
 
-/// The board for a kind of project: Run and Needs you first for a web project, Checks first for a compiled one.
+/// The board for a kind of project: System first, then Run and Needs you for a web project, Checks for a compiled one.
 pub fn preset(kind: Kind) -> Layout {
     let blocks = match kind {
         Kind::Web | Kind::Unknown => vec![
@@ -47,6 +48,9 @@ pub fn preset(kind: Kind) -> Layout {
             Placed::new(Run, 3, 4, 3, 2, View::List),
         ],
     };
+    // The System block is full width at the top of every board, and the rest stand under it.
+    let under = blocks.into_iter().map(|one| Placed { y: one.y + BOARD_ROWS, ..one });
+    let blocks = std::iter::once(Placed::new(System, 0, 0, BOARD_COLUMNS, BOARD_ROWS, View::Graph)).chain(under).collect();
     let mut layout = Layout { blocks };
     layout.settle(None);
     layout

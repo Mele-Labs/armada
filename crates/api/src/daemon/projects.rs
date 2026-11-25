@@ -80,6 +80,25 @@ pub trait Projects: Send + Sync + 'static {
     /// [`Refusal::NotFound`] for a project he has none of.
     fn list_ranked_issues(&self, project: String) -> impl Future<Output = Result<ipc::RankedIssues, Refusal>> + Send;
 
+    /// `get_system_map` — one level of the project's system map: level one with neither `part` nor `feature`, level two
+    /// with `part`, level three with `feature`. Read from the project's files, no model. [`Refusal::NotFound`] for a project
+    /// he has none of, a part or a feature it holds none of.
+    fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
+
+    /// `get_system_part` — what Fleet knows of one part, one feature, or neither for the whole project, in nine sections.
+    /// [`Refusal::NotFound`] for a project, part or feature it holds none of.
+    fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> impl Future<Output = Result<ipc::SystemPartAnswers, Refusal>> + Send;
+
+    /// `list_system_folder` — the names in one folder at the checkout's `HEAD`, folders first. [`Refusal::NotFound`] for a project
+    /// or folder it holds none of.
+    fn list_system_folder(&self, project: String, path: String) -> impl Future<Output = Result<ipc::SystemFolder, Refusal>> + Send;
+
+    /// `map_system_with_librarian` — on his press, the librarian adds the parts detection missed; level one answers with them.
+    fn map_system_with_librarian(&self, project: String) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
+
+    /// `answer_system_addition` — keep, rework or remove one part the librarian added; level one answers.
+    fn answer_system_addition(&self, project: String, answer: ipc::AnswerSystemAddition) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
+
     /// `get_project_store` — the claims store project `project` names, the Macs signed in to it, and whether a
     /// deploy or a join can run now. [`Refusal::NotFound`] for a project he has none of.
     fn get_project_store(&self, project: String) -> impl Future<Output = Result<ipc::ProjectStoreState, Refusal>> + Send;

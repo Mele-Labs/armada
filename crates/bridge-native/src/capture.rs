@@ -228,7 +228,7 @@ pub struct Noted {
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     /// The card's tools, with the changes and pictures that stand in them.
     pub tools: Option<Entity<Tools>>,
-    /// The url of the Job's page a box was drawn over, and that Job: a part of the page carries its own (`Held::Page`).
+    /// The url of the Job's page a box was drawn over, or the prototype a part or box is on, and that Job: a part of a page carries its own (`Held::Page`).
     pub address: Option<(String, SharedString)>,
 }
 
@@ -538,7 +538,7 @@ impl Capture {
     }
 
     /// The card's words are the note. Nothing is written for blank words.
-    fn write(&mut self, said: String, _window: &mut Window, cx: &mut Context<Self>) {
+    fn write(&mut self, said: String, window: &mut Window, cx: &mut Context<Self>) {
         if said.trim().is_empty() {
             return;
         }
@@ -553,6 +553,12 @@ impl Capture {
             Held::Region(_) => self.address.take(),
             _ => None,
         };
+        // A part of a prototype, or a box over one, goes to the prototype's own Job, wherever it is drawn.
+        let address = address.or_else(|| match &held {
+            Held::Element(_) | Held::Region(_) => crate::prototype::prototype_at(window.window_handle().window_id(), held.bounds().center(), cx)
+                .map(|(job, scene)| (format!("armada://native/prototype/{scene}"), job)),
+            _ => None,
+        });
         cx.emit(CaptureEvent::Noted(Noted { said, held, picture, tools, address }));
     }
 
@@ -878,6 +884,76 @@ mod tests {
         capture.update(cx, |capture, _| capture.from = Some(point(px(10.), px(10.))));
         cx.simulate_keystrokes("escape");
         assert_eq!(*heard.borrow(), ["passed", "closed"], "a box begun: Esc puts it away");
+    }
+
+    /// A Job's thread, and that Job's prototype under it while `shown`, as the review sheet draws one for another Job.
+    struct Sheet {
+        prototype: Entity<crate::prototype::PrototypeView>,
+        shown: bool,
+    }
+
+    impl gpui::Render for Sheet {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            let prototype = self.shown.then(|| div().flex_1().child(self.prototype.clone()));
+            crate::labels::label_root(
+                div().size_full().flex().flex_col().child(labelled(div().id("thread").h(px(100.)).w_full(), Role::Region, "Thread")).children(prototype),
+            )
+        }
+    }
+
+    #[gpui::test]
+    fn a_note_on_a_prototype_part_goes_to_the_prototypes_own_job_and_names_the_part(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let markup = r#"<scene title="Needs"><state id="one"><card title="Need" data-part="Need card"><button data-part="Review button">Review</button></card></state></scene>"#;
+        let source = crate::prototype::Source { scene: "needs-first.html".into(), markup: markup.into(), ..Default::default() };
+        let (sheet, cx) = cx.add_window_view(move |_, cx| {
+            let prototype = cx.new(|cx| {
+                let mut view = crate::prototype::PrototypeView::new(source, crate::prototype::Home::Sheet, cx);
+                view.set_job("job-spine-story".into());
+                view
+            });
+            Sheet { prototype, shown: true }
+        });
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: false, pages: false };
+        let capture = cx.update(|_, cx| cx.new(|cx| Capture::new(Rc::new(Cell::new(None)), words, None, cx)));
+        let heard: Rc<std::cell::RefCell<Vec<(SharedString, Option<(String, SharedString)>)>>> = Rc::default();
+        cx.update(|_, cx| {
+            let into = Rc::clone(&heard);
+            cx.subscribe(&capture, move |_, event: &CaptureEvent, _| {
+                if let CaptureEvent::Noted(noted) = event {
+                    into.borrow_mut().push((noted.held.said(), noted.address.clone()));
+                }
+            })
+            .detach();
+        });
+        cx.run_until_parked();
+        let note_at = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| {
+                let at = cx.global::<LabelBook>().find(window.window_handle().window_id(), role, name).map(|drawn| drawn.bounds.center()).expect("drawn");
+                let within = Bounds { origin: point(px(0.), px(0.)), size: window.viewport_size() };
+                capture.update(cx, |capture, cx| {
+                    capture.within.set(Some(within));
+                    capture.element_at_point(at, window, cx);
+                    capture.write("Make it lead".into(), window, cx);
+                });
+            });
+        };
+        note_at(cx, Role::Button, "Review button");
+        let (said, address) = heard.borrow()[0].clone();
+        assert!(said.ends_with("Review button"), "the note names the part by its data-part: {said}");
+        assert_eq!(address, Some(("armada://native/prototype/needs-first.html".to_string(), SharedString::from("job-spine-story"))), "the prototype's own Job, not a pick");
+        note_at(cx, Role::Region, "Thread");
+        assert_eq!(heard.borrow()[1].1, None, "a note on the Job's own screen beside it names no Job");
+        sheet.update(cx, |sheet, cx| {
+            sheet.shown = false;
+            cx.notify();
+        });
+        cx.run_until_parked();
+        let gone = cx.update(|window, cx| crate::prototype::prototype_at(window.window_handle().window_id(), point(px(10.), px(300.)), cx));
+        assert_eq!(gone, None, "a prototype no longer drawn takes no note");
     }
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {

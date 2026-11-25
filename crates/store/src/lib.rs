@@ -68,6 +68,8 @@ mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
 mod librarian_runs;
+/// The parts of a project's system map its librarian added, and what he answered.
+mod system_additions;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
 /// What the owner asked of a Job, sorted from his messages: asks, how each message was sorted, merges and hands.
@@ -292,6 +294,7 @@ pub use features::{
     KeptFeatureMerge, KeptSection,
 };
 pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
+pub use system_additions::{addition_state, KeptAddition};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
