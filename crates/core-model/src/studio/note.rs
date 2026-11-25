@@ -5,7 +5,7 @@
 //! nothing here offers a write, which is what makes the rule hold.
 //!
 //! **The development layer's fields plus four.** The layer's shape is
-//! `apps/desktop/src/shared/annotations.ts`; a Note adds the computed styles,
+//! `classic-final:apps/desktop/src/shared/annotations.ts`; a Note adds the computed styles,
 //! the trimmed markup, a stored frame and a source file path.
 
 use alloc::collections::BTreeMap;
@@ -52,7 +52,7 @@ pub struct CaptureFrame {
 }
 
 /// The server a Note was captured on, where it was not captured on Bridge.
-/// `#1294`, `docs/practices/capture-window.md`.
+/// `#1294`, `classic-final:docs/practices/capture-window.md`.
 ///
 /// **The address is the origin the window was pinned to**, and `location` on
 /// the capture is the path within it — the two together are the page. A Note

@@ -49,7 +49,7 @@ The grid it replaced, the call deck and tray, the Bays metro view and the left-c
 A press on each of these is already an act, so none of these cards pins.
 
 The two side columns resize.
-A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`packages/components/src/dock-handle.tsx`), the one every sheet draws.
+A handle sits in the gap on each inner edge, drawn only while hovered, focused or dragged, and it is `DockHandle` (`classic-final:packages/components/src/dock-handle.tsx`), the one every sheet draws.
 A drag or `←` `→` moves it, and a double click or `Home` puts the column back to its resting width.
 The left column stops at 4.5 `--space-12` and the right at 4.75, and neither goes wider than leaves the stage 10 (480px), measured against the window and taken again when it resizes.
 The widths are kept in this browser as dragged (`armada.bridge.deck-columns`, `deck/columns.ts`), so a column dragged wide in a big window returns to that width when the window does.
@@ -62,7 +62,7 @@ A Job opened from a row of the Timeline HUD returns to the HUD first, on that ro
 A HUD of the console takes `Esc` for itself: it closes the HUD and nothing around it.
 The map comes back as the stage showing the whole battlefield, and pressing Map on the map at rest glides it there.
 A press on the list or the map away from a row or a drone lets go the same way.
-The state is held in `apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
+The state is held in `classic-final:apps/desktop/src/renderer/src/cockpit/deck/store.ts`, so the title row, the body and the keys are one thing, and leaving the tab and coming back returns the same view.
 
 ## Density
 

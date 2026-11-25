@@ -1,9 +1,6 @@
-# Node, pnpm, node_modules from cache, and Playwright's shell when asked.
+# Node, pnpm and node_modules from cache.
 # docs/practices/ci.md.
 name: node-setup
-inputs:
-  browsers:
-    default: "false"
 runs:
   using: composite
   steps:
@@ -28,49 +25,6 @@ runs:
       shell: bash
       run: pnpm install --frozen-lockfile
 
-    - name: Playwright cache
-      id: pw
-      if: inputs.browsers == 'true'
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-      with:
-        path: |
-          ~/.cache/ms-playwright
-          ~/Library/Caches/ms-playwright
-        key: pw2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-
-    # armada.yml's `browsers`, plus the system libraries a bare Linux runner lacks.
-    # apt-get can stall silently on a mirror and hold the job for its whole 45
-    # minutes (7 Oct 2026, runs 37670086831 and 37668154700; reruns passed), so
-    # apt gets network timeouts and the install gets 5 minutes a try, three tries.
-    # The timeout runs as root: run as the user it killed pnpm and left the
-    # root apt-get holding its lock, so every retry failed at once (run 37686944222).
-    - name: Playwright browsers
-      if: inputs.browsers == 'true'
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" = Linux ]; then
-          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\n' \
-            | sudo tee /etc/apt/apt.conf.d/80-ci-timeouts >/dev/null
-          # The image's packages.microsoft.com source answered 403, unsigned, and failed
-          # every apt update (21 Oct 2026, run 39648722522). Nothing here installs from it.
-          sudo grep -l packages.microsoft.com /etc/apt/sources.list.d/* 2>/dev/null \
-            | xargs -r sudo rm -f
-          for try in 1 2 3; do
-            # Playwright's own shim, not pnpm: as root, action-setup's pnpm
-            # tries to install itself and fails (run 37794978113).
-            sudo env "PATH=$PATH" timeout -k 10 300 \
-              packages/components/node_modules/.bin/playwright install-deps chromium && break
-            [ "$try" = 3 ] && exit 1
-            sudo pkill -KILL -x apt-get || true
-            sudo pkill -KILL -f /usr/lib/apt/methods/ || true
-            # A try killed while dpkg was unpacking leaves it interrupted, and the next try's
-            # apt-get refuses at once with exit 100 (22 Oct 2026, run 39837870419).
-            sudo dpkg --configure -a || true
-            echo "::warning::Playwright system deps failed or hung, try $try of 3"
-          done
-        fi
-        pnpm -C packages/components exec playwright install chromium --only-shell
-
     - name: Cache report
       shell: bash
-      run: echo "CACHE node_modules=${{ steps.nm.outputs.cache-hit || 'false' }} playwright=${{ steps.pw.outputs.cache-hit || 'n/a' }}"
+      run: echo "CACHE node_modules=${{ steps.nm.outputs.cache-hit || 'false' }}"

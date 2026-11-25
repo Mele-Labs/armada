@@ -1,4 +1,4 @@
-//! `answer_document` on the wire, as Bridge's mirror in `packages/protocol/src/sessions.ts` spells it.
+//! `answer_document` on the wire, as Bridge's mirror in `classic-final:packages/protocol/src/sessions.ts` spells it.
 
 use serde_json::json;
 

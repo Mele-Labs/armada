@@ -20,5 +20,5 @@ A Job that has ended is not told.
 **Skew.** A Fleet before 23.88 sends `lines`, which a newer Bridge ignores, and answers 404 to the two routes.
 A Bridge before it ignores `output`.
 The IDs differ, so the two are refused regardless.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand like the rest.
 There is no number to take: `armada need --status` showed nothing standing on these paths.

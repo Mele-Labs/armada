@@ -72,10 +72,4 @@ Written down so the next person does not have to measure it again.
 **Not documented anywhere a reader would look:**
 
 - Most `package.json` scripts. Only `pnpm install` reaches the README, while
-  the gate, Storybook, the desktop build, its typecheck and its codegen do not.
-- `apps/desktop/codegen/vocabulary.mjs`, which generates the vocabulary the
-  renderer imports. It is named in no document.
-
-**A flag that is not obvious and is not written down:** `pnpm storybook` prompts
-when its port is taken, which makes it unusable from an agent. `--ci` is the
-answer and nothing says so outside a skill.
+  the gate and the typecheck do not.

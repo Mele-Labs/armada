@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use crate::Report;
 
 use super::registry::Row;
-use super::{as_wire, list, same_set, sources, Kinds, Side, LEXICON, MODEL, REGISTRY, STORE, WIRE};
+use super::{as_wire, list, same_set, sources, Kinds, Side, LEXICON, MODEL, REGISTRY, STORE};
 
 /// The one kind that draws in status colour. `studio.md`: *a Run node is the
 /// only node that takes it*, because a run reads the same on a Studio and on
@@ -142,8 +142,8 @@ pub fn states_per_kind(kinds: &Kinds, model: &str, report: &mut Report) {
 
 /// A relation is drawn by the Studio or by a person's acceptance, and by
 /// nothing else — held against the enum that carries the narrower set, the
-/// store's own constraint, and what Bridge may ask for.
-pub fn drawn_by(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report) {
+/// store's own constraint.
+pub fn drawn_by(kinds: &Kinds, model: &str, store: &str, report: &mut Report) {
     let (mut studios, mut accepted) = (BTreeSet::new(), BTreeSet::new());
     for row in &kinds.edges {
         let Some(who) = row.string("drawn_by", REGISTRY, report) else {
@@ -178,17 +178,6 @@ pub fn drawn_by(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mu
     );
     same_set(
         report,
-        "relation a person accepts",
-        &accepted,
-        &sources::literals(wire, "ProposeStudioEdge"),
-        Side {
-            path: WIRE,
-            absent_there: "Bridge cannot propose it",
-            absent_here: "Bridge may propose an edge kind that is the Studio's own to draw",
-        },
-    );
-    same_set(
-        report,
         "edge the Studio draws itself",
         &studios,
         &sources::accepted_on_sight(store),
@@ -203,9 +192,8 @@ pub fn drawn_by(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mu
 }
 
 /// The kinds a person puts on a Studio directly are the ones the enum answers
-/// for and the ones the wire offers. Every other kind is made by the act that
-/// earns it.
-pub fn added_by_hand(kinds: &Kinds, model: &str, wire: &str, report: &mut Report) {
+/// for. Every other kind is made by the act that earns it.
+pub fn added_by_hand(kinds: &Kinds, model: &str, report: &mut Report) {
     let ours = kinds.flagged("added_by_hand", report);
     let spellings = sources::spelled(model, "StudioNodeKind");
     let variants: Vec<String> = sources::added_by_hand(model).into_iter().collect();
@@ -218,18 +206,6 @@ pub fn added_by_hand(kinds: &Kinds, model: &str, wire: &str, report: &mut Report
             path: MODEL,
             absent_there: "Fleet refuses it from Bridge as `fleet.studio_node_not_a_persons`",
             absent_here: "a kind can be added by hand carrying a claim nothing stands behind",
-        },
-    );
-    same_set(
-        report,
-        "kind a person adds by hand",
-        &ours,
-        &sources::tags(wire, "StudioNodeByHand"),
-        Side {
-            path: WIRE,
-            absent_there: "the renderer cannot ask for it",
-            absent_here: "the renderer may ask for a kind Fleet refuses, which is a capability \
-                          wider than the act it carries",
         },
     );
 }

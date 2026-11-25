@@ -41,7 +41,7 @@ pub(super) const PICTURES: [(&str, &str); 7] = [
 /// The videos the phone streams, by extension, and the type each is served under.
 const VIDEOS: [(&str, &str); 3] = [("mp4", "video/mp4"), ("mov", "video/quicktime"), ("webm", "video/webm")];
 
-/// The most Bridge's panel reads of a file: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`.
+/// The most Bridge's panel reads of a file: `MOST_BYTES` in `classic-final:apps/desktop/src/main/session-file.ts`.
 /// **A picture is sent up to this too, not up to `MOST_SENT`**: a retina screenshot often passes 1 MiB,
 /// and whatever `show_file` accepted should open on the phone.
 pub(super) const MOST_BYTES: u64 = 8 * 1024 * 1024;

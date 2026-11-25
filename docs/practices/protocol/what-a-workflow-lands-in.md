@@ -4,8 +4,8 @@
 
 Since 25 Oct 2026. The Job view's right column ends in Delivery, which draws differently by kind.
 **Additive**: one field on an existing type and one enum; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for fi
 Prototype declares `spike` and Code Review `report`; every other shipped workflow reads its fallback.
 **`mod` is not one of the four.** Bridge reads a Mod Job off `SessionRecord.mod`, and that wins over the workflow's word.
 
-**Bridge reads it where it already reads the Session's workflow**: `workOf` in `packages/screens/src/session-work.ts` finds the `WorkflowSummary` the record's `workflow` names and sets `work.landing`, which `landingOf` in `session-view/story.ts` reads.
+**Bridge reads it where it already reads the Session's workflow**: `workOf` in `classic-final:packages/screens/src/session-work.ts` finds the `WorkflowSummary` the record's `workflow` names and sets `work.landing`, which `landingOf` in `session-view/story.ts` reads.
 The same read carries the resolved `phase` of the step at `workflow_step`, from `WorkflowStep.phase` (protocol 23.19), and `stageOf` opens Delivery on a step in `delivery`.
 Neither adds a field to `SessionRecord`.
 

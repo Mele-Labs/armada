@@ -21,5 +21,5 @@ Bridge's half is unchanged, because Bridge and Pocket send no `view` and are ans
 A truncation would still have been a guess about which half to keep.
 The default belongs to the door and not the route, because a route that answered a summary unasked would change Bridge's list.
 
-**Who reads the route.** Bridge's main process (`apps/desktop/src/main/sessions.ts`) and Pocket send no `view` and are unchanged.
+**Who reads the route.** Bridge's main process (`classic-final:apps/desktop/src/main/sessions.ts`) and Pocket send no `view` and are unchanged.
 Fleet's own readers (`read_thought`, the routing of a thought) call the daemon's `list_sessions` directly and never this route.

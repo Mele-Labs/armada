@@ -32,13 +32,14 @@ that nobody looked at is a change nobody verified, and no gate here can see a
 layout — a screen once shipped about thirty differences from its drawing with
 every gate green.
 
-**What is not yours is the owner's attention.** Bridge is a windowed Electron
-process and it comes up in front of whatever he is doing, so launching it takes
+**What is not yours is the owner's attention.** Bridge is a windowed macOS app
+and it comes up in front of whatever he is doing, so launching it takes
 the screen for as long as it is up. That is worth paying to answer a question
 and never worth paying to have a look around.
 
-**There is no hidden-window path.** `createWindow` shows the window on
-`ready-to-show` and takes no flag to suppress it.
+**There is no hidden-window path** for a live Bridge, so look at a screen with
+the walk the native Bridge plays on mock data, whose `--shots` writes each step
+as a picture (`docs/practices/native-bridge.md`).
 
 Three rules, all three from one incident: an agent left a modal dialog on the
 owner's screen with no way to dismiss it. **The ban this file used to carry was
@@ -56,10 +57,9 @@ stopped verifying screens at all.
   yours is broad enough to catch the owner's.
 - **Never leave a dialog up.** Dismiss it, or quit the app.
 
-**To show the owner something, write a walk and send him the link, or capture
-it and send him the pictures.** Never a list of what to open and press. A walk
-plays those steps in the mock, and stops on the one that no longer matches.
-`docs/practices/running-locally.md`, *Walks*.
+**To show the owner something, offer the branch for his preview, or send him a
+link to a page**, as `session-habits`, *Walks*, says. Never a list of what to
+open and press.
 
 ## Anything you background, you kill in the same breath
 
@@ -86,15 +86,15 @@ dropped that line and detached twenty more.
 - **Bound the load.** `timeout 60` around a load generator makes the worst case
   a minute, not a weekend.
 - **Say what you started and that you stopped it**, the same as a window.
-- **A review mock that has to outlive the agents is the one exception, and its
+- **A served review page that has to outlive the agents is the one exception, and its
   stop is owed by port and working directory.** Confirmed 30 Sep – 1 Oct 2026:
-  a mock on the job's own port, started with `run_in_background`, ended
+  a page on the job's own port, started with `run_in_background`, ended
   with exit 144 four times across one review, with nothing in its log. Twice,
   a dispatched agent had restarted it. Each time, the owner's next look found
   nothing serving. It stayed up once it was started detached. So when the
   worktree is given back, find it with `lsof -ti tcp:<port>`, confirm its `cwd`
   is that worktree (`lsof -a -p <pid> -d cwd`), and kill it. Tell agents not to
-  restart a mock they did not start, unless it is down.
+  restart a server they did not start, unless it is down.
 
 **A waiter is backgrounded work too.** A loop watching somebody else's output
 file does not look like the thing this rule covers, and it is the shape that
@@ -112,17 +112,9 @@ The rule is the one two sections up, applied to something with no window: quit
 what you launched, and quit it by the handle you kept rather than by what it is
 called.
 
-**`scripts/dev` and `pnpm dev` are not yours.** Not because they start Bridge,
-but because they reinstall `armada` and kill the Fleet the owner is using. Start
-Bridge alone against a Fleet already up:
-
-```sh
-pnpm --filter @armada/desktop build && pnpm --filter @armada/desktop start
-```
-
-**The build is not optional.** `start` previews what is in `out/`, and main
-always loads the built renderer rather than a dev server. Bridge finds Fleet
-through the runtime file, so nothing here needs a port.
+**`scripts/dev` and `pnpm dev` are not yours.** They reinstall `armada` and kill
+the Fleet the owner is using, and they start no Bridge: `scripts/dev` ends with
+Fleet. Bridge finds Fleet through the runtime file, so nothing here needs a port.
 
 **Moving the owner's own Fleet onto a merged fix is `scripts/restart`, not
 either of the above.** It runs under launchd so it outlives the job that called it.
@@ -144,9 +136,9 @@ runs.
 
 | | |
 |---|---|
-| Leave Bridge, Storybook or a browser running after you looked | The owner has to find the window and close it. Quit it, and say you did |
+| Leave Bridge or a browser running after you looked | The owner has to find the window and close it. Quit it, and say you did |
 | Leave a dialog up in anything you launched | Dismiss it or quit the app. An agent that cannot dismiss its own modal has taken the screen and not given it back |
-| Run `pnpm dev` or `scripts/dev` | It is the owner's loop: it reinstalls `armada` and kills the Fleet he is using. Start Bridge on its own, or run `scripts/restart` |
+| Run `pnpm dev` or `scripts/dev` | It is the owner's loop: it reinstalls `armada` and kills the Fleet he is using. Run `scripts/restart` to move him onto a merged fix |
 | Discard what `armada clean` printed | The commit each deleted branch pointed at is the only thing that makes it recoverable |
 | `git branch -D` over the `armada/` namespace | `armada clean` derives what it deletes. A glob does not, and one destroyed nine unmerged branches belonging to no Job |
 | `rm -rf` an Armada worktree | Git keeps a record that outlives the directory and refuses the branch delete afterwards. `armada clean` does it in the order git needs |

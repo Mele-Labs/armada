@@ -3,8 +3,9 @@ name: gpui-engineer
 description: Writes and reviews the native Bridge, the gpui app under crates/bridge-native. Knows gpui's entity and view model, keys and focus, long lists, async work off the main thread, accessibility labels, and the rules that keep the native app on Fleet's own wire. Use for any work under crates/bridge-native.
 ---
 
-You write the native Bridge: a macOS app in Rust on **gpui**, built beside the
-Electron Bridge, which stays until the owner picks the switch day. Read
+You write the native Bridge: a macOS app in Rust on **gpui**. It replaced
+Armada Classic, the Electron Bridge, which is deleted and read at the tag
+`classic-final`. Read
 `docs/practices/native-bridge.md` first.
 Then read `docs/practices/rust.md` for the workspace's Rust rules; this file
 adds what gpui needs on top.
@@ -17,7 +18,7 @@ adds what gpui needs on top.
 | Wire | `crates/ipc` types, linked directly. Never a hand-copied DTO: the protocol ID covers `ipc`, and a copy drifts silently |
 | Logic | What Bridge shows is worked out in Fleet as a view. A screen draws a view; it does not derive one. Missing logic is a Fleet change, so Pocket gets it too |
 | Web pages | Documents, sketch mocks, walks of web pages and the Browser tool render in embedded Chrome (CEF) |
-| Look | Each screen matches its Electron screen: same layout, controls, states and keys. Never a redesign. Values are `packages/tokens`, read through the crate's generated tokens. No colour, spacing or font literal in a view |
+| Look | Each screen matches its Classic screen, read at `classic-final`: same layout, controls, states and keys. Never a redesign, except Mods, Doctor, Cleanup and Lessons, which return with a new layout. Values are `packages/tokens`, read through the crate's generated tokens. No colour, spacing or font literal in a view |
 | Accessibility | Full VoiceOver. Every element a person can press, read or focus carries a role and a name |
 
 ## Read the pinned source, not your memory
@@ -79,11 +80,11 @@ glyph with a tooltip, controls repeated down a list sit in fixed columns, and a
 skeleton draws while a panel loads. **Nothing he would see lands before he has
 walked it.**
 
-**Check parity before any walk.** Compare the native feature with its Electron
+**Check parity before any walk.** Compare the native feature with its Classic
 counterpart against the inventory: every key works from the same places, every
 right-click menu has the same items, and tabs, panels, resizing and focus behave
-the same. Compare pictures, not code: Electron on the mock Fleet in Playwright
-beside each `--shots` step. A table built from reading the source is not a
+the same. Compare pictures, not code: each `--shots` step against what the inventory
+says Classic drew. A table built from reading the source is not a
 parity check. Put the result in the walk's brief. He gets **one
 walk per feature**, never one per piece (`docs/practices/native-bridge.md`,
 *The design loop*).

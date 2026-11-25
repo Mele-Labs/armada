@@ -36,6 +36,7 @@ mod reading;
 mod retiring;
 mod seeding;
 mod serving;
+mod starting;
 pub(crate) mod staleness;
 pub(crate) mod upkeep;
 mod writing;

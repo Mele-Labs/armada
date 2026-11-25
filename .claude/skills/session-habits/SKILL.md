@@ -13,20 +13,8 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 ## Walks
 
-- **A change he would see does not land until he has walked it** (1 Oct). Serve
-  the mock, call `show_window` with the `?walk=` url. Never send screenshots
-  (2 Oct: "Dont send me pictures. I prefer walks.").
-- **Play the walk first**, with its own engine, before showing it: in
-  `apps/desktop`, `npx vitest run src/renderer/src/mock/walks-{1..4}of4.test.tsx
-  -t "<walk>"` (13 Oct: two broken walks sent in a row).
-- **A walk plays inside the real Bridge shell**, against a mock Fleet scenario,
-  never a stand-in window (6 Oct).
-- **One mock per walk.** Stop the old port before serving a new one, and tell him
-  to reload; a loaded tab keeps its old code (8 Oct).
-- **Never switch a slot's branch, or stash its tree, while a walk is served from
-  it** (11 Oct). Build a branch without checking it out instead.
-- **While any walk on a branch is unapproved, no agent on that branch runs
-  tests.** Writing them is fine, and so are `tsc` and `cargo check` (8 and 12 Oct).
+- **A change he would see does not land until he has looked at it** (1 Oct).
+  Never send screenshots (2 Oct: "Dont send me pictures. I prefer walks.").
 - **Native work reaches him through his preview, not a walk** (13 Nov). Offer
   the branch with `offer_preview` and its preview note (`about`, `look`, `steps`;
   `preview-app` has the example); he presses Refresh preview and takes notes on
@@ -34,8 +22,18 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   as Fleet down or a refused send. It plays from the build behind his preview in
   one press, never from a Job's slot, so show it once he has refreshed onto a
   preview holding it: `show_window` refuses a walk that build does not play.
+- **A web page of another app is shown with `show_window`**, a walk with
+  `steps` when it needs one. Serve one page per walk: stop the old port before
+  serving a new one, and tell him to reload, since a loaded tab keeps its old
+  code (8 Oct).
+- **Never switch a slot's branch, or stash its tree, while a walk is served from
+  it** (11 Oct). Build a branch without checking it out instead.
+- **While any walk on a branch is unapproved, no agent on that branch runs
+  tests.** Writing them is fine, and so are `tsc` and `cargo check` (8 and 12 Oct).
 - **A phone-sized UI is the real app on fixtures at a plain url** he narrows. No
   frame, captions or scripted walk (8 Oct).
+- **Armada Classic's mock walks are gone** with the Electron Bridge; a walk of
+  the Bridge is native, as above.
 
 ## Asking and handing over
 

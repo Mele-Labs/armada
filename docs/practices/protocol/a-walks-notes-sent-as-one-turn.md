@@ -4,8 +4,8 @@
 
 Since 19 Oct 2026. `docs/concepts/session.md`.
 **Additive only**: one operation, one route, one error code and the types they carry; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-notes.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-notes.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

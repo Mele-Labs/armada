@@ -80,14 +80,15 @@ fn this_repositorys_own_setup_loads_and_resolves() {
             "sync_mod_test".to_string(),
             "test".to_string(),
             "typecheck".to_string(),
+            "xtask_test".to_string(),
         ],
         "the Checks this workspace is built and tested with — Rust, `acceptance` \
          on its own so a red one names a broken milestone claim rather than a \
-         unit test (#1130), the Bridge's packages nobody owns (#200: every \
+         unit test (#1130), the gate's own tests, the packages nobody owns (#200: every \
          Check used to compile Rust), and the Python suites for the merge line's hook and \
          this repository's own scripts, which no other \
-         Check reads. The rest of the Bridge's Checks are in `packages/` and \
-         `apps/desktop`, one `armada.yml` each. There is no `clippy` — `[clippy-as-a-check]` in \
+         Check reads. Pocket and the store have their own `armada.yml` each. \
+         There is no `clippy` — `[clippy-as-a-check]` in \
          `docs/OPEN.md` says why"
     );
     assert_eq!(bug(&setup).name(), "bug");
@@ -179,6 +180,7 @@ fn each_named_check_resolved_to_the_command_the_manifest_holds() {
                 "acceptance",
                 "cargo nextest run -p acceptance --test-threads ${width}"
             ),
+            ("xtask_test", "cargo nextest run -p xtask --test-threads ${width}"),
             ("typecheck", "pnpm typecheck"),
         ]
     );
@@ -275,6 +277,7 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
             "build",
             "test",
             "acceptance",
+            "xtask_test",
             "typecheck",
             "hooks_test",
             "preview_test",
@@ -285,7 +288,7 @@ fn gating_on_every_check_runs_them_in_the_order_armada_yml_writes_them() {
         "the order `armada.yml` declares them in, which is the order they answer \
          in — not `check_names`' alphabetical"
     );
-    // The same nine, and no tenth: the expansion is the registry and the
+    // The same ten, and no eleventh: the expansion is the registry and the
     // registry is what `check_names` lists.
     let mut sorted = names.clone();
     sorted.sort_unstable();

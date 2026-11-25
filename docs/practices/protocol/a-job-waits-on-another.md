@@ -4,7 +4,7 @@
 
 `docs/concepts/session.md`, *A Job that waits on another*.
 **Additive throughout**; the protocol ID moves with the wire files, and nothing is bumped.
-The mirror is `packages/protocol/src/session-waits.ts`, written by hand.
+The mirror is `classic-final:packages/protocol/src/session-waits.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |

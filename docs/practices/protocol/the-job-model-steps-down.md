@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-**Additive only**: five operations, one event kind, two types. Bridge's half is `packages/protocol/src/model-downshift.ts` and `events.ts`, written by hand.
+**Additive only**: five operations, one event kind, two types. Bridge's half is `classic-final:packages/protocol/src/model-downshift.ts` and `events.ts`, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

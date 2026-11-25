@@ -113,6 +113,17 @@ pub trait Features: Send + Sync + 'static {
     /// brief that quotes both and asks him which is right. Refused as `dismiss_doc_flag` is.
     fn start_doc_job(self: std::sync::Arc<Self>, caller: Option<crate::Caller>, flag: ipc::DocFlag) -> impl Future<Output = Result<ipc::DocJobStarted, Refusal>> + Send;
 
+    /// `get_library_start` — the modules a project's build files name and the docs at the top of its repositories, read from
+    /// its files. [`Refusal::Unacceptable`] for a project Fleet does not hold (`fleet.feature_project`) or one none of whose
+    /// repositories is served (`fleet.start_no_repository`).
+    fn get_library_start(&self, caller: Option<crate::Caller>, project: Option<String>) -> impl Future<Output = Result<ipc::LibraryStart, Refusal>> + Send;
+
+    /// `draft_module_features` — each module of the project kept as a pending feature, on the owner's press of Draft as
+    /// Pending. Refused as `answer_retire` is to any session but the Operator's; [`Refusal::IllegalMove`] for a project that
+    /// holds a confirmed or seeded feature (`fleet.library_started`), [`Refusal::Unacceptable`] as `get_library_start` is and
+    /// where no module is found (`fleet.no_module`).
+    fn draft_module_features(&self, caller: Option<crate::Caller>, draft: ipc::DraftModules) -> impl Future<Output = Result<ipc::ModulesDrafted, Refusal>> + Send;
+
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
     /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that

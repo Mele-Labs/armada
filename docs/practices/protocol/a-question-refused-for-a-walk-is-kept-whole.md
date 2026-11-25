@@ -4,7 +4,7 @@
 
 Since 17 Oct 2026. `docs/concepts/session.md`, *Showing a window*.
 **Additive only**: one variant on `SessionAskState`, `kept`.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand.
 
 | Where | Side | Change |
 | --- | --- | --- |

@@ -33,7 +33,7 @@ const fn row(id: &'static str, label: &'static str, icon: &'static str, hideable
     Row { id, label, icon, hideable }
 }
 
-/// `LAYOUT` in `packages/shell/src/layout.tsx`, in its order; the places are `PLACES`.
+/// `LAYOUT` in `classic-final:packages/shell/src/layout.tsx`, in its order; the places are `PLACES`.
 pub const REGIONS: [Region; 3] = [
     Region {
         id: "dashboard.panels",

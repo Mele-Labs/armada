@@ -1,5 +1,5 @@
 //! `propose_draft` on the wire: the call the agent sends, the row the thread keeps and the item
-//! Waiting on you reads, each as Bridge's mirror in `packages/protocol` spells it.
+//! Waiting on you reads, each as Bridge's mirror in `classic-final:packages/protocol` spells it.
 
 use serde_json::json;
 

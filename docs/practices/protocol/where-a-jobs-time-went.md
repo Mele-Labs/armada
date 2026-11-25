@@ -4,8 +4,8 @@
 
 Since 3 Nov 2026. Fleet already keeps each Job's split when it ends (`crates/store/src/job_times.rs`) and sums turns, Check runs and builds in SQL (`crates/store/src/time_summary.rs`); this serves those reads.
 **Additive only**: three operations, three routes and the types they carry; no event kind, no error and no field on an existing type but `RetroRecord.time`, which Fleet already wrote and the mirror now has.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/time-summary.ts` and `RecordTime` in `retro.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/time-summary.ts` and `RecordTime` in `retro.ts`, written by hand.
 **Names and counts only**; a Job's title is carried only on the slowest Jobs.
 
 | Where | Side | Carries |

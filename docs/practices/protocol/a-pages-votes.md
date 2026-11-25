@@ -4,7 +4,7 @@
 
 Since 14 Nov 2026. His vote on takes a Job's page declares with `<armada-vote>`. `docs/concepts/artifact.md`, *Page votes*.
 **Additive only**: one operation, one route, its body and answer types, and one field on an existing type. No event kind is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call it, and native draws the votes later.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call it, and native draws the votes later.
 
 | Where | Side | Carries |
 | --- | --- | --- |

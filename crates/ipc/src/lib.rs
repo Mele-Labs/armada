@@ -4,12 +4,11 @@
 //! a redaction decision nobody made.**
 //!
 //! `ProtocolId` is a hash `build.rs` takes of these types, the operation
-//! inventory, the route table and Bridge's mirror of them, and
-//! `apps/desktop/codegen/protocol-id.mjs` takes the same hash for Bridge.
+//! inventory and the route table, and `scripts/protocol-id` takes the same hash
+//! from a tree that has not been built.
 //! Pocket's TypeScript for the types it reads is generated from this crate by
 //! `cargo xtask verify-wire` and checked in under `apps/pocket/src/wire/`, so a
-//! change here that leaves it stale fails the gate. Bridge's own mirror in
-//! `packages/protocol` is still written by hand.
+//! change here that leaves it stale fails the gate.
 //! This is one of two crates permitted to deserialize.
 //!
 //! **The conversion lives here rather than in Fleet.** The *decision* is
@@ -55,6 +54,7 @@ mod features;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
+mod library_start;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -404,6 +404,7 @@ pub use features::{
 };
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};

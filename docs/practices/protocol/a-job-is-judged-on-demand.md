@@ -28,4 +28,4 @@ A Job's readings are one per artifact, so the growth is bounded by what a Job ha
 
 **Skew.** A Fleet before this answers 404 for `ask_judge` and its three, and a Bridge before it ignores `judge_readings` and draws a `judge` source as an item it has no card for.
 The IDs differ, so the two are refused regardless and the lifeboat serves.
-Bridge's half is `packages/protocol/src/judge.ts` and `sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/judge.ts` and `sessions.ts`, written by hand like the rest.

@@ -84,8 +84,7 @@ with a breaking migration `main` lacks is refused by `scripts/restart --from`.
 `docs/practices/store-migrations.md`.
 
 **A wire change carries no number.** The protocol ID is a hash of the wire
-files, so changing `crates/ipc`, `crates/ipc/operations/`, the route table or
-`packages/protocol` moves it and nothing is bumped, declared or renumbered.
+files, so changing `crates/ipc`, `crates/ipc/operations/` or the route table moves it and nothing is bumped, declared or renumbered.
 `docs/practices/protocol.md` says what it covers.
 
 ### 4. Test
@@ -107,7 +106,7 @@ on every branch and again after every rebase made the machine unusable.
 | A crate under `crates/` | `git diff --name-only main \| armada check test --changed` runs the test modules you touched, in their crates only; `armada check test a b c` runs only the crates declaring those tests, in one build (`session-habits`, *Load*). The whole `armada check test` is CI's |
 | Any Rust | `cargo build --workspace --all-targets 2>&1 \| grep -c '^warning'` once — **the same count as `main`**, whatever the exit code |
 | What a milestone's claim reads | `armada check acceptance` |
-| `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `packages/screens:typecheck`, `packages/components:components_test`. **A story is in `packages/components:components_test`**, a screen's test through `App` is run by hand (`src/renderer/src/mock/*.test.tsx`, `vitest run --project 'smoke*'`; no Check), and `apps/desktop/unit:desktop_test` is main and the renderer's own modules, and `packages/screens:screens_test` has only `packages/screens`' own `.test.ts` and `.test.tsx`. `brand`, `protocol`, `shell`, `tokens` and `icons` have no manifest: `armada check typecheck` is theirs |
+| `apps/` or `packages/` | `printf '<paths>\n' \| armada covers` names the Checks your change reaches, as keys, and `armada check <key>` runs one: `apps/pocket:pocket_test`, `apps/store:store_test`. `brand`, `tokens`, `icons` and `mods` have no manifest: `armada check typecheck` is theirs |
 | `docs/`, or `crates/ipc/operations/` | `cargo xtask verify-docs` |
 | Anything | `cargo xtask verify-foundations` once, before landing — **no worse than the baseline you took off `main`.** Read what each line names; never chase a colour |
 
@@ -143,7 +142,7 @@ with an unused import.
 **Verify it yourself rather than on a report.** An agent's claim of green has
 been wrong here.
 
-**When a `desktop_test` failure may not be yours, compare alternately.** Run
+**When a test failure may not be yours, compare alternately.** Run
 the branch and `main` in alternating runs, several of each, never a block of runs
 on one tree: machine load drifts across a block and makes one tree look clean and
 the other broken. Confirmed 17 Sep 2026: runs alternated between `main` and a branch
@@ -151,14 +150,14 @@ failed 3 of 10 on each, where blocks had blamed the branch.
 
 **A filtered Check that prints nothing did not pass.** `armada check` reads
 `armada.yml` from the working directory. Confirmed 14 Sep 2026 on #1117: a
-typecheck run from `packages/components` could not read the file, and the
+typecheck run from a package directory could not read the file, and the
 `grep` for `passed|failed` around it printed nothing at all. Run Checks from
 the repository root, and read a silence as nothing having run.
 
 **That is a silence after it exits. Mid-run, `armada check` writes nothing
 until the suite ends**, so an empty log is a suite still running, not one
 blocked; a slot wait says so on stderr. Confirmed 1 Oct 2026: six runs of
-`armada check test` beside desktop_test logged 0 bytes, and they were read
+`armada check test` beside a vitest run logged 0 bytes, and they were read
 as blocked. That cost two probes, a question to the owner and a read of the
 slot code before the test binaries' build times showed they had been running
 all along.
@@ -241,7 +240,7 @@ side of the seam:
 |---|---|
 | one | `crates/config`, `crates/adapters` |
 | two | `crates/ipc`, `crates/api`, `crates/fleet` |
-| three | `apps/desktop`, `packages` |
+| three | `apps`, `packages` |
 
 Then say so in the prompt — *"another agent is working in X in parallel; do not
 touch it; if your change needs one, stop and report it rather than making it."*

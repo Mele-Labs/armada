@@ -3,8 +3,9 @@
 //! The ID is a hash of the wire surface, so two branches that each change the
 //! wire cannot conflict on a number: they change different files and the ID
 //! follows. `docs/practices/protocol.md` says what the surface is and what the
-//! hash does not see. `apps/desktop/codegen/protocol-id.mjs` computes the same
-//! hash for Bridge, and a rule in `xtask` holds the two together.
+//! hash does not see. `scripts/protocol-id` computes the same
+//! hash from a tree that has not been built, for `scripts/restart`, and a rule in
+//! `xtask` holds the two together.
 //!
 //! The agent's tool set is emitted here for a second reason. A list of tool
 //! names written in `api` would be a second copy of the `agent_access` column,
@@ -18,7 +19,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 // `protocol_id` and its helper, in a file of their own so `xtask` can run the
-// same code and compare it with the Node copy Bridge is built with.
+// same code and compare it with the script's copy.
 include!("wire_hash.rs");
 
 fn main() {
@@ -37,7 +38,6 @@ fn main() {
     // pinned it to the tree that built it.
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=operations");
-    println!("cargo:rerun-if-changed=../../packages/protocol/src");
     println!("cargo:rerun-if-changed=../api/src/routes");
 
     let id = protocol_id(&root);

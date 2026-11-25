@@ -4,7 +4,7 @@
 
 **One required field and one setting.** `ModelChoices.session` is `models.session` as it stands when `list_models` is asked, always a member of `models`, and `default` stays `models.default`.
 It is required, not additive: Bridge and Fleet ship together, and a Fleet that omits it fails Bridge's read rather than drawing a picker with no Job default.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand.
 
 | Setting | Ships as | Read by |
 | --- | --- | --- |

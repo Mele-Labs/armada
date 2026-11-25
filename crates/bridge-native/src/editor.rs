@@ -1,6 +1,6 @@
 //! Which editor opens a path, and how.
 //!
-//! Mirrors `apps/desktop/src/main/editor.ts`, with `open.ts` as its Electron caller: the first
+//! Mirrors `classic-final:apps/desktop/src/main/editor.ts`, with `open.ts` as its Electron caller: the first
 //! native screen that opens a file mirrors that caller, reading `editor.command` from Fleet's
 //! settings ([`configured_from`], `GET /settings`) and calling [`open`]. **Nothing calls it yet.**
 //!

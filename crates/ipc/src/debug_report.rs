@@ -2,8 +2,7 @@
 //!
 //! **One pure function over gathered facts**, so Fleet and `armada report` print the same text from
 //! what each could read. It holds no message text, prompt or file content: every value is a name, a
-//! version or a state, and the home folder is written as `~`. The layout is the approved one,
-//! `apps/desktop/src/renderer/src/mock/debug-report-fixtures.ts`.
+//! version or a state, and the home folder is written as `~`. The layout is the approved one.
 
 use serde::{Deserialize, Serialize};
 

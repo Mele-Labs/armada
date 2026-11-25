@@ -4,13 +4,13 @@
 
 Since 19 Oct 2026. `docs/concepts/session.md`, *Acts on a pull request*.
 **Additive only**: one operation, one DTO and one route, and no field of an existing type changes.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Change |
 | --- | --- | --- |
 | `get_pull_request_patches` (`GET /pull_request_patches/:repository/:number`, `Bridge only`) | Bridge asks, Fleet answers | `PullRequestFilePatches`: `files`, each a `PullRequestFilePatch` as `get_pull_request_file` answers it, in the forge's order. A file the forge sent no patch for (binary, or too large) has `patch` absent and `said` the per-file route's sentence |
 | `fleet.pull_request_unreadable` | Fleet refuses | A 500: the forge would not answer. A repository Fleet does not serve is a 422 |
-| `PullRequestFilePatches` in `packages/protocol/src/pull-requests.ts` | Bridge reads | The hand-written mirror. Bridge reads the operation through one preload entry, `readReviewPatches` (`apps/desktop/src/main/reviews.ts`) |
+| `PullRequestFilePatches` in `classic-final:packages/protocol/src/pull-requests.ts` | Bridge reads | The hand-written mirror. Bridge reads the operation through one preload entry, `readReviewPatches` (`classic-final:apps/desktop/src/main/reviews.ts`) |
 
 **Read from the forge with the one `gh api repos/{owner}/{repo}/pulls/N/files` read `get_pull_request_file` makes**, and all of it is kept.
 `get_pull_request_file` is a fold over the same parse, so the two answer from one parser.

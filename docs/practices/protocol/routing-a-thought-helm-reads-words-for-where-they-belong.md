@@ -10,7 +10,7 @@ Helm is gone and the Operator took its place; [The Operator takes Helm's place](
 `docs/concepts/operator.md`, *Routing a thought*.
 **Additive only**: two operations, one event kind and one message on the Helm socket, all of Bridge's (`agent_access` `No`, `Bridge only` for the event).
 No type that exists changes.
-Bridge's half is `packages/protocol/src/thought.ts`, with `helm.ts` and `helm-thread.ts`, since deleted, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/thought.ts`, with `helm.ts` and `helm-thread.ts`, since deleted, written by hand.
 There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
 
 | Where | Carries | Notes |
@@ -33,7 +33,7 @@ The `sent` message rides the conversation's own bounded channel, which is drop-o
 It answers 200 with the `ThoughtTarget` the words went to.
 Fleet sends through `send_session_message`'s path, so a refusal is that send's, and only a send that was taken appends the `sent` row and publishes `helm.thought_routed`.
 The door names the Manifest the job stands in as `manifest_id` (`NAMES_ITS_SCOPE`), which picks the thread.
-No type that exists changes, and `packages/protocol` has no mirror of `TellSession` because nothing in Bridge sends it.
+No type that exists changes, and `classic-final:packages/protocol` has no mirror of `TellSession` because nothing in Bridge sends it.
 
 **Skew.** A refusal on an ID mismatch means no peer meets this change half built.
 A Fleet without the routes would answer 404 to a Bridge that has them, and Bridge treats a read that fails as `question`, so the words still reach Helm.

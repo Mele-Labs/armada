@@ -202,6 +202,8 @@ A pending feature is listed under the area `pending`, with no prefix and no line
 > **Rule.** A pending feature is made only in a library that has a feature already.
 > Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
 
+His Draft as Pending is the one exception, see *Starting a library*.
+
 Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
 The Operator brings him one card, with three options.
 
@@ -381,6 +383,29 @@ A move changes the feature's area and nothing else: its slug, prefixes, asks and
 > Why: a card he answered by keeping the area would otherwise come back on every tick.
 
 The seed's largest area holds eight, so seeding raises none.
+
+## Starting a library
+
+A project that holds no confirmed or seeded feature has nothing a Job can name and nothing the seed fits.
+The Features screen draws a start panel in place of the project's page while that is so, with three ways to start.
+
+| Part | What it does |
+|---|---|
+| Modules in the build files | The modules `get_library_start` reads, as the floor plan reads them, each a chip, with Draft as Pending |
+| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip |
+| Or feed the librarian | A box he pastes or drops docs into, or says what the project does in. Not built |
+
+**Draft as Pending** is `draft_module_features`: each module becomes its own pending feature, in the area `pending`, with no model asked.
+Its slug and title come from the module's name, and its folder is its one prefix in its repository, so the code map and health read it.
+He confirms, merges or renames each as any pending feature, from its row.
+Where the project keeps no area the press keeps one, Modules, so Confirm has a place to put a drafted row.
+The press is refused once the project holds a confirmed or seeded feature, and a slug the library holds is passed over, so a second press drafts only a module that came since.
+The panel goes when the first drafted row is confirmed.
+
+> **Rule.** Drafting is the one way a pending feature is made in a library with no feature of its own.
+> Why: it is his press that starts the library, so the earliest `added_at` is still the moment it started.
+
+Docs in the repo are shown and not yet read: sending them to the librarian waits on its own operation.
 
 ## Librarian
 
@@ -654,6 +679,8 @@ A Job whose turns were read before searches were counted is in no week until its
 | `check_docs` | The owner's Check, or the Operator, puts a feature's docs to the model against its code |
 | `dismiss_doc_flag` | The owner's Dismiss on a doc a check found disagreeing with the code |
 | `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
+| `get_library_start` | The modules a project's build files name and the docs at the top of its repositories, for the start panel |
+| `draft_module_features` | The owner's Draft as Pending, or the Operator, keeps each module of a project with no feature of its own as a pending feature |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |

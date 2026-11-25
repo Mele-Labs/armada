@@ -1,5 +1,5 @@
 // What a Session's Loadout says to a person: where each item came from, what kind it is, and the order sources
-// are offered in. The wire is `packages/protocol/src/loadout.ts`.
+// are offered in. The wire is `crates/ipc/src/loadout.rs`.
 
 import type { LoadoutUse, LoadoutSource } from "../../wire/index";
 

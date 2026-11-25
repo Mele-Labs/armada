@@ -4,8 +4,8 @@
 
 Since 1 Nov 2026. `.armada/documents/hi-fi-sketches.html`, *How a Job draws one* and *How Fleet finds the styles*.
 **Additive only**: one node kind and four node fields in the scene `show_sketch` carries, two operations, two routes and the types they answer; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half of the node is `mock`, `html`, `css`, `styles` and `kept` on `SceneNode` in `packages/components/src/compositions/SketchScene/scene.ts`; the mirror of the two answers is `packages/protocol/src/sessions.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half of the node is `mock`, `html`, `css`, `styles` and `kept` on `SceneNode` in `classic-final:packages/components/src/compositions/SketchScene/scene.ts`; the mirror of the two answers is `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |
