@@ -4,22 +4,14 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "packages/surfaces/*"
 
 # Which packages may run install scripts. pnpm blocks them all by default and
 # that default is right: an install script is arbitrary code from the registry,
-# run before anything has been reviewed. These need theirs — electron
-# fetches its binary, esbuild its platform executable — and a package absent
-# from this list runs nothing.
+# run before anything has been reviewed. These need theirs — esbuild its
+# platform executable — and a package absent from this list runs nothing.
 allowBuilds:
-  electron: true
+  electron: set this to true or false
   esbuild: true
-  # Arrived with electron-builder and builds the Windows installer. Armada is
-  # macOS, `electron-builder.yml` declares a `mac` target and nothing else, so
-  # its install script has nothing to prepare. `false` rather than absent
-  # because pnpm refuses the install until the package is decided either way —
-  # a blank line here fails `pnpm install` with the reason two screens up.
-  electron-winstaller: false
   # The Worker's runtime, which `apps/store` tests run on through miniflare. Its
   # install script links the platform binary the optional dependency brought.
   workerd: true
@@ -29,7 +21,3 @@ allowBuilds:
 # exact version. Without this the mismatch is a WARN line nobody reads, and the
 # failure lands later as a stack trace from whichever tool broke first.
 engineStrict: true
-
-# xterm writes its colours into <style> elements and style attributes, which Bridge's CSP (default-src 'self') refuses; the patch adopts the sheets and sets styles through CSSOM instead (docs/practices/bridge.md).
-patchedDependencies:
-  '@xterm/xterm': patches/@xterm__xterm.patch

@@ -4,7 +4,7 @@
 
 Since 4 Nov 2026. What the burn of the last 24 hours, 7 days and 14 days went on, and who spent it, for the Usage page's Spent on view.
 **Additive only**: one operation and the types it carries, and one field on `TokenUnits`; no fact, event or field on `SessionRecord`.
-Bridge's half is `packages/protocol/src/usage-spent.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/usage-spent.ts`, written by hand.
 The sums are made in SQL (`crates/store/src/usage_spent.rs`) so Bridge is sent figures and never rows.
 **Names and counts only**; titles are not carried, and Bridge joins `session_id` to the ones it holds.
 The parts and how a turn is shared among them are `docs/concepts/session/where-the-tokens-went.md`, *What the burn was spent on*.

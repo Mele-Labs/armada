@@ -11,4 +11,4 @@
     group = "Session"
     size = "12px"
     status = "Specified"
-    notes = "`DisputedMark` and `DisputedRow` in `packages/components/src/compositions/SessionThread/DisputedRow.tsx`. Tooltip is Disputed."
+    notes = "`DisputedMark` and `DisputedRow` in `classic-final:packages/components/src/compositions/SessionThread/DisputedRow.tsx`. Tooltip is Disputed."

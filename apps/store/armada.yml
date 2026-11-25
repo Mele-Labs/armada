@@ -17,8 +17,9 @@ setup:
 
 checks:
   # What CI's `format` job runs over the whole tree, asked before a pull request
-  # opens. `apps/desktop/armada.yml` says why it is a `pre_pr` Check and why the
-  # name is not `format`.
+  # opens. `runs_at: pre_pr` runs it when the agent goes to open the pull request
+  # and refuses that with the log tail until it passes. It is not `format`
+  # because the root already names a Command `format`, the one that writes.
   format_check:
     run: pnpm -C ../.. format:check
     runs_at: pre_pr

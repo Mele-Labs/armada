@@ -285,7 +285,7 @@ The word is `docs/contracts/design-system/voice-copy.md`, *Lexicon*.
 | The Needs you item for a `not_ours` end | `crates/fleet/src/watches/needing.rs` |
 | A rule starting one, and the deploy taking it on | `crates/fleet/src/lifecycles/acting.rs` |
 | What is kept | `crates/store/src/watches.rs` |
-| Bridge's copy of the wire | `packages/protocol/src/watches.ts` |
+| Bridge's copy of the wire | `classic-final:packages/protocol/src/watches.ts` |
 
 ## Not built
 

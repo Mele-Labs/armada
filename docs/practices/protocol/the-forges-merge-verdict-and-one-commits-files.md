@@ -4,7 +4,7 @@
 
 Since 16 Nov 2026. `docs/concepts/session.md`, *Acts on a pull request*.
 **Additive only**: one enum, two fields, one operation and one route, and no existing field changes.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 
 | Where | Side | Change |
 | --- | --- | --- |

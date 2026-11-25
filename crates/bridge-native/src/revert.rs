@@ -1,5 +1,5 @@
 //! Revert to the build before, asked from the app menu. Mirrors
-//! `apps/desktop/src/main/revert-asked.ts`, and says every string as it does: a native confirm,
+//! `classic-final:apps/desktop/src/main/revert-asked.ts`, and says every string as it does: a native confirm,
 //! then Fleet's own revert (`POST /fleet/build/revert`, no body), and where Fleet is not connected
 //! to ask, the undo the build before carries (`builds/previous/armada build revert`), run detached.
 //!

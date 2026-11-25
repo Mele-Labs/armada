@@ -5,8 +5,8 @@
 Since 2 Nov 2026. `docs/concepts/session/shared-terminal.md`; Protocol 23.93 was a Job's one shell.
 A Job holds several terminals, each named `t1`, `t2` and so on, and the person can hand the agent an ID.
 **Additive except three required fields**: two operations, one route each, and optional fields on the rest; `TerminalTyped`, `TerminalScreen` and `JobTerminal` gain a required `terminal`.
-There is no number to bump: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`.
-Bridge's half is `packages/protocol/src/sessions.ts`, `events.ts`, `watches.ts` and `hosted-sessions.ts`, written by hand, field for field.
+There is no number to bump: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, `events.ts`, `watches.ts` and `hosted-sessions.ts`, written by hand, field for field.
 
 IDs are a plain `String` on the wire, as `run_id` is.
 

@@ -1,4 +1,4 @@
-//! Restart Fleet through launchd, as `apps/desktop/src/main/restart-fleet.ts` does. **Only a Fleet the
+//! Restart Fleet through launchd. **Only a Fleet the
 //! service holds is restarted**: kickstarting the job beside a Fleet started by hand would run two.
 //! Blocking; the caller runs it off the main thread.
 

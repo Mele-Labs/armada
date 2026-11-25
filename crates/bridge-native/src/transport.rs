@@ -82,7 +82,7 @@ fn noted(result: Result<Result<(u16, Vec<u8>), String>, tokio::time::error::Elap
 const MODEL_CALL_MS: u64 = 150_000;
 
 /// Bridge names itself on every request so Fleet tells a press from an agent's
-/// (`api::CALLER_HEADER`, and `CALLER` in `apps/desktop/src/main/request.ts`).
+/// (`api::CALLER_HEADER`, and `CALLER` in `classic-final:apps/desktop/src/main/request.ts`).
 const CALLER: (&str, &str) = ("x-armada-caller", "bridge");
 
 async fn connect(port: u16) -> Result<TcpStream, String> {

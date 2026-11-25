@@ -4,4 +4,4 @@
   size = "12px"
   status = "Specified"
   reserved = "A webhook or an integration drawn as a node in a sketch (`show_sketch`), one of the glyphs a scene node may carry. Never in Armada's own surfaces, where a network call or an integration has no mark."
-  notes = "Kept for the sketch's node icons (`packages/components/src/compositions/SketchScene/scene.ts`), where a diagram of someone's product draws its webhooks. Three nodes joined by a strand is none of the outlines in the Job state set at 12px."
+  notes = "Kept for the sketch's node icons (`classic-final:packages/components/src/compositions/SketchScene/scene.ts`), where a diagram of someone's product draws its webhooks. Three nodes joined by a strand is none of the outlines in the Job state set at 12px."

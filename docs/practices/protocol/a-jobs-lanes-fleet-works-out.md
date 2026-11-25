@@ -3,13 +3,13 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 11 Nov 2026. Fleet works out the lanes a Job draws, and every client draws what it serves.
-Bridge worked them out in TypeScript: `lanesOfJob` in `packages/screens/src/session-lanes.ts` read what the Job holds, and `jobLanes` in `LaneCanvas/build.ts` drew lanes and edges from it.
+Bridge worked them out in TypeScript: `lanesOfJob` in `classic-final:packages/screens/src/session-lanes.ts` read what the Job holds, and `jobLanes` in `LaneCanvas/build.ts` drew lanes and edges from it.
 The native Bridge and Pocket read this instead.
 **Additive only**: one field on an existing type and the types it carries; no operation, route, event kind or error.
 Electron Bridge keeps its own TypeScript reading, so `get_job_lifecycles` and `job_lifecycles.changed` are as they were.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
 The Rust half is `crates/ipc/src/job_lanes.rs`; the reading is `crates/fleet/src/job_lanes.rs` with `read.rs` and `draw.rs` under it, and `crates/fleet/src/lane_keeping.rs` hands it what the store holds.
-Bridge's half is `packages/protocol/src/job-lanes.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/job-lanes.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

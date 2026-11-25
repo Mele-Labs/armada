@@ -4,9 +4,9 @@
 
 Since 17 Nov 2026. A message of his can be sorted as a question, and Fleet links each question to the reply of the Job's that answers it, unread until he reads it.
 **Additive only**: one enum value, two operations and their routes, one optional field on `SessionRecord`; no new event kind.
-The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations`, the route table and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations`, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/ipc/src/story.rs`; Fleet's is `crates/fleet/src/story/questions.rs`.
-Bridge's half is `answer_unread` in `packages/protocol/src/sessions.ts`; the story calls have no TypeScript mirror, since only native Bridge reads them.
+Bridge's half is `answer_unread` in `classic-final:packages/protocol/src/sessions.ts`; the story calls have no TypeScript mirror, since only native Bridge reads them.
 The rules are `docs/concepts/job-story.md`, *A question and its answer*.
 
 | Where | Side | Carries |

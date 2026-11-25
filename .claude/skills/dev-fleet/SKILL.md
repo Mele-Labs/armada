@@ -63,8 +63,8 @@ exits at once. **A Job it dispatches escalates rather than spending anything.**
 | For | Not for |
 |---|---|
 | Reading a Job's wire data as Fleet serves it | Watching a Drone do real work. The agent exits at once, so a dispatched Job escalates |
-| Recording a Job for the mock with `scripts/record-job.mjs` | Anything that must change the owner's Jobs. Every write lands on the copy and is thrown away with it |
-| Testing a surface against a real Fleet without holding his screen | Replacing `armada-local`. That is still the owner's Fleet and the owner's Bridge |
+| Reading a Job's records on a copy of his store, with `--copy-store` | Anything that must change the owner's Jobs. Every write lands on the copy and is thrown away with it |
+| Testing a client against a real Fleet without holding his screen | Replacing `armada-local`. That is still the owner's Fleet and the owner's Bridge |
 
 **Throw the directory away when you are done.** It holds a copy of the owner's
 transcripts and store, and nothing else needs it.

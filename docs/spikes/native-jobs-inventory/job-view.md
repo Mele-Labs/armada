@@ -6,8 +6,8 @@ Spec for the native build. Records what IS. Line numbers are against `native/job
 The values are the space, control-height and radius tokens Foundation's merged Jobs list uses, never literals, so the Job view matches the list.
 Layout, controls, states and keys still follow this inventory.
 
-**Which build is described.** The shipped Job view is a Job drawn **in panes**: `SessionView` (`apps/desktop/src/renderer/src/sessions.tsx:1703`) renders `SessionWorkspace` (`session-view/SessionWorkspace.tsx:88`) which, when `paned` (`:132`: `hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined`), draws `JobPanes` with the Thread as one tab; `SessionFrame` is then `headless` (`sessions.tsx:2905-2975`, prop `headless={onTab}`) and the Job's head is the **Thread tab** in the pane's tab strip (`job-panes/job-head.ts:1-3`: "the Job's view publishes them and draws no head of its own; the tab is the head").
-The thread is the spacious take, always on (`apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `sessions.tsx:1722`).
+**Which build is described.** The shipped Job view is a Job drawn **in panes**: `SessionView` (`classic-final:apps/desktop/src/renderer/src/sessions.tsx:1703`) renders `SessionWorkspace` (`session-view/SessionWorkspace.tsx:88`) which, when `paned` (`:132`: `hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined`), draws `JobPanes` with the Thread as one tab; `SessionFrame` is then `headless` (`sessions.tsx:2905-2975`, prop `headless={onTab}`) and the Job's head is the **Thread tab** in the pane's tab strip (`job-panes/job-head.ts:1-3`: "the Job's view publishes them and draws no head of its own; the tab is the head").
+The thread is the spacious take, always on (`classic-final:apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `sessions.tsx:1722`).
 Where the non-paned path exists (Job without `work`, or `hosts.zones` set) the `SessionFrame` head row is drawn instead; it is recorded at 1.8.
 
 ## 0. Composition of the open Job (shipped, paned)
@@ -93,14 +93,14 @@ Closing the Thread tab is allowed (the + menu then offers Thread again, `PaneVie
 
 ### 1.2 State mark and its tooltip
 
-`SessionMark` (`packages/components/src/compositions/SessionFrame/SessionFrame.tsx:138`): `<span class="armada-session-mark" role="img" aria-label={said} data-bucket data-pulsing>` inside a Tooltip with the same `said`; 16px lucide glyph stroke 2; `working` draws `WorkingMark` (turning arc) instead of a glyph.
+`SessionMark` (`classic-final:packages/components/src/compositions/SessionFrame/SessionFrame.tsx:138`): `<span class="armada-session-mark" role="img" aria-label={said} data-bucket data-pulsing>` inside a Tooltip with the same `said`; 16px lucide glyph stroke 2; `working` draws `WorkingMark` (turning arc) instead of a glyph.
 `limited` draws `LimitMark` (`BatteryLow`, bucket `waiting`).
 
 Bucket colour (`SessionFrame.css:252-273`): needs `--status-awaiting-review` (only this pulses via `data-apparent` for the tools mark), working `--status-running` (inner dot breathes, `armada-badge-pulse`, `--duration-pulse`; off under reduced motion), waiting `--status-handed-in`, idle `--fg-muted`, draft `--status-not-started`.
 `bucketOf` `SessionFrame.tsx:117`.
 
 State -> glyph (`SessionFrame.tsx:87-108`) and the sentence (tooltip = `said + " · " + (address ?? id)`, `sessions.tsx:2851`).
-State is computed in TypeScript by `jobStateOf` (`packages/screens/src/session-state.ts:103-266`), first match wins; `readSince` from `cockpit/viewed.ts`:
+State is computed in TypeScript by `jobStateOf` (`classic-final:packages/screens/src/session-state.ts:103-266`), first match wins; `readSince` from `cockpit/viewed.ts`:
 
 | # | Condition | state (glyph) | said |
 |---|---|---|---|
@@ -160,8 +160,8 @@ Pause/Resume, Auto land, Judge, Report, Release, Requests, Checks, Subagents are
   Key: bare `p` (`PAUSE_KEY`, `session-tiles.ts:152`) presses it while the Job is open and `p` is the key on the tile (`flight-keys.ts:47-52`); the palette also offers Pause/Resume ⌘P.
 - **Resume-and-send:** typing to a paused Job asks first: dialog `Job is paused`, body `Resuming takes a slot again. The note goes after.`, confirm `Resume and send` (initial focus on confirm), cancel gives the box its words back (`paused-send.tsx`).
 - **End job:** menu entry `End job` (1.3) or the done band's End button.
-  `askToEnd` (`apps/desktop/src/renderer/src/end-job.tsx:41-52`): if the Job holds nothing in flight it closes at once (`draft.close(id)`); else opens `InFlightDialog` (`session-view/InFlightDialog.tsx`): `Dialog tone="destructive" title="In flight" confirmLabel="End job" cancelLabel="Keep going"`, body `<ul class="sv-inflight" aria-label="In flight">` rows `"<label>: <state>"` (just `<label>` when state is empty).
-  The list is worked out in TypeScript from `session.lanes.job` (`inFlight()` in `packages/components/src/compositions/LaneCanvas/build.ts:735`: instances not `ended` and not in a lifecycle state with `end:true`, label = instance label, state = lifecycle state label or `unmapped` word or empty).
+  `askToEnd` (`classic-final:apps/desktop/src/renderer/src/end-job.tsx:41-52`): if the Job holds nothing in flight it closes at once (`draft.close(id)`); else opens `InFlightDialog` (`session-view/InFlightDialog.tsx`): `Dialog tone="destructive" title="In flight" confirmLabel="End job" cancelLabel="Keep going"`, body `<ul class="sv-inflight" aria-label="In flight">` rows `"<label>: <state>"` (just `<label>` when state is empty).
+  The list is worked out in TypeScript from `session.lanes.job` (`inFlight()` in `classic-final:packages/components/src/compositions/LaneCanvas/build.ts:735`: instances not `ended` and not in a lifecycle state with `end:true`, label = instance label, state = lifecycle state label or `unmapped` word or empty).
   **The wire already carries it as `SessionRecord.in_flight: Vec<InFlight {lifecycle, key, label, state}>` (`crates/ipc/src/sessions.rs:1443`, `lifecycles.rs:398`; "since 9 Nov 2026"), but Electron does not read that field** (grep: only `end-job.tsx`/`sessions-wired.test.ts`/protocol types mention in-flight; the dialog reads `lanes`).
 - Stopped Job: `Stop` menu entry (above) is the deck's act.
 
@@ -171,14 +171,14 @@ Pause/Resume, Auto land, Judge, Report, Release, Requests, Checks, Subagents are
 CSS: `SessionFrame.css:72-86` `display:flex; flex:none; align-items:center; gap:--space-2; min-width:0; min-height:--h-control-sm; color:--fg-subtle`; spacious (`spacious-thread.css:566-600`): `margin-top:--space-2; padding:--space-1 --space-2 0; gap:--space-3`; every `.armada-button` in it is `--h-control` x `--h-control` (28px square), transparent border/ground, `--fg-subtle`, hover `--bg-hover`/`--fg-default`.
 Contents, in DOM order (`SessionFrame.tsx:~656-696`):
 
-1. **Repository** (`SessionRepositoryOf`, `apps/desktop/src/renderer/src/session-move.tsx:15`; `packages/components/src/compositions/SessionRepository/SessionRepository.tsx`): drawn only when Fleet serves `move` and the Job's manifest is found among served repositories.
+1. **Repository** (`SessionRepositoryOf`, `classic-final:apps/desktop/src/renderer/src/session-move.tsx:15`; `classic-final:packages/components/src/compositions/SessionRepository/SessionRepository.tsx`): drawn only when Fleet serves `move` and the Job's manifest is found among served repositories.
    A chip: `FolderGit2` 12px + repository name + `ChevronDown` 12px; tooltip `Move to another repository` (or the name when `icon`-only), aria-label `Repository <name>`; a popover `Move to another repository` lists the other repositories (`aria-label="Repositories"`), a pick shows a caution Alert (what stays, what ends) and a `Move to <name>` button.
    Becomes a plain non-menu `Repository` chip when already moved (`to=[]`).
    Goes to icon-only (`icon`) when the head has no room (`useActsPlace().chip`).
    In a live terminal Job rows are disabled with tooltip `IN_A_TERMINAL`.
-2. **Aa - Thread look** (`lookHere.head` = `ThreadLookButton`, `packages/components/src/compositions/ThreadSettings/ThreadSettings.tsx:507`): ghost sm button text `Aa`, tooltip/aria-label `Thread look`, `aria-haspopup="dialog"`; opens a Popover (align end, label `Thread look`) holding `ThreadSettings`: `Agent name` text field; switches `Show agent name`, `Show times`; selects `Text size`, `Spacing`; section `Quick responses` (buttons per response, `Edit <name>`, `Add response`); section `Quick replies` (list of lines with `Edit/Save/Pin/Unpin/Move up/Move down/Delete <text>`; `New quick reply` field + `Add`; switch `Learn from my messages`; ⌥↑/⌥↓ moves a line); section `Voice` (select `Voice`, `Whisper model` row with `Install` / progress bar `Installing Whisper model` / `Installed`).
+2. **Aa - Thread look** (`lookHere.head` = `ThreadLookButton`, `classic-final:packages/components/src/compositions/ThreadSettings/ThreadSettings.tsx:507`): ghost sm button text `Aa`, tooltip/aria-label `Thread look`, `aria-haspopup="dialog"`; opens a Popover (align end, label `Thread look`) holding `ThreadSettings`: `Agent name` text field; switches `Show agent name`, `Show times`; selects `Text size`, `Spacing`; section `Quick responses` (buttons per response, `Edit <name>`, `Add response`); section `Quick replies` (list of lines with `Edit/Save/Pin/Unpin/Move up/Move down/Delete <text>`; `New quick reply` field + `Add`; switch `Learn from my messages`; ⌥↑/⌥↓ moves a line); section `Voice` (select `Voice`, `Whisper model` row with `Install` / progress bar `Installing Whisper model` / `Installed`).
    Look is stored by `thread-look-here.tsx` (setting `thread.look`, saved 400 ms after a change).
-3. **Runs place** (`marked`, `sessions.tsx:2752`): `RunsPlaceControl` (`apps/desktop/src/renderer/src/RunsPlaceControl.tsx:42`): ghost icon button (glyph by place `PLACE_GLYPH`), tooltip/aria-label `Armada configuration kept <placePhrase>`, opens a menu starting with the line `Where Armada keeps this repository's configuration: how its tests, build and dev server run.`; J/K move, Enter picks, Esc closes.
+3. **Runs place** (`marked`, `sessions.tsx:2752`): `RunsPlaceControl` (`classic-final:apps/desktop/src/renderer/src/RunsPlaceControl.tsx:42`): ghost icon button (glyph by place `PLACE_GLYPH`), tooltip/aria-label `Armada configuration kept <placePhrase>`, opens a menu starting with the line `Where Armada keeps this repository's configuration: how its tests, build and dev server run.`; J/K move, Enter picks, Esc closes.
    Absent while the card form (`RunsPlaceCard` in the thread's lead) is up (`cardLead`) or the thread is unread.
 4. **Job acts** (`JobActsSlot`, `job-panes/acts.tsx:292`): `<span class="job-acts" role="toolbar" aria-label="Job acts">`; flex, gap `--space-1`; empty = `display:none`.
    Buttons are drawn into this slot by `SessionTiles` (`cockpit/deck/SessionTiles.tsx:796-840`, mounted `Deck.tsx:1734-1749` with `head`) as ghost sm icon-only 16px buttons (`drawIcon`, `:730-795`).
@@ -207,7 +207,7 @@ Marks that appear in non-paned heads only (`!headless`): `Terminal` ghost button
 
 | Mark | Component / lines | Layout and strings | Condition |
 |---|---|---|---|
-| Forked from | `packages/components/src/compositions/ForkedFrom/ForkedFrom.tsx:9` (+ `.css`), mounted `sessions.tsx:3054-3064` above the thread | `<details class="armada-forked-from" aria-label="Forked from <title>">`; closed `<summary role="button">Forked from <title></summary>` (padding `--space-2 --space-3`, `--text-xs`, `--fg-muted`; box `--bg-raised`, radius `--radius-md`); open shows the origin Job's rows read-only in `.armada-forked-from__rows` (`max-height: calc(--space-12 * 6)`, padding `0 --space-3 --space-3`); onToggle open calls `draft.watch(origin.id)` to read the thread | `origin !== undefined && !carried` where `origin` = attachment `forked_from` of kind (`sessions.tsx:1887-1895`); `carried = forkedFrom.moved !== undefined` |
+| Forked from | `classic-final:packages/components/src/compositions/ForkedFrom/ForkedFrom.tsx:9` (+ `.css`), mounted `sessions.tsx:3054-3064` above the thread | `<details class="armada-forked-from" aria-label="Forked from <title>">`; closed `<summary role="button">Forked from <title></summary>` (padding `--space-2 --space-3`, `--text-xs`, `--fg-muted`; box `--bg-raised`, radius `--radius-md`); open shows the origin Job's rows read-only in `.armada-forked-from__rows` (`max-height: calc(--space-12 * 6)`, padding `0 --space-3 --space-3`); onToggle open calls `draft.watch(origin.id)` to read the thread | `origin !== undefined && !carried` where `origin` = attachment `forked_from` of kind (`sessions.tsx:1887-1895`); `carried = forkedFrom.moved !== undefined` |
 | Started by | `StartedBy.tsx:5`; `useStartedBy` (`session-started.tsx:48`) | `<button class="armada-started-by">Started by <title></button>` opens that Job. Same hook seeds the held Job's first message into the composer draft (`seedDraft`) and forgets it if untouched when the start message goes away | attachment `started_by` |
 | Moved/forked-to rows | `session-started.tsx:20-31` labels `Moved to`, `Moved from`, `Forked to`, `Forked from`, `Started`, `Started by` | thread rows (agent A) | |
 | Held notice | `HeldNotice`, `operator/marks.tsx:65`; passed as `notice` to `SessionFrame` (renders even when headless: `{notice}` after the header, `SessionFrame.tsx:~770`) | `<div class="armada-operator__held" role="group" aria-label="Held by the Operator">` `Clock` 12px + `Held until <waitSaid>.[ <why>]` + secondary sm button `Start now` (`store.act({kind:"start", line:id, by:"press"})`) | Operator's line has a row for this Job |
@@ -282,7 +282,7 @@ The only plan bar is `PlanBar` (`session-view/FieldPlan.tsx:12`, one segment per
 Which one did the owner mean by "the plan progress bar" in the head?
 Not determined.
 
-QUESTION: `Fleet` `Session` is assembled in `packages/screens/src/draft/sessions.ts` and a mock/wired layer from `SessionRecord`+`SessionRow`; this pass did not read that mapping file in full, so some TS-only derivations (for example `owes`, `lapsed`, `standing` defaults, `pressed`) are named above from usage, not from their definitions.
+QUESTION: `Fleet` `Session` is assembled in `classic-final:packages/screens/src/draft/sessions.ts` and a mock/wired layer from `SessionRecord`+`SessionRow`; this pass did not read that mapping file in full, so some TS-only derivations (for example `owes`, `lapsed`, `standing` defaults, `pressed`) are named above from usage, not from their definitions.
 
 ---
 
@@ -391,7 +391,7 @@ A process row's Stop (`SystemLayer.tsx:130-142`) sends `POST /sessions/stop_proc
 A failed read leaves the skeleton up (`system.ts:196-216`).
 
 Bays is `BaysLayer` (`SessionLayers.tsx:739`): the Write clashes table, then one `Berth` per held bay (`cockpit/deck/BayRows.tsx:151`).
-A press on a bay opens the Bay side panel (`shared-panel/panels.tsx:310`), whose Facts tab carries the acts (`packages/components/src/compositions/PoolSlots/TileActs.tsx:89-168`).
+A press on a bay opens the Bay side panel (`shared-panel/panels.tsx:310`), whose Facts tab carries the acts (`classic-final:packages/components/src/compositions/PoolSlots/TileActs.tsx:89-168`).
 
 | Act | Shown when | Confirm |
 |---|---|---|
@@ -409,7 +409,7 @@ The Scout's Finding is `SlotFinding` (`SlotFinding.tsx:133-189`).
 
 ## 3. The thread
 
-The thread is `SessionThread` (`packages/components/src/compositions/SessionThread/SessionThread.tsx`, 4238 lines) drawn with the spacious take (`apps/desktop/src/renderer/src/spacious-thread.css`, always on, `main.tsx:14`), mounted by `sessions.tsx:3058-3278` as the Thread tab's pane.
+The thread is `SessionThread` (`classic-final:packages/components/src/compositions/SessionThread/SessionThread.tsx`, 4238 lines) drawn with the spacious take (`classic-final:apps/desktop/src/renderer/src/spacious-thread.css`, always on, `main.tsx:14`), mounted by `sessions.tsx:3058-3278` as the Thread tab's pane.
 It is fed raw `SessionRow`s plus the `SessionRecord`; it folds them itself.
 Part A covers the container, messages, folded calls, subagents, Checks, Fleet turns, other ledger rows and fork-from-selection.
 Part B covers the cards (sketch, file, document, plan, draft, asked question, picks, open call, lapsed, notices), the four thread keys and the Needs you dock.
@@ -418,13 +418,13 @@ Part B covers the cards (sketch, file, document, plan, draft, asked question, pi
 
 Scope: thread container, person/agent/Fleet messages, folded calls, subagents, Checks, Fleet turns, ledger-ish rows, fork-from-selection.
 Part B (not covered): plan card, draft card, asked question card / picks / QuestionDeck / AskCard, start picks, open call, lapsed questions, sketch/file/document cards, thread-keys (`⌥↵ ⌥E ⌥R ⌥X`).
-All paths are repo-relative `path:line`. `SC` = `packages/components/src/compositions/SessionThread`. `SPA` = `apps/desktop/src/renderer/src/spacious-thread.css`.
+All paths are repo-relative `path:line`. `SC` = `classic-final:packages/components/src/compositions/SessionThread`. `SPA` = `classic-final:apps/desktop/src/renderer/src/spacious-thread.css`.
 
 ## Tokens used
 
 Values from `packages/tokens/tokens.css` (dark is default `:root`; light = `[data-theme="light"]`).
 Density default; `data-spacing="compact|roomy"` on root rescales `--space-*`, `--h-control*` (tokens.css:1245-1281) — default set below.
-`takes.css` (`:root[data-look="new"]`, always set by `packages/components/src/look.ts`) lifts Dark `--fg-muted`/`--fg-subtle` and fixes shadows.
+`takes.css` (`:root[data-look="new"]`, always set by `classic-final:packages/components/src/look.ts`) lifts Dark `--fg-muted`/`--fg-subtle` and fixes shadows.
 
 | Token | Dark value (shipped default) | Light | Source |
 |---|---|---|---|
@@ -477,8 +477,8 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 ### A0.1 Which take is shipped
 | Fact | Where |
 |---|---|
-| The spacious take is ON for every Job in the shipped app. | `apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `main.tsx:6` imports `spacious-thread.css` after the base CSS. |
-| `SpaciousTake` React context (`SC/spacious-take.ts:7`, default `false`) is provided as `useContext(SpaciousTake) \|\| body.dataset.threadTake === "spacious"` | `apps/desktop/src/renderer/src/sessions.tsx:1722`, provider `sessions.tsx:2874`. |
+| The spacious take is ON for every Job in the shipped app. | `classic-final:apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `main.tsx:6` imports `spacious-thread.css` after the base CSS. |
+| `SpaciousTake` React context (`SC/spacious-take.ts:7`, default `false`) is provided as `useContext(SpaciousTake) \|\| body.dataset.threadTake === "spacious"` | `classic-final:apps/desktop/src/renderer/src/sessions.tsx:1722`, provider `sessions.tsx:2874`. |
 | Every spacious CSS rule is scoped `:root[data-look] [data-thread-take="spacious"] .armada-session-frame …` (so only inside the Job view's `.armada-session-frame`), and beats the base rules on specificity. | SPA throughout |
 | Components branch on the context for structure: no agent name head, `MessageBar`, live calls list, lease as one line, `Thinking` word on the working line, `Exit N` on failed runs, undrawn tool filter. | `SessionThread.tsx` (marked `spacious` below) |
 | A thread drawn elsewhere (call card, subagent pane, `ForkedFrom` origin thread `sessions.tsx:3048`, mock sheets) lacks the context and draws the BASE look. This spec records the SHIPPED (spacious) look and notes base differences in `Base` columns where a native build might need them. | |
@@ -492,7 +492,7 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 | i2 | item `fleetTurn` | `FleetTurn` | A6 | A |
 | i3 | item `subagent` | `SubagentRow` | A4 | A |
 | i4 | item `checks` | `CheckRuns` 1389 | A5 | A |
-| 1 | `retro` | `SessionRetroRow` (`packages/components/src/compositions/SessionRetroRow`) | A7.14 | A (not named by B; recorded here) |
+| 1 | `retro` | `SessionRetroRow` (`classic-final:packages/components/src/compositions/SessionRetroRow`) | A7.14 | A (not named by B; recorded here) |
 | 2 | `woke` | inline `<li>` 2047 | A7.1 | A |
 | 3 | `not_started` | `StartFailedRow` | A7.2 | A |
 | 4 | `act` | inline 2076 | A7.3 | A |
@@ -525,7 +525,7 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 | 31 | `message` `from:"agent"` | inline `li.armada-thread-row` ~2418 | A2.3 | A |
 | — | cards the thread draws that are NOT rows: plan card / plan record, sketch pin, ask cards, lapsed deck, trailing, inline `ThreadCard`s, `lead` | | | B (card contents); A1.4 places them |
 | — | `browser_reminder` | filtered out before the thread (`session-thread-rows.ts:238`); the Job browser draws it | | not in thread |
-| — | wire `plan`, `delivery` rows | no case in `rowsOfThread` (`packages/screens/src/sessions-wire.ts:1094`), so the Electron thread never draws them | | not drawn |
+| — | wire `plan`, `delivery` rows | no case in `rowsOfThread` (`classic-final:packages/screens/src/sessions-wire.ts:1094`), so the Electron thread never draws them | | not drawn |
 
 ### A0.3 Where each fold/derivation is worked out (TS vs wire)
 | Derivation | Electron | Wire |
@@ -537,7 +537,7 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 | Row timestamps flip, ages | `Stamp` (TS) | `at` RFC 3339 |
 | Optimistic person's message (`delivery`, `stableKey`) | `outgoing.ts` (client only) | none (not on wire) |
 | `queued` | wire `Message.queued` | present |
-| `batch` (Fleet notices batched by a taught rule) | `batchNotices` `apps/desktop/src/renderer/src/teach.ts:339` | none |
+| `batch` (Fleet notices batched by a taught rule) | `batchNotices` `classic-final:apps/desktop/src/renderer/src/teach.ts:339` | none |
 | `moved` rows | `session-moved.ts` from `forked_from` attachments | none |
 | `divider`, carried "earlier Job" rows (ids prefixed `<earlier-id>:`) | `sessions.tsx:1905-1925` | none |
 | `judged` rows | `judge/thread.tsx:36 useJudgedRows` from judge records | none |
@@ -546,10 +546,10 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 | `not_started` row | `session-thread-rows.ts:50` from `session.startFailed` (`why = "Did not start: " + cause`, id `not-started`, `at` = last row's at, else `lastTurnAt`, else epoch) | `ThreadItem::NotStarted{cause,log}` — Rust carries `cause` only; the `Did not start: ` prefix is TS |
 | `reasoning`, `act`, `woke`, `operator` rows | TS row types exist (`SessionThread.tsx:232-312, 314-330`); the only producers found are mocks/stories; no wire variant | none |
 
-A0.3b settled `ask` row → one tool line (so it folds inside a calls run): text `"<command>: <word>"`, `fromPhone` when `via == "phone"`, word map `packages/screens/src/sessions-wire.ts:1064`: ran_unasked "ran without asking"; allowed_once "allowed once"; allowed_and_remembered "allowed and remembered"; always_allowed "always allowed"; always_blocked "always blocked"; allowed_for_session "allowed for this job"; refused "refused"; unanswered "no answer"; kept "kept for you"; session_gone "job ended".
+A0.3b settled `ask` row → one tool line (so it folds inside a calls run): text `"<command>: <word>"`, `fromPhone` when `via == "phone"`, word map `classic-final:packages/screens/src/sessions-wire.ts:1064`: ran_unasked "ran without asking"; allowed_once "allowed once"; allowed_and_remembered "allowed and remembered"; always_allowed "always allowed"; always_blocked "always blocked"; allowed_for_session "allowed for this job"; refused "refused"; unanswered "no answer"; kept "kept for you"; session_gone "job ended".
 `window_ask` row → tool line `Asked in the window: <question>` + (answer ? ` — <answer with \n→" · ">`).
 
-### A0.4 What `sessions.tsx` passes to `<SessionThread>` (`apps/desktop/src/renderer/src/sessions.tsx:3071-3262`)
+### A0.4 What `sessions.tsx` passes to `<SessionThread>` (`classic-final:apps/desktop/src/renderer/src/sessions.tsx:3071-3262`)
 Wrapped in `RequestOpen`, `SavedOpen`, `ProseCodeColour` (= `colourCode` when spacious, else null), and (outside this file) `SessionRefs` (prose references), `StampSurface` is inside the thread.
 
 | Prop | Value / condition |
@@ -596,7 +596,7 @@ Not passed: `agentName` when blank (default `"Agent"`), `askRef`, `onOpenSent`.
 | Base CSS | `SC/SessionThread.css:4-33` (container, stage, rows), `SC/ThreadRows.css:8-60` (row list, agent row) |
 | Spacious CSS (shipped) | `SPA:1-143` (column, padding, mask, scrollbar, gap), `SPA:620-720` (live list, end card) |
 | Skeleton | `SessionThread.tsx:2502` / `SC/SessionThread.css:1603-1625` |
-| Mounted by | `apps/desktop/src/renderer/src/sessions.tsx:3071` inside `ThreadKeys` inside `.armada-session-frame__centre` (flex column, `gap: var(--space-3)`, `SessionFrame.css:392`) |
+| Mounted by | `classic-final:apps/desktop/src/renderer/src/sessions.tsx:3071` inside `ThreadKeys` inside `.armada-session-frame__centre` (flex column, `gap: var(--space-3)`, `SessionFrame.css:392`) |
 
 ### A1.2 DOM / region tree (top to bottom)
 ```
@@ -679,11 +679,11 @@ Ordering rules inside items:
 | Opening: ResizeObserver on the scroller (box shortened) and on the `ol` (content grows without a row, e.g. a web font arriving) re-pin while pinned; the `ol` observer is dropped after `OPENING_MS = 5000` or the first `pointerdown`/`keydown` on the scroller. | 3703-3735 |
 | Reading higher up: rows arriving at the end while NOT pinned widen the drawn window by the same count, so nothing above drops out. | 3796-3802 |
 | Show earlier preserves position: before drawing 40 more it records `{scrollHeight, scrollTop}`, then sets `scrollTop = top + newHeight − oldHeight`. | 3805-3827 |
-| Pane Back keeps place: leaving a Job notes the thread's `scrollTop` unless within 40px of the end, and restores it two animation frames after rows draw (`apps/desktop/src/renderer/src/session-view/place.ts:17-60`). | place.ts |
+| Pane Back keeps place: leaving a Job notes the thread's `scrollTop` unless within 40px of the end, and restores it two animation frames after rows draw (`classic-final:apps/desktop/src/renderer/src/session-view/place.ts:17-60`). | place.ts |
 | **There is no jump-to-latest control.** The only floating jump control is `CallChip` (below). | |
 | Keys on the scroller itself (only when `event.target === scroller` and no ⌘/Ctrl/Alt): PageUp = `scrollBy −0.9*clientHeight`; PageDown = `+0.9*clientHeight`; Home = `scrollBy −scrollTop` (to top); End = `scrollBy +scrollHeight` (to bottom). `behavior: "smooth"` unless `prefers-reduced-motion: reduce` → `"auto"`. Arrow keys and Space use the browser default. | 3938-3961 |
 
-`CallChip` (`apps/desktop/src/renderer/src/session-view/CallChip.tsx`) — the one jump control: a pill centred horizontally over the composer, `position:absolute; inset-block-end: calc(space-8 + space-2)` = 40px above the zero-height `.sv-callchip` box, `inset-inline-start: 50%; translate −50% 0`; height `--h-control-sm` 24, padding `0 space-3`, border 1px `border-default`, radius `radius-md`, bg `bg-raised`, text colour `status-awaiting-review`, gap `space-1`; label is the word `Plan` (only when an unapproved plan is waiting and `planAsked`), then `ArrowDown` 12px.
+`CallChip` (`classic-final:apps/desktop/src/renderer/src/session-view/CallChip.tsx`) — the one jump control: a pill centred horizontally over the composer, `position:absolute; inset-block-end: calc(space-8 + space-2)` = 40px above the zero-height `.sv-callchip` box, `inset-inline-start: 50%; translate −50% 0`; height `--h-control-sm` 24, padding `0 space-3`, border 1px `border-default`, radius `radius-md`, bg `bg-raised`, text colour `status-awaiting-review`, gap `space-1`; label is the word `Plan` (only when an unapproved plan is waiting and `planAsked`), then `ArrowDown` 12px.
 Shown only while `li.armada-session-thread__tail`'s top is below `scrollerBottom − 24`; press scrolls the tail into view (`block:"end"`, smooth unless reduced motion) and focuses its first `button, textarea, input`.
 Hover bg `color-mix(fg-default 6%, bg-raised)`; focus-visible: `box-shadow: inset 2px 0 0 var(--accent)` no outline (`session-view.css:1331-1361`).
 
@@ -724,10 +724,10 @@ Shown when `working === true && running subagents == 0 && (!endsInCalls || askin
 Click `preventDefault + stopPropagation` (does not toggle a folded group) then `onStop()`.
 Button box = 24×24 (`--h-control-sm`), ghost: transparent, `fg-muted`, hover bg `bg-hover` + `fg-default`, active bg `bg-sunken` + border `border-strong`, radius `radius-md`.
 
-### A1.11 Timestamps (`RowStamp` 587 → `Stamp`, `packages/components/src/primitives/Stamp/Stamp.tsx`)
+### A1.11 Timestamps (`RowStamp` 587 → `Stamp`, `classic-final:packages/components/src/primitives/Stamp/Stamp.tsx`)
 | Aspect | Rule |
 |---|---|
-| Default text | clock in the owner's format: `DEFAULT_TIME_FORMAT = {hour12:false, seconds:true, date:false}` → `HH:MM:SS` (locale `Intl.DateTimeFormat([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})`). A stamp from an earlier local day than now shows `Mon D ` prefix (`Intl {month:"short",day:"numeric"}`), e.g. `Oct 12 14:02:09`. `date:true` always prefixes. `hour12:true` → `numeric` hour with AM/PM. `packages/components/src/time-format.ts:17-136` |
+| Default text | clock in the owner's format: `DEFAULT_TIME_FORMAT = {hour12:false, seconds:true, date:false}` → `HH:MM:SS` (locale `Intl.DateTimeFormat([], {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})`). A stamp from an earlier local day than now shows `Mon D ` prefix (`Intl {month:"short",day:"numeric"}`), e.g. `Oct 12 14:02:09`. `date:true` always prefixes. `hour12:true` → `numeric` hour with AM/PM. `classic-final:packages/components/src/time-format.ts:17-136` |
 | Age reading | `<1m ago`, `Nm ago`, `Nh ago`, `Nd ago` (floor; ahead-of-now reads `<1m ago`); redrawn every 15s |
 | Flip | a stamp is a `<button class="armada-stamp">` (no fill, no underline, inherits font/colour; `cursor:pointer`); a press flips EVERY stamp inside the thread's `StampSurface` between clock and age; tooltip shows the other reading; the press does not reach the row (stopPropagation) |
 | Non-instant `at` | text drawn as it came, no button, no tooltip |
@@ -747,7 +747,7 @@ It reads, never owns, the selection.
 | `showAgentName === false` | `data-who="hidden"` | base only (agent head isn't drawn in spacious anyway) |
 | `textSize` ≠ base | `data-text="xs|sm|lg"` | `--spacious-body`/`-leading`: xs → `--text-xs` (13px)/20px; sm → `--text-sm` (14px)/22px; lg → `--text-lg` (18px)/28px; base 15/24 (SPA:149-168) |
 | `spacing` ≠ default | `data-spacing="compact|roomy"` | `--spacious-turns` 16 / 40 (default 28); `--thread-message-room` 4 / 16 (default 8) |
-Defaults: `DEFAULT_LOOK = {showTimes:true, showAgentName:true, textSize:"base", spacing:"default"…}` (`packages/components/src/compositions/ThreadSettings/thread-look.ts:208`), saved under setting `thread.look`.
+Defaults: `DEFAULT_LOOK = {showTimes:true, showAgentName:true, textSize:"base", spacing:"default"…}` (`classic-final:packages/components/src/compositions/ThreadSettings/thread-look.ts:208`), saved under setting `thread.look`.
 Note: the body-size attribute does not size a plain (tag-bearing) sent paragraph `p.armada-session-said`, which inherits `--text-sm` 14px/20px (or `--thread-text` when `data-text` is set) from `.armada-session-you__body` / `.armada-thread-row__message`.
 
 ### A1.14 Accessibility of the container
@@ -803,7 +803,7 @@ Keys: none on the bubble (not focusable). Selecting words → A8; Aa text-size d
 | none | `delivery` undefined (Fleet's row) | nothing | |
 | Queued | `row.queued === true` (wire `Message.queued`) | `span.armada-session-you__queued` role=img: `Clock` 12px + word **Queued** (root `--text-2xs` 12px / `--leading-2xs` 16px, `fg-muted`, gap `space-1`; the bubble is not inside `.armada-prose`) | `Queued until the subagent returns` |
 `delivery` clears when Fleet's own row arrives; the row keeps `stableKey` so the DOM element survives (`outgoing.ts`).
-Sending→failed rule and Retry resend live in `apps/desktop/src/renderer/src/outgoing.ts` (client).
+Sending→failed rule and Retry resend live in `classic-final:apps/desktop/src/renderer/src/outgoing.ts` (client).
 
 ### A2.3 The agent's message (`li.armada-thread-row[data-from="agent"]`, SessionThread.tsx ~2418)
 | Part | Spacious (shipped) | Base |
@@ -1239,7 +1239,7 @@ An optimistic person message has a client-made `id` until Fleet's row replaces i
 QUESTION: Threads drawn outside the Job view (the origin thread inside `ForkedFrom`, call cards, subagent pane, mock sheets) get the BASE look, not spacious; should the native build draw the base look for the opened `Forked from <title>` thread, or the spacious one?
 QUESTION: `MessageBar` fades with `transition: opacity 120ms` and has no `prefers-reduced-motion` override in `spacious-thread.css` or `SessionThread.css`; is there a global reduced-motion rule that zeroes it, or does it fade under reduced motion today?
 QUESTION: `spacious-thread.css` still carries `p[data-pick]` hover/focus fill rules and `.armada-prose__pick-acts` rules, but `ProsePick` is `null` in the spacious thread (`SessionThread.tsx` agent row), so nothing in the Job view sets `data-pick`; is that CSS dead for the Job view, and should the native build skip a per-paragraph pick bar?
-QUESTION: Row kinds `woke`, `act`, `operator`, `reasoning` (and `moved`/`judged`/`divider`/`change`/`suggest`/`not_started` via TS) exist in `SessionThreadRow`, but `rowsOfThread` (`packages/screens/src/sessions-wire.ts:1094`) has no case for `woke`, `act`, `operator`, `reasoning`; does any other producer (Rust `SessionRow`, plugin, mod) emit them, or are they mock-only and safe to omit natively?
+QUESTION: Row kinds `woke`, `act`, `operator`, `reasoning` (and `moved`/`judged`/`divider`/`change`/`suggest`/`not_started` via TS) exist in `SessionThreadRow`, but `rowsOfThread` (`classic-final:packages/screens/src/sessions-wire.ts:1094`) has no case for `woke`, `act`, `operator`, `reasoning`; does any other producer (Rust `SessionRow`, plugin, mod) emit them, or are they mock-only and safe to omit natively?
 QUESTION: Rust `thread_view.rs` folds Fleet turns, calls, Checks and subagents without Electron's `keep` set (disputed notices, and the last Fleet turn while the Job is asking), without the `UNDRAWN` filter, and leaves a settled `ask` as `Row{Ask}`; should the native thread use Fleet's `ThreadItem`s and re-add those three TS rules on top, or fold the rows itself exactly as `itemsOf` does?
 QUESTION: In `itemsOf`, a `tool` row that carries a `subagent` and follows a Fleet notice is swallowed into the Fleet turn's `reply` (drawn as a plain tool line inside the opened turn), so it never becomes a `SubagentRow`; is that intended, and does Rust `thread_view.rs` do the same?
 QUESTION: `forkAt(id, rowId)` is given the message row id; for an optimistic person message (client-made `id`, `stableKey` kept) before Fleet's row arrives, does the fork still work, or is the Fork act hidden/failing?
@@ -1247,12 +1247,12 @@ QUESTION: Syntax colouring of fenced blocks (`colourCode`, `.tok-*` classes at `
 QUESTION: The inline Run of a shell fence (`RunnableBlock`, `RunOutput`, `InlineTerminal`, `HeldTerminal`, `ProseTerminal`) and the slash-command chip (`SlashCommand`) are summarised only by their acts here (A2.9); are they part of "message markdown" for the native spec, or covered by another part?
 QUESTION: `ReferenceLink` (rendered `#123`, Job ids, paths, documents, taught links) and `Picture`/`ProseAttachments` (inline images, video posters) were recorded by behaviour, not by style; do they need pixel values recorded?
 QUESTION: `LessonRoute` (the who/lands-in route line in a retro item), `PullRequestStateMark`, `PullRequestChecksMark` and `artifactOf` (glyph and word per artifact kind in the end card) were named but not expanded; do they need their own entries?
-QUESTION: `Stamp` ages and clock use `Intl` with the user's locale and the owner's time-format setting (`hour12`, `seconds`, `date`); in native, is the same locale-aware format required, and where does the setting live (`packages/components/src/time-format.ts`)?
+QUESTION: `Stamp` ages and clock use `Intl` with the user's locale and the owner's time-format setting (`hour12`, `seconds`, `date`); in native, is the same locale-aware format required, and where does the setting live (`classic-final:packages/components/src/time-format.ts`)?
 QUESTION: The scroller restores position on Back via `session-view/place.ts` (two animation frames after rows draw, skipped within 40 px of the end); is that restore part of the Thread spec or of the Job view's navigation spec?
 
 ### Part B: Job thread, part B: the cards (as shipped in Electron today)
 
-Record of what IS. Paths are repo-relative. `ST` = `packages/components/src/compositions/SessionThread`. `DESK` = `apps/desktop/src/renderer/src`.
+Record of what IS. Paths are repo-relative. `ST` = `classic-final:packages/components/src/compositions/SessionThread`. `DESK` = `classic-final:apps/desktop/src/renderer/src`.
 
 ## B0 Ground rules that apply to every card below
 
@@ -1261,12 +1261,12 @@ Record of what IS. Paths are repo-relative. `ST` = `packages/components/src/comp
 | Fact | Where |
 |---|---|
 | The Job's thread is `<SessionThread>` inside `<ThreadKeys key={session.id}>` inside `.armada-session-frame__centre` | `DESK/sessions.tsx:3050-3058` |
-| The frame is a `Card` (`armada-card armada-session-frame`, `role="region"`, `aria-label="Job <name>"`) | `packages/components/src/compositions/SessionFrame/SessionFrame.tsx:738` |
+| The frame is a `Card` (`armada-card armada-session-frame`, `role="region"`, `aria-label="Job <name>"`) | `classic-final:packages/components/src/compositions/SessionFrame/SessionFrame.tsx:738` |
 | `.armada-card.armada-session-frame` sets `--pad-card: calc(var(--space-6)/2)` = 12px (default spacing), `gap: calc(var(--space-3)/2)`; `--pad-card` inherits, so every `Card` in the thread (plan, draft, ask, sketch pin) pads 12px, not the Card default 20px | `DESK/session-view/session-view.css:1304-1325` |
 | Inside the frame `.armada-session-thread`, `.armada-session-thread__stage`, `.armada-session-frame__centre` gap is `calc(var(--space-3)/2)` = 6px (base rule is `--space-4`) | `DESK/session-view/session-view.css:1311-1315`, base `ST/SessionThread.css:3-10` |
 | Thread rows are one `<ol class="armada-thread-rows">`: `display:flex; column; gap: var(--thread-gap, var(--space-4)); list-style none` | `ST/ThreadRows.css:8-16` |
 | Thread scroller `.armada-session-thread__rows`: `flex:1; min-height:0; overflow:auto; isolation:isolate` | `ST/SessionThread.css:20-26` |
-| CSS order in `packages/components/src/index.css`: Card.css (line 20) loads before SessionThread.css (329), SketchRow.css (338), DraftRow.css (413); a one-class rule in the later file wins over `.armada-card` | `packages/components/src/index.css` |
+| CSS order in `classic-final:packages/components/src/index.css`: Card.css (line 20) loads before SessionThread.css (329), SketchRow.css (338), DraftRow.css (413); a one-class rule in the later file wins over `.armada-card` | `classic-final:packages/components/src/index.css` |
 
 ### B0.2 Which cards Electron really draws in the thread (important)
 
@@ -1289,7 +1289,7 @@ Record of what IS. Paths are repo-relative. `ST` = `packages/components/src/comp
 |---|---|
 | `document.body.dataset.threadTake = "spacious"` is set unconditionally at start-up: **the shipped app always draws every Job thread in the spacious take** | `DESK/main.tsx:13-14` |
 | `import "./spacious-thread.css"` after the app's own CSS | `DESK/main.tsx:6` |
-| `document.documentElement.dataset.look = "new"` | `packages/components/src/look.ts:4`, imported `DESK/main.tsx:7` |
+| `document.documentElement.dataset.look = "new"` | `classic-final:packages/components/src/look.ts:4`, imported `DESK/main.tsx:7` |
 | `SpaciousTake` React context value = `useContext(SpaciousTake) \|\| body.dataset.threadTake === "spacious"` = true in the app; provided by `<SpaciousTake.Provider value={spacious}>` | `DESK/sessions.tsx:1722, 2874`; context `ST/spacious-take.ts:7` |
 | Every spacious selector is `:root[data-look] [data-thread-take="spacious"] .armada-session-frame ...` (so only inside a Job's frame) | `DESK/spacious-thread.css` |
 | JS difference with `spacious` true: rows the take leaves out (`UNDRAWN`: `TaskCreate TaskUpdate TaskList TaskGet ToolSearch show_window` tool rows) are filtered before folding | `ST/SessionThread.tsx:1215-1226, 3728-3731` |
@@ -1349,10 +1349,10 @@ Derived values used below: `--h-row*1.25` = 35px; `--h-row-unit*8` = 288px; `--h
 
 | Primitive | Facts (file) |
 |---|---|
-| `Card` (`flat`) | `div.armada-card[data-flat]`: flex column, `gap: var(--space-3)`, `padding: var(--pad-card)`, `border: 1px solid var(--border-default)`, radius `--radius-md` (6), bg `--bg-raised`, color `--fg-default`; `flat` removes glass (`packages/components/src/primitives/Card/Card.css:20-30`, `Card.tsx`). `CardFooter`: flex, `align-items:center`, `gap: var(--space-2)` |
-| `Button` | height `--h-control` (28), `sm`: `--h-control-sm` (24), padding `0 var(--space-4)` (sm: `0 var(--space-2)`), `gap: var(--space-2)`, radius `--radius-md`, 14px/20px weight 500 (sm: 13px/18px), border 1px transparent. `primary`: bg/border `--accent`, color `--fg-inverse`, `--shadow-primary`; hover `--accent-hover`; active bg `--accent-muted`. `secondary`: bg `--bg-sunken`, border `--border-strong`; hover `--bg-hover`. `ghost`: transparent, color `--fg-muted`; hover `--bg-hover` + `--fg-default`. `iconOnly` width = height (`packages/components/src/primitives/Button/Button.css`) |
-| `Kbd` | `inline-flex`, `height: var(--h-kbd)`, `padding: 0 var(--space-1)`, `border: 1px solid --border-default; border-bottom-width: 2px`, radius `--radius-sm`, bg `--bg-raised`, color `--fg-muted`, mono `--text-2xs` (`packages/components/src/primitives/Kbd/Kbd.css`) |
-| `Stamp` | time text; `still` = plain `<span>`; otherwise a `<button>` with tooltip showing the other reading; shows clock first by default; text that is not a date is drawn as given; one press on any stamp inside `<StampSurface>` flips all (`packages/components/src/primitives/Stamp/Stamp.tsx`) |
+| `Card` (`flat`) | `div.armada-card[data-flat]`: flex column, `gap: var(--space-3)`, `padding: var(--pad-card)`, `border: 1px solid var(--border-default)`, radius `--radius-md` (6), bg `--bg-raised`, color `--fg-default`; `flat` removes glass (`classic-final:packages/components/src/primitives/Card/Card.css:20-30`, `Card.tsx`). `CardFooter`: flex, `align-items:center`, `gap: var(--space-2)` |
+| `Button` | height `--h-control` (28), `sm`: `--h-control-sm` (24), padding `0 var(--space-4)` (sm: `0 var(--space-2)`), `gap: var(--space-2)`, radius `--radius-md`, 14px/20px weight 500 (sm: 13px/18px), border 1px transparent. `primary`: bg/border `--accent`, color `--fg-inverse`, `--shadow-primary`; hover `--accent-hover`; active bg `--accent-muted`. `secondary`: bg `--bg-sunken`, border `--border-strong`; hover `--bg-hover`. `ghost`: transparent, color `--fg-muted`; hover `--bg-hover` + `--fg-default`. `iconOnly` width = height (`classic-final:packages/components/src/primitives/Button/Button.css`) |
+| `Kbd` | `inline-flex`, `height: var(--h-kbd)`, `padding: 0 var(--space-1)`, `border: 1px solid --border-default; border-bottom-width: 2px`, radius `--radius-sm`, bg `--bg-raised`, color `--fg-muted`, mono `--text-2xs` (`classic-final:packages/components/src/primitives/Kbd/Kbd.css`) |
+| `Stamp` | time text; `still` = plain `<span>`; otherwise a `<button>` with tooltip showing the other reading; shows clock first by default; text that is not a date is drawn as given; one press on any stamp inside `<StampSurface>` flips all (`classic-final:packages/components/src/primitives/Stamp/Stamp.tsx`) |
 | `Tooltip` | wraps every bare glyph; the label text is what is listed in each table |
 | `Textarea`/`Input` | `keep` prop persists typed text under the key until cleared |
 
@@ -1368,14 +1368,14 @@ Derived values used below: `--h-row*1.25` = 35px; `--h-row-unit*8` = 288px; `--h
 | Approve / Send back / Withdraw footer shared by sketch, document, pin | `ApprovalAnswers` `ST/SketchRow.tsx:43-135` | `SketchRow.css:124-163` |
 | Sketch pinned as the thread's last card | `SketchPin` `ST/SketchRow.tsx:515-627` (mounted `ST/SessionThread.tsx:3869-3878`) | `SketchRow.css:220-276` |
 | The sketch read large (panel and pin) | `SketchReading` `ST/SketchRow.tsx:386-470` | `SketchRow.css:165-218` |
-| Revision picking | `sketchAtRevision` `SketchRow.tsx:137-184`, `useSketchRevision` `:187-205`, `RevisionMenu` `packages/components/src/compositions/RevisionMenu/RevisionMenu.tsx` + `.css` | `RevisionMenu.css:1-10` |
+| Revision picking | `sketchAtRevision` `SketchRow.tsx:137-184`, `useSketchRevision` `:187-205`, `RevisionMenu` `classic-final:packages/components/src/compositions/RevisionMenu/RevisionMenu.tsx` + `.css` | `RevisionMenu.css:1-10` |
 | Document card | `DocumentRow` `ST/DocumentRow.tsx:1-99` | `SketchRow.css:278-298` (+ shares `__asked`, `__band`, `__answers`) |
 | File row | inline in `Row`, `ST/SessionThread.tsx:2106-2123` | `ST/SessionThread.css:507-546` (`armada-session-fold*`) |
-| Picture/video under a file row | `MediaFrame` `packages/components/src/compositions/MediaRow/MediaRow.tsx` | not read; QUESTION below |
+| Picture/video under a file row | `MediaFrame` `classic-final:packages/components/src/compositions/MediaRow/MediaRow.tsx` | not read; QUESTION below |
 | Window row | inline `ST/SessionThread.tsx:2089-2103` | same fold CSS |
 | Judged row | inline `ST/SessionThread.tsx:2183-2196` | same fold CSS |
 | Sketch panel body the card opens | `DESK/session-view/SketchBody.tsx:1-134` (uses `SketchReading`, `RevisionMenu`) | out of scope except how it opens |
-| Preview drawing | `SketchScene` (`preview`, `playing`) `packages/components/src/compositions/SketchScene/` | not read; QUESTION |
+| Preview drawing | `SketchScene` (`preview`, `playing`) `classic-final:packages/components/src/compositions/SketchScene/` | not read; QUESTION |
 
 ### B1.2 Sketch card (plain, not asked)
 
@@ -1452,7 +1452,7 @@ Always the "asked" frame (B1.3 CSS), no drawing.
 `open` = `row.asked && settled===undefined && onAnswer!==undefined`.
 Every revision is put to the person; a new revision asks again.
 Press on band or Open: `onOpen(row.page)` -> `openOwedDocument(session, page)` (opens the page layer; not covered).
-Approve/Send back -> `documentAnswerOf` -> `draft.answerDocument` (`DESK/sessions.tsx:3173-3181`, `packages/screens/src/thread-cards.ts:49-71`).
+Approve/Send back -> `documentAnswerOf` -> `draft.answerDocument` (`DESK/sessions.tsx:3173-3181`, `classic-final:packages/screens/src/thread-cards.ts:49-71`).
 
 ### B1.6 File, window and judged rows (quiet rows)
 
@@ -1471,7 +1471,7 @@ In spacious (shipped) these become cards, B0.3.
 
 - Rows keep wire/record order. Sketch/file rows replace the `show_sketch`/`show_file` tool row in place (`DESK/session-thread-rows.ts:82-153, 255-258`).
 - Window rows: the `show_window` tool rows are filtered out in spacious (`UNDRAWN`); the window row stands for them.
-- The document card is inserted before the first row whose time is later than the document's `kept` time (`packages/screens/src/thread-cards.ts:105-132`); a row whose time does not parse is never "later", so the card follows it.
+- The document card is inserted before the first row whose time is later than the document's `kept` time (`classic-final:packages/screens/src/thread-cards.ts:105-132`); a row whose time does not parse is never "later", so the card follows it.
 - Sketch `replaced`: set on every card of a sketch id except the last one with that id (`DESK/session-thread-rows.ts:155-222`); the pinned sketch removes its own non-replaced card.
 - These cards are never grouped into a tool-call fold.
 
@@ -1506,14 +1506,14 @@ Tab order: press, revision menu button, then footer buttons.
 
 | Card | Wire (`crates/ipc/src/job_thread.rs`) | Electron today |
 |---|---|---|
-| Sketch | `ThreadItem::Sketch(ThreadSketch{id, at, sketch ("sketch:<title>"), title, drawing: RawScene, against, against_drawing, replaced, asked, withdrawn, settled: CardSettled{how, at, words}})` (:224, :255-279) | **Not read from the wire.** TS parses the `show_sketch` tool row text (`sketchCallOf`, `packages/screens/src/sessions-wire.ts:435-470`), looks up ledger sketch `sketch:<title>`, merges `kept` hashes (`keptFrom` :235), derives `replaced`, `againstScene`, `asked/withdrawn/settled` on the latest card (`DESK/session-thread-rows.ts`). **`revisions` (each drawing for the menu) is not in `ThreadSketch`**; Electron reads each revision file through the draft (`useSketchRevisions`, `DESK/session-sketch.ts:132-165`) |
+| Sketch | `ThreadItem::Sketch(ThreadSketch{id, at, sketch ("sketch:<title>"), title, drawing: RawScene, against, against_drawing, replaced, asked, withdrawn, settled: CardSettled{how, at, words}})` (:224, :255-279) | **Not read from the wire.** TS parses the `show_sketch` tool row text (`sketchCallOf`, `classic-final:packages/screens/src/sessions-wire.ts:435-470`), looks up ledger sketch `sketch:<title>`, merges `kept` hashes (`keptFrom` :235), derives `replaced`, `againstScene`, `asked/withdrawn/settled` on the latest card (`DESK/session-thread-rows.ts`). **`revisions` (each drawing for the menu) is not in `ThreadSketch`**; Electron reads each revision file through the draft (`useSketchRevisions`, `DESK/session-sketch.ts:132-165`) |
 | File | `ThreadItem::File{id, at, path, name}` | TS: `fileCallOf` regex on the tool row `show_file <path>` + ledger artifact `form:"file"` whose id equals the path or ends with `/<path without ./>`; path = ledger id, name = ledger title (`session-thread-rows.ts:116-153`); `mediaKindOf(path)` extension decides MediaFrame (not in wire) |
 | Document | `ThreadItem::Document(ThreadDocument{id "document:<page>:r<rev>", at, page, title, revision, asked, settled})` "one per revision kept" | TS: **one card per page**, its newest revision only, `id = document:<page>:r<n>`, `at = artifact.kept`, `asked/settled` from the artifact (`thread-cards.ts:79-103`); the wire says one per revision kept: QUESTION below |
 | Window | `SessionRow::Window{title,url,variations,steps,origins,brief,ended_at}` via `ThreadItem::Row` | passed as is |
 | Judged | none | client-only (`DESK/judge`) |
 | Answer | `answer_sketch {session_id, sketch, drawn, how, words?}` / `answer_document {session_id, document:"document:<page>", revision, how, words?}` | `drawn`/`revision` are read from the ledger at press time (`thread-cards.ts:17-71`) |
 
-QUESTION: `MediaFrame` (`packages/components/src/compositions/MediaRow/MediaRow.tsx`) and the `SketchScene` preview (`packages/components/src/compositions/SketchScene/`) were not read: their pixels (picture frame size, video chrome, scene preview scaling) are not recorded here.
+QUESTION: `MediaFrame` (`classic-final:packages/components/src/compositions/MediaRow/MediaRow.tsx`) and the `SketchScene` preview (`classic-final:packages/components/src/compositions/SketchScene/`) were not read: their pixels (picture frame size, video chrome, scene preview scaling) are not recorded here.
 QUESTION: wire `ThreadItem::Document` says "one per revision kept" while Electron draws only the newest revision per page; which does the native card follow?
 QUESTION: `ThreadSketch` has no `revisions`; where does the native app get the revision scenes the menu needs?
 
@@ -1529,9 +1529,9 @@ QUESTION: `ThreadSketch` has no `revisions`; where does the native app get the r
 | Type | `PlanApproval` `ST/SessionThread.tsx:653-714` |
 | CSS | `ST/SessionThread.css:181-460` (plan), `1329-1370` (changes list), `1284-1327` (Plan changes row), `164-179` (`__ask`), `1583-1594` (`__tail`) |
 | Revision (diff) view | `PlanRevisionView`, `useUnchanged` `ST/PlanRevision.tsx`, CSS `ST/PlanRevision.css` |
-| Landing runs | `landingsOf` `ST/lands-in.ts:19+`, `LandsInChip` `ST/LandsInChip.tsx`, `JobCard` `packages/components/src/compositions/JobCard/` |
-| Task mark | `TaskMark` `packages/components/src/compositions/TaskMark/TaskMark.tsx` + `.css` |
-| Judge notes pinned on the plan | `GroupFindings`, `GivesRow`, `FindingNotes`, `anchorsOf`, `useFindingKeys` (`packages/components/src/compositions/AdversarialReview/AnchoredFindings.tsx`); press `usePlanJudge` `DESK/judge/thread.tsx:89-139` |
+| Landing runs | `landingsOf` `ST/lands-in.ts:19+`, `LandsInChip` `ST/LandsInChip.tsx`, `JobCard` `classic-final:packages/components/src/compositions/JobCard/` |
+| Task mark | `TaskMark` `classic-final:packages/components/src/compositions/TaskMark/TaskMark.tsx` + `.css` |
+| Judge notes pinned on the plan | `GroupFindings`, `GivesRow`, `FindingNotes`, `anchorsOf`, `useFindingKeys` (`classic-final:packages/components/src/compositions/AdversarialReview/AnchoredFindings.tsx`); press `usePlanJudge` `DESK/judge/thread.tsx:89-139` |
 | Built in Electron | `approval` in `DESK/sessions.tsx:2467-2562` |
 | Page the card opens (`onReview`) | `PlanReview` / `PlanBody` / `PlanPane` `DESK/session-view/PlanReview.tsx`, edit pieces `PlanEdit.tsx`, marks `plan-marks.ts`, diff data `plan-revision.ts` |
 | Not the card (the Plan panel / Story column) | `PlanGroup.tsx`, `PlanSteps.tsx` (`stepsOf`), `StoryColumn.tsx`, `StoryParts.tsx`: used by `BlueprintPanel`, `FlightPlan`, `StoryColumn`; they are the plan panel after approval, not the thread card |
@@ -1540,12 +1540,12 @@ QUESTION: `ThreadSketch` has no `revisions`; where does the native app get the r
 
 | Rule | Where |
 |---|---|
-| `approval` is built only when `planDrawn` = plan exists and (`approved` \|\| `setAside` \|\| `planAsked(session)` = a waiting item with `source:"plan"`) | `DESK/sessions.tsx:2395-2402`, `packages/screens/src/draft/sessions.ts:2100` |
+| `approval` is built only when `planDrawn` = plan exists and (`approved` \|\| `setAside` \|\| `planAsked(session)` = a waiting item with `source:"plan"`) | `DESK/sessions.tsx:2395-2402`, `classic-final:packages/screens/src/draft/sessions.ts:2100` |
 | **Not approved (waiting or set aside)**: one `li.armada-session-thread__tail[aria-label="Waiting on you"]` after all rows, before the working mark, subagents and `trailing`: `display:flex; column; gap: var(--space-3); list-style:none` (`SessionThread.css:1583-1587`); inside it the order is plan card, pinned sketch (`SketchPin`), `AskCards` (empty in Electron) | `ST/SessionThread.tsx:3866-3900, 4172-4176` |
 | `asking` = `(approval && !approval.approved) \|\| sketching \|\| asked \|\| lapsed`; a set-aside plan has `approved:false`, so it still counts as asking (keeps the last Fleet turn open, hides the live mark on the last calls) | `:3745-3749` |
 | `.armada-session-thread__tail > .armada-session-thread__ask`: `max-height:none; flex-shrink:0` | `SessionThread.css:1589-1592` |
 | **Approved**: a record `li.armada-session-thread__record` (`list-style:none`) after the item whose row id equals `approval.after`, only for items of `kind:"row"`. If `after` is undefined or matches no row item, **the approved plan is not drawn at all** | `ST/SessionThread.tsx:4160-4170` |
-| `after` = id of the last drawn row before the `plan` row for this version (`afterOf`) | `packages/screens/src/session-work.ts:131-145` |
+| `after` = id of the last drawn row before the `plan` row for this version (`afterOf`) | `classic-final:packages/screens/src/session-work.ts:131-145` |
 | Scroll pin: a layout effect re-pins when the `approval` state flips (0 none, 1 pending, 2 approved) | `:3672-3680` |
 | A chip over the composer (`CallChip`, word `Plan`) appears when the plan is waiting and the tail is scrolled out of view | B5.1 |
 
@@ -1658,7 +1658,7 @@ The plain `Plan` wire row (`SessionRow::Plan{version}`) draws nothing; it only a
 
 | Need | Wire | Electron TS |
 |---|---|---|
-| plan content | `SessionRecord.plan: SessionPlan{version, summary, approved, set_aside_at, groups[{id, agent, title, gives, paths, tasks[{id,text,state,seen,marked,stale,changed_at}], issue, lands_in{label,pull_request}, own_job, gate…}], changes{added,renamed,moved,removed}, sketch{id,title}, held_by, held}` (`crates/ipc/src/session_plan.rs`, `sessions.rs:1370`). **`ThreadHead` has no plan field**; `JobThread` carries only the `plan` / `plan_changes` rows | mapped by `planOf` (`packages/screens/src/session-work.ts:154-260`): empty summary omitted, `setAside` = `set_aside_at` present, sketch scene taken from the ledger attachment (left off if the ledger lacks it) |
+| plan content | `SessionRecord.plan: SessionPlan{version, summary, approved, set_aside_at, groups[{id, agent, title, gives, paths, tasks[{id,text,state,seen,marked,stale,changed_at}], issue, lands_in{label,pull_request}, own_job, gate…}], changes{added,renamed,moved,removed}, sketch{id,title}, held_by, held}` (`crates/ipc/src/session_plan.rs`, `sessions.rs:1370`). **`ThreadHead` has no plan field**; `JobThread` carries only the `plan` / `plan_changes` rows | mapped by `planOf` (`classic-final:packages/screens/src/session-work.ts:154-260`): empty summary omitted, `setAside` = `set_aside_at` present, sketch scene taken from the ledger attachment (left off if the ledger lacks it) |
 | waiting | `waiting_for` item `source:"plan"` | `planAsked` |
 | `after` | rows | TS `afterOf` (id of last drawn row before the plan row) |
 | `changes` lines | `plan.changes` | TS `changeLines` (`plan-marks.ts:488-523`): added then renamed then removed; text found by id in groups/tasks, else the id |
@@ -1744,12 +1744,12 @@ The review sheet draws the same card with `headed` (its Approve/Send back in the
 | `ReachAnswers`, `KindPicker`, `REFUSE`, `LIKE_THIS`, `FOLDER_ANSWERS`, `ALWAYS_HEAD` | `:2595-2788` |
 | CSS | `SessionThread.css:164-179` (`__ask`), `745-1030` (deck), `1465-1575` (reach), `PathPicker.css` |
 | **Host in Electron**: Needs you panel `question.children` | `DESK/sessions.tsx:2245-2350`, `NeedsYouPanel.tsx` (B7) |
-| Other deck host: ledger rows with `options` (Fleet waiting items with choices, e.g. the delivery question) | `packages/components/src/compositions/SessionLedger/SessionLedger.tsx:975-1011` (`QuestionDeck flat canSkip={false} noOther={row.onOther===undefined}`) |
+| Other deck host: ledger rows with `options` (Fleet waiting items with choices, e.g. the delivery question) | `classic-final:packages/components/src/compositions/SessionLedger/SessionLedger.tsx:975-1011` (`QuestionDeck flat canSkip={false} noOther={row.onOther===undefined}`) |
 | Start picks (held Job) | `DESK/session-view/StartPicks.tsx` (composer lead, not a thread card) |
 | Open group | `DESK/session-view/OpenGroup.tsx` (Story column panel, not a thread card) |
 
 ### B4.2 What Electron passes (and does not)
-`const asked = askedOf(session)` (`DESK/asked-of.ts`) builds `{command, questions?, offers?[{id,label,means}], reaches?, reachesTo?, kind?}`; offer words come from `CALL_ANSWER` (`packages/screens/src/copy.ts:61-110`) via `offeredOf`, or `reachOfferedOf` when `reaches` is set (which renames `refuse`: label `Reject once`, means `Not run. The job is told no, and the next call asks again.`, and `allow_once` means `Runs it now. The next call outside its slots asks again.`).
+`const asked = askedOf(session)` (`DESK/asked-of.ts`) builds `{command, questions?, offers?[{id,label,means}], reaches?, reachesTo?, kind?}`; offer words come from `CALL_ANSWER` (`classic-final:packages/screens/src/copy.ts:61-110`) via `offeredOf`, or `reachOfferedOf` when `reaches` is set (which renames `refuse`: label `Reject once`, means `Not run. The job is told no, and the next call asks again.`, and `allow_once` means `Runs it now. The next call outside its slots asks again.`).
 `lapsed` = `session.lapsed` unless `session.lapsed.id === answeredLapse`.
 The panel passes `AskCards flat asked keep onAnswer lapsed [detail pick]`.
 `SessionThread` itself receives neither `asked` nor `lapsed`, only `waitingOnYou`.
@@ -1817,7 +1817,7 @@ Multi-select: toggles, never advances.
 `Other` single: selects Other, clears picks; multi: toggles.
 `chosenFor` = picks + typed Other text if on and non-blank.
 `answer()` -> `onAnswer("allow_once", [{question, chosen}...])` (a returned promise disables Answer until settled, then keeps released); `skip()` -> forget, `onAnswer("refuse")`.
-Electron's `onAnswer` -> `draft.answer(session.id, answer, answers, folder, kind)` after `operatorRead?.answered()`; a lapsed answer -> `draft.send(...)` of text `Answering your earlier question "<q>": <a, b>` per line (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts:1017`) and hides the deck when it went; lapsed skip -> hides the deck for that `lapsed.id` (`answeredLapse`).
+Electron's `onAnswer` -> `draft.answer(session.id, answer, answers, folder, kind)` after `operatorRead?.answered()`; a lapsed answer -> `draft.send(...)` of text `Answering your earlier question "<q>": <a, b>` per line (`lapsedAnswerText`, `classic-final:packages/screens/src/sessions-wire.ts:1017`) and hides the deck when it went; lapsed skip -> hides the deck for that `lapsed.id` (`answeredLapse`).
 
 Keys on the deck (the four ⌥ keys: B6): `1`–`9` on the card group (`onKeyDown` at `QuestionDeck.tsx:305-324`): ignored when the card is folded or the event target is an `<input>`; with a preset `pick`, Enter takes the selection (answers if last and complete) unless the target is a radio; digit `n` picks option `n` if `n <= options.length`, `Other` if `n === options.length+1` and not `noOther`, else ignored; calls `preventDefault`.
 There is **no modifier check**, so `⌘1` also picks.
@@ -1893,7 +1893,7 @@ See B4.3C and B4.7: drawn as a deck in the Needs you panel (label from `askLabel
 
 ## B6 thread-keys: the four keys
 
-### B6.1 Registry (`crates/core-model/domain/actions.toml:1170-1217`, generated `packages/components/src/generated/actions.ts`)
+### B6.1 Registry (`crates/core-model/domain/actions.toml:1170-1217`, generated `classic-final:packages/components/src/generated/actions.ts`)
 
 | Act id | Chord | Verb | Tier / scope | Destructive / confirms | Meaning |
 |---|---|---|---|---|---|
@@ -1906,7 +1906,7 @@ Contract: `docs/contracts/design-system/keyboard-and-command-palette.md:352-378`
 `⌥↵`/`⌥X` always confirm in a dialog (owner, 28 Oct 2026); `⌥E`/`⌥R` open the card's own box, no dialog.
 Palette hints (`DESK/palette.ts:115-118`): `⌥↵ on a card in a Job's thread` etc.
 
-Keys read by place: `keyOf` uses `event.code` (`KeyE`, `KeyR`, `KeyX`, `Digit*`) when Alt is held, because Option changes the typed character (`packages/components/src/keymap.ts:429-444`); a `Dead` key with Alt and a letter/digit code is still read (`:450`).
+Keys read by place: `keyOf` uses `event.code` (`KeyE`, `KeyR`, `KeyX`, `Digit*`) when Alt is held, because Option changes the typed character (`classic-final:packages/components/src/keymap.ts:429-444`); a `Dead` key with Alt and a letter/digit code is still read (`:450`).
 `⌘` also answers to Ctrl unless the chord asks for ⌃ (`:471-476`).
 Chords can be rebound by the user (`isPressed`, `keyFor` read the live binding).
 
@@ -1953,7 +1953,7 @@ A chip is a `Kbd` (20px tall, mono 12px, `--fg-muted` on `--bg-raised`, 1px bord
 ## B7 Needs you panel (dock): where the question sits
 
 ### B7.1 Where it lives
-`NeedsYouPanel` `packages/components/src/compositions/NeedsYouPanel/NeedsYouPanel.tsx:152-715`, CSS `NeedsYouPanel.css:1-426`; mounted `DESK/sessions.tsx:3306-3334` inside `div.sv-bands` inside `div.sv-dock` (`:3286-3300`), keyed by `session.id`.
+`NeedsYouPanel` `classic-final:packages/components/src/compositions/NeedsYouPanel/NeedsYouPanel.tsx:152-715`, CSS `NeedsYouPanel.css:1-426`; mounted `DESK/sessions.tsx:3306-3334` inside `div.sv-bands` inside `div.sv-dock` (`:3286-3300`), keyed by `session.id`.
 Sibling bands (ToolsBand, HandoffBand, SessionEndBand, WaitingBand) are not covered here.
 `sv-dock` props: `data-needs` (when `waits || endShown || failedShown || toolsBand || waitingBand`), `data-open={panelOpen || endOpen}`, `data-end`, `data-wait-open`, `data-starting`.
 
@@ -1966,7 +1966,7 @@ Sibling bands (ToolsBand, HandoffBand, SessionEndBand, WaitingBand) are not cove
 | `waits` | `needs.length>0 \|\| question!==undefined \|\| notOurs.length>0 \|\| reviewWaiting.length>0` | `sessions.tsx:2642` |
 | `listed` | `needs.some(row => row.restart===undefined \|\| row.onDismiss!==undefined) \|\| question!==undefined \|\| notOurs.length>0` (a restart is the band's own key unless dismissible; a band with nothing in it is never open) | `:2654-2658` |
 | `panelOpen` | `(panel?.id === session.id ? panel.open : holdsDelivery(session)) && waits && listed` | `:2659-2660` |
-| `holdsDelivery` | `owesOf(session).some(one => one.source === "delivery")` (the delivery question opens the card before he touches it; after he opens/closes, his choice holds) | `packages/screens/src/session-state.ts:18-19` |
+| `holdsDelivery` | `owesOf(session).some(one => one.source === "delivery")` (the delivery question opens the card before he touches it; after he opens/closes, his choice holds) | `classic-final:packages/screens/src/session-state.ts:18-19` |
 | inside the panel `open` | `wanted && things.length>0` | `NeedsYouPanel.tsx:~262` |
 | arrival | a question's `id` not yet seen opens the panel (`host(true)`) once per mount (re-opens each time he comes into the Session since the panel is keyed by session); focus moves into it only if `focusIsFree()` (nothing focused, or focus is not in the composer/field, or the focused field is empty), else `quiet` (no focus change) | `:262-312` |
 | empty | when `things` becomes empty after having rows, calls `host(false)`; renders `null` when empty and no restarts and no review | `:313-330, 383` |
@@ -2015,17 +2015,17 @@ Section groups (`section.armada-session-ledger__group[aria-label=<label>]` > `h3
 QUESTION: `SessionLedger.css` row classes (`armada-session-ledger__row/__open/__text/__eyebrow/__group/__held`), `RestartKey`/`RestartRow`, `StartAct`, `HeldSlots`, `StepLines`, `RunnableBlock`, `NotOursCard` and `LedgerPreview` (hover card over a row) were not read; the panel list rows' pixel sizes are not recorded.
 QUESTION: exact `useScrimFold` behaviour (what counts as a press on the thread, and the CSS `z-index`/pointer rules of the dimming `::after` beyond `inset: -space-2 -space-3 0`) was not read in full.
 QUESTION: `Dialog` primitive (used by `ThreadConfirm`: size, buttons `Cancel`/confirm label, backdrop) and `Radio`/`RadioGroup` pixels were not read.
-QUESTION: Electron derives almost all of B1–B5 in TypeScript from `SessionRecord` + rows and does not call `get_job_thread` (`JobThread` appears only in `packages/protocol/src/job-thread.ts` and a story).
+QUESTION: Electron derives almost all of B1–B5 in TypeScript from `SessionRecord` + rows and does not call `get_job_thread` (`JobThread` appears only in `classic-final:packages/protocol/src/job-thread.ts` and a story).
 The wire has no `plan`, no `revisions`, no offer wording, no `going`, no judged rows, and `ThreadItem::Document` is per revision; the native app must either take these from `SessionRecord` or add them to the wire.
 
 ## 4. The composer (message box)
 
 | | |
 |---|---|
-| Component | `packages/components/src/compositions/SessionComposer/SessionComposer.tsx` (`SessionComposer` `:529-1489`, `Row` `:1568`, `Pick` `:1625`, `TalkGuide` `:1503`); `QuickBar.tsx`, `TunePicker.tsx`, `AttachmentTray.tsx`, `InlineTag.tsx`, `message-dom.ts`, `large-paste.ts`, `talk-guide.ts` |
-| CSS | `SessionComposer/SessionComposer.css`, `QuickBar.css`; spacious overrides in `apps/desktop/src/renderer/src/spacious-thread.css` (`.armada-session-composer` `:543-570`, `.armada-quick` `:968-1020`, `.armada-tune*` `:1100-1240`, `.armada-tray*` `:1452-1545`, `__gap` `:1544`); dock `session-view/session-view.css:1365-1425` |
+| Component | `classic-final:packages/components/src/compositions/SessionComposer/SessionComposer.tsx` (`SessionComposer` `:529-1489`, `Row` `:1568`, `Pick` `:1625`, `TalkGuide` `:1503`); `QuickBar.tsx`, `TunePicker.tsx`, `AttachmentTray.tsx`, `InlineTag.tsx`, `message-dom.ts`, `large-paste.ts`, `talk-guide.ts` |
+| CSS | `SessionComposer/SessionComposer.css`, `QuickBar.css`; spacious overrides in `classic-final:apps/desktop/src/renderer/src/spacious-thread.css` (`.armada-session-composer` `:543-570`, `.armada-quick` `:968-1020`, `.armada-tune*` `:1100-1240`, `.armada-tray*` `:1452-1545`, `__gap` `:1544`); dock `session-view/session-view.css:1365-1425` |
 | Mounted | `sessions.tsx:3385-3529` inside `.sv-dock`, only when `session.dead === undefined`; a second, plain box `SessionBox` (`sessions.tsx:3650`) serves call cards |
-| Draft | kept per Job under `keep` key `session:<session.id>` (`draftKey`): `{text, tags}` persisted to `localStorage["armada:kept:session:<id>"]` (files are never stored; their bytes do not survive a reload), plus an in-memory map for panel switches (`packages/components/src/keep.ts:1-60`). Cleared by a send (`forget()`); a refused send (`onSend` resolves `false`) puts the draft back unless something was typed since (`SessionComposer.tsx:1036-1053`). Seeding helpers: `seedDraft`, `quoteIntoDraft` (appends a quote after a blank line, quote ends in a blank line), `tagIntoDraft` (chip at the end; no duplicates) (`:326-384`). |
+| Draft | kept per Job under `keep` key `session:<session.id>` (`draftKey`): `{text, tags}` persisted to `localStorage["armada:kept:session:<id>"]` (files are never stored; their bytes do not survive a reload), plus an in-memory map for panel switches (`classic-final:packages/components/src/keep.ts:1-60`). Cleared by a send (`forget()`); a refused send (`onSend` resolves `false`) puts the draft back unless something was typed since (`SessionComposer.tsx:1036-1053`). Seeding helpers: `seedDraft`, `quoteIntoDraft` (appends a quote after a blank line, quote ends in a blank line), `tagIntoDraft` (chip at the end; no duplicates) (`:326-384`). |
 
 ### 4.1 Layout
 
@@ -2225,7 +2225,7 @@ No other composer (Operator Talk, Request tab, call-card `SessionBox`) is descri
 | `SessionRow` | `hosted_sessions.rs:565` | `Message, Tool, Command, Compaction, Lease, Release, Window, Started, Linked, Waiter, WindowAsk, Draft, Check, Ran, Requested, Saved, Retro, Sent, Ask, Plan, PlanChanges, Delivery, BrowserReminder, Disputed` |
 | `SessionRecord` | `sessions.rs` (`in_flight` at `:1443`) | the Job's record: title, state, turn, model, effort, mode, context, pending tags, work/proposal, start, hosted, dead, commands... `in_flight: Vec<InFlight>` is on the wire. |
 
-**The shipped Electron renderer does not read `get_job_thread` or `job_thread.tail`.** Only the types exist in `packages/protocol/src/job-thread.ts` and `events.ts`.
+**The shipped Electron renderer does not read `get_job_thread` or `job_thread.tail`.** Only the types exist in `classic-final:packages/protocol/src/job-thread.ts` and `events.ts`.
 `SessionThread` folds, groups, orders and decides everything from the raw `SessionRow` list plus the `SessionRecord` (thread sections A/B below).
 The native app is the first consumer of the server-side folding; its output must match what `SessionThread` draws.
 
@@ -2236,7 +2236,7 @@ This inventory records the client fold as the spec and has not diffed the two.
 
 | What | Where | Rule |
 |---|---|---|
-| State mark (the head's glyph/word) | `packages/screens/src/session-state.ts:103` (`jobStateOf`) | derived from the record's turn, waits, dead, held, paused; table in 1.2 |
+| State mark (the head's glyph/word) | `classic-final:packages/screens/src/session-state.ts:103` (`jobStateOf`) | derived from the record's turn, waits, dead, held, paused; table in 1.2 |
 | In-flight (what ending a Job loses) | `end-job.tsx`, `InFlightDialog.tsx` read `lanes.job` through `inFlight()` | the wire's `in_flight` is not read |
 | Which acts overflow into More | `job-panes/acts.tsx` (`LEAVES` order) | by measured width |
 | Tab arrangement, ratios, split handles | `job-panes/store.ts`, `tree.ts` | localStorage per Job; not Fleet |

@@ -4,7 +4,7 @@
 
 Since 13 Oct 2026. `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 **Additive only**: two optional fields on `SlotStranded`, one new type and one new plain enum.
-Bridge's half is `packages/protocol/src/holding.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/holding.ts`, written by hand.
 There is no number to take: the protocol ID moves with `crates/ipc/src/holding.rs`.
 
 | Where | Carries | Absent |

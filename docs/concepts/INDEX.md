@@ -16,7 +16,7 @@ assuming it is restated here.
 |---|---|
 | [artifact.md](artifact.md) | A sketch, a draft or a page a Job made, read as one record with its revisions and where its newest stands |
 | [account.md](account.md) | The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs |
-| [bridge.md](bridge.md) | The Electron command-center shell — Armada's only engineer-facing surface |
+| [bridge.md](bridge.md) | The command-center shell, native since Armada Classic was deleted — a client of Fleet, not the daemon |
 | [cockpit.md](cockpit.md) | Bridge's first tab: the flight deck, with every Job, the calls waiting on a person, the worktree slots and the merge queue on one screen |
 | [document.md](document.md) | The HTML page a Job designs to hand a person what it found: where it is written, how it is sealed and read, noted in place and revised by the Job's reply |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid that gates nothing |
@@ -35,7 +35,7 @@ assuming it is restated here.
 | [machine.md](machine.md) | How this installation behaves: resources, timing, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
-| [native-bridge.md](native-bridge.md) | The core Bridge rebuilt natively in Rust on gpui beside the Electron Bridge: what was decided, what ships before the switch day and what waits |
+| [native-bridge.md](native-bridge.md) | The Bridge, built natively in Rust on gpui to replace Classic: what was decided, what shipped by switch day and what native does not have yet |
 | [operator.md](operator.md) | The one agent session per Mac across every project: its cards, its page, what it may do unasked, and what went |
 | [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [project.md](project.md) | A list of tasks and linked issues one person keeps for one repository in Bridge's Projects tab, with a `task_done` question when a Job or a pull request finishes one |
