@@ -35,7 +35,7 @@ name = "Prototype"
 says = "a screen you click through"
 glyph = "app-window"
 hue = "--ask-prototype"
-line = "show it with `show_prototype`: write the scene under `$ARMADA_SCRATCH/scenes/` as that tool says, call it once, then edit the files, since each save redraws it"
+line = "in Armada, show a scene with `show_prototype` and edit its files after, since each save redraws it; in any other repository, write a page that moves under `.armada/documents/`, linking the app's own stylesheets, as the `armada:writing-a-document` skill says under A clickable prototype"
 
 [tools.diagram]
 name = "Diagram"

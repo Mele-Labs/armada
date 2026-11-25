@@ -103,11 +103,11 @@ fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
 }
 
 #[test]
-fn a_prototype_is_said_as_a_scene_shown_once_and_redrawn_on_save() {
+fn a_prototype_is_said_as_a_scene_in_armada_and_a_clickable_page_elsewhere() {
     let line = mention_line(&[tag(TagKind::Tool, "prototype", "Prototype", None)]);
     assert_eq!(
         line.as_deref(),
-        Some("The person asked for Prototype: show it with `show_prototype`: write the scene under `$ARMADA_SCRATCH/scenes/` as that tool says, call it once, then edit the files, since each save redraws it.")
+        Some("The person asked for Prototype: in Armada, show a scene with `show_prototype` and edit its files after, since each save redraws it; in any other repository, write a page that moves under `.armada/documents/`, linking the app's own stylesheets, as the `armada:writing-a-document` skill says under A clickable prototype.")
     );
 }
 

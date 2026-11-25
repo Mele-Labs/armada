@@ -342,6 +342,22 @@ says it all. A table and a sketch are enough for most pages.
   cell or node. Use a tint fill, a full hairline outline, a glyph or dot, a
   chip, or a header band across the top.
 
+## A clickable prototype
+
+When the person asks for a Prototype in a repository other than Armada, write it
+as a page that moves: a screen of their app they can click through. Armada's own
+repository uses scenes and `show_prototype` instead.
+
+- Link the app's own stylesheets by repo path, as *The kit and your own style*
+  says, and write the markup with the app's real class names. Leave out
+  `armada-kit.css` unless the app has no styles.
+- Each screen is a `<section data-screen="...">`. The first is in the markup,
+  shown, and the rest are hidden until the script shows them.
+- A press that moves between screens is a button the script wires with
+  `addEventListener`. Give each one a `data-part` so a note on it names it.
+- Data is short and plausible, written into the page.
+- Save the page again to change it. Each save is its next revision and redraws.
+
 ## What Bridge drops
 
 The page is read element by element from an allow list. Dropped, without an
