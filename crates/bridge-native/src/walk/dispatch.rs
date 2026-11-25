@@ -132,3 +132,20 @@ pub static COMPOSER_FLOW: [Step; 15] = [
     step("Another idea in front", Verb::Open("button", "Group the palette's recent rows by project"), "article", "Group the palette's recent rows by project"),
     step("Remove lets it go", Verb::Gone, "button", "Remove, The idea is dropped"),
 ];
+
+/// A sentence written into the box: the openings, an opening taken, its blanks filled from the keyboard, and the feature list.
+pub static STORY: [Step; 12] = [
+    step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("The empty box names the six openings on one quiet line", Verb::Look, "label", "Openings: When I, I want to, What if, How should, Why is, Talk about"),
+    step("Typing Wh ghosts the rest of the first opening and lists the three that begin so, under the caret", Verb::Typed("Wh"), "listbox", "Openings"),
+    step("Tab takes When I: the opening leads the sentence and the caret is in its first blank, with its keys under it", Verb::Key("tab"), "textbox", "do what"),
+    answer("Fleet found sample-api in the words, so the feature list reads Storefront's features", "found", "combobox", "Project Storefront, sample-api"),
+    step("The blank takes what is typed", Verb::Typed("click Save"), "textbox", "do what"),
+    step("Tab goes to the feature blank, and its list opens under it", Verb::Key("tab"), "listbox", "Features"),
+    step("Typing narrows the list by title or area", Verb::Typed("Sta"), "option", "Start a Job, Running a Job"),
+    step("Enter takes the row and goes on to the next blank", Verb::Key("enter"), "textbox", "what happens"),
+    step("The last blank is filled the same way", Verb::Typed("the draft is lost"), "status", "Starts: bug workflow · Start a Job page"),
+    step("The line under the sentence says what it starts, with the feature's page and the tools its kind asks for as chips", Verb::Look, "button", "Remove Terminal"),
+    step("Esc turns the whole sentence into plain words", Verb::Key("escape"), "textbox", "Request"),
+];
+
