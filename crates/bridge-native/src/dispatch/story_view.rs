@@ -50,9 +50,11 @@ impl DispatchSheet {
             }
         });
         let words: SharedString = if words.is_empty() { " ".into() } else { words.to_string().into() };
+        // The request's own text stands a little higher than this copy of it, so the copy is lifted to meet it.
         div()
             .flex()
             .items_start()
+            .mt(-look.length(token::SPACE_1))
             .child(div().flex_none().child(words))
             .child(div().relative().flex_none().w_0().h(line_h).child(deferred(div().absolute().top(line_h).left_0().child(list)).with_priority(1)))
             .child(div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(rest)))
@@ -74,7 +76,7 @@ impl DispatchSheet {
             line = line.child(div().text_color(look.color(Token(kind.hue))).child(kind.opening));
         }
         let said = format!("Openings: {}", all.iter().map(|kind| kind.opening).collect::<Vec<_>>().join(", "));
-        Some(labelled(div().id("dispatch-openings").absolute().bottom_0().left_0().right_0().child(line), Role::Label, said).into_any_element())
+        Some(labelled(div().id("dispatch-openings").absolute().bottom_0().left_0().right_0().px(gpui_component::Size::Medium.input_px()).child(line), Role::Label, said).into_any_element())
     }
 
     /// The sentence in the request's place: the opening as a tinted lead, then the text and the blanks, wrapping as words do.
@@ -182,7 +184,6 @@ impl DispatchSheet {
                             .id(("dispatch-blank", at))
                             .relative()
                             .flex_none()
-                            .px(look.length(token::SPACE_1))
                             .border_b(look.length(token::BORDER_WIDTH) * 2.)
                             .border_color(edge)
                             .bg(if on { look.color(token::ACCENT).opacity(0.08) } else { gpui::transparent_black() })
@@ -230,6 +231,7 @@ impl DispatchSheet {
             .bottom_0()
             .left_0()
             .right_0()
+            .px(gpui_component::Size::Medium.input_px())
             .flex()
             .flex_wrap()
             .items_center()
