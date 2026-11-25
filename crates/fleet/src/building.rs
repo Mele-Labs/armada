@@ -70,6 +70,8 @@ const SOURCE: &str = "restart-source";
 const COMMIT: &str = "restart-commit";
 /// The branches `scripts/preview` left out of the preview, each with why.
 const LEFT_OUT: &str = "preview-left-out";
+/// The rounds of the preview that did not build, and the branches each named, as `scripts/preview` records them.
+const BROKE: &str = "preview-broke";
 /// The main commit a preview stands on and the branches merged into it, as `scripts/preview` records them.
 const HELD: &str = "preview-held";
 /// What the wrapper is doing, or why it stopped.
@@ -235,6 +237,49 @@ pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, Left
                 .then(|| (branch.to_string(), LeftOut { tip: tip.to_string(), why: why.to_string() }))
         })
         .collect()
+}
+
+/// One preview round that did not build: the commit, the compiler's first error, and the branches it names.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Broke {
+    pub(crate) commit: String,
+    pub(crate) error: String,
+    /// Each branch, where its tip stood, and what `scripts/preview` found of it.
+    pub(crate) branches: Vec<(String, String, String)>,
+}
+
+/// The rounds `scripts/preview` recorded as not building: blocks split by a blank line, each the failed
+/// commit, the first error, then `branch<TAB>tip<TAB>what` lines. A line that does not parse is skipped, and
+/// so is a block that names no commit or error. **Empty** where the file is missing.
+pub(crate) fn broke_in(support: &Path) -> Vec<Broke> {
+    let Ok(recorded) = std::fs::read_to_string(support.join(BROKE)) else {
+        return Vec::new();
+    };
+    let mut rounds = Vec::new();
+    let mut block: Vec<&str> = Vec::new();
+    for line in recorded.lines().map(|line| line.trim_end_matches('\r')).chain([""]) {
+        if !line.trim().is_empty() {
+            block.push(line);
+            continue;
+        }
+        if let [commit, error, rest @ ..] = block.as_slice() {
+            let commit = commit.trim();
+            let branches = rest
+                .iter()
+                .filter_map(|line| {
+                    let mut fields = line.splitn(3, '\t').map(str::trim);
+                    let (branch, tip, what) = (fields.next()?, fields.next()?, fields.next()?);
+                    (!branch.is_empty() && !tip.is_empty() && !what.is_empty())
+                        .then(|| (branch.to_string(), tip.to_string(), what.to_string()))
+                })
+                .collect();
+            if commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()) && !error.trim().is_empty() {
+                rounds.push(Broke { commit: commit.to_string(), error: error.trim().to_string(), branches });
+            }
+        }
+        block.clear();
+    }
+    rounds
 }
 
 /// What a preview holds: the main commit under it and the branches merged into it.

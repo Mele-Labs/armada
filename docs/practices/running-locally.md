@@ -500,7 +500,7 @@ Git merges a branch cut before a deletion without a word, and `cargo install` th
 error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths relative
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
-branch that changed one, and the table says `skipped (does not build: <files>)`.
+branch that changed one, and the table says `skipped (does not build: <files>: <the first error naming one>)`.
 A branch can break the build in a file it never touched, by removing what that file still uses.
 When no merged branch changed a file the errors name, the rustc errors are read for what is missing instead.
 A module file the errors say is not found (`file not found for module`, and the paths in its `create file` help) is blamed on a merged branch that deleted it.
@@ -516,6 +516,16 @@ Each round drops at least one branch, so it ends.
 Fleet reads it only while that commit is the build it runs, tells each branch's Job
 why it is not in the preview. The Job offers a branch that moved again with `offer_preview`, and the
 owner presses Refresh preview himself (`docs/concepts/fleet.md`, *Telling jobs the build they now run*).
+
+**A round that failed is written down for Fleet at once.** `Armada/preview-broke` is emptied when a
+`--restart` starts, and each round whose restart fails adds a block: the preview commit, the first
+error with its place, and a `branch<TAB>tip<TAB>what` line for each branch the error names.
+A branch it leaves out is `left out: <why>`.
+A branch that changed a type a Rust error names, in a file defining it, on a line holding a name from that error, is `changed <Type>, which <file> uses`.
+That is the other side of two branches that build alone and not together, such as a field one adds to a struct whose literal the other writes.
+When the error names no branch, every branch merged is `was in it`.
+A dry run, `--keep-only` and `--at` write none.
+Fleet tells each named branch's Job, while the old Fleet still runs (`docs/concepts/fleet.md`, *Telling jobs a preview did not build*).
 
 **What the preview holds is written down too.** `Armada/preview-held` gets the preview commit on its
 first line, the main commit it stands on on its second, and a `branch<TAB>tip` line for every branch
@@ -586,13 +596,15 @@ The log is matched for `incremental compilation`, `dep graph` or `dep-graph`, an
 `scripts/restart` would otherwise build from whatever it holds.
 
 **`preview` takes the two-Mac forms too.** `--push-as <name>` passes through to
-`scripts/preview`. `--push-as <name> --tell <mac>` merges and pushes with no
-restart, posts `{mac, build: "preview", commit, ref}` to the local Fleet's
-`POST /macs/update` so `<mac>` builds that commit, then restarts this Mac with
-`--at <commit> --ref preview/<name>`. The commit is read from the preview
-worktree's `HEAD`, since a merge with no restart writes no `preview-held`. A
-failed push or post is logged and the restart goes on. `--at <sha> --ref <ref>`
-is the other Mac's side. `main` and `snapshot` take none of these.
+`scripts/preview`. `--push-as <name> --tell <mac>` builds this Mac first, with
+`scripts/preview --restart --push-as <name>`, so a branch that does not build is
+left out here and the rest built.
+Only once that build has taken does it post `{mac, build: "preview", commit, ref}` to the local Fleet's
+`POST /macs/update`, so `<mac>` builds the very commit built here, read from the preview worktree's `HEAD`.
+A failed build tells `<mac>` nothing, and nor does a run whose last push to `preview/<name>` was not that commit.
+A failed post is logged and the run still succeeds.
+Until 25 Nov 2026 it merged, told the other Mac and then built with `--at`, which leaves nothing out, so one branch that broke the build failed both Macs and no Job was told.
+`--at <sha> --ref <ref>` is the other Mac's side. `main` and `snapshot` take none of these.
 `ARMADA_FLEET_URL` names the Fleet `--tell` posts to, else the port in
 `Armada/fleet.json`. The route is `docs/concepts/pocket.md`, *Updating*.
 
