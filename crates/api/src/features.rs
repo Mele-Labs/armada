@@ -193,6 +193,25 @@ pub(crate) async fn start_doc_job<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+pub(crate) async fn get_library_start<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_library_start(crate::acting::asking(), asked.project).await {
+        Ok(start) => answer(StatusCode::OK, &start, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's Draft as Pending on a project with no feature of its own, or the Operator's. **Placed as `answer_retire` is.**
+pub(crate) async fn draft_module_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let draft: ipc::DraftModules = match ipc::decode_body("a project whose modules to draft", &body) {
+        Ok(draft) => draft,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().draft_module_features(crate::acting::asking(), draft).await {
+        Ok(drafted) => answer(StatusCode::OK, &drafted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
 pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {

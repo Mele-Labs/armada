@@ -178,7 +178,7 @@ fn a_press_on_a_row_of_a_page_opens_its_feature_in_place_of_the_page(cx: &mut Te
 }
 
 #[gpui::test]
-fn the_overview_shows_where_no_feature_is_chosen(cx: &mut TestAppContext) {
+fn a_library_with_no_feature_shows_the_start_panel_in_the_overviews_place(cx: &mut TestAppContext) {
     ready(cx);
     let (screen, cx) = cx.add_window_view(|window, cx| FeaturesScreen::mock(window, cx));
     cx.update(|window, cx| {
@@ -189,5 +189,6 @@ fn the_overview_shows_where_no_feature_is_chosen(cx: &mut TestAppContext) {
         })
     });
     cx.run_until_parked();
-    assert_eq!(right(&screen, cx), (Some(ProjectPage::Overview), None));
+    assert_eq!(right(&screen, cx), (None, None));
+    assert!(screen.read_with(cx, |screen, _| screen.start.is_some()), "the start panel stands where the Overview would");
 }

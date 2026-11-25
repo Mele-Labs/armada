@@ -100,6 +100,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("check_docs", "keeps the feature catalog"),
     ("dismiss_doc_flag", "keeps the feature catalog"),
     ("start_doc_job", "keeps the feature catalog"),
+    ("draft_module_features", "keeps the feature catalog"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),
