@@ -21,7 +21,7 @@ A task act on a copy is sent through the link to that Mac, which runs it with it
 Where that Mac cannot be reached, the act is kept in `other_mac_project_acts`, shown on the copy at once, and sent oldest first when the link next opens, each with `at`, when he made it.
 The holder keeps when each field of a task (title, notes, state, place) was last edited, and an act older than a field's time leaves that field as it is.
 The protocol ID moves with the files below, and there is no number to take.
-Bridge's half is `packages/protocol/src/macs.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/macs.ts`, written by hand, field for field.
 
 | Where | Side | Change |
 | --- | --- | --- |
@@ -77,11 +77,11 @@ This Mac's Phone Gateway calls them from inside Fleet's own process, which no Jo
 The call is placed by the process holding the connection, never by `x-armada-caller`, and the Gateway runs in Fleet's own process, which no Job holds.
 
 **A row a replace or a forget drops leaves `list_sessions` at once, and `session.removed` says so.**
-Electron's main process ignores a kind it does not know (`apps/desktop/src/main/arrivals.ts`, the last lines of `applyArrival`), so Electron keeps drawing the row until its next resync.
+Electron's main process ignores a kind it does not know (`classic-final:apps/desktop/src/main/arrivals.ts`, the last lines of `applyArrival`), so Electron keeps drawing the row until its next resync.
 
 ## Acting across Macs
 
-An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `answer_ready_to_try`, `stop_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
+An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `answer_ready_to_try`, `stop_session`, `close_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
 **`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
 `/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
 The row that comes back is kept as that Mac's, and answered with its `mac`.

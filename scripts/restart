@@ -582,7 +582,7 @@ pocket_stale() {
 # Fleet then reports the previous ID. Compared here so the install below can be
 # made to rebuild `ipc`; compared again against what Fleet reports.
 tree_protocol() {
-  node "$src/apps/desktop/codegen/protocol-id.mjs"
+  "$src/scripts/protocol-id" "$src"
 }
 ipc_built_protocol() {
   local out

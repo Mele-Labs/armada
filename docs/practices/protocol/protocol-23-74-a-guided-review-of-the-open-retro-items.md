@@ -17,4 +17,4 @@ Bridge keeps the conversation, because Fleet holds no thread.
 
 **Skew.** A Fleet before 23.74 has neither route and answers 404, so a Bridge that offers the review has nothing to call and shows the plain list.
 A Bridge before it never calls them.
-Bridge's half is `packages/protocol/src/retro-review.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/retro-review.ts`, written by hand like the rest.

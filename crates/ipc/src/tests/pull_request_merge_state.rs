@@ -1,4 +1,4 @@
-//! The forge's verdict on a merge, as `packages/protocol/src/pull-requests.ts` spells it: on the
+//! The forge's verdict on a merge, as `classic-final:packages/protocol/src/pull-requests.ts` spells it: on the
 //! state a Session's row follows and on the page, and `unknown` from a Fleet that never sent it.
 
 use crate::{decode, encode, PullRequestMergeState, PullRequestPage, PullRequestState};

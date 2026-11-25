@@ -10,7 +10,7 @@ use ipc::{Attachment, SessionId, ShowFile};
 
 use super::session_host::{rig_placing, Rig};
 
-/// The most Bridge's panel reads: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`.
+/// The most Bridge's panel reads: `MOST_BYTES` in `classic-final:apps/desktop/src/main/session-file.ts`.
 const MOST: u64 = 8 * 1024 * 1024;
 /// The most a phone is sent of a text file.
 const MOST_TEXT: u64 = 1024 * 1024;

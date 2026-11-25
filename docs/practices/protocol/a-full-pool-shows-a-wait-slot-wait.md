@@ -28,7 +28,7 @@ Body `AskForSlot`: `act` (`ask`, repeated about once a second, or `done`) and `s
 Answers `SlotAsked`: `standing` (`asking`, `waiting`, `added` or `unasked`).
 `asking` means the command waits and the Job's `slot_wait` says so; the command prints that every slot is held, that it waits for one, and that the owner can add or free one.
 `waiting` is the answer to an older Wait, and the command keeps looking.
-Bridge never sends it, and `packages/protocol/src/sessions.ts` carries both types so the wire reads whole.
+Bridge never sends it, and `classic-final:packages/protocol/src/sessions.ts` carries both types so the wire reads whole.
 It sets the same `slot_wait`, and one where the Job is also in the line: **one wait, never two**.
 Fleet forgets a command it has not heard from for ten seconds.
 Add for a command with no line makes a slot and holds it for that command until `done` or thirty seconds; for a Job in the line, the slot goes to the Job and the command keeps waiting.

@@ -890,8 +890,7 @@ impl JobView {
 
     /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`).
     fn closed(&self, id: &str, cx: &App) -> bool {
-        self.head.ended(id)
-            || self.record(id, cx).is_none_or(|job| {
+        self.record(id, cx).is_none_or(|job| {
             job.state == SessionState::Ended || job.mark.is_some_and(|mark| matches!(mark.state, JobState::Ended | JobState::Quiet))
         })
     }

@@ -4,7 +4,7 @@
 
 Since 22 Oct 2026. Every version of every ledger attachment a Job holds, so Bridge can draw its artifacts as a timeline.
 **Additive only**: one operation and the two types it carries; `AttachmentVersion` later gained two optional fields (below). No field of `SessionRecord`, no event kind and no error is new.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 The migration `20261022T1300Z-session_ledger.versions` is additive: a table, triggers, and one row seeded for each row already kept.
 
 | Where | Side | Carries |
@@ -22,7 +22,7 @@ The versions of every attachment the Job holds are in one list, ordered by when 
 
 **What a version followed.** `from_message` is the thread row id, the `id` of the `SessionRow::Message` Bridge draws, of the person's latest message when the version was written.
 `from_task` is the id of the plan task in progress then, the one that began last where several are, and absent once it is completed or none is in progress.
-Both are optional and left out when absent, on the wire and in `packages/protocol/src/sessions.ts`; a version with neither follows nothing known.
+Both are optional and left out when absent, on the wire and in `classic-final:packages/protocol/src/sessions.ts`; a version with neither follows nothing known.
 Fleet works them out; the agent says nothing.
 Migrations `20261022T2000Z-session_focus.tables`, `20261022T2010Z-session_plan.task_started_at` and `20261022T2020Z-session_ledger.version_origins` are additive: two tables with a trigger, and a nullable column.
 

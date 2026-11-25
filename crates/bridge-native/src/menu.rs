@@ -1,4 +1,4 @@
-//! The application menu. Mirrors `apps/desktop/src/main/app-menu.ts`: the app menu spelled out,
+//! The application menu. Mirrors `classic-final:apps/desktop/src/main/app-menu.ts`: the app menu spelled out,
 //! with "Revert to the build before…" after About, then Edit and Window.
 //!
 //! **The template is a pure function of its inputs** ([`template`]), so a test reads the items and

@@ -1,6 +1,6 @@
 //! Settings → Workflows: every workflow Fleet runs, grouped by where it is kept, with the switch for Jobs at the
 //! top and one on each row. A port of the list column of Classic's Workflow manager
-//! (`packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`, `workflow-manager-wire.ts`,
+//! (`classic-final:packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`, `workflow-manager-wire.ts`,
 //! `workflows-off.ts`), read on All: Fleet's `GET /workflows` as the connection holds it, the switches saved into
 //! `features.workflows` and `workflows.off`.
 

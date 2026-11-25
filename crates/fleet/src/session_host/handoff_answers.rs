@@ -63,7 +63,7 @@ pub(crate) fn pick_of(choice: u32, remind_at: &[u64]) -> Option<HandoffPick> {
 }
 
 /// How Bridge opens the person's answer to a question kept for a walk, a line a question
-/// (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts`).
+/// (`lapsedAnswerText`, `classic-final:packages/screens/src/sessions-wire.ts`).
 pub(crate) const ANSWERED_LATER: &str = "Answering your earlier question";
 
 /// What the person chose on the kept `questions`, read off their message: each label one the
@@ -83,7 +83,7 @@ pub(crate) fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<Que
 /// (for a walk, or because nobody answered inside the hold), oldest first. A kept one outlasts what
 /// the person says; a skipped one is cleared by anything he says after it; a message answering them
 /// clears all. A question asked again later is left to the later ask. Bridge's `lapsedOf`
-/// (`packages/screens/src/sessions-wire.ts`) is the same rule: keep the two in step.
+/// (`classic-final:packages/screens/src/sessions-wire.ts`) is the same rule: keep the two in step.
 pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
     let mut said = false;
     let mut later = BTreeSet::new();

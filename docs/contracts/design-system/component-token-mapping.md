@@ -389,7 +389,7 @@ itself. Where a stamp cannot sit, as in a tooltip or an accessible name,
 **One card opens on every rich hover, the same over a Session as over a
 pull request.** A reader who has seen one has seen them all, and only what
 is said in it changes with the kind of thing. It is `Inspect` and
-`InspectCard` in `packages/components/src/primitives/Inspect/Inspect.tsx`. It replaced
+`InspectCard` in `classic-final:packages/components/src/primitives/Inspect/Inspect.tsx`. It replaced
 `StopCard`, the Session ledger's preview bubble, the owner chip's card, the
 merge queue light's card, the plan usage card and the map's callout, each
 of which drew its own surface and kept its own timing.

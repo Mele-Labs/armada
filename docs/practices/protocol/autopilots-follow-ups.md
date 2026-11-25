@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`#2105`. **Additive only**: one operation, one answer type, three fields. Bridge's half is `packages/protocol/src/autopilot.ts`, `judged.ts` and `detail.ts`, written by hand.
+`#2105`. **Additive only**: one operation, one answer type, three fields. Bridge's half is `classic-final:packages/protocol/src/autopilot.ts`, `judged.ts` and `detail.ts`, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

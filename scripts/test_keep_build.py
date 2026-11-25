@@ -51,8 +51,8 @@ class KeepBuild(unittest.TestCase):
         shutil.copy2(KEEP, self.keep)
         shutil.copy2(NATIVE_APP, os.path.join(scripts, "native-app"))
         shutil.copy2(os.path.join(HERE, "scripts", "signing-identity"), os.path.join(scripts, "signing-identity"))
-        # `native-app` takes the notification tones from beside its own folder.
-        shutil.copytree(os.path.join(HERE, "apps", "desktop", "sounds"), os.path.join(self.tmp, "apps", "desktop", "sounds"))
+        # `native-app` takes the notification tones from the native crate beside its own folder.
+        shutil.copytree(os.path.join(HERE, "crates", "bridge-native", "sounds"), os.path.join(self.tmp, "crates", "bridge-native", "sounds"))
         self.armada = os.path.join(self.tmp, "armada")
         self.write(self.armada, "#!/bin/sh\necho armada\n", mode=0o755)
         # Launch Services is the Mac's own, so every run gets a stand-in: it prints `lsregister.dump` and logs the rest.
@@ -281,7 +281,7 @@ class KeepBuild(unittest.TestCase):
         self.assertEqual(jobs, [])
 
     def test_no_built_bridge_or_node_modules_is_needed_and_none_is_kept(self):
-        # The tree here has no `apps/desktop/out`, no `node_modules` and no lockfile: Armada Classic is gone.
+        # The tree here has no built Electron app, no `node_modules` and no lockfile: Armada Classic is gone.
         snapshot = self.make()
         self.assertFalse(os.path.exists(os.path.join(snapshot, "bridge")))
         self.assertFalse(os.path.exists(os.path.join(snapshot, "launch-bridge")))

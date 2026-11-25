@@ -4,34 +4,14 @@
 
 use serde_json::json;
 
-use crate::sketch::screen::{
-    fields_of, Read, BASE, LAYOUT, MESSAGE_FIELDS, MOST_SCREEN_DEPTH, ROW_FIELDS, SCREEN_ALIGNS, SCREEN_CHROMES, SCREEN_FIELDS,
-    SCREEN_GAPS, SCREEN_ICONS, SCREEN_TEXTS, SCREEN_VARIANTS, SPECS,
-};
+use crate::sketch::screen::{fields_of, Read, MOST_SCREEN_DEPTH, SPECS};
 use crate::sketch::{
-    EDGE_FIELDS, NODE_FIELDS, MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_STATES, SCENE_HEADS, SCENE_ICONS,
+    MOST_EDGES, MOST_MOCKS, MOST_NODES, MOST_SCENE_BYTES, MOST_TITLE_CHARS, SCENE_COLORS, SCENE_STATES, SCENE_HEADS, SCENE_ICONS,
     SCENE_KINDS, SCENE_LINES, SCENE_PATHS, SCENE_SHAPES, WIRE_PARTS,
 };
 use crate::{SceneHead, SceneLine, ScenePath, ShowSketch};
 
-const SCENE_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/scene.ts");
-const SCREEN_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/screen.ts");
 const OPERATION: &str = include_str!("../../operations/show_sketch.toml");
-const MOCK_ICONS_TS: &str = include_str!("../../../../packages/components/src/compositions/SketchScene/mock-icons.ts");
-
-/// The strings of `export const <name> = [ ... ] as const;` in a source file.
-fn listed_in(source: &str, name: &str) -> Vec<String> {
-    let start = source
-        .find(&format!("export const {name} = ["))
-        .unwrap_or_else(|| panic!("the source no longer exports {name}"));
-    let rest = &source[start..];
-    let body = &rest[rest.find('[').unwrap() + 1..rest.find("] as const").unwrap()];
-    body.split('"').skip(1).step_by(2).map(String::from).collect()
-}
-
-fn listed_in_scene_ts(name: &str) -> Vec<String> {
-    listed_in(SCENE_TS, name)
-}
 
 fn sent(title: &str, scene: serde_json::Value) -> ShowSketch {
     crate::decode("a sketch to show", json!({ "title": title, "scene": scene }).to_string().as_bytes()).unwrap()
@@ -49,15 +29,6 @@ fn two_boxes() -> serde_json::Value {
         ],
         "edges": [{ "id": "e1", "from": "a", "to": "b", "label": "HTTP", "flow": true }],
     })
-}
-
-#[test]
-fn the_lists_the_checker_allows_are_the_lists_scene_ts_parses() {
-    assert_eq!(listed_in_scene_ts("SCENE_KINDS"), SCENE_KINDS);
-    assert_eq!(listed_in_scene_ts("WIRE_PARTS"), WIRE_PARTS);
-    assert_eq!(listed_in_scene_ts("SCENE_ICONS"), SCENE_ICONS);
-    assert_eq!(listed_in_scene_ts("SCENE_SHAPES"), SCENE_SHAPES);
-    assert_eq!(listed_in_scene_ts("SCENE_COLORS"), SCENE_COLORS);
 }
 
 #[test]
@@ -99,212 +70,6 @@ fn an_arrows_line_head_and_path_are_taken_by_name_and_refused_with_the_allowed_l
     assert!(said.contains("edges[0] `e1`: `line` is `wavy`. Allowed: solid, dashed, dotted"), "{said}");
     assert!(said.contains("edges[0] `e1`: `head` is `middle`. Allowed: end, start, both, none"), "{said}");
     assert!(said.contains("edges[0] `e1`: `path` is `zigzag`. Allowed: elbow, straight, curve"), "{said}");
-}
-
-#[test]
-fn the_lists_the_screen_checker_allows_are_the_lists_screen_ts_parses() {
-    let lists: [(&str, &[&str]); 7] = [
-        ("SCREEN_ICONS", SCREEN_ICONS),
-        ("SCREEN_GAPS", &SCREEN_GAPS),
-        ("SCREEN_ALIGNS", &SCREEN_ALIGNS),
-        ("SCREEN_CHROMES", &SCREEN_CHROMES),
-        ("SCREEN_VARIANTS", &SCREEN_VARIANTS),
-        ("SCREEN_FIELDS", &SCREEN_FIELDS),
-        ("SCREEN_TEXTS", &SCREEN_TEXTS),
-    ];
-    for (name, ours) in lists {
-        assert_eq!(listed_in(SCREEN_TS, name), ours, "{name} differs from screen.ts");
-    }
-}
-
-/// The text from `open` to its matching `close`, with the index just past it.
-fn balanced(text: &str, open: char, close: char) -> (&str, usize) {
-    let start = text.find(open).expect("an opening bracket");
-    let mut depth = 0;
-    for (at, one) in text[start..].char_indices() {
-        depth += i32::from(one == open) - i32::from(one == close);
-        if depth == 0 {
-            return (&text[start + 1..start + at], start + at + 1);
-        }
-    }
-    panic!("a bracket never closes");
-}
-
-/// The top-level `key: reader` pieces of an object literal's body, a bare name being its own reader and `...NAME` a spread.
-fn pieces(body: &str) -> Vec<(String, String)> {
-    let (mut found, mut depth, mut from) = (Vec::new(), 0, 0);
-    let mut cut = |end: usize, found: &mut Vec<(String, String)>| {
-        let piece = body[from..end].trim();
-        from = end + 1;
-        if let Some(name) = piece.strip_prefix("...") {
-            found.push((String::from("..."), name.to_string()));
-        } else if let Some((key, reader)) = piece.split_once(':') {
-            found.push((key.trim().to_string(), reader.trim().to_string()));
-        } else if !piece.is_empty() {
-            found.push((piece.to_string(), piece.to_string()));
-        }
-    };
-    for (at, one) in body.char_indices() {
-        match one {
-            '(' | '{' | '[' => depth += 1,
-            ')' | '}' | ']' => depth -= 1,
-            ',' if depth == 0 => cut(at, &mut found),
-            _ => {}
-        }
-    }
-    cut(body.len(), &mut found);
-    found
-}
-
-/// The fields `const <name>: Record<string, Read> = { ... };` holds in `screen.ts`.
-fn record_in_screen_ts(name: &str) -> Vec<(String, String)> {
-    let start = SCREEN_TS.find(&format!("const {name}: Record<string, Read> = {{")).unwrap_or_else(|| panic!("screen.ts has no {name}"));
-    pieces(balanced(&SCREEN_TS[start..], '{', '}').0)
-}
-
-/// Each `spec("type", fields, [required])` of `SPECS` in `screen.ts`: the type, its fields with their readers, and what it requires.
-fn specs_in_screen_ts() -> Vec<(String, Vec<(String, String)>, Vec<String>)> {
-    let start = SCREEN_TS.find("const SPECS = new Map").expect("screen.ts no longer builds SPECS");
-    let block = &SCREEN_TS[start..];
-    let block = &block[..block.find("\n]);").expect("SPECS closes")];
-    let mut found = Vec::new();
-    for entry in block.split("\n  spec(\"").skip(1) {
-        let (name, rest) = entry.split_once('"').unwrap();
-        let rest = rest.trim_start_matches(',').trim_start();
-        let (fields, after) = if rest.starts_with('{') {
-            let (body, end) = balanced(rest, '{', '}');
-            (pieces(body), &rest[end..])
-        } else {
-            let (spread, after) = rest.split_once(',').unwrap_or((rest.trim_end_matches("),"), ""));
-            (vec![(String::from("..."), spread.trim().to_string())], after)
-        };
-        let mut all = Vec::new();
-        for (key, reader) in fields {
-            if key == "..." {
-                all.extend(record_in_screen_ts(&reader));
-            } else {
-                all.push((key, reader));
-            }
-        }
-        let required = match after.find('[') {
-            Some(_) => balanced(after, '[', ']').0.split('"').skip(1).step_by(2).map(String::from).collect(),
-            None => Vec::new(),
-        };
-        found.push((name.to_string(), all, required));
-    }
-    found
-}
-
-/// A reader as `screen.ts` writes it, spaces aside.
-fn reader_of(read: Read) -> String {
-    match read {
-        Read::Text => "text".into(),
-        Read::Flag => "flag".into(),
-        Read::Number => "num".into(),
-        Read::Whole(least, most) => format!("whole({least},{most})"),
-        Read::Size => "size".into(),
-        Read::Choice(name, _) => format!("choice({name})"),
-        Read::Icon => "icon".into(),
-        Read::Act => "act".into(),
-        Read::Many(one) => format!("many({})", reader_of(*one)),
-        Read::Row => format!("record({{{}}},[\"text\"])", record_of(&ROW_FIELDS)),
-        Read::Message => format!("record({{{}}},[\"from\",\"text\"])", record_of(&MESSAGE_FIELDS)),
-        Read::Children => "children".into(),
-    }
-}
-
-fn record_of(fields: &[(&str, Read)]) -> String {
-    let said: Vec<String> = fields
-        .iter()
-        .map(|(name, read)| match read {
-            Read::Choice(_, list) => format!("{name}:choice([{}])", list.iter().map(|one| format!("\"{one}\"")).collect::<Vec<_>>().join(",")),
-            other if reader_of(*other) == *name => name.to_string(),
-            other => format!("{name}:{}", reader_of(*other)),
-        })
-        .collect();
-    said.join(",")
-}
-
-fn bare(text: &str) -> String {
-    text.chars().filter(|one| !one.is_whitespace()).collect()
-}
-
-#[test]
-fn the_screen_types_fields_readers_and_required_parts_are_the_ones_screen_ts_reads() {
-    let readers = |fields: &[(&str, Read)]| -> Vec<(String, String)> {
-        let mut said: Vec<_> = fields.iter().map(|(name, read)| (name.to_string(), reader_of(*read))).collect();
-        said.sort();
-        said
-    };
-    let theirs = |fields: Vec<(String, String)>| -> Vec<(String, String)> {
-        let mut said: Vec<_> = fields.into_iter().map(|(name, reader)| (name, bare(&reader))).collect();
-        said.sort();
-        said
-    };
-    assert_eq!(readers(&BASE), theirs(record_in_screen_ts("BASE")), "BASE differs from screen.ts");
-    assert_eq!(readers(&LAYOUT), theirs(record_in_screen_ts("LAYOUT")), "LAYOUT differs from screen.ts");
-
-    let mut types: Vec<_> = specs_in_screen_ts();
-    types.sort();
-    let mut ours: Vec<_> = SPECS.iter().collect();
-    ours.sort_by_key(|spec| spec.name);
-    assert_eq!(types.iter().map(|(name, ..)| name.as_str()).collect::<Vec<_>>(), ours.iter().map(|spec| spec.name).collect::<Vec<_>>());
-    for ((name, fields, required), spec) in types.into_iter().zip(ours) {
-        // `screen.ts` adds BASE and `type` to every spec itself, so they are not in its list.
-        let ours_own: Vec<(&str, Read)> = fields_of(spec).into_iter().filter(|(key, _)| !BASE.iter().any(|(base, _)| base == key)).collect();
-        assert_eq!(readers(&ours_own), theirs(fields), "the fields of `{name}` differ from screen.ts");
-        let mut required = required;
-        required.sort();
-        let mut mine: Vec<&str> = spec.required.to_vec();
-        mine.sort_unstable();
-        assert_eq!(required, mine, "what `{name}` requires differs from screen.ts");
-    }
-}
-
-/// The field names of `export type <name> = { ... };` in `scene.ts`.
-fn fields_in_scene_ts(name: &str) -> Vec<String> {
-    let start = SCENE_TS
-        .find(&format!("export type {name} = {{"))
-        .unwrap_or_else(|| panic!("scene.ts no longer exports type {name}"));
-    let rest = &SCENE_TS[start..];
-    let mut body = rest[rest.find('{').unwrap() + 1..[rest.find("\n};"), rest.find(" };")].into_iter().flatten().min().unwrap()].to_string();
-    while let Some(open) = body.find("/*") {
-        let close = body[open..].find("*/").expect("a comment closes") + open + 2;
-        body.replace_range(open..close, "");
-    }
-    body.split(';')
-        .filter_map(|part| part.split_once(':'))
-        .map(|(field, _)| field.trim().trim_end_matches('?').to_string())
-        .filter(|field| !field.is_empty())
-        .collect()
-}
-
-/// Edge `step`, `line`, `head` and `path` are taken here before `scene.ts` types them. Classic's reader skips
-/// `line`, `head` and `path` until it draws them; remove each from here when the type carries it.
-const AHEAD_OF_SCENE_TS: [&str; 4] = ["step", "line", "head", "path"];
-
-/// Node `state` is taken here before `scene.ts` types it: Classic draws nothing for it, and native reads it. Remove
-/// it from here when `scene.ts` carries it.
-const NODE_AHEAD_OF_SCENE_TS: [&str; 1] = ["state"];
-
-#[test]
-fn the_fields_the_checker_takes_are_the_fields_scene_ts_types() {
-    let mut node = fields_in_scene_ts("SceneNode");
-    // `kept` is Fleet's to write and an agent's to be refused, so scene.ts types it and NODE_FIELDS does not.
-    node.retain(|field| field != "kept");
-    node.extend(NODE_AHEAD_OF_SCENE_TS.iter().map(|one| one.to_string()));
-    node.sort();
-    let mut ours: Vec<&str> = NODE_FIELDS.to_vec();
-    ours.sort_unstable();
-    assert_eq!(node, ours);
-
-    let mut edge = fields_in_scene_ts("SceneEdge");
-    edge.extend(AHEAD_OF_SCENE_TS.iter().map(|one| one.to_string()));
-    edge.sort();
-    edge.dedup();
-    let mut ours: Vec<&str> = EDGE_FIELDS.to_vec();
-    ours.sort_unstable();
-    assert_eq!(edge, ours);
 }
 
 #[test]
@@ -380,40 +145,18 @@ fn the_tool_description_names_every_kind_icon_and_wire_part() {
     assert!(OPERATION.contains("ASCII"), "the description must forbid ASCII art");
 }
 
-/// The names `MOCK_ICONS` in `mock-icons.ts` is keyed by.
-fn mock_icon_names() -> Vec<String> {
-    let body = &MOCK_ICONS_TS[MOCK_ICONS_TS.find("export const MOCK_ICONS").expect("the source still exports MOCK_ICONS")..];
-    let body = &body[body.find("= {").unwrap() + 3..body.find("};").unwrap()];
-    body.split(',')
-        .filter_map(|entry| entry.split_once(':'))
-        .map(|(name, _)| name.trim().trim_matches('"').to_string())
-        .collect()
-}
-
 #[test]
 fn the_tool_description_lists_exactly_the_glyphs_a_mock_may_name() {
     let marker = "no error says so: ";
     let at = OPERATION.find(marker).expect("the description lists the glyphs after the marker") + marker.len();
     let listed: Vec<&str> = OPERATION[at..].split(". ").next().unwrap().split(", ").collect();
-    let names = mock_icon_names();
-    assert!(names.len() > 50, "{names:?}");
-    for name in &names {
-        assert!(listed.contains(&name.as_str()), "show_sketch.toml does not list the mock glyph `{name}` of mock-icons.ts");
+    assert!(crate::MOCK_GLYPHS.len() > 50, "{:?}", crate::MOCK_GLYPHS);
+    for name in crate::MOCK_GLYPHS.iter() {
+        assert!(listed.contains(name), "show_sketch.toml does not list the mock glyph `{name}`");
     }
     for name in &listed {
-        assert!(names.iter().any(|one| one == name), "show_sketch.toml lists `{name}`, which mock-icons.ts does not draw");
+        assert!(crate::MOCK_GLYPHS.contains(name), "show_sketch.toml lists `{name}`, which is not in MOCK_GLYPHS");
     }
-}
-
-/// The design catalogue answers `MOCK_GLYPHS`, so it must be what Bridge draws.
-#[test]
-fn the_mock_glyphs_are_exactly_what_mock_icons_draws() {
-    let mut names = mock_icon_names();
-    names.retain(|name| !name.is_empty());
-    let mut glyphs: Vec<String> = crate::MOCK_GLYPHS.iter().map(|one| one.to_string()).collect();
-    names.sort();
-    glyphs.sort();
-    assert_eq!(glyphs, names, "MOCK_GLYPHS in sketch.rs differs from MOCK_ICONS in mock-icons.ts");
 }
 
 #[test]
@@ -422,7 +165,7 @@ fn the_tool_description_names_every_screen_element_type_and_enum_value() {
         assert!(OPERATION.contains(spec.name), "show_sketch.toml does not name the screen element `{}`", spec.name);
         for (field, read) in fields_of(spec) {
             assert!(OPERATION.contains(field), "show_sketch.toml does not name `{field}` of `{}`", spec.name);
-            if let Read::Choice(_, list) = read {
+            if let Read::Choice(list) = read {
                 for word in list {
                     assert!(OPERATION.contains(word), "show_sketch.toml does not name `{word}` of `{field}`");
                 }
@@ -440,7 +183,7 @@ fn a_scene_that_parses_is_kept_whole_with_its_counts() {
 }
 
 #[test]
-fn strokes_are_read_as_scene_ts_reads_them() {
+fn strokes_are_kept_with_their_points() {
     let mut scene = two_boxes();
     scene["strokes"] = json!([{ "id": "s1", "points": [{ "x": 1, "y": 2 }, { "x": 3.5, "y": 4 }] }]);
     sent("Flow", scene.clone()).checked().unwrap();

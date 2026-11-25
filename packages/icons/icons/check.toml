@@ -10,7 +10,7 @@
   group = "Step and Verdict"
   size = "12px"
   status = "Specified"
-  reserved = "TaskMark's (packages/components) done and handed_in states."
+  reserved = "TaskMark's (classic-final:packages/components) done and handed_in states."
   notes = "17 Oct 2026. `handed_in` reads as done: the same check in `--step-advanced`, with a faint `pencil-off` in its corner."
 
 [[icons.check.usage]]

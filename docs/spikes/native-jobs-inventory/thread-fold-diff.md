@@ -1,7 +1,7 @@
 # Where Fleet's thread fold and Electron's differ
 
 The native Bridge draws a Job's thread from `get_job_thread`, so Fleet's fold has to give the items Electron Bridge draws.
-Electron folds in TypeScript and is the spec: `itemsOf` in `packages/components/src/compositions/SessionThread/SessionThread.tsx`, fed by `rowsOfThread` and `withChanges` (`packages/screens/src/sessions-wire.ts`), `threadRowsOf` (`apps/desktop/src/renderer/src/session-thread-rows.ts`), the host's rows in `apps/desktop/src/renderer/src/sessions.tsx` and `useJudgedRows`.
+Electron folds in TypeScript and is the spec: `itemsOf` in `classic-final:packages/components/src/compositions/SessionThread/SessionThread.tsx`, fed by `rowsOfThread` and `withChanges` (`classic-final:packages/screens/src/sessions-wire.ts`), `threadRowsOf` (`classic-final:apps/desktop/src/renderer/src/session-thread-rows.ts`), the host's rows in `classic-final:apps/desktop/src/renderer/src/sessions.tsx` and `useJudgedRows`.
 Fleet's fold is `crates/fleet/src/thread_view.rs`, its wire `crates/ipc/src/job_thread.rs`.
 The inventory of what Electron draws is `job-view.md` beside this note.
 Read on 9 Nov 2026, against the spacious take, which the shipped app always draws.

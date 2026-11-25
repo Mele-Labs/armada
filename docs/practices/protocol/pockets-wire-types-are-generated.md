@@ -4,8 +4,8 @@
 
 Pocket's wire types in `apps/pocket/src/wire/` are generated from the Rust types in `crates/ipc/src`.
 Edit nothing there.
-Pocket is the phone app and the one TypeScript client that stays, so it reads the Rust types directly and not `packages/protocol`'s hand-written copy.
-Classic keeps that copy until it is deleted.
+Pocket is the phone app and the one TypeScript client, so it reads the Rust types directly.
+Classic, the Electron Bridge, kept a hand-written copy in `classic-final:packages/protocol`, which is deleted with it.
 
 **Regenerate with `cargo xtask verify-wire --write`, and commit what it writes.**
 Without `--write` the same command fails on a stale file and names it.
@@ -47,4 +47,4 @@ It says what serde puts on the wire, so Pocket reads and sends the same type.
 The same type is a request body in places, and `false` is legal there.
 
 A message between a sealed page and its host is `PageMessage<PageToHost>` or `PageMessage<HostToPage>`, as Rust has it.
-The `armada: 1` envelope is part of the first, and `packages/protocol` folds it into `PageToHost`.
+The `armada: 1` envelope is part of the first, and `classic-final:packages/protocol` folds it into `PageToHost`.

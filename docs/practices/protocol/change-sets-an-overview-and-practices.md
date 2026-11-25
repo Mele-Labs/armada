@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. `docs/concepts/pull-review.md`, *Change sets*.
 **Additive only**: three values of `ReviewRunKind`, three shapes of `ReviewResult`, new types in `ipc::review_change_sets`, and two error codes; no operation, route or event kind.
-Bridge's half is `packages/protocol/src/review-runs.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/review-runs.ts`, written by hand, field for field.
 The protocol ID moves with `crates/ipc/src` and the operation files, and there is no number to take.
 
 | Where | Side | Change |

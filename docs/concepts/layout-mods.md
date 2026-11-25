@@ -15,7 +15,7 @@ A month later you promote the mod, and a Job of its own opens a pull request for
 > **Rule.** Every tab, panel and place that can be arranged registers one entry, and a layout can name only entries that are registered.
 > Why: a layout is then ids and nothing else, so it cannot reach into a screen's code.
 
-The registry is `LAYOUT` in `packages/shell/src/layout.tsx`. A panel written in code, tier 3, registers through the same entries.
+The registry is `LAYOUT` in `classic-final:packages/shell/src/layout.tsx`. A panel written in code, tier 3, registers through the same entries.
 
 | Field | Holds |
 |---|---|
@@ -148,14 +148,14 @@ The mods stay installed.
 
 | Piece | Home |
 |---|---|
-| Registry, `parseLayout`, `serializeLayout`, `resolveLayout`, `LayoutSource` | `packages/shell/src/layout.tsx` |
+| Registry, `parseLayout`, `serializeLayout`, `resolveLayout`, `LayoutSource` | `classic-final:packages/shell/src/layout.tsx` |
 | The regions and ids both sides check | `crates/ipc/layout-registry.json` |
 | Fleet's check of `layout.json` | `crates/ipc/src/layout.rs` |
 | Fleet's list, scaffold, validation and promotion for `kind = "layout"` | `crates/fleet/src/mods/` |
 | Cockpit panels, Job panels and places | Read `useLayout(region)` |
-| Settings → Layout, Mods row | `packages/surfaces/settings/src/` |
-| The source over Fleet | `apps/desktop/src/renderer/src/fleet-layout.ts` |
-| The mock | `apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=layoutAsDrawn` |
+| Settings → Layout, Mods row | `classic-final:packages/surfaces/settings/src/` |
+| The source over Fleet | `classic-final:apps/desktop/src/renderer/src/fleet-layout.ts` |
+| The mock | `classic-final:apps/desktop/src/renderer/src/mock/layout.ts`, walk `?walk=layoutAsDrawn` |
 
 ## What is kept
 

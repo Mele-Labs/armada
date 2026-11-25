@@ -7,8 +7,6 @@
 //! writes the mods, so Bridge files nothing itself. A teaching on Bridge's own interface has no
 //! agent note and lives in Mods alone. **A lifecycle rule is not a mod**: it is a rule piece in Kit,
 //! written as the Workflows page writes one (`save_lifecycle_piece`).
-//!
-//! **Bridge's mirror is `packages/protocol/src/teaching.ts`**, field for field.
 
 use serde::{Deserialize, Serialize};
 

@@ -3,8 +3,8 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 27 Oct 2026. The System › Kit › Workflows page draws a workflow as its steps: the words, and what ends each.
-**Three operations, and the changes an agent drafts (below), and one new field on `WorkflowCopy`.** The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for field.
+**Three operations, and the changes an agent drafts (below), and one new field on `WorkflowCopy`.** The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations/*.toml`, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/setup.ts`, written by hand, field for field.
 
 | Operation | Route | Side | Carries |
 | --- | --- | --- | --- |
@@ -145,10 +145,10 @@ Since 29 Oct 2026. The page holds **Workflows for Jobs** at the top and a switch
 | `workflows.off` | A `Json` value, `{ "machine": ["<workflow id>"], "repositories": { "<manifest id>": ["<workflow id>"] } }` | A row's switch: in a repository's group, that repository's list; in Armada's and Yours, the machine's list on All and the picked repository's with one picked |
 
 **The save is the whole value.** A row's press sends `workflows.off` with that one id added to or taken out of the list it concerns, and every other list as it was.
-A repository whose last workflow is switched back on has no entry left, and a value that is absent, null or does not read is nothing off (`apps/desktop/src/renderer/src/workflows-off.ts`).
+A repository whose last workflow is switched back on has no entry left, and a value that is absent, null or does not read is nothing off (`classic-final:apps/desktop/src/renderer/src/workflows-off.ts`).
 **A workflow off on the machine is off in every repository**, so a row whose switch is a repository's says `Off on this machine` in place of a switch, and only the machine's switch turns it back on.
 
-**Where it is edited.** Settings draws no row for `workflows.off`: a Json setting is never drawn by the generic form (`drawn` in `packages/surfaces/settings/src/sections.ts`), and the Workflows section that holds nothing else is not offered.
+**Where it is edited.** Settings draws no row for `workflows.off`: a Json setting is never drawn by the generic form (`drawn` in `classic-final:packages/surfaces/settings/src/sections.ts`), and the Workflows section that holds nothing else is not offered.
 This page is the one place it is edited.
 
 **What reads it.** The start card's Workflow picker leaves out a workflow that is off for the machine or for the Job's repository, and keeps None.

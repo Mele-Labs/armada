@@ -15,7 +15,7 @@ flowchart LR
 
     subgraph desk [" "]
         direction TB
-        B["<b>Bridge</b><br/>Electron<br/><i>apps/desktop</i>"]
+        B["<b>Bridge</b><br/>native, gpui<br/><i>crates/bridge-native</i>"]
     end
 
     B <-->|"HTTP + WebSocket<br/>one version number"| F
@@ -36,8 +36,10 @@ flowchart LR
 Bridge is the only way in, and it holds one connection — **it never talks to an
 agent.** A Job's agent talks to Fleet through the tools Fleet handed it.
 
-The seam between Bridge and Fleet is the only place Rust stops and TypeScript
-starts. Every other boundary in this repository is a function call or a file.
+The seam between Fleet and its clients is the wire in `crates/ipc`. Bridge links
+that crate, so the two share every type; Pocket, the phone app in TypeScript,
+reads the same wire through a generated copy. Every other boundary in this
+repository is a function call or a file.
 Each build carries a protocol ID, a hash of the wire files, and both sides must
 match; when they do not, Bridge opens no socket and four routes are meant to
 stay up so you can still see what is running and stop it.
@@ -48,8 +50,8 @@ stay up so you can still see what is running and stop it.
 | Path | Holds |
 |---|---|
 | `crates/` | The Rust workspace — the domain, the daemon, the adapters |
-| `apps/desktop/` | Bridge. Three builds from one config: main, preload, renderer |
-| `packages/` | What more than one surface reads — `tokens`, `icons` |
+| `apps/` | Pocket, the phone app, and the central store |
+| `packages/` | What more than one surface reads — `tokens`, `icons`, `brand`, `mods` |
 | `xtask/` | The gate. No dependencies, runs on a checkout with nothing built |
 | `docs/contracts/` | Binding rules. Indexed by `docs/INDEX.md`, which the gate enforces |
 | `docs/practices/` | How to write Rust, Bridge, and the seam between them |

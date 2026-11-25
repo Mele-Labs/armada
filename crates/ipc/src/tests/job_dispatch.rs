@@ -1,5 +1,5 @@
 //! `dispatch_job`'s body and answers, and the ideas kept for later, as Bridge's mirror in
-//! `packages/protocol/src/job-dispatch.ts` spells them.
+//! `classic-final:packages/protocol/src/job-dispatch.ts` spells them.
 
 use serde_json::json;
 

@@ -13,7 +13,6 @@ roadmap is beads issues (`bd`).
 | Contracts, practices, concepts, journeys, spikes, open questions | `docs/` |
 | Registries code reads — tokens, icons, settings, the domain model | `packages/`, `crates/` |
 | What is being built and in what order | Beads issues, with milestones as epics |
-| A component as built, and how it is agreed | Storybook, `packages/components` |
 
 **The test when it is not obvious:** does an agent need this while writing code?
 If yes it is a file here, because a subagent cannot follow a link out.

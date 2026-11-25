@@ -13,4 +13,4 @@
 
 **Skew.** A Fleet before 23.92 has no route and answers 404, and sends no `paused`.
 A Bridge before it ignores the field and never calls the routes.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.

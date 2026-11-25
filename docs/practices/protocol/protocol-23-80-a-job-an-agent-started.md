@@ -20,5 +20,5 @@ It starts the first turn and settles the attachment and the item together.
 
 **Skew.** A Fleet before 23.80 has neither route, so the tools are not offered to an agent, and sends no `started` row, `first_message` item or `unsent` attachment.
 A Bridge before it meets `first_message` and `message` as values it does not know.
-Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest.
 **The event stream is unchanged**: one more `session.row` and `session.changed` per call, on the same sink.

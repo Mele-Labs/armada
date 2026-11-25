@@ -4,7 +4,7 @@
 
 `docs/concepts/session.md`, *A Job that started Jobs*.
 **Additive throughout**; the protocol ID moves with the wire files, and nothing is bumped.
-The mirror is `packages/protocol/src/started-jobs.ts`, written by hand. Bridge draws none of it.
+The mirror is `classic-final:packages/protocol/src/started-jobs.ts`, written by hand. Bridge draws none of it.
 
 | Where | Side | Carries |
 | --- | --- | --- |

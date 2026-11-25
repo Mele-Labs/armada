@@ -1,5 +1,5 @@
 //! The sidebar's groups and entries, and the words a search finds each by: a port of Classic's
-//! `system-entries.ts` and the section words in `packages/surfaces/settings/src/sections.ts`.
+//! `system-entries.ts` and the section words in `classic-final:packages/surfaces/settings/src/sections.ts`.
 //!
 //! **Only what is ported is listed** (the orchestrator, 12 Nov 2026): an entry Classic has that this
 //! build does not draw yet is left out rather than shown blank. Each port adds its entry here.

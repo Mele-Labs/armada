@@ -246,7 +246,7 @@ pub fn digest(text: &str) -> String {
 /// agree are folded, and a collision there would hide a change. Sixty-four bits
 /// over data nobody is choosing adversarially is not a risk anybody meets, and
 /// the caller compares the byte count beside it anyway — see
-/// `packages/screens/src/frames.ts`, which will not fold a pair on the digest
+/// `classic-final:packages/screens/src/frames.ts`, which will not fold a pair on the digest
 /// alone.
 pub fn digest_of(bytes: &[u8]) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;

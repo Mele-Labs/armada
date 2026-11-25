@@ -1,4 +1,4 @@
-//! Ported from `packages/components/src/compositions/SketchScene/edge-labels.ts`.
+//! Ported from `classic-final:packages/components/src/compositions/SketchScene/edge-labels.ts`.
 
 use super::geometry::{Pt, Rect};
 use super::route::Seg;
