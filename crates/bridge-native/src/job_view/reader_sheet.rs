@@ -611,8 +611,13 @@ mod tests {
     fn a_single_vote_is_answered_from_the_sheets_bar_and_nothing_draws_a_send_pick(cx: &mut gpui::TestAppContext) {
         let (_, cx) = opened(cx, 1400., 900.);
         assert!(drawn(cx, Role::Button, "Pick B \u{b7} Rail"), "the bar's answer names the take chosen");
-        assert!(!drawn(cx, Role::Button, "Send pick"), "the thread behind holds one line, with no Send pick of its own");
-        assert!(!drawn(cx, Role::Button, "Send picks"), "and no Send picks");
+        // The thread behind holds the vote's card, with its own Send pick; the sheet, drawn over it, has none.
+        let in_sheet: Vec<String> = cx.update(|window, cx| {
+            let drawn = cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).to_vec();
+            let at = drawn.iter().rposition(|one| one.role == Role::Dialog && one.name.as_ref() == "Review").expect("the sheet is open");
+            drawn[at..].iter().filter(|one| one.role == Role::Button).map(|one| one.name.to_string()).collect()
+        });
+        assert!(!in_sheet.iter().any(|name| name == "Send pick" || name == "Send picks"), "the sheet draws no Send pick: {in_sheet:?}");
     }
 
     #[gpui::test]
