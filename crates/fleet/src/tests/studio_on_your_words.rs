@@ -322,6 +322,7 @@ impl Held {
                         held: false,
                         project_rows: Vec::new(),
                         on_your_words: Some(true),
+                        workflow: None,
                     })
                     .await
                     .expect("started");

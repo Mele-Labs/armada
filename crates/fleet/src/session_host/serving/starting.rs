@@ -79,6 +79,13 @@ where
             Some(repository) if holds_lifecycles => self.values_to_freeze(repository, project.as_deref()).await,
             _ => None,
         };
+        // The person's workflow, checked before anything is made. A Side Job, Setup and a mod follow none.
+        // Blank is his pick of none, so it is kept as chosen and the proposer's answer does not fill it.
+        let picked_workflow = start.workflow.is_some() && manifest.is_some() && !rooted && side.is_none();
+        let workflow = match (picked_workflow, &manifest) {
+            (true, Some(repository)) => self.workflow_checked(repository, project.as_deref(), start.workflow.take())?.0,
+            _ => None,
+        };
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
@@ -92,6 +99,7 @@ where
             let mut person = Vec::new();
             for (field, given) in [
                 (ipc::ProposedField::Title, title.is_some()),
+                (ipc::ProposedField::Workflow, picked_workflow),
                 (ipc::ProposedField::Model, set(&start.model)),
                 (ipc::ProposedField::Effort, set(&start.effort)),
             ] {
@@ -136,7 +144,7 @@ where
                     fork_of: None,
                     on_your_words: start.on_your_words.unwrap_or(false),
                     setup,
-                    workflow: None,
+                    workflow,
                     proposed: String::new(),
                     turn_model: None,
                     turn_effort: None,
@@ -145,8 +153,9 @@ where
                     auto_land: false,
                     mod_job: matches!(marked, Marked::Mod | Marked::ModsFolder),
                     start_held: held,
-                    // A Side Job has no workflow, by choice, so no default is put over it.
-                    workflow_chosen: side.is_some(),
+                    // A Side Job has no workflow, by choice, and a start that names one or none has chosen
+                    // it, so no default is put over either.
+                    workflow_chosen: side.is_some() || picked_workflow,
                     from_job: None,
                     from_tab: None,
                     mod_of_bay: false,

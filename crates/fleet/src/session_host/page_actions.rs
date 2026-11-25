@@ -292,6 +292,7 @@ where
             on_your_words: None,
             // The page's Job's project, where the new Job is in its repository.
             project: hosting.project.clone().filter(|_| own),
+            workflow: None,
         };
         let then = vec![DispatchThen::Message(DispatchMessage { text: brief, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
         let record = self.dispatch_started(DispatchJob { start, kind: None, then }).await?;

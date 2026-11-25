@@ -428,6 +428,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let started = HostedSessions::start_session(self.as_ref(), start).await?.id.as_str().to_string();
         let request = self.request_of(&kept);
@@ -514,6 +515,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let started = HostedSessions::start_session(self.as_ref(), start).await?.id.as_str().to_string();
         let sent = Arc::clone(self)

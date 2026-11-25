@@ -565,6 +565,7 @@ fn failure_dispatch(headline: &str, failure: &Failure, repository: ipc::Manifest
         project_rows: Vec::new(),
         on_your_words: None,
         project: None,
+        workflow: None,
     };
     let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
     ipc::DispatchJob { start, kind: Some(ipc::DispatchKind::Bug), then }

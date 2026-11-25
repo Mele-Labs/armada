@@ -98,6 +98,16 @@ pub struct StartSession {
     /// repository**, and in none where none does or more than one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
+    /// The workflow the Job follows, **the person's pick, standing over `request`'s reading**: the
+    /// proposer's answer does not change it. An id the repository holds starts the Job on that
+    /// workflow; **blank starts it on none, a custom Job**, and the proposer fills none in either, as
+    /// `ChangeWaiting.workflow` takes an empty id. Absent is as before: the proposer fills it in from
+    /// `request`. Not read with `fork` or `root`. Refused as
+    /// `set_session_workflow` refuses, before anything is made: 422 `fleet.session_workflow_not_held`
+    /// where the repository holds no such workflow, and `fleet.session_workflows_off` where it is
+    /// switched off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<String>,
 }
 
 /// The session a new one is forked from. Since 23.69.

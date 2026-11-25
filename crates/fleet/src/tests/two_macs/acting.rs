@@ -227,6 +227,7 @@ async fn a_start_naming_another_mac_starts_the_job_there_and_its_row_shows_here_
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     let (status, body) = post(&home, "/sessions/start", encoded(&StartOn { mac: Some(work.id.clone()), start })).await;
     assert_eq!(status, axum::http::StatusCode::OK, "{body}");

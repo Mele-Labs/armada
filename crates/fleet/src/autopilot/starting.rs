@@ -78,6 +78,7 @@ where
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await?;
         let id = record.id.as_str().to_string();
