@@ -105,6 +105,8 @@ pub(super) struct PullPanel {
     pub noted: bool,
     /// The commit Files shows alone, pressed in Commits. None shows every file.
     pub commit: Option<CommitShown>,
+    /// The panel was opened from a Job's Story: its commit bar carries Back to the Story.
+    pub from_story: bool,
     /// The range since the author last looked, read once the Review tab is entered (`pr_review`).
     pub since: Option<Result<super::pr_review::Since, String>>,
     /// Diff since you looked is open under the Review tab's commits.
@@ -682,6 +684,7 @@ impl JobView {
             _noting: None,
             noted: false,
             commit: None,
+            from_story: false,
             since: None,
             since_shown: false,
             marking: false,
@@ -820,7 +823,17 @@ impl JobView {
                 small_button(look, "pull-files-all", "Show all", false, true).tooltip(tip("Every file the pull request changes")).on_click(cx.listener(|this, _, _, cx| this.show_all_files(cx))),
                 Role::Button,
                 "Show all",
-            ));
+            ))
+            .children(panel.from_story.then(|| {
+                labelled(
+                    small_button(look, "pull-files-back", "Back to the Story", false, true).tooltip(tip("Closes the pull request and shows the Story")).on_click(cx.listener(|this, _, window, cx| {
+                        this.close_panel(window, cx);
+                        this.open_kind("story", cx);
+                    })),
+                    Role::Button,
+                    "Back to the Story",
+                )
+            }));
         Some(div().flex().flex_col().gap(look.length(token::SPACE_3)).child(labelled(div().id("pull-files-commit").child(bar), Role::Group, format!("Files in {}", commit.headline))).children(body).into_any_element())
     }
 
