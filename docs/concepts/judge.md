@@ -59,6 +59,7 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Words selected in the thread | The selection bar, beside Ask |
 | A sketch, document, draft, Ready to try or agent reply card | The card in the thread |
 | Anything above | **Judge…** in the command palette |
+| The Job as a whole, or a pull request it holds, on the phone | **Judge…** in the Job page's ⋯ menu, which opens Pocket's Judge screen |
 
 On an artifact, the press opens a small box, **Verify that**, for an optional line naming what to check.
 The same press names a **judge type**, which says what the Judge looks for ([Judge types](#judge-types)).
@@ -77,6 +78,7 @@ The act on a row reads the state of the last reading.
 
 No count is drawn beside the act or the notes.
 A finished Judge puts a line in the thread saying so, and a press on it opens the artifact at its notes.
+Pocket asks in the order the native Bridge does: what to judge, then the judge type, then an optional line, and its notes are sent or dismissed there as they are on a desktop.
 The Judge of the whole Job has no artifact to stand in, so its press opens a Judge tab, which asks in a composer of its own and holds the reading ([The Judge](session/the-judge.md)).
 **A finished Judge raises no Needs you call**, since it asks nothing of the person.
 
