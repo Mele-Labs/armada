@@ -140,6 +140,9 @@ pub struct CallArrival {
     /// carries it too for readers that do not read this yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    /// On `needs`, the id of the waiting item that began to wait, as `WaitingItem.id`, so a press on the banner opens that ask.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
 }
 
 /// What `calls.changed` carries: the calls whole, and the news since the last publish.

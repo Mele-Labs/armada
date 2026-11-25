@@ -40,6 +40,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/preferences/save",
     },
+    // The Cockpit home's layout: one per user, the project board's shape, kept as `bridge.homeLayout`.
+    Route {
+        operation: "get_home_layout",
+        method: "GET",
+        path: "/home/layout",
+    },
+    Route {
+        operation: "save_home_layout",
+        method: "POST",
+        path: "/home/layout",
+    },
     // Whether this Mac serves the phone app. `POST /phone` and not `/phone/save`: Bridge's
     // Settings, Phone was built against the path Pocket v2 fixed.
     Route {

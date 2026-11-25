@@ -116,6 +116,23 @@ impl RichNote {
         self.put_offer(None, cx);
     }
 
+    /// The words typed with the caret at their end, and the list `@` opens over them, as a keystroke leaves them.
+    #[cfg(test)]
+    pub(super) fn type_words(&mut self, words: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| {
+            input.set_value(words.to_string(), window, cx);
+            let end = input.value().len();
+            input.set_selected_range(end..end, cx);
+        });
+        self.refresh_offer(window, cx);
+    }
+
+    /// The row at `at` of the open list, picked.
+    #[cfg(test)]
+    pub(super) fn pick_offered(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.choose(at, window, cx);
+    }
+
     // ---- what `@` offers -----------------------------------------------------------------
 
     fn refresh_offer(&mut self, window: &mut Window, cx: &mut Context<Self>) {

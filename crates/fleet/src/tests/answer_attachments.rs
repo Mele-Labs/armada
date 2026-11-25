@@ -85,13 +85,13 @@ async fn a_picture_and_a_tag_sent_with_words_on_a_waiting_item_reach_the_job_and
 }
 
 fn drawn(id: &SessionId, title: &str) -> ShowSketch {
-    ipc::decode("a sketch", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch", format!(r#"{{"title":"{title}","asks":false,"session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn words_part(id: &SessionId, title: &str, part: &str, text: &str) -> ipc::AddPart {
     ipc::decode(
         "a part",
-        format!(r#"{{"session_id":"{}","title":"{title}","part":{{"id":"{part}","kind":"words","text":"{text}"}}}}"#, id.as_str()).as_bytes(),
+        format!(r#"{{"session_id":"{}","title":"{title}","question":"Does this cache design hold?","part":{{"id":"{part}","kind":"words","text":"{text}"}}}}"#, id.as_str()).as_bytes(),
     )
     .unwrap()
 }
@@ -130,6 +130,8 @@ async fn a_picture_and_a_tag_sent_with_a_batched_item_reach_the_job_and_stay_on_
     waiting.items[0].approves = true;
     waiting.items[0].options.clear();
     waiting.items[0].act = None;
+    // An item that asks is worded as his question.
+    waiting.items[0].text = "Run the tests now?".into();
     rig.fleet.waiting_for(None, waiting).await.unwrap();
     let item = ipc::ItemAnswer {
         session_id: id.clone(),

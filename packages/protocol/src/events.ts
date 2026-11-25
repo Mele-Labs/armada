@@ -250,6 +250,10 @@ export type Event =
   | {
       kind: "kit.changed";
     }
+  /** A save of the Cockpit home's layout was made on this Mac, and a linked Mac reads it again. Carries nothing else. */
+  | {
+      kind: "home_layout.changed";
+    }
   /** The Operator's board is not what it was: read `operator_page` again. Carries nothing else. */
   | {
       kind: "operator.board_changed";

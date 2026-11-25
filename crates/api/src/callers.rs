@@ -142,6 +142,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_mac_claims", "pairs his other Macs"),
     ("hold_refresh_claim", "pairs his other Macs"),
     ("hold_other_mac_kit", "pairs his other Macs"),
+    ("hold_other_mac_home_layout", "pairs his other Macs"),
     ("kit_settle_from_mac", "pairs his other Macs"),
     // A Job switching what crosses would write into his other Macs' setups.
     ("set_kit_link_kind", "changes what his Kit sends his other Macs"),

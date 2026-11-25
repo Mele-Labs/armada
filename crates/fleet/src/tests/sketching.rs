@@ -17,7 +17,7 @@ fn scene(second: &str) -> String {
 fn drawn(id: &SessionId, title: &str, scene: &str) -> ShowSketch {
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{title}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes(),
+        format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes(),
     )
     .unwrap()
 }
@@ -176,7 +176,7 @@ async fn a_call_that_places_no_session_is_refused() {
 fn drawn_against(id: &SessionId, title: &str, scene: &str, against: &str) -> ShowSketch {
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{title}","session_id":"{}","scene":{scene},"against":"{against}"}}"#, id.as_str()).as_bytes(),
+        format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{scene},"against":"{against}"}}"#, id.as_str()).as_bytes(),
     )
     .unwrap()
 }

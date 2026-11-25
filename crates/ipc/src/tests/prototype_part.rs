@@ -13,6 +13,7 @@ fn part(prototype: PrototypePart) -> ArtifactPart {
         drawn: String::from("row-3"),
         added: Instant::carried("2026-11-23T09:00:00.000Z"),
         answer: None,
+        question: None,
     }
 }
 

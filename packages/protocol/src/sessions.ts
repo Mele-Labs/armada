@@ -238,6 +238,11 @@ export type SessionRecord = {
    */
   closed?: ClosedWaiting[];
   /**
+   * His answers to the Job's asks, oldest first: each ask's question, how he answered and his words, apart from what the Job was told.
+   * The thread card of an answered ask draws its answer from here. Absent when none. Since 20 Nov 2026.
+   */
+  answers?: AnsweredAsk[];
+  /**
    * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
    * met. Absent once it has started. Since 16 Oct 2026.
    */
@@ -517,11 +522,10 @@ export type WaitingAct = {
  * woken. Words alone are refused. It goes when `end_browser_ask` names it, when Fleet restarts, and when no client holds `/events` open.
  * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what Decide would
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
- * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
+ * `document` (id `document:<path>`, the page's path, text `Approve "<title>"?`, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
- * `detail.settled`. Its press opens the document. `answer_document` answers it. A page that asks nothing waits as id `read:<path>` with
- * the same source, text `Read: <title>` and `artifact` the page, while `detail.reads` stands and he has not opened its newest revision:
- * opening it (`mark_artifact_seen`) is the answer, nothing approves it, and the Job is told nothing.
+ * `detail.settled`. Its press opens the document. `answer_document` answers it. A page that asks nothing raises no item
+ * (the owner, 19 Nov 2026): it is in the thread and his Artifacts. Before then it waited as `read:<path>`.
  * `gate` (id `gate:<group id>`, text `"<group title>" waits on <what>`, act `answer` whose `target` is the Job's own id) is the Job's
  * `all_done` held at a gate that nothing in the Job can close and he can: `Approve` (choice 0) and `Skip this group` (choice 1).
  * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of
@@ -1143,6 +1147,27 @@ export type ReopenWaiting = {
   item_id: string;
 };
 
+/** How he answered an ask, as `AnsweredAsk.how` spells it. */
+export type AnswerHow = "picked" | "approved" | "asked_for_changes" | "dismissed" | "answered";
+
+/**
+ * His answer to one ask, as `SessionRecord.answers` lists it. `item` is the `waiting_for` id it answered, `question` the ask in plain
+ * words, `words` what he typed, `pick` the choice or take he picked, `artifact` and `part` what the card's Open goes to, `notes` his
+ * notes on a part, `extras` the pictures and tags he sent with it.
+ */
+export type AnsweredAsk = {
+  item: string;
+  question: string;
+  how: AnswerHow;
+  words?: string;
+  pick?: string;
+  artifact?: string;
+  part?: string;
+  notes?: Record<string, string>;
+  extras?: AnswerExtras;
+  at: string;
+};
+
 /**
  * An item the person closed, as `SessionRecord.closed` lists it: `item` is the `WaitingItem` as Needs you drew it when he closed it
  * (`id`, `text`, `since`, `source`, `act`, `options`, `steps`; `reopen_waiting` takes `item.id`), and `at` when he closed it. `ended` is sent
@@ -1269,6 +1294,8 @@ export type ShowSketch = {
   links?: ForLink[];
   /** `false` for a sketch that only explains: it never waits on him and has no Approve. Left out, it asks. */
   asks?: boolean;
+  /** The ask in plain words, ending in `?`, which titles his item. Required on a sketch that asks, except one the pending plan names. */
+  question?: string;
 };
 
 /**

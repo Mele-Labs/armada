@@ -61,6 +61,13 @@ pub(super) fn earlier_plan_readings(record: &SessionRecord, version: u32) -> Vec
     found.into_iter().map(|(_, one)| one).collect()
 }
 
+/// The readings the notes on plan `version` come from: its own, and the earlier versions' still open, which only the plan
+/// now recorded carries.
+pub(super) fn plan_readings(record: &SessionRecord, version: u32) -> (Option<&JudgeReading>, Vec<&JudgeReading>) {
+    let current = record.plan.as_ref().is_some_and(|plan| plan.version == version);
+    (plan_reading(record, version), if current { earlier_plan_readings(record, version) } else { Vec::new() })
+}
+
 /// The plan at `version`, as a judge is asked to read it.
 pub(super) fn plan_artifact(version: u32) -> JudgeArtifact {
     JudgeArtifact { kind: JudgeKind::Plan, id: version.to_string(), title: format!("Plan v{version}") }
@@ -145,6 +152,12 @@ impl<'a> Pinned<'a> {
         Self::new(ix, key, reading, plan).into_iter().chain(carried).collect()
     }
 
+    /// The notes pinned to the recorded plan while it waits, read from the Job's record.
+    pub fn of_plan(ix: usize, key: &'a str, record: &'a SessionRecord, plan: &'a SessionPlan) -> Vec<Self> {
+        let (reading, earlier) = plan_readings(record, plan.version);
+        Self::on_card(ix, key, reading, &earlier, plan)
+    }
+
     /// The notes of a reading of the whole Job: every one stands as a note on the whole.
     pub fn whole_job(ix: usize, key: &'a str, reading: &'a JudgeReading) -> Option<Self> {
         (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new(), carried: false, twin: false })
@@ -187,12 +200,26 @@ pub(super) fn how_of(page: &Page, reading: &JudgeReading, note: &JudgeNote) -> O
 }
 
 impl JobView {
+    /// The Job the Judge's presses and keys act for: the ask chosen in the review sheet while it is up, which may be another
+    /// Job's, else the Job in view.
+    fn judge_job(&self) -> Option<SharedString> {
+        match self.review_chosen().filter(|_| self.review_open()) {
+            Some(item) => Some(SharedString::from(item.job)),
+            None => self.shown.clone(),
+        }
+    }
+
+    /// Whether the keys are in the Judge's box: its field or one of its buttons.
+    pub(super) fn judge_box_focused(&self, window: &Window, cx: &gpui::App) -> bool {
+        self.judge.as_ref().is_some_and(|open| gpui::Focusable::focus_handle(open.area.read(cx), cx).contains_focused(window, cx) || open.stops.iter().any(|stop| stop.is_focused(window)))
+    }
+
     // ---- The press and its box -------------------------------------------------------------
 
     /// The Judge's press, and the box it opens under it: on the plan card, or smaller in a row of the Job's lists.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn judge_press(&self, ix: usize, key: &str, artifact: JudgeArtifact, reading: Option<&JudgeReading>, earlier: &[&JudgeReading], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let job = self.shown.clone().unwrap_or_default();
+        let job = self.judge_job().unwrap_or_default();
         let plan = artifact.kind == JudgeKind::Plan;
         let (side, size) = if plan { (look.length(token::H_CONTROL), Size::Mark) } else { (look.length(token::H_CONTROL_SM), Size::Small) };
         let judging = matches!(page.cards.answers.get(&format!("judge:{key}")), Some(Answer::Judging(held)) if *held == reading.map(|one| one.id.clone()));
@@ -402,7 +429,7 @@ impl JobView {
     }
 
     fn toggle_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
+        let Some(job) = self.judge_job() else { return };
         if self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key) {
             self.close_judge(ix, key, true, window, cx);
         } else {
@@ -412,7 +439,7 @@ impl JobView {
 
     /// Open the Judge's box, with what was typed in it before, and put the caret there.
     pub(super) fn open_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
+        let Some(job) = self.judge_job() else { return };
         let box_key = format!("judge:{key}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
         let area = held.unwrap_or_else(|| {
@@ -438,7 +465,7 @@ impl JobView {
             self.judge = None;
         }
         if refocus {
-            let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("judge-press:{key}")));
+            let spot = self.judge_job().and_then(|job| self.pages.get(&job)).and_then(|page| page.keys.spot_of(&format!("judge-press:{key}")));
             if let Some(spot) = spot {
                 window.focus(&spot.focus, cx);
             }
@@ -453,8 +480,8 @@ impl JobView {
         let words = artifact.kind == JudgeKind::Excerpt;
         let prompt = area.read(cx).value().trim().to_string();
         let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
-        // A row has no place in the thread's list: the list measures again, as for a card on the sheet.
-        let ix = if artifact.kind == JudgeKind::Plan { self.plan_ix(&job, cx) } else { Some(super::acts::SHEET) };
+        // A row, or a plan in the review sheet, has no place in the thread's list: the list measures again.
+        let ix = if artifact.kind == JudgeKind::Plan && !self.review_open() { self.plan_ix(&job, cx) } else { Some(super::acts::SHEET) };
         let mark = format!("judge:{key}");
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.remove(&format!("judge:{key}:Judge"));
@@ -526,18 +553,21 @@ impl JobView {
         Some(held.items.len() + at)
     }
 
-    /// Open the plan at its notes: the card comes into view and the first note waiting takes focus.
+    /// Open the plan at its notes: the card comes into view and the first note waiting takes focus. In the review sheet the
+    /// notes already stand in view.
     pub(super) fn show_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        let Some(ix) = self.plan_ix(&job, cx) else { return };
-        if let Some(page) = self.pages.get(&job) {
-            page.list.scroll_to_reveal_item(page.entry(ix));
+        let Some(job) = self.judge_job() else { return };
+        if !self.review_open() {
+            let Some(ix) = self.plan_ix(&job, cx) else { return };
+            if let Some(page) = self.pages.get(&job) {
+                page.list.scroll_to_reveal_item(page.entry(ix));
+            }
         }
         cx.notify();
         let view = cx.weak_entity();
         window.on_next_frame(move |window, cx| {
             view.update(cx, |this, cx| {
-                let first = this.shown.as_ref().and_then(|job| this.pages.get(job)).and_then(|page| page.keys.found_all().into_iter().next().and_then(|one| page.keys.spot_of(&one.key)));
+                let first = this.pages.get(&job).and_then(|page| page.keys.found_all().into_iter().next().and_then(|one| page.keys.spot_of(&one.key)));
                 if let Some(spot) = first {
                     window.focus(&spot.focus, cx);
                     cx.notify();
@@ -575,7 +605,7 @@ impl JobView {
             }
             return;
         }
-        let Some(page) = self.shown.as_ref().and_then(|job| self.pages.get(job)) else { return cx.propagate() };
+        let Some(page) = self.judge_job().and_then(|job| self.pages.get(&job)) else { return cx.propagate() };
         let Some(at) = page.keys.found_focused(window) else { return cx.propagate() };
         let all = page.keys.found_all();
         if act.is("finding_move") {
@@ -600,7 +630,9 @@ impl JobView {
     /// Send a note to the Job or put it away. It reads as settled in this frame and focus passes to the next
     /// note waiting; a refusal takes it back.
     pub(super) fn judge_settle(&mut self, ix: usize, plan_key: &str, found: &Found, how: JudgeNoteHow, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
+        let Some(job) = self.judge_job() else { return };
+        // In the review sheet the last note settled gives the keys back to its list; the thread's card is not drawn.
+        let rest = self.review_open().then(|| self.review_focus.list.clone());
         let route = match how {
             JudgeNoteHow::Sent => "/sessions/judge/send",
             JudgeNoteHow::Dismissed => "/sessions/judge/dismiss",
@@ -623,11 +655,14 @@ impl JobView {
             page.cards.said.remove(plan_key);
             match next {
                 Some(spot) => window.focus(&spot.focus, cx),
-                None => {
-                    if let Some(spot) = page.keys.spot_of(&format!("plan-card:{plan_key}")) {
-                        window.focus(&spot.focus, cx);
+                None => match rest {
+                    Some(list) => window.focus(&list, cx),
+                    None => {
+                        if let Some(spot) = page.keys.spot_of(&format!("plan-card:{plan_key}")) {
+                            window.focus(&spot.focus, cx);
+                        }
                     }
-                }
+                },
             }
         }
         self.card_changed(ix, cx);

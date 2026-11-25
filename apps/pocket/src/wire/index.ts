@@ -2,6 +2,7 @@
 
 export type * from "./artifact";
 export type * from "./artifact-parts";
+export type * from "./ask-answers";
 export type * from "./call";
 export type * from "./checks";
 export type * from "./context-breakdown";
