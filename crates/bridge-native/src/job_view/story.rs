@@ -47,7 +47,7 @@ mod tests;
 pub enum StoryEvent {
     /// Esc, with nothing in the tab left to put away: the keys go back to where the tab was opened from.
     Escape,
-    /// A Filed under row, pressed. Only a tab inside an overlay says this; the tab in a pane opens its own overlay.
+    /// A feature opened from a row of the tab. A tab inside an overlay says this, and so does one a Job view holds in its panes, which opens the page as a tab.
     Feature { slug: String, title: String },
 }
 
@@ -110,6 +110,9 @@ pub struct StoryTab {
     /// The ask to put in front when the story is read: from a Story link, or asked for by whoever opened the tab.
     want: Option<String>,
     overlay: Option<Entity<FeatureOverlay>>,
+    /// Set by the Job view that holds the tab in its panes: a feature opens as a tab beside the thread, so the tab says so up
+    /// instead of drawing an overlay over itself.
+    routed: bool,
     overlay_sub: Option<Subscription>,
     stamp: Option<Stamp>,
     read_port: Option<u16>,
@@ -189,6 +192,7 @@ impl StoryTab {
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             want: None,
             overlay: None,
+            routed: false,
             overlay_sub: None,
             stamp: None,
             read_port: None,
@@ -472,9 +476,8 @@ impl StoryTab {
 
     /// The feature's page opens over the tab, in the overlay, or in the one this tab is inside.
     pub(crate) fn open_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
-        let listed = self.built.features.iter().find(|one| one.slug == slug).map(|one| one.title.clone());
-        let title = self.features.get(&slug).cloned().or(listed).unwrap_or_else(|| slug.clone());
-        if self.nested {
+        let title = self.feature_title(&slug);
+        if self.nested || self.routed {
             cx.emit(StoryEvent::Feature { slug, title });
             return;
         }
@@ -500,6 +503,26 @@ impl StoryTab {
             }
         }
         cx.notify();
+    }
+
+    /// What feature `slug` is called here, or its slug where nothing names it.
+    pub(crate) fn feature_title(&self, slug: &str) -> String {
+        let listed = self.built.features.iter().find(|one| one.slug == slug).map(|one| one.title.clone());
+        self.features.get(slug).cloned().or(listed).unwrap_or_else(|| slug.to_string())
+    }
+
+    /// Features opened from this tab go up as [`StoryEvent::Feature`] to whoever holds it in a pane, not into an overlay.
+    pub(crate) fn route_features(&mut self) {
+        self.routed = true;
+    }
+
+    /// Where a feature's page reads from, the project it is in, and the place it was opened from.
+    pub(crate) fn feature_source(&self, cx: &App) -> Option<(OverlaySource, String, String)> {
+        let source = match &self.source {
+            Reads::Live(fleet) => OverlaySource::Live(fleet.clone()),
+            Reads::Mock => OverlaySource::Mock,
+        };
+        Some((source, self.project(cx)?, format!("Story of {}", self.name())))
     }
 
     /// What the Job is called, or what stands in for its name.
@@ -626,6 +649,14 @@ impl JobView {
             None => StoryTab::mock(named.clone(), false, window, cx),
         });
         cx.default_global::<Stories>().0.insert(job.to_string(), tab.clone());
+        tab.update(cx, |tab, _| tab.route_features());
+        let shown = job.to_string();
+        cx.subscribe_in(&tab, window, move |this, _, event: &StoryEvent, window, cx| {
+            if let StoryEvent::Feature { slug, title } = event {
+                this.open_feature_tab(&shown, slug.clone(), title.clone(), window, cx);
+            }
+        })
+        .detach();
         // The strip over the column draws the tab's features, so it draws again when the tab does.
         cx.observe(&tab, |_, _, cx| cx.notify()).detach();
         tab
@@ -639,11 +670,10 @@ impl JobView {
         tab.built.features.iter().map(|line| super::column_strip::StripFeature { slug: line.slug.clone(), title: line.title.clone(), hue: crate::features::hue_among(tab.areas.iter().map(String::as_str), &line.area) }).collect()
     }
 
-    /// A feature chip of the strip pressed: the Story tab comes forward and the feature's page opens over it, as a Filed under row's does.
+    /// A feature chip of the strip pressed: the feature's page opens as a tab beside the thread, as a row of the Story tab's does.
     pub(super) fn open_story_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        self.open_kind("story", cx);
-        let tab = self.story_of(&job, window, cx);
-        tab.update(cx, |tab, cx| tab.open_feature(slug, window, cx));
+        let title = self.story_of(&job, window, cx).read(cx).feature_title(&slug);
+        self.open_feature_tab(&job, slug, title, window, cx);
     }
 }

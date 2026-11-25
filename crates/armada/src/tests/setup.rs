@@ -90,7 +90,7 @@ fn this_repositorys_own_setup_loads_and_resolves() {
          `apps/desktop`, one `armada.yml` each. There is no `clippy` — `[clippy-as-a-check]` in \
          `docs/OPEN.md` says why"
     );
-    assert_eq!(bug(&setup).name(), "bug");
+    assert_eq!(bug(&setup).name(), "Bug");
     assert_eq!(
         bug(&setup).source(),
         WorkflowSource::Repository,

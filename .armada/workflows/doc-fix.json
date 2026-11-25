@@ -3,7 +3,7 @@
 {
   "version": 1,
   "workflow_id": "doc-fix",
-  "name": "Doc fix: draft for your Approve, land",
+  "name": "Doc fix",
   "for_requests": "A small change to a document in this repository: a wrong fact, a missing step, an unclear paragraph. No code changes.",
   "steps": [
     {
