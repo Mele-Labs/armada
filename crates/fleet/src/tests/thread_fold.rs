@@ -192,6 +192,22 @@ fn a_finished_judge_reading_stands_after_the_last_row_by_then() {
 }
 
 #[test]
+fn a_failed_reading_of_selected_words_still_stands_so_its_reason_shows() {
+    let reading = |id: &str, kind: &str, minute: u32| {
+        format!(
+            r#"{{"id":"{id}","artifact":{{"kind":"{kind}","id":"a/1f2e3d4c","title":"keys rotate nightly"}},"prompt":"","state":"failed","failed":"The message no longer holds these words","asked_at":"{}","finished_at":"{}","read":false,"notes":[]}}"#,
+            at(0).as_str(),
+            at(minute).as_str()
+        )
+    };
+    let fields = format!(r#""judge_readings":[{},{}]"#, reading("r1", "excerpt", 2), reading("r2", "plan", 2));
+    let one = with(&fields, vec![agent("a", 1, "x"), tool("t1", 3, "Bash a")]);
+    let found = folded(&one, &[], &Revisions::new()).1;
+    // The plan's failure shows on the plan's own card; the words have no card but this one.
+    assert_eq!(ids(&found), ["a", "judged:r1", "t1"]);
+}
+
+#[test]
 fn thread_read_upto_head_is_blank() {
     // A Job that asks him now, with a Fleet turn at the end of the rows the cut keeps.
     let live = with(ASKED, turn_then_words());
