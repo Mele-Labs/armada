@@ -1809,4 +1809,143 @@ mod tests {
             assert!(!sheet.holds(), "a Job started takes them; the next sheet starts empty");
         });
     }
+
+    // -- the sentence ---------------------------------------------------------------------------------
+
+    /// One chord or key, as the sheet's own handler hears it.
+    fn press(sheet: &mut DispatchSheet, key: &'static str, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        let keystroke = gpui::Keystroke::parse(key).expect("a key");
+        sheet.on_key(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+    }
+
+    /// Letters typed one key at a time.
+    fn write(sheet: &mut DispatchSheet, text: &str, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        for letter in text.chars() {
+            let keystroke = gpui::Keystroke { modifiers: gpui::Modifiers::none(), key: letter.to_string(), key_char: Some(letter.to_string()) };
+            sheet.on_key(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+        }
+    }
+
+    /// The box holds "When" with the keys in it, and Tab takes the opening it begins.
+    fn take_bug(sheet: &mut DispatchSheet, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
+        let request = sheet.request.focus_handle(cx);
+        window.focus(&request, cx);
+        press(sheet, "tab", window, cx);
+    }
+
+    fn blank_words(sheet: &DispatchSheet) -> Vec<String> {
+        sheet.story.as_ref().expect("a sentence stands").values.clone()
+    }
+
+    #[gpui::test]
+    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_its_tools_held(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
+            assert!(sheet.tools_held().is_empty());
+            press(sheet, "tab", window, cx);
+            let story = sheet.story.as_ref().expect("Tab took the opening");
+            assert_eq!(story.kind().id, "bug");
+            assert_eq!(story.piece(), &super::super::story_kinds::Piece::Blank("do what"), "the caret is in the first blank");
+            assert!(sheet.story_key.is_focused(window), "the sentence has the keys");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "", "the typed opening is the sentence now");
+            assert_eq!(held_tools(sheet), ["terminal", "browser"], "the kind's preset is held");
+            assert_eq!(sheet.preset, ["terminal", "browser"]);
+        });
+    }
+
+    #[gpui::test]
+    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_preset_gone(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            assert_eq!(held_tools(sheet), ["terminal", "browser"]);
+            press(sheet, "backspace", window, cx);
+            assert!(sheet.story.is_none(), "plain words again");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When I ", "the opening is kept");
+            assert!(sheet.request.focus_handle(cx).is_focused(window), "the keys are in the box");
+            assert!(held_tools(sheet).is_empty(), "the tools its kind put in go");
+        });
+    }
+
+    #[gpui::test]
+    fn esc_turns_the_sentence_into_its_words_as_plain_text(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click");
+            press(sheet, "escape", window, cx);
+            assert!(sheet.story.is_none());
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When I click");
+            assert!(sheet.request.focus_handle(cx).is_focused(window));
+        });
+    }
+
+    #[gpui::test]
+    fn a_run_of_letters_in_one_blank_is_one_step_command_z_takes_it_back_and_command_y_or_shift_command_z_brings_it_back(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click");
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "", "five letters, one step");
+            assert!(sheet.story.is_some(), "the sentence is still written");
+            press(sheet, "cmd-y", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "⌘Y");
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "");
+            press(sheet, "cmd-shift-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "⇧⌘Z");
+        });
+    }
+
+    #[gpui::test]
+    fn a_new_change_after_an_undo_drops_the_redo(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "");
+            write(sheet, "tap", window, cx);
+            press(sheet, "cmd-y", window, cx);
+            assert_eq!(blank_words(sheet)[0], "tap", "what ⌘Z took back is gone");
+            press(sheet, "cmd-shift-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "tap");
+        });
+    }
+
+    #[gpui::test]
+    fn command_z_after_esc_brings_the_sentence_back(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            press(sheet, "escape", window, cx);
+            assert!(sheet.story.is_none());
+            assert!(held_tools(sheet).is_empty());
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "the sentence is back with what was typed");
+            assert!(sheet.story_key.is_focused(window), "and has the keys");
+            assert_eq!(held_tools(sheet), ["terminal", "browser"], "with its tools");
+            assert_eq!(sheet.words(cx), "When I click");
+        });
+    }
+
+    #[gpui::test]
+    fn command_z_past_the_taken_opening_returns_plain_words_with_the_typed_opening(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            assert!(sheet.story.is_some());
+            press(sheet, "cmd-z", window, cx);
+            assert!(sheet.story.is_none(), "plain mode");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When", "the opening as it was typed");
+            assert!(sheet.request.focus_handle(cx).is_focused(window));
+            assert!(held_tools(sheet).is_empty(), "the preset goes with the sentence");
+        });
+    }
 }

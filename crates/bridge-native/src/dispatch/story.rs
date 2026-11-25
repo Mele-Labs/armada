@@ -310,3 +310,132 @@ impl Story {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BUG: usize = 0;
+    const IDEA: usize = 2;
+
+    fn catalog() -> Vec<FeatureChoice> {
+        let one = |title: &str, area: &str| FeatureChoice { title: title.to_string().into(), area: area.to_string().into() };
+        vec![one("Login", "Account"), one("Checkout", "Payments"), one("Billing", "Payments")]
+    }
+
+    /// One key with no modifiers, as the sheet hands it on.
+    fn press(story: &mut Story, key: &str, catalog: &[FeatureChoice]) -> Keyed {
+        story.key(key, false, false, false, None, catalog)
+    }
+
+    /// Letters typed one key at a time into the blank that has the keys.
+    fn write(story: &mut Story, text: &str, catalog: &[FeatureChoice]) {
+        for letter in text.chars() {
+            let letter = letter.to_string();
+            story.key(&letter, false, false, false, Some(&letter), catalog);
+        }
+    }
+
+    fn titles(rows: Option<Vec<ListRow>>) -> Vec<String> {
+        rows.expect("the keys are on a feature blank").into_iter().map(|row| row.title.to_string()).collect()
+    }
+
+    #[test]
+    fn openings_of_wh_are_when_i_what_if_and_why_is_whatever_the_capitals() {
+        let named = |typed: &str| openings(typed).into_iter().map(|at| kinds()[at].opening).collect::<Vec<_>>();
+        assert_eq!(named("wh"), ["When I", "What if", "Why is"]);
+        assert_eq!(named("WH"), ["When I", "What if", "Why is"]);
+        assert_eq!(named("wHe"), ["When I"]);
+        assert_eq!(named("when i"), ["When I"]);
+        assert!(named("When I clicked").is_empty(), "words past the opening match none");
+        assert!(named("xyz").is_empty());
+        assert!(named("").is_empty());
+        assert!(named("when\nI").is_empty(), "words that span lines match none");
+    }
+
+    #[test]
+    fn tab_and_enter_go_on_to_the_next_blank_and_shift_tab_goes_back() {
+        for go in ["tab", "enter"] {
+            let mut story = Story::new(BUG);
+            assert_eq!(story.at, 0, "the caret starts in the first blank");
+            assert_eq!(press(&mut story, go, &[]), Keyed::Taken);
+            assert_eq!(story.piece(), &Piece::Feature(None), "{go} goes to the feature blank");
+            assert_eq!(press(&mut story, go, &[]), Keyed::Taken);
+            assert_eq!(story.piece(), &Piece::Blank("what happens"), "{go} goes to the last blank");
+            assert_eq!(story.at, 4);
+        }
+        let mut story = Story::new(BUG);
+        story.go_to(4);
+        assert_eq!(story.at, 4);
+        assert_eq!(story.key("tab", true, false, false, None, &[]), Keyed::Taken);
+        assert_eq!(story.at, 2);
+        assert_eq!(story.key("tab", true, false, false, None, &[]), Keyed::Taken);
+        assert_eq!(story.at, 0);
+        assert_eq!(story.key("tab", true, false, false, None, &[]), Keyed::Leave { back: true }, "⇧⇥ before the first blank leaves the sentence");
+        story.go_to(4);
+        assert_eq!(press(&mut story, "tab", &[]), Keyed::Leave { back: false }, "⇥ past the last blank leaves the sentence");
+        assert_eq!(press(&mut story, "enter", &[]), Keyed::Taken, "↵ past the last blank stays");
+        assert_eq!(story.at, 4);
+    }
+
+    #[test]
+    fn backspace_in_an_empty_first_blank_gives_back_the_opening_and_esc_gives_plain_words() {
+        let mut story = Story::new(BUG);
+        write(&mut story, "ab", &[]);
+        assert_eq!(press(&mut story, "backspace", &[]), Keyed::Changed, "a letter is taken back first");
+        assert_eq!(story.values[0], "a");
+        assert_eq!(press(&mut story, "backspace", &[]), Keyed::Changed);
+        assert_eq!(press(&mut story, "backspace", &[]), Keyed::Opening, "nothing left in the first blank: plain words, opening kept");
+        assert_eq!(press(&mut story, "escape", &[]), Keyed::Plain);
+        // Further on, an empty blank steps back instead.
+        story.go_to(2);
+        assert_eq!(press(&mut story, "backspace", &[]), Keyed::Taken);
+        assert_eq!(story.at, 0);
+    }
+
+    #[test]
+    fn the_feature_blank_filters_the_catalog_by_title_or_area_and_enter_picks_the_marked_row() {
+        let catalog = catalog();
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        assert_eq!(titles(story.list(&catalog)), ["Login", "Checkout", "Billing"], "nothing typed: every feature");
+        write(&mut story, "LOG", &catalog);
+        assert_eq!(titles(story.list(&catalog)), ["Login"], "by title, whatever the capitals");
+        story.values[2].clear();
+        write(&mut story, "pay", &catalog);
+        assert_eq!(titles(story.list(&catalog)), ["Checkout", "Billing"], "by the title of its area");
+        assert_eq!(press(&mut story, "down", &catalog), Keyed::Taken);
+        assert_eq!(story.row, 1);
+        assert_eq!(press(&mut story, "enter", &catalog), Keyed::Changed);
+        assert_eq!(story.values[2], "Billing", "↵ took the marked row");
+        assert_eq!(story.at, 4, "and went on to the next blank");
+
+        // Nothing typed, the mark moved: ↵ still takes the row.
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        press(&mut story, "down", &catalog);
+        assert_eq!(press(&mut story, "enter", &catalog), Keyed::Changed);
+        assert_eq!(story.values[2], "Checkout");
+    }
+
+    #[test]
+    fn words_compose_the_sentence_with_the_blanks_filled_and_the_unfilled_ones_dropped() {
+        let mut story = Story::new(BUG);
+        assert_eq!(story.words(), "", "no blank filled: no words, not even the opening");
+        story.values[0] = "click Pay".into();
+        assert_eq!(story.words(), "When I click Pay");
+        story.values[4] = "it crashes".into();
+        assert_eq!(story.words(), "When I click Pay, it crashes", "the empty feature blank takes its text with it");
+        story.values[2] = "Checkout".into();
+        assert_eq!(story.words(), "When I click Pay in Checkout, it crashes");
+        story.values[0].clear();
+        assert_eq!(story.words(), "When I Checkout, it crashes", "the first blank left empty: the next words follow the opening");
+
+        let mut story = Story::new(IDEA);
+        story.values[0] = "Armada".into();
+        story.values[2] = "sing".into();
+        assert_eq!(story.words(), "What if Armada could sing? now");
+        story.choice = 1;
+        assert_eq!(story.words(), "What if Armada could sing? later");
+    }
+}

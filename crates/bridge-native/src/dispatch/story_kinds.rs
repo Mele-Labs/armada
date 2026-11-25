@@ -103,3 +103,28 @@ fn read(registry: &'static str) -> Vec<StoryKind> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_registry_reads_six_kinds_in_order_each_with_an_opening_blanks_and_preset_tools_of_ask_tools() {
+        let ids: Vec<_> = kinds().iter().map(|kind| kind.id).collect();
+        assert_eq!(ids, ["bug", "feature", "idea", "design", "investigate", "brainstorm"]);
+        for kind in kinds() {
+            assert!(!kind.opening.is_empty(), "{} has an opening", kind.id);
+            assert!(kind.pieces.iter().any(|piece| !matches!(piece, Piece::Text(_))), "{} has a blank to type into", kind.id);
+            for tool in &kind.tools {
+                assert!(ipc::ask_tools::ask_tool(tool).is_some(), "{}'s preset tool `{tool}` is a key of ask_tools.toml", kind.id);
+            }
+        }
+        let preset = |id: &str| kinds().iter().find(|kind| kind.id == id).expect("a kind").tools.clone();
+        assert_eq!(preset("bug"), ["terminal", "browser"]);
+        assert_eq!(preset("feature"), ["sketch"]);
+        assert!(preset("idea").is_empty(), "`none` presets no tool");
+        assert_eq!(preset("design"), ["sketch", "takes"]);
+        assert_eq!(preset("investigate"), ["terminal"]);
+        assert_eq!(preset("brainstorm"), ["diagram"]);
+    }
+}
