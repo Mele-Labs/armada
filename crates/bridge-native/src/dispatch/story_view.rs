@@ -88,6 +88,7 @@ impl DispatchSheet {
         let has_keys = self.story_key.is_focused(window);
         let line_h = look.length(token::LEADING_LG);
         let catalog = self.features();
+        let catalog = &*catalog;
         let mut sentence = div()
             .id("dispatch-sentence")
             .track_focus(&self.story_key)
@@ -225,7 +226,7 @@ impl DispatchSheet {
     fn story_footer(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let Some(story) = &self.story else { return div().into_any_element() };
-        let says = story.starts(self.features());
+        let says = story.starts(&self.features());
         div()
             .absolute()
             .bottom_0()
@@ -266,8 +267,9 @@ impl DispatchSheet {
 
     /// The feature list under its blank, with its keys at the foot.
     fn feature_list(&self, rows: Vec<ListRow>, marked: usize, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let name = if rows.iter().any(|row| row.project.is_some()) { "Projects" } else { "Features" };
         let rows = rows.into_iter().map(|row| PopRow { glyph: None, label: row.title, ink: None, says: row.area }).collect();
-        let list = self.pop(look, "Features", rows, marked, vec![("↑↓", "choose"), ("↵", "pick"), ("⇥", "next")], cx, |this, at, window, cx| this.story_row(at, window, cx));
+        let list = self.pop(look, name, rows, marked, vec![("↑↓", "choose"), ("↵", "pick"), ("⇥", "next")], cx, |this, at, window, cx| this.story_row(at, window, cx));
         deferred(div().absolute().top_full().left_0().mt(look.length(token::SPACE_1)).child(list)).with_priority(1).into_any_element()
     }
 

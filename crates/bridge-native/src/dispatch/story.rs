@@ -15,8 +15,12 @@ pub const LIST_ROWS: usize = 40;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FeatureChoice {
     pub title: SharedString,
-    /// The title of its area, read beside it and searched with it.
+    /// The title of its area, read beside it and searched with it. Empty on a project's row.
     pub area: SharedString,
+    /// The feature's slug, which a start names; on a project's row, Fleet's id for the project.
+    pub slug: SharedString,
+    /// A row of his projects, offered while no project is chosen: taking it chooses the project and does not fill the blank.
+    pub project: bool,
 }
 
 /// A project's features as the list offers them, in the library's order. A feature the Operator has yet to bring to him is no
@@ -25,7 +29,7 @@ pub fn catalog_of(library: &ipc::FeatureLibrary) -> Vec<FeatureChoice> {
     library
         .areas
         .iter()
-        .flat_map(|area| area.features.iter().filter(|row| row.state != ipc::FeatureState::Pending).map(|row| FeatureChoice { title: row.title.clone().into(), area: area.title.clone().into() }))
+        .flat_map(|area| area.features.iter().filter(|row| row.state != ipc::FeatureState::Pending).map(|row| FeatureChoice { title: row.title.clone().into(), area: area.title.clone().into(), slug: row.slug.clone().into(), project: false }))
         .collect()
 }
 
@@ -35,6 +39,8 @@ pub struct ListRow {
     pub title: SharedString,
     /// The area, empty on an extra row.
     pub area: SharedString,
+    /// Fleet's id for the project, where the row is one of his projects.
+    pub project: Option<SharedString>,
 }
 
 /// The kinds whose opening begins with what has been typed, in the order the file lists them. Capitals do not matter,
@@ -49,7 +55,7 @@ pub fn openings(typed: &str) -> Vec<usize> {
 }
 
 /// What a key did to the sentence, for the sheet to carry out.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Keyed {
     /// Not a key the sentence takes: it goes on to the sheet.
     Ignored,
@@ -67,6 +73,8 @@ pub enum Keyed {
     Leave { back: bool },
     /// ⌘V: the sheet reads the clipboard into the blank.
     Paste,
+    /// A row of his projects was taken, by Fleet's id: the sheet chooses it, and the blank goes on listing, now its features.
+    Project(SharedString),
 }
 
 #[derive(Clone)]
@@ -177,11 +185,27 @@ impl Story {
         self.kind().pieces.iter().zip(&self.values).find_map(|(piece, value)| (matches!(piece, Piece::Feature(_)) && !value.trim().is_empty()).then_some(value.trim()))
     }
 
+    /// The feature of the catalog the first feature blank names, by its title.
+    fn named<'a>(&self, catalog: &'a [FeatureChoice]) -> Option<&'a FeatureChoice> {
+        let named = self.feature()?;
+        catalog.iter().find(|one| !one.project && one.title == named)
+    }
+
+    /// The words a start sends: the sentence, and a last line `Feature: <slug>` where the blank holds a feature of the catalog,
+    /// which Fleet hands the Job the page of. Words typed that are none of them add no line.
+    pub fn brief(&self, catalog: &[FeatureChoice]) -> String {
+        let words = self.words();
+        match self.named(catalog) {
+            Some(one) if !words.is_empty() => format!("{words}\nFeature: {}", one.slug),
+            _ => words,
+        }
+    }
+
     /// The line under the sentence: what it starts, and the feature's page where a feature of the catalog is named.
     pub fn starts(&self, catalog: &[FeatureChoice]) -> String {
         let kind = self.kind();
         let says = if self.choice == 1 { kind.later.unwrap_or(kind.starts) } else { kind.starts };
-        match self.feature().filter(|named| catalog.iter().any(|one| one.title == *named)) {
+        match self.feature().filter(|_| self.named(catalog).is_some()) {
             Some(title) => format!("Starts: {says} · {title} page"),
             None => format!("Starts: {says}"),
         }
@@ -194,8 +218,8 @@ impl Story {
         let typed = self.values[self.at].trim().to_lowercase();
         let rows = extra
             .iter()
-            .map(|title| ListRow { title: (*title).into(), area: SharedString::default() })
-            .chain(catalog.iter().map(|one| ListRow { title: one.title.clone(), area: one.area.clone() }))
+            .map(|title| ListRow { title: (*title).into(), area: SharedString::default(), project: None })
+            .chain(catalog.iter().map(|one| ListRow { title: one.title.clone(), area: one.area.clone(), project: one.project.then(|| one.slug.clone()) }))
             .filter(|row| typed.is_empty() || row.title.to_lowercase().contains(&typed) || row.area.to_lowercase().contains(&typed))
             .take(LIST_ROWS)
             .collect();
@@ -207,21 +231,30 @@ impl Story {
         !self.shut && self.list(catalog).is_some_and(|rows| !rows.is_empty())
     }
 
-    /// Take the marked row into the blank, and go on to the next one.
-    fn take(&mut self, catalog: &[FeatureChoice]) {
-        if let Some(row) = self.list(catalog).and_then(|rows| rows.into_iter().nth(self.row)) {
+    /// Take the marked row into the blank, and go on to the next one. A project's row fills nothing and stays: the blank is
+    /// to list that project's features, and the project's id is given back for the sheet to choose.
+    fn take(&mut self, catalog: &[FeatureChoice]) -> Option<SharedString> {
+        let row = self.list(catalog).and_then(|rows| rows.into_iter().nth(self.row));
+        if let Some(project) = row.as_ref().and_then(|row| row.project.clone()) {
+            self.values[self.at].clear();
+            let at = self.at;
+            self.stand(at);
+            return Some(project);
+        }
+        if let Some(row) = row {
             self.values[self.at] = row.title.to_string();
         }
         match self.after() {
             Some(next) => self.stand(next),
             None => self.shut = true,
         }
+        None
     }
 
-    /// A row of the list pressed.
-    pub fn take_row(&mut self, row: usize, catalog: &[FeatureChoice]) {
+    /// A row of the list pressed: the project it chose, where it was one.
+    pub fn take_row(&mut self, row: usize, catalog: &[FeatureChoice]) -> Option<SharedString> {
         self.row = row;
-        self.take(catalog);
+        self.take(catalog)
     }
 
     /// The letters a blank takes, as typed.
@@ -263,8 +296,10 @@ impl Story {
                 None => Keyed::Leave { back: true },
             },
             "tab" | "enter" if list && (value_held || self.moved) => {
-                self.take(catalog);
-                Keyed::Changed
+                match self.take(catalog) {
+                    Some(project) => Keyed::Project(project),
+                    None => Keyed::Changed,
+                }
             }
             "tab" | "enter" => match self.after() {
                 Some(at) => {
@@ -319,7 +354,7 @@ mod tests {
     const IDEA: usize = 2;
 
     fn catalog() -> Vec<FeatureChoice> {
-        let one = |title: &str, area: &str| FeatureChoice { title: title.to_string().into(), area: area.to_string().into() };
+        let one = |title: &str, area: &str| FeatureChoice { title: title.to_string().into(), area: area.to_string().into(), slug: title.to_lowercase().into(), project: false };
         vec![one("Login", "Account"), one("Checkout", "Payments"), one("Billing", "Payments")]
     }
 
@@ -437,5 +472,41 @@ mod tests {
         assert_eq!(story.words(), "What if Armada could sing? now");
         story.choice = 1;
         assert_eq!(story.words(), "What if Armada could sing? later");
+    }
+
+    #[test]
+    fn the_brief_ends_with_the_page_of_a_feature_of_the_catalog_and_typed_words_add_no_line() {
+        let catalog = catalog();
+        let mut story = Story::new(BUG);
+        story.values[0] = "click Pay".into();
+        assert_eq!(story.brief(&catalog), "When I click Pay", "no feature named");
+        story.values[2] = "Checkout".into();
+        assert_eq!(story.brief(&catalog), "When I click Pay in Checkout\nFeature: checkout");
+        story.values[2] = "the pay button".into();
+        assert_eq!(story.brief(&catalog), "When I click Pay in the pay button", "words typed that are no title add no line");
+        story.values[2] = "Checkout".into();
+        assert_eq!(story.brief(&[]), "When I click Pay in Checkout", "a catalog not yet in names nothing");
+        let project = FeatureChoice { title: "Checkout".into(), area: SharedString::default(), slug: "storefront".into(), project: true };
+        assert_eq!(story.brief(&[project]), "When I click Pay in Checkout", "a project's row is no feature");
+    }
+
+    #[test]
+    fn a_project_row_taken_fills_nothing_stays_in_the_blank_and_names_the_project() {
+        let projects = vec![
+            FeatureChoice { title: "Storefront".into(), area: SharedString::default(), slug: "storefront".into(), project: true },
+            FeatureChoice { title: "Docs".into(), area: SharedString::default(), slug: "docs".into(), project: true },
+        ];
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        write(&mut story, "do", &projects);
+        assert_eq!(titles(story.list(&projects)), ["Docs"]);
+        assert_eq!(press(&mut story, "enter", &projects), Keyed::Project("docs".into()));
+        assert_eq!(story.values[2], "", "the project is no feature");
+        assert_eq!(story.at, 2, "the blank stays, to list the project's features");
+
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        assert_eq!(story.take_row(0, &projects), Some("storefront".into()), "a row pressed does the same");
+        assert_eq!(story.at, 2);
     }
 }

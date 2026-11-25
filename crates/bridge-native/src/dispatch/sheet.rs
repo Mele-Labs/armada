@@ -7,6 +7,7 @@
 //! [`DispatchSheet::refused`], which puts the sheet back with its words kept. This file is its
 //! state and keys; `view.rs` draws it.
 
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -47,7 +48,8 @@ pub enum Asked {
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
     /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
-    Start { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String>, held: bool },
+    /// `workflow` is the id of the workflow the sentence's kind starts on, empty for a talk Job; none for plain words.
+    Start { words: String, repository: String, project: Option<String>, workflow: Option<String>, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, project: Option<String>, model: Option<String>, effort: Option<String> },
     /// New Side Job, from the card under the sheet: what ⌘T starts, in the row the picker named if it did. The sheet has shut.
     JobHere(Option<PickedRow>),
@@ -395,6 +397,14 @@ impl DispatchSheet {
         }
     }
 
+    /// The words a start sends: the sentence with the page of the feature it names, else the box's own.
+    fn brief(&self, cx: &App) -> String {
+        match &self.story {
+            Some(story) => story.brief(&choices(&self.catalog, &self.face, self.project().as_deref())),
+            None => self.words(cx),
+        }
+    }
+
     pub(super) fn worded(&self, cx: &App) -> bool {
         match &self.story {
             // The tools a kind presets are no words: nothing starts until a blank holds some.
@@ -618,10 +628,19 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    /// The feature catalog of the project the picker names, which the sentence's feature blanks list.
-    pub(super) fn features(&self) -> &[FeatureChoice] {
+    /// What the sentence's feature blanks list: the features of the project the picker names, and where it names none, his projects.
+    pub(super) fn features(&self) -> Cow<'_, [FeatureChoice]> {
         let project = self.project();
-        catalog_of(&self.catalog, project.as_deref())
+        choices(&self.catalog, &self.face, project.as_deref())
+    }
+
+    /// A project taken from the feature blank: its first row is chosen, as a chip pressed chooses it, and its features are asked for.
+    fn pick_project(&mut self, id: &str, cx: &mut Context<Self>) {
+        let row = self.face.chips.iter().chain(&self.face.more).find(|chip| chip.project.as_ref().is_some_and(|one| one.id == id)).map(|chip| chip.id());
+        if let Some(row) = row {
+            self.face.pick(&row);
+        }
+        self.want_features(cx);
     }
 
     /// Ask for the catalog of the project the picker names, once, where a sentence stands and it is not held.
@@ -647,7 +666,7 @@ impl DispatchSheet {
     fn story_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let before = self.shape_now(cx);
         let project = self.project();
-        let catalog = catalog_of(&self.catalog, project.as_deref());
+        let catalog = choices(&self.catalog, &self.face, project.as_deref());
         let Some(story) = self.story.as_mut() else { return false };
         let mods = &event.keystroke.modifiers;
         let at = story.at;
@@ -656,8 +675,8 @@ impl DispatchSheet {
         let letters = matches!(story.piece(), super::story_kinds::Piece::Blank(_) | super::story_kinds::Piece::Feature(_))
             && !matches!(key, "tab" | "enter")
             && (key == "backspace" || event.keystroke.key_char.is_some());
-        let keyed = story.key(event.keystroke.key.as_str(), mods.shift, mods.platform, mods.control || mods.alt, event.keystroke.key_char.as_deref(), catalog);
-        if story.list_open(catalog) {
+        let keyed = story.key(event.keystroke.key.as_str(), mods.shift, mods.platform, mods.control || mods.alt, event.keystroke.key_char.as_deref(), &catalog);
+        if story.list_open(&catalog) {
             self.list_scroll.scroll_to_item(story.row);
         }
         match keyed {
@@ -673,6 +692,12 @@ impl DispatchSheet {
                     self.remember(before);
                 }
                 self.run = letters.then_some(at);
+                self.story_moved(cx);
+            }
+            Keyed::Project(id) => {
+                self.remember(before);
+                self.run = None;
+                self.pick_project(&id, cx);
                 self.story_moved(cx);
             }
             Keyed::Start => self.act(window, cx),
@@ -713,9 +738,11 @@ impl DispatchSheet {
         let before = self.shape_now(cx);
         self.remember(before);
         let project = self.project();
-        let catalog = catalog_of(&self.catalog, project.as_deref());
-        if let Some(story) = self.story.as_mut() {
-            story.take_row(row, catalog);
+        let catalog = choices(&self.catalog, &self.face, project.as_deref());
+        let chose = self.story.as_mut().and_then(|story| story.take_row(row, &catalog));
+        drop(catalog);
+        if let Some(id) = chose {
+            self.pick_project(&id, cx);
         }
         let focus = self.story_key.clone();
         window.focus(&focus, cx);
@@ -860,12 +887,17 @@ impl DispatchSheet {
         self.asking = false;
         self.sending = true;
         self.drafting = held;
-        let words = self.words(cx);
+        let words = self.brief(cx);
+        let workflow = self.story.as_ref().map(|story| match story.kind().workflow {
+            "none" => String::new(),
+            id => id.to_string(),
+        });
         self.face.refused = None;
         cx.emit(Asked::Start {
             words,
             repository,
             project: self.project(),
+            workflow,
             model: self.model.as_ref().map(|one| one.to_string()),
             effort: self.effort.as_ref().map(|one| one.to_string()),
             held,
@@ -1500,11 +1532,21 @@ fn plain_cmd(mods: &gpui::Modifiers) -> bool {
     mods.platform && !mods.alt && !mods.control
 }
 
-/// The catalog held for `project`, or none where it is held for another or not at all.
-fn catalog_of<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, project: Option<&str>) -> &'a [FeatureChoice] {
+/// What a feature blank lists: the catalog held for `project`, or none where it is held for another or not yet. With no project
+/// chosen, his projects, one row each, in the order the picker lists them.
+fn choices<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, face: &Face, project: Option<&str>) -> Cow<'a, [FeatureChoice]> {
+    let Some(project) = project else {
+        let mut rows: Vec<FeatureChoice> = Vec::new();
+        for one in face.chips.iter().chain(&face.more).filter_map(|chip| chip.project.as_ref()) {
+            if !rows.iter().any(|row| row.slug == one.id) {
+                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), slug: one.id.clone(), project: true });
+            }
+        }
+        return Cow::Owned(rows);
+    };
     match held {
-        Some((one, features)) if Some(one.as_str()) == project => features,
-        _ => &[],
+        Some((one, features)) if one == project => Cow::Borrowed(features),
+        _ => Cow::Borrowed(&[]),
     }
 }
 
@@ -1947,5 +1989,115 @@ mod tests {
             assert!(sheet.request.focus_handle(cx).is_focused(window));
             assert!(held_tools(sheet).is_empty(), "the preset goes with the sentence");
         });
+    }
+
+    /// Every `Asked::Start` the sheet emits, as (words, workflow).
+    fn starts_heard(sheet: &Entity<DispatchSheet>, cx: &mut VisualTestContext) -> (std::rc::Rc<std::cell::RefCell<Vec<(String, Option<String>)>>>, Subscription) {
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let heard = std::rc::Rc::clone(&asked);
+        let sub = cx.update(|_, cx| {
+            cx.subscribe(sheet, move |_, asked: &Asked, _| {
+                if let Asked::Start { words, workflow, .. } = asked {
+                    heard.borrow_mut().push((words.clone(), workflow.clone()));
+                }
+            })
+        });
+        (asked, sub)
+    }
+
+    /// The sheet starts the sentence of `opening` with `first` in its first blank, in the row keyed ⌥3.
+    fn start_sentence(sheet: &mut DispatchSheet, opening: &str, first: &str, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        sheet.request.update(cx, |state, cx| state.set_value(opening, window, cx));
+        let request = sheet.request.focus_handle(cx);
+        window.focus(&request, cx);
+        press(sheet, "tab", window, cx);
+        write(sheet, first, window, cx);
+        let row = sheet.face.chips.iter().find(|chip| chip.key == Some(3)).expect("a keyed row").id();
+        sheet.face.pick(&row);
+    }
+
+    #[gpui::test]
+    fn with_no_project_the_feature_blank_lists_his_projects_and_taking_one_chooses_it_and_asks_for_its_features(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let heard = std::rc::Rc::clone(&asked);
+        let _sub = cx.update(|_, cx| {
+            cx.subscribe(&sheet, move |_, asked: &Asked, _| {
+                if let Asked::ReadFeatures(project) = asked {
+                    heard.borrow_mut().push(project.clone());
+                }
+            })
+        });
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            assert_eq!(sheet.project(), None, "no project is chosen");
+            press(sheet, "tab", window, cx);
+            let story = sheet.story.as_ref().expect("a sentence stands");
+            assert!(matches!(story.piece(), super::super::story_kinds::Piece::Feature(_)), "the feature blank has the keys");
+            let rows = story.list(&sheet.features()).expect("the keys are on a feature blank");
+            let titles: Vec<_> = rows.iter().map(|row| row.title.to_string()).collect();
+            assert!(titles.contains(&"Storefront".to_string()), "his projects are the choices: {titles:?}");
+            assert!(rows.iter().all(|row| row.project.is_some()), "and nothing but projects");
+
+            write(sheet, "store", window, cx);
+            press(sheet, "enter", window, cx);
+            assert_eq!(sheet.project(), Some("storefront".to_string()), "taking the row chose the project, as its chip would");
+            let story = sheet.story.as_ref().expect("a sentence stands");
+            assert_eq!(blank_words(sheet)[2], "", "the project is no feature: the blank is left to list its features");
+            assert!(matches!(story.piece(), super::super::story_kinds::Piece::Feature(_)), "and keeps the keys");
+        });
+        assert_eq!(*asked.borrow(), ["storefront"], "his projects are known here, so only the project's features are asked of Fleet");
+    }
+
+    #[gpui::test]
+    fn a_project_row_pressed_chooses_the_project_the_same_way(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            press(sheet, "tab", window, cx);
+            sheet.story_row(0, window, cx);
+            assert!(sheet.project().is_some(), "the first project is chosen");
+            assert_eq!(blank_words(sheet)[2], "");
+            assert_eq!(sheet.features().len(), 0, "its features are not in yet");
+        });
+    }
+
+    #[gpui::test]
+    fn start_carries_the_workflow_of_the_kind_and_none_for_plain_words(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let (heard, _sub) = starts_heard(&sheet, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            start_sentence(sheet, "When", "click Pay", window, cx);
+            sheet.act(window, cx);
+            sheet.sending = false;
+            sheet.plain_words(window, cx);
+            start_sentence(sheet, "What", "Armada sang", window, cx);
+            assert_eq!(sheet.story.as_ref().expect("a sentence").kind().id, "idea");
+            sheet.act(window, cx);
+            sheet.sending = false;
+            sheet.plain_words(window, cx);
+            sheet.act(window, cx);
+        });
+        let heard = heard.borrow();
+        assert_eq!(heard.iter().map(|(_, workflow)| workflow.clone()).collect::<Vec<_>>(), [Some("bug".to_string()), Some(String::new()), None]);
+    }
+
+    #[gpui::test]
+    fn a_feature_of_the_library_adds_its_page_as_the_last_line_and_typed_words_add_none(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let (heard, _sub) = starts_heard(&sheet, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            start_sentence(sheet, "When", "click Pay", window, cx);
+            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), slug: slug.to_string().into(), project: false };
+            sheet.catalog = Some(("storefront".to_string(), vec![one("Checkout", "checkout-flow"), one("Billing", "billing")]));
+            sheet.story.as_mut().expect("a sentence").values[2] = "Checkout".into();
+            sheet.act(window, cx);
+            sheet.sending = false;
+            sheet.story.as_mut().expect("a sentence").values[2] = "the pay button".into();
+            sheet.act(window, cx);
+        });
+        let heard = heard.borrow();
+        assert_eq!(heard[0].0, "When I click Pay in Checkout\nFeature: checkout-flow");
+        assert_eq!(heard[1].0, "When I click Pay in the pay button", "words typed into the blank name no feature");
     }
 }
