@@ -1,4 +1,4 @@
-//! A thing said on a pull request, as the spellings `packages/protocol/src/pull-requests.ts` and
+//! A thing said on a pull request, as the spellings `classic-final:packages/protocol/src/pull-requests.ts` and
 //! `pull-reviews.ts` list: its id always, an edit and a bot only where there is one.
 
 use crate::{decode, encode, PullRequestEntry, PullRequestVerdict, PullReviewThreadComment};

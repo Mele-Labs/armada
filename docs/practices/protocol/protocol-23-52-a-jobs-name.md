@@ -10,4 +10,4 @@
 | `report_session` | `SessionFact` `titled.named?` | `true` is a person's name from the terminal's `/rename`: it replaces the title. Absent, it is the first prompt's line, kept only where the job has no title |
 
 **A name from Bridge stands until the next terminal `/rename`.** Both are the same column, so the later one is the one shown.
-Bridge's half is in `packages/protocol/src/sessions.ts`, written by hand like the rest.
+Bridge's half is in `classic-final:packages/protocol/src/sessions.ts`, written by hand like the rest.

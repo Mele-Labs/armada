@@ -5,8 +5,8 @@
 `docs/concepts/autopilot.md`, and [Autopilot's boxes](autopilot-boxes.md) for what a person checks.
 While an Autopilot runs, Fleet answers a decision whose kind was checked, leaves the rest, and keeps every answer for the person to read.
 **Additive only**: three operations, one event, and a table with a migration that has a name and not a number.
-The protocol ID moves with `crates/ipc/src/autopilot_decisions.rs`, the operation files and `packages/protocol/src/autopilot.ts`, and there is no number to take.
-Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src/autopilot_decisions.rs`, the operation files and `classic-final:packages/protocol/src/autopilot.ts`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/autopilot.ts`, written by hand.
 
 | Operation | Side | Carries |
 | --- | --- | --- |

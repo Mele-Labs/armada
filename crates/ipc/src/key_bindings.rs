@@ -2,8 +2,7 @@
 //! Settings → Keyboard writes it and Bridge reads it back. `docs/concepts/key-bindings.md`.
 //!
 //! **Here for `layout`'s reason**: JSON nobody typed is bytes entering the process, and
-//! `serde_json::from_*` may appear only in `ipc` and `store`. The rules are the ones
-//! `parseKeyBindings` in `packages/components/src/keymap.ts` applies. Whether an act or a key exists
+//! `serde_json::from_*` may appear only in `ipc` and `store`. Whether an act or a key exists
 //! is Bridge's registry and never a reason to refuse: an id this build does not have is ignored.
 
 use serde_json::Value;

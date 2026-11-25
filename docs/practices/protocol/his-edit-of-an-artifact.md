@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. He edits a page's or a draft's words in place, and Save keeps them as the artifact's next revision, his. `docs/concepts/artifact.md`, *His Edit*.
 **Additive only**: one operation, one route and one body type. No field of `SessionRecord` or `JobArtifact`, no event kind and no error kind is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it, and native draws the toggle later.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it, and native draws the toggle later.
 
 | Where | Side | Carries |
 | --- | --- | --- |

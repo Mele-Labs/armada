@@ -21,7 +21,7 @@ curl -fsSL https://github.com/Mele-Labs/armada/releases/latest/download/install.
 
 | | |
 |---|---|
-| What it does | Puts `Armada.app`, the native Bridge, and `Armada Classic.app`, the Electron one, in `/Applications`. Starts Fleet from the `armada` inside `Armada.app` under launchd, links `~/.local/bin/armada` to it for a terminal's Jobs (a file already there is left alone), and opens both apps. Run it again to move onto the newest release |
+| What it does | Puts `Armada.app`, the native Bridge, in `/Applications`. Starts Fleet from the `armada` inside `Armada.app` under launchd, links `~/.local/bin/armada` to it for a terminal's Jobs (a file already there is left alone), and opens the app. Run it again to move onto the newest release |
 | What it needs | macOS on Apple Silicon and Apple's Command Line Tools. It opens their installer when they are missing and asks you to run it again. No Rust, no Node |
 | When it refuses | When Fleet here runs from a checkout you build: `scripts/restart` updates that one |
 
@@ -93,7 +93,7 @@ Two processes that ship as a pair and version together.
 | | | |
 |---|---|---|
 | **Fleet** | Rust daemon | Owns Jobs, hosts and supervises agents, runs checks, writes the record. Runs detached — quitting the app does not kill work in flight |
-| **Bridge** | Electron app | The only way in. Holds one connection to Fleet and never talks to an agent directly |
+| **Bridge** | Native app, Rust on gpui | The only way in. Holds one connection to Fleet and never talks to an agent directly |
 
 They meet at exactly one seam: a versioned protocol over HTTP and a WebSocket.
 Every other boundary in the system is a function call or a file.
@@ -101,8 +101,8 @@ Every other boundary in the system is a function call or a file.
 ```
 armada/
 ├── crates/          the Rust workspace — Fleet, the domain, the adapters
-├── apps/desktop/    Bridge
-├── packages/        shared: design tokens, icons, and what surfaces both read
+├── apps/            Pocket, the phone app, and the central store
+├── packages/        shared: design tokens, icons, brand art, built-in mods
 ├── xtask/           the build gate
 └── docs/            contracts, practices, spikes, and what v1 taught
 ```
@@ -147,9 +147,6 @@ pnpm install
 cargo xtask verify-foundations   # read what each line names, not the exit code
 ```
 
-**One more, once per machine:** `armada run browsers`, before the component
-tests — see [Tests](#tests).
-
 **A gate that reports red is not a broken checkout.** A rule whose subject does
 not exist yet fails and names it, so the gate goes red whenever a milestone
 lands its registry rows ahead of the code satisfying them. The tests pass either
@@ -172,7 +169,6 @@ Some of what the gate refuses:
 - Untyped JSON outside the two crates allowed to parse it
 - A vendor's name outside the adapter layer, or a design value that is not a token
 - A file over 900 lines
-- A component stylesheet nothing imports — Storybook draws it, the app draws it unstyled
 - A domain registry row that disagrees with the machine it describes
 - A tool a Drone is offered and not allowed to call
 - A generated file that has drifted from the registry it came from
@@ -183,20 +179,10 @@ Some of what the gate refuses:
 ```sh
 armada check test                                    # not `cargo test`
 armada check acceptance                              # the milestone's own claim
-pnpm bridge-test                                     # the TypeScript half
+armada check test --changed                          # what the branch touched
 ```
 
-**`pnpm bridge-test` needs a browser.** It runs the pure modules under
-`packages/screens` in node, then mounts every story in `packages/components` in
-headless Chromium — a story that throws is a failure, and a story with a `play`
-function has its assertions run against what it drew.
-
-`pnpm install` does not fetch that browser. `armada run browsers` does, once per
-machine. Without it the second suite fails naming an executable that is not
-there, which is a missing browser and not a failing component.
-
-Watch one while you work on it, from `packages/components` or
-`packages/screens`: `pnpm exec vitest`.
+Pocket's tests run in node: `pnpm exec vitest run <file>` from `apps/pocket`.
 
 ## Running it locally
 
@@ -204,17 +190,16 @@ Watch one while you work on it, from `packages/components` or
 pnpm dev
 ```
 
-That is the whole loop: it stops the running Fleet, reinstalls `armada` from the
-working tree, starts Fleet, waits for it to publish, and starts Bridge in the
-foreground. Ctrl-C stops both, which is a convenience of the script and not how
-Armada behaves in earnest.
+That is the whole Fleet loop: it stops the running Fleet, reinstalls `armada`
+from the working tree, starts Fleet, and waits for it to publish. Ctrl-C stops
+it, which is a convenience of the script and not how Armada behaves in earnest.
+It does not start Bridge: `scripts/restart` builds and starts the native Bridge.
 
-Or by hand, which is only the same two halves in the right order:
+Or by hand, which is only the same first half:
 
 ```sh
 cargo install --path crates/armada --debug   # armada, on your PATH
 armada serve .                               # runs until Ctrl-C
-pnpm --filter @armada/desktop dev            # in another terminal
 ```
 
 **Fleet first, always.** Fleet binds a port and publishes a runtime file, and

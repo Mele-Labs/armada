@@ -8,8 +8,8 @@ Bridge draws it.
 `docs/concepts/operator.md` says what the page is for.
 The rules the session runs under are `crates/adapters/src/operator_rules.md`.
 Electron shows no Operator and sends none of this.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+The Rust half is `crates/ipc/src/operator_page.rs`; Bridge's half is `classic-final:packages/protocol/src/operator-page.ts`, written by hand, field for field.
 
 ## What the wire carries
 

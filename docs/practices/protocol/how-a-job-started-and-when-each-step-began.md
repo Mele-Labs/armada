@@ -4,8 +4,9 @@
 
 Since 27 Oct 2026. The story spine opens its Brief on how the Job started, and gives each workflow step a zone with the items that happened in it.
 **Additive**: two optional fields on `SessionRecord`, two new types; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take. An older Fleet sends neither field and Bridge draws the Job from what it holds now.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+An older Fleet sends neither field and Bridge draws the Job from what it holds now.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -21,5 +22,5 @@ The model is the one the process runs on, the machine's own where none was picke
 The timeline entry carries words and not the index, so it is not read back.
 
 Migrations: `session_rail.visits` (a column) and `session_started` (a table), both additive. A Job started before them has no `started` and no visits.
-Bridge reads `started` in `sessionOfRecord` and the visits in `workOf` (`packages/screens/src/sessions-wire.ts`, `session-work.ts`), as `Session.started` and `work.workflow.visits`.
+Bridge reads `started` in `sessionOfRecord` and the visits in `workOf` (`classic-final:packages/screens/src/sessions-wire.ts`, `session-work.ts`), as `Session.started` and `work.workflow.visits`.
 The event stream is untouched, and nothing changes in the WebSocket's load: both fields ride the `session.changed` row that already goes whole.

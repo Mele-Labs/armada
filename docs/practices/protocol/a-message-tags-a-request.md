@@ -4,8 +4,8 @@
 
 Since 20 Nov 2026. A message in the native Bridge can tag one of the Job's saved API Client requests, or ask for a new one.
 **Additive only**: one `TagKind`; no operation, route, event kind or field.
-There is no number to bump: the protocol ID moves with `crates/ipc/src` and `packages/protocol/src`.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand; Pocket's `apps/pocket/src/wire/hosted-sessions.ts` is generated.
+There is no number to bump: the protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand; Pocket's `apps/pocket/src/wire/hosted-sessions.ts` is generated.
 
 | Where | Side | Carries |
 | --- | --- | --- |

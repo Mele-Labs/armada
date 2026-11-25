@@ -11,6 +11,9 @@ use std::path::Path;
 
 use crate::{docs, files_with_ext, Report};
 
+#[cfg(test)]
+mod tests;
+
 /// Rule thirteen: every open question is collected, and every citation of one
 /// resolves.
 ///
@@ -140,7 +143,13 @@ pub fn every_document_is_indexed(root: &Path) -> Report {
 /// v2 share top-level directories and a first-segment heuristic reads
 /// `crates/core/src/fleet/drone.rs` as a typo when it is a citation.
 ///
-/// Without the tag the rule cannot tell the two apart, and warns rather than
+/// **A path carrying its tag is checked at that tag.** `classic-final:<path>`
+/// names a file of the retired Electron Bridge, which lives only at that tag,
+/// and `v1-final:<path>` names one of v1's. Either is dead when the tag does
+/// not hold it, so a historical citation is held to the same standard as a
+/// live one without a bare path being allowed to mean Classic as well as v1.
+///
+/// Without a tag the rule cannot tell the two apart, and warns rather than
 /// failing: a shallow checkout is not a defect in the prose.
 ///
 /// This does not catch a pointer that names a directory where it meant a file.
@@ -158,20 +167,8 @@ pub fn every_path_a_document_names_exists(root: &Path) -> Report {
         ".claude/",
     ];
 
-    let v1 = std::process::Command::new("git")
-        .args(["ls-tree", "-r", "--name-only", "v1-final"])
-        .current_dir(root)
-        .output();
-    let v1: std::collections::BTreeSet<String> = match &v1 {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
-            .lines()
-            .map(str::to_string)
-            .collect(),
-        _ => {
-            report.warn("the v1-final tag is not in this checkout — v1 citations are not checked");
-            Default::default()
-        }
-    };
+    let v1 = tree_at(root, "v1-final", &mut report);
+    let classic = tree_at(root, "classic-final", &mut report);
 
     let mut paths = files_with_ext(root, &root.join("docs"), &["md"]);
     for name in [
@@ -197,6 +194,16 @@ pub fn every_path_a_document_names_exists(root: &Path) -> Report {
         for (n, line) in text.lines().enumerate() {
             for span in line.split('`').skip(1).step_by(2) {
                 let named = span.trim_end_matches(['.', ',', ':', ';']);
+                if let Some((tag, path)) = a_path_carrying_its_tag(named) {
+                    let tree = if tag == "v1-final" { &v1 } else { &classic };
+                    if !tree.is_empty() && !is_in_tree(tree, path) {
+                        report.fail(format!(
+                            "{rel}:{} names {named}, which {tag} does not hold",
+                            n + 1
+                        ));
+                    }
+                    continue;
+                }
                 if !ROOTS.iter().any(|r| named.starts_with(r)) {
                     continue;
                 }
@@ -208,7 +215,7 @@ pub fn every_path_a_document_names_exists(root: &Path) -> Report {
                     continue;
                 }
                 // A v1 citation resolves at the tag, not in the working tree.
-                if v1.contains(named) || v1.iter().any(|p| p.starts_with(&format!("{named}/"))) {
+                if is_in_tree(&v1, named) {
                     continue;
                 }
                 report.fail(format!(
@@ -219,4 +226,45 @@ pub fn every_path_a_document_names_exists(root: &Path) -> Report {
         }
     }
     report
+}
+
+/// The tags a path can carry in prose, each a ref the tree is read at.
+const TAGS: [&str; 2] = ["v1-final", "classic-final"];
+
+/// `classic-final:apps/desktop/src/main/index.ts` split into the tag and the
+/// path. A line reference after the path (`:1703`, `:~24-33`) is dropped, since
+/// it names a place in the file and the file is what has to exist. Anything
+/// that is not a tag followed by a repository path — a command, a placeholder,
+/// a bare path — is `None`, and falls through to the bare rule.
+fn a_path_carrying_its_tag(span: &str) -> Option<(&'static str, &str)> {
+    let (tag, rest) = span.split_once(':')?;
+    let tag = TAGS.iter().copied().find(|t| *t == tag)?;
+    let path = rest.split(':').next().unwrap_or_default();
+    (!path.is_empty() && !path.contains(['*', '<', '{', ' '])).then_some((tag, path))
+}
+
+/// A file of the tree, or a directory holding one.
+fn is_in_tree(tree: &std::collections::BTreeSet<String>, path: &str) -> bool {
+    let path = path.trim_end_matches('/');
+    tree.contains(path) || tree.iter().any(|p| p.starts_with(&format!("{path}/")))
+}
+
+/// Every file of `tag`, or nothing and a warning when the checkout lacks it.
+fn tree_at(root: &Path, tag: &str, report: &mut Report) -> std::collections::BTreeSet<String> {
+    let listed = std::process::Command::new("git")
+        .args(["ls-tree", "-r", "--name-only", tag])
+        .current_dir(root)
+        .output();
+    match &listed {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(str::to_string)
+            .collect(),
+        _ => {
+            report.warn(format!(
+                "the {tag} tag is not in this checkout — its citations are not checked"
+            ));
+            Default::default()
+        }
+    }
 }

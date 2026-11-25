@@ -1,8 +1,7 @@
 //! What the collection reads, and what it refuses to read.
 //!
-//! The parser tests carry the real declarations from `refusing.rs` and
-//! `failures.ts` verbatim, and the four file-name `const`s that share their
-//! shape. Those four are the reason the shape test exists, so a fixture that
+//! The parser tests carry the real declarations from `refusing.rs` verbatim,
+//! and the four file-name `const`s that share their shape. Those four are the reason the shape test exists, so a fixture that
 //! invented its own would test the rule against nothing.
 
 use super::*;
@@ -92,50 +91,6 @@ fn a_const_of_another_type_is_not_a_declaration() {
     assert!(rust_declarations("crates/fleet/src/refusing.rs", text).is_empty());
 }
 
-// ---------------------------------------------------------- the Bridge half
-
-#[test]
-fn a_bridge_code_is_read_off_the_type() {
-    let text = "/** Fleet's process is alive and its socket has stopped answering. */\n\
-                const FLEET_UNREACHABLE: BridgeCode = \"bridge.fleet.unreachable\";\n";
-    let found = bridge_declarations("packages/shell/src/failures.ts", text);
-    assert_eq!(found.len(), 1);
-    assert_eq!(found[0].code, "bridge.fleet.unreachable");
-    assert_eq!(found[0].site(), "packages/shell/src/failures.ts:2");
-    assert_eq!(
-        found[0].meaning.as_deref(),
-        Some("Fleet's process is alive and its socket has stopped answering.")
-    );
-}
-
-#[test]
-fn a_bridge_code_carries_the_first_line_of_a_block_comment() {
-    let text = "/**\n \
-                * A region of the window threw while drawing.\n \
-                *\n \
-                * One code and not one per region.\n \
-                */\n\
-                const RENDER_BOUNDARY: BridgeCode = \"bridge.render.boundary\";\n";
-    let found = bridge_declarations("packages/shell/src/failures.ts", text);
-    assert_eq!(
-        found[0].meaning.as_deref(),
-        Some("A region of the window threw while drawing.")
-    );
-}
-
-#[test]
-fn a_bridge_type_that_is_not_an_assignment_is_not_a_declaration() {
-    let text = "function facts(code: BridgeCode, fields: DebugField[]): FailureFacts {\n\
-                import type { BridgeCode } from \"@armada/components\";\n";
-    assert!(bridge_declarations("packages/shell/src/failures.ts", text).is_empty());
-}
-
-#[test]
-fn a_computed_bridge_code_is_not_a_declaration() {
-    let text = "const CODE: BridgeCode = `bridge.${region}`;\n";
-    assert!(bridge_declarations("packages/shell/src/failures.ts", text).is_empty());
-}
-
 // ----------------------------------------------------------- the collisions
 
 /// One declaration, at a site.
@@ -172,16 +127,16 @@ fn a_third_site_is_named_too() {
     collisions(
         &mut report,
         &[
-            declared("bridge.a.b", "packages/shell/src/failures.ts", 1),
-            declared("bridge.a.b", "packages/shell/src/other.ts", 2),
-            declared("bridge.a.b", "apps/desktop/src/third.ts", 3),
+            declared("fleet.a_b", "crates/fleet/src/refusing.rs", 1),
+            declared("fleet.a_b", "crates/api/src/answers.rs", 2),
+            declared("fleet.a_b", "crates/store/src/third.rs", 3),
         ],
-        "Bridge",
+        "Rust",
     );
     let found = lines(&report);
     assert_eq!(found.len(), 1);
-    assert!(found[0].contains("packages/shell/src/other.ts:2"));
-    assert!(found[0].contains("apps/desktop/src/third.ts:3"));
+    assert!(found[0].contains("crates/api/src/answers.rs:2"));
+    assert!(found[0].contains("crates/store/src/third.rs:3"));
 }
 
 #[test]
@@ -206,40 +161,26 @@ fn the_repository_has_no_duplicate_today() {
     assert!(!report.failed(), "{:?}", lines(&report));
 }
 
-/// Both halves find something, and each finds a code named rather than a
-/// count. A floor on the count would go stale the first time a code is
-/// withdrawn; a code that has to be there catches a scan that matched one
-/// line by accident.
+/// The scan finds a code named rather than a count. A floor on the count would
+/// go stale the first time a code is withdrawn; a code that has to be there
+/// catches a scan that matched one line by accident.
 #[test]
-fn both_halves_find_the_codes_the_repository_declares() {
-    let (rust, bridge) = collect(&crate::repo_root());
-    let named = |half: &[Declaration], code: &str| half.iter().any(|d| d.code == code);
-    assert!(named(&rust, "fleet.no_such_studio"), "Rust: {}", rust.len());
-    assert!(
-        named(&rust, "api.not_reconciled"),
-        "Rust: {}",
-        rust.len()
-    );
-    assert!(
-        named(&bridge, "bridge.fleet.unreachable"),
-        "Bridge: {}",
-        bridge.len()
-    );
+fn the_scan_finds_the_codes_the_repository_declares() {
+    let rust = collect(&crate::repo_root());
+    let named = |code: &str| rust.iter().any(|d| d.code == code);
+    assert!(named("fleet.no_such_studio"), "Rust: {}", rust.len());
+    assert!(named("api.not_reconciled"), "Rust: {}", rust.len());
 }
 
 #[test]
-fn every_bridge_code_carries_the_prefix_and_no_rust_code_does() {
-    let (rust, bridge) = collect(&crate::repo_root());
-    for one in &bridge {
-        assert!(one.code.starts_with(BRIDGE_PREFIX), "{}", one.site());
-    }
-    for one in &rust {
+fn no_rust_code_takes_the_reserved_prefix() {
+    for one in &collect(&crate::repo_root()) {
         assert!(!one.code.starts_with(BRIDGE_PREFIX), "{}", one.site());
     }
 }
 
 #[test]
-fn a_rust_code_in_bridges_namespace_fails() {
+fn a_rust_code_in_the_reserved_namespace_fails() {
     let mut report = Report::new("test");
     borrowed_namespace(
         &mut report,
@@ -258,13 +199,9 @@ fn a_rust_code_in_bridges_namespace_fails() {
 /// passing**. A rule keyed to a convention dies silently when the convention
 /// moves, and this is the only line that would say so.
 #[test]
-fn an_empty_repository_fails_both_halves() {
+fn an_empty_repository_fails() {
     let report = one_code_names_one_failure(std::path::Path::new("/nonexistent"));
     let found = lines(&report);
     assert!(report.failed());
     assert!(found.iter().any(|f| f.starts_with("crates/")), "{found:?}");
-    assert!(
-        found.iter().any(|f| f.starts_with("packages/, apps/")),
-        "{found:?}"
-    );
 }

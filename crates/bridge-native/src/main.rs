@@ -387,7 +387,7 @@ fn main() -> ExitCode {
         let options = |title: String| WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             // Frameless, as Electron's `titleBarStyle: "hiddenInset"`: the app draws its own title row, and the
-            // traffic lights sit where Electron puts them, 16 down a 44px row (`apps/desktop/src/main/index.ts`).
+            // traffic lights sit where Electron puts them, 16 down a 44px row (`classic-final:apps/desktop/src/main/index.ts`).
             titlebar: Some(TitlebarOptions {
                 title: Some(title.into()),
                 appears_transparent: true,

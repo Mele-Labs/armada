@@ -8,7 +8,7 @@
 //! `generated::actions::act` and the test below catch for the ids this file names.
 //!
 //! The spelling of a binding is the registry's (`⇧⌘R`, `Esc`, `⌘[ ⌘]`, `⌘1–⌘9`) and the person's
-//! saved changes use the same one, so this reads them the way `packages/components/src/keymap.ts`
+//! saved changes use the same one, so this reads them the way `classic-final:packages/components/src/keymap.ts`
 //! does: an act is a row of **slots**, each one key, and the saved list moves slots by place.
 //!
 //! **A bare key is bound under a key context.** `d` on a list must not fire while a text box inside

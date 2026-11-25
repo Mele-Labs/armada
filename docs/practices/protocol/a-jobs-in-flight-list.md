@@ -6,9 +6,9 @@ Since 9 Nov 2026. Fleet lists what End job lists, and every client draws it.
 Bridge worked the list out in TypeScript from the lanes' instances (`inFlight` in `LaneCanvas/build.ts`); the native Bridge and Pocket read this instead.
 **Additive only**: one field on an existing type and the type it carries; no operation, route, event kind or error.
 Electron Bridge keeps its own TypeScript reading, so `get_job_lifecycles` is as it was.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `ipc::InFlight` in `crates/ipc/src/lifecycles.rs`; the reading is `Fleet::lifecycles_flying`, the one End job and the agent's refusal already ask.
-Bridge's half is `InFlight` in `packages/protocol/src/lifecycles.ts`, written by hand, field for field.
+Bridge's half is `InFlight` in `classic-final:packages/protocol/src/lifecycles.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -375,7 +375,7 @@ pub fn kept_said(built_at: &Instant, commit: &str) -> String {
 // ---------------------------------------------------------------------------------------------
 // Fleet down
 
-/// Bridge's own reading of Fleet, in `packages/protocol`'s words.
+/// Bridge's own reading of Fleet, in `classic-final:packages/protocol`'s words.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Reading,

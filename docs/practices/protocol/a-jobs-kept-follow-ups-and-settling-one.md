@@ -4,7 +4,7 @@
 
 Since 21 Oct 2026. `docs/concepts/session/waiting-on-the-person.md`, *all_done is refused while a follow-up is open*.
 **Additive.** No protocol number moves; the protocol ID changes with the wire it hashes.
-Types live in `crates/ipc/src/sessions.rs` and `packages/protocol/src/sessions.ts`.
+Types live in `crates/ipc/src/sessions.rs` and `classic-final:packages/protocol/src/sessions.ts`.
 
 | Where | Side | Change |
 | --- | --- | --- |

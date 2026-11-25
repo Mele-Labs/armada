@@ -4,8 +4,8 @@
 
 Since 18 Nov 2026. The burn Fleet can name as avoidable over the last day, week or fortnight, by kind, for the Usage page's Waste view and for an agent.
 **Additive only**: one operation, one route and the types it carries; no event, no error and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/usage-waste.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/usage-waste.ts`, written by hand.
 The sums are made in SQL and in one pass over the requests that could be waste (`crates/store/src/usage_waste.rs`), so Bridge is sent figures and never rows.
 **Names and counts only**; a Job is its id, and Bridge joins `session_id` to the titles it holds.
 The one input named is the file a Read touched, in `causes`.

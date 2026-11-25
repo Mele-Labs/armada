@@ -1,5 +1,5 @@
 //! The handoff card on the wire: the brief the Job sends, the row the thread keeps, and the figures
-//! the card offers, each as Bridge's mirror in `packages/protocol` spells it.
+//! the card offers, each as Bridge's mirror in `classic-final:packages/protocol` spells it.
 
 use serde_json::json;
 
