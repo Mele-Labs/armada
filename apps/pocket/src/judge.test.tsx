@@ -128,7 +128,12 @@ afterEach(() => {
 
 describe("Judge on the phone", () => {
   it("offers the Job and each pull request it holds once", () => {
-    expect(targetsOf(jobWith({})).map((one) => [one.kind, one.id])).toEqual([
+    expect(
+      targetsOf(jobWith({})).map((one) => [
+        one.kind,
+        one.id,
+      ]),
+    ).toEqual([
       [
         "job",
         "S1",
