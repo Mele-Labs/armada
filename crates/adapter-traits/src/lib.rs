@@ -53,6 +53,7 @@ mod pull_reading;
 mod pull_request;
 mod pull_request_detail;
 mod pull_review;
+mod queue_runs;
 mod request;
 mod cloudflare;
 mod secret;
@@ -98,11 +99,12 @@ pub use judge::{Ask, CallProgress, Fork, Heard, JudgeCall, ModelClient, Reading}
 pub use landable::{Landable, UncheckedHead};
 pub use link_lookup::{IssueAddress, LinkLookup, LookupCall};
 pub use main_ci::{
-    CiRun, CiRuns, CiState, MergeQueue, MergedPull, Oid, OpenPull, OpenPulls, PullFacts,
+    CiRun, CiRuns, CiState, MergeQueue, MOST_QUEUE_ENTRIES, MergedPull, Oid, OpenPull, OpenPulls, PullFacts,
     PullMergeable, PullReview, QueueEntry, QueueState, RecentlyMerged, RecentlyMergedPulls,
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_comments::{OnFile, PullComment};
+pub use queue_runs::{InfraCause, InfraFailure, QueueRun, QueueRuns};
 pub use pull_events::{
     PullEvents, PullEventsFailure, PullStreamAction, PullStreamEnd, PullStreamSignal, PullSubscription,
 };

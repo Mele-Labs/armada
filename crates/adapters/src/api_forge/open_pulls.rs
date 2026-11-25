@@ -332,6 +332,7 @@ pub(crate) struct Entry {
     pull_request: Option<Numbered>,
     head_commit: Option<Oid>,
     enqueued_at: Option<String>,
+    estimated_time_to_merge: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -364,6 +365,7 @@ pub(crate) fn queue_of(entries: impl IntoIterator<Item = Entry>) -> MergeQueue {
                 state: state_of(entry.state.as_deref().unwrap_or_default()),
                 head: entry.head_commit.and_then(|it| it.oid).and_then(|it| adapter_traits::Oid::parse(&it)),
                 enqueued_at: entry.enqueued_at.filter(|at| !at.is_empty()).map(adapter_traits::FromOutside::verbatim),
+                estimated_seconds: entry.estimated_time_to_merge,
             })
         })
         .collect();

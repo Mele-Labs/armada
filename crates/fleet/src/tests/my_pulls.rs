@@ -90,7 +90,7 @@ async fn a_pull_request_the_queue_dropped_leaves_the_merge_line_with_the_pull_re
     let forge = &rig.fleet.vcs().main_ci;
     forge.pulls_are(Some(vec![opened(3237, "octocat")]));
     forge.followed_are(Some(Vec::new()));
-    let queued = QueueEntry { number: 3237, position: 1, state: QueueState::Queued, head: None, enqueued_at: None };
+    let queued = QueueEntry { number: 3237, position: 1, state: QueueState::Queued, head: None, enqueued_at: None, estimated_seconds: None };
     forge.queue_is(Some(vec![queued]));
     let served = rig.fleet.repositories().served().remove(0);
     rig.fleet.notice_pulls(&served).await;
