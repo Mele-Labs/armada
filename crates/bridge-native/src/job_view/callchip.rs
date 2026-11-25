@@ -11,11 +11,10 @@ use crate::look::{token, ActiveLook};
 
 impl JobView {
     /// The room the thread keeps clear at its foot while the chip stands over it, so the chip never covers a card's acts: the
-    /// chip's height and the gap round it, and the line of an unread answer's. Nothing where neither is drawn.
+    /// chip's height and the gap round it. Nothing where it is not drawn.
     pub(super) fn chip_room(&self, id: &SharedString, cx: &Context<Self>) -> gpui::Pixels {
         let look = cx.look();
-        let chip = if self.render_callchip(id, cx).is_some() { look.length(token::H_CONTROL_SM) + look.length(token::SPACE_2) * 2. } else { gpui::px(0.) };
-        chip + self.answer_room(id, cx)
+        if self.render_callchip(id, cx).is_some() { look.length(token::H_CONTROL_SM) + look.length(token::SPACE_2) * 2. } else { gpui::px(0.) }
     }
 
     pub(super) fn render_callchip(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
