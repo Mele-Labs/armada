@@ -4,4 +4,4 @@
   size = "16px"
   status = "Proposed"
   reserved = "A glyph the flight deck's picker offers a flight control, and nothing else: no control of Armada's own wears it. Never a Drone's step order or a redirect, which is `corner-up-right`."
-  notes = "Kept for the picker in `apps/desktop/src/renderer/src/cockpit/deck/flight-glyphs.ts`, which lists only glyphs the registry knows."
+  notes = "Kept for the picker in `classic-final:apps/desktop/src/renderer/src/cockpit/deck/flight-glyphs.ts`, which lists only glyphs the registry knows."

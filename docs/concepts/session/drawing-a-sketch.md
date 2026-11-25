@@ -9,7 +9,7 @@ Fleet places a hosted session by its connection, as for `show_window`; a termina
 **A scene that `parseScene` would draw as an empty frame is refused first.** `ipc` (`sketch.rs`) checks it against the same rules and answers 422 with up to twelve problems, each naming the part (`nodes[1] `b``), what it holds and what is allowed. It is stricter in one way: a field the format has no name for is refused, where `parseScene` drops it. A scene with no nodes is refused. The kinds, wire parts and icons are listed in the tool's description, and `crates/ipc/src/tests/sketch.rs` fails when they differ from `scene.ts`.
 
 **A `screen` node is the grey wireframe of an app's screen, for a repository with no styles.** Its `screen` field is a layout tree of rows, columns and grids that size themselves, holding generic parts (window, nav, panel, tabs, list, table, button, field, text, chat, modal and the rest), so the agent says what is on the screen and never where.
-`crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed.
+`crates/ipc/src/sketch/screen.rs` checks the tree against `readScreen` in `classic-final:packages/components/src/compositions/SketchScene/screen.ts` and refuses each fault by its path, such as `nodes[2] `team` screen.children[1].rows[0].icon`, with what it holds and what is allowed.
 A tree nests at most 12 levels.
 The test reads the element types, their fields, the enums and the glyph list out of `screen.ts`.
 The tool's description teaches the types, and a refused glyph is answered with the whole list.
@@ -48,7 +48,7 @@ The `show_sketch` description and the writing-a-document skill tell an agent to 
 A sketch holds at most 12 mocks, and `html` and `css` count toward the byte cap.
 A take of a takes part that `add_part` puts is kept the same way, each take's mocks with their style set, so native draws it in the app's styles.
 A drawing or a take a Fleet kept before its mocks carried `kept` is styled the first time `get_job_artifacts` reads it, and written back.
-The node and its routes are in [A sketch draws HTML in the repository's styles](../../practices/protocol/a-sketch-draws-html-the-mock-node.md), and the icons a mock may name in `<i data-icon>` are in `packages/components/src/compositions/SketchScene/mock-icons.ts`.
+The node and its routes are in [A sketch draws HTML in the repository's styles](../../practices/protocol/a-sketch-draws-html-the-mock-node.md), and the icons a mock may name in `<i data-icon>` are in `classic-final:packages/components/src/compositions/SketchScene/mock-icons.ts`.
 
 | Cap | Holds |
 |---|---|

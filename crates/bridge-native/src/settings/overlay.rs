@@ -3,7 +3,7 @@
 //! **His departure from Classic (10 Nov 2026)**: Settings is not a title-bar tab but an overlay over the app,
 //! 90% of the window, opened from the top-right menu, the macOS menu bar and ⌘,. Its search is cleared every
 //! time it opens, and Esc clears a search first, then closes, the keys going back where they were.
-//! Everything else is Classic's System page (`apps/desktop/src/renderer/src/system-surface.tsx`).
+//! Everything else is Classic's System page (`classic-final:apps/desktop/src/renderer/src/system-surface.tsx`).
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;

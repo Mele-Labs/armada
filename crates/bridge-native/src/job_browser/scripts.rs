@@ -14,7 +14,7 @@ pub const FINDER_WORLD: &str = "armada-job-browser-finder";
 /// The world an agent's expression runs in, apart from the finder's so it cannot reach `ArmadaFinder`.
 pub const EVALUATE_WORLD: &str = "armada-job-browser-evaluate";
 
-/// Classic's finder, as built (`apps/desktop/scripts/job-browser-page.mjs`). Never edited here.
+/// Classic's finder, as built (`classic-final:apps/desktop/scripts/job-browser-page.mjs`). Never edited here.
 const FINDER: &str = include_str!("page.js");
 
 /// A page nobody is looking at is in no window, or hidden, and WebKit does not draw it, so it never calls an animation frame back and

@@ -5,8 +5,8 @@ It records what is, and proposes nothing.
 The Jobs list, Needs you, the review sheet, the palette and notifications are in `list-needs-palette.md`; the Job view's head, thread and composer are in `job-view.md`.
 
 Paths are relative to the repository root.
-`SV` is `apps/desktop/src/renderer/src/session-view`.
-`DK` is `apps/desktop/src/renderer/src/cockpit/deck`.
+`SV` is `classic-final:apps/desktop/src/renderer/src/session-view`.
+`DK` is `classic-final:apps/desktop/src/renderer/src/cockpit/deck`.
 Pixel values are the Default density set, resolved from the token named beside them (the density table is at the top of `list-needs-palette.md`).
 "Measured" values come from Bridge on the mock Fleet at 1440x900, walk `fieldExpandPlan` (`http://localhost:40024/?walk=fieldExpandPlan`), with the Job `Rotate the audit log` open; screenshots are under `.playwright-mcp/` (`field-panel.png`, `field-layer.png`, `field-layer-replay.png`).
 
@@ -21,7 +21,7 @@ It is a sibling of the Job's thread, drawn after it, so the thread and composer 
 | `large` is placed after `children` in every arrangement of the workspace (paned, no story, story) | `SV/SessionWorkspace.tsx:455`, `:467`, `:473`, `:503` |
 | Which layer is open is one value for the whole window, `{session, layer, from, page?}`; it belongs to the Job it was opened over and is dropped when that Job goes | `SV/layers.ts:20-100`, `SV/SessionWorkspace.tsx:123-128` (`dropLayer`) |
 | `toggleLayer(id, "field")`: the same call again closes it | `SV/layers.ts:55-65` |
-| Field has no pane tab: `TAB_OF` has no `field` entry, so in a Job drawn in panes the layer still opens over the whole Job | `apps/desktop/src/renderer/src/job-panes/focus.ts:~24-33` |
+| Field has no pane tab: `TAB_OF` has no `field` entry, so in a Job drawn in panes the layer still opens over the whole Job | `classic-final:apps/desktop/src/renderer/src/job-panes/focus.ts:~24-33` |
 | Opened by the Expand button on the Field panel's band | `SV/FieldPanel.tsx:746-758` |
 | Opened by `e` (registry `deck_field`, scope `deck`, verb `Expand the Field`, glyph `maximize-2`), only while a Job is open on the stage and a `[data-area="field"]` element is in the page | `crates/core-model/domain/actions.toml` (`[actions.deck_field]`), `DK/DeckHost.tsx:465-472` |
 | Closed by `Esc` (window listener, ignored when a `[role="dialog"]` or `[role="alertdialog"]` is open), by the Back button, by `e` again, or by the panel's Collapse button | `SV/FieldLayer.tsx:21-35`, `:42-46` |
@@ -236,7 +236,7 @@ It was not shown on the mock Fleet (the mock does not answer `get_session_file_c
 
 The card follows the newest writer, or the drone picked in the Drones menu; the card never moves the camera.
 A refused file draws no lens and says nothing.
-The lens is asked for only while the Field is live, shown (`useShown`) and a drone is writing; the ask is `get_session_file_change` (`GET /sessions/file_change?session_id=&path=&seen=`) on a `session.edited` entry, never on a timer (`packages/protocol/src/territory.ts`, `SV/field-lens.ts`, `SV/lens-asks.ts`).
+The lens is asked for only while the Field is live, shown (`useShown`) and a drone is writing; the ask is `get_session_file_change` (`GET /sessions/file_change?session_id=&path=&seen=`) on a `session.edited` entry, never on a timer (`classic-final:packages/protocol/src/territory.ts`, `SV/field-lens.ts`, `SV/lens-asks.ts`).
 
 ## 8. Keys
 
@@ -290,7 +290,7 @@ The map's keys stop propagation, so none of them reaches the deck's own keys (`u
 
 ## 12. Fleet data the layer reads
 
-Session fields (`packages/screens/src/draft/sessions.ts:1098`, built from the record by `packages/screens/src/session-work.ts`):
+Session fields (`classic-final:packages/screens/src/draft/sessions.ts:1098`, built from the record by `classic-final:packages/screens/src/session-work.ts`):
 
 | Field | Type | Used for |
 |---|---|---|
@@ -308,7 +308,7 @@ Session fields (`packages/screens/src/draft/sessions.ts:1098`, built from the re
 | `live` | live-turn data | the panel's `TurnAccountBlock` |
 | other Sessions' `id`, `title`, `dead`, `replacedBy`, `waits`, `manifestId`, `cwd`, `work.field` | | the faded drones and message labels |
 
-Wire records they come from (`packages/protocol/src/`):
+Wire records they come from (`classic-final:packages/protocol/src/`):
 
 | Type | Fields | Where |
 |---|---|---|

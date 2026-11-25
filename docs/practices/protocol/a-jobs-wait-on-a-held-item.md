@@ -4,9 +4,9 @@
 
 Since 14 Nov 2026. A Job that takes a tracker item another Job holds, on this Mac or another, or one a person is assigned in beads, now waits on it, and the wait is drawn on the Job.
 **Additive only**: two optional fields out on `SessionRecord`, the two types they carry and one notice word; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `ClaimWait` in `crates/ipc/src/sessions.rs`; Fleet's is `crates/fleet/src/job_claims.rs`.
-Bridge's half is `packages/protocol/src/sessions.ts` and `notices.ts`, written by hand, field for field.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts` and `notices.ts`, written by hand, field for field.
 Electron Bridge reads neither field; native Bridge draws the wait line.
 
 | Where | Side | Carries |

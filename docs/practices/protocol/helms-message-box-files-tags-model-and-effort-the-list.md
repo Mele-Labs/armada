@@ -10,7 +10,7 @@ See *Helm is a Job*.
 `docs/concepts/session.md`, *What a message names*.
 **Additive only**: three operations, all `agent_access` `No` and Bridge's, one `TagKind`, and optional fields on existing DTOs.
 Two required fields are new, `HelmOpened.facts` and the `facts` message, which a Bridge from before them cannot read; the ID refuses that pairing, so nothing meets it half built.
-Bridge's half was `helm.ts` and `helm-thread.ts`, since deleted, with `packages/protocol/src/hosted-sessions.ts` and `packages/protocol/src/issues.ts`, written by hand.
+Bridge's half was `helm.ts` and `helm-thread.ts`, since deleted, with `classic-final:packages/protocol/src/hosted-sessions.ts` and `classic-final:packages/protocol/src/issues.ts`, written by hand.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

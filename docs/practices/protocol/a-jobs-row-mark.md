@@ -8,10 +8,10 @@ It came in two changes the same day.
 The first was **additive only**: one field on an existing type and the types it carries.
 The second added one operation, one route and one field, `viewed_at`, so Fleet knows when the person was last in a Job, and took `once_read` off `JobMark`, which nothing read: see *When he was last in a Job* below.
 **States only.** The words a row says beside its mark stay with the client.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/ipc/src/job_mark.rs`; the reading is `crates/fleet/src/sessioning/marking.rs`, called last in `ledger_built`.
-Bridge's half is `packages/protocol/src/job-mark.ts`, written by hand, field for field.
-`view_session` is `crates/ipc/src/job_viewing.rs` and `packages/protocol/src/job-viewing.ts`, kept by `crates/fleet/src/session_host/viewing.rs`.
+Bridge's half is `classic-final:packages/protocol/src/job-mark.ts`, written by hand, field for field.
+`view_session` is `crates/ipc/src/job_viewing.rs` and `classic-final:packages/protocol/src/job-viewing.ts`, kept by `crates/fleet/src/session_host/viewing.rs`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Bridge's half is `packages/protocol/src/job-mark.ts`, written by hand, field for
 ## What Fleet reads
 
 The reading is a port of Bridge's, check for check, and the order of the checks is the rule:
-`jobStateOf` in `packages/screens/src/session-state.ts`, `bucketOf` in `SessionFrame.tsx`, `sessionMark` and the row in `cockpit/deck/ship.ts`, and `toneOf`, `lampOf` and `groupOf` in `cockpit/deck/order.ts`.
+`jobStateOf` in `classic-final:packages/screens/src/session-state.ts`, `bucketOf` in `SessionFrame.tsx`, `sessionMark` and the row in `cockpit/deck/ship.ts`, and `toneOf`, `lampOf` and `groupOf` in `cockpit/deck/order.ts`.
 A change to one side is a change to the other until Electron reads this field too.
 
 **`replied` reads only until he has been in the Job since its last turn ended**: `viewed_at` at or past `last_turn_at`, or the Job on screen now.

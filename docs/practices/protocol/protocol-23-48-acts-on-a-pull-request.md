@@ -20,4 +20,4 @@ Which Session is the ledger's: the Session holds a `job` row with `detail.origin
 
 **Refusal codes**, all 409 unless noted: `fleet.merge_checks_not_passed`, `fleet.merge_not_open`, `fleet.pull_request_is_a_draft`, `fleet.pull_request_not_a_draft`, `fleet.ready_refused` and `fleet.auto_merge_refused` (the forge's own sentence), and the forge's merge kinds `fleet.merge_branch_protected`, `fleet.merge_conflicted`; 500 for `fleet.pull_request_unreadable`, `fleet.merge_no_tool` and `fleet.merge_refused`; 422 for `fleet.pull_request_unnamed` and `fleet.session_unknown`.
 No migration.
-Bridge's half is `packages/protocol/src/pull-requests.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/pull-requests.ts`, written by hand like the rest.

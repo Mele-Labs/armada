@@ -1,4 +1,4 @@
-//! Ported from `packages/components/src/compositions/SketchScene/route.ts`.
+//! Ported from `classic-final:packages/components/src/compositions/SketchScene/route.ts`.
 
 use std::collections::{HashMap, HashSet};
 

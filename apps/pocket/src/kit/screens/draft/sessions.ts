@@ -256,7 +256,7 @@ export type SessionAttachment =
     }
   /**
    * A note the person sent to the Job from the annotation layer: an `artifact` of form `note` on the wire, `noteArtifactOf` in
-   * `apps/desktop/src/shared/note-artifacts.ts`. `id` is the note's own. `picture` is an absolute PNG path, read as an artifact file is.
+   * `classic-final:apps/desktop/src/shared/note-artifacts.ts`. `id` is the note's own. `picture` is an absolute PNG path, read as an artifact file is.
    */
   | {
       kind: "note";

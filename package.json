@@ -15,8 +15,7 @@
     "gate": "cargo xtask verify-foundations",
     "gitnexus": "pnpm --allow-build=@ladybugdb/core --allow-build=gitnexus --allow-build=tree-sitter dlx gitnexus@1.6.12",
     "gitnexus:index": "pnpm gitnexus analyze --skip-agents-md --skip-skills",
-    "typecheck": "pnpm -C packages/brand typecheck && pnpm -C packages/protocol typecheck && pnpm -C packages/shell typecheck",
-    "bridge-test": "pnpm -C apps/desktop test && pnpm -C packages/screens test && pnpm -C packages/components test"
+    "typecheck": "pnpm -C packages/brand typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4"

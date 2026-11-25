@@ -5,8 +5,8 @@
 Fleet drops build output when the disk runs short, and holds new Jobs under a lower floor: `.armada/documents/disk-reclaim-policy.html`, `limits.diskReclaimFloorGib` and `limits.diskFloorGib`.
 A surface that draws the disk reads it from `get_health`.
 **Additive**: one optional field on an existing type and three new types; no operation, no route, no error code, no event.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/health.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/health.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

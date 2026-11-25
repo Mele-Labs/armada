@@ -15,7 +15,7 @@ restarted under a live socket is not the Fleet the file described.
 | The runtime file has no ID | **Refuses.** The same, and the notice says Fleet is out of date, since that is the one case where the side is known |
 
 **The one action is Restart Fleet, on the notice.** It is `launchctl kickstart
--k` run by Bridge's main process (`apps/desktop/src/main/restart-fleet.ts`), not
+-k` run by Bridge itself (`crates/bridge-native/src/restart_fleet.rs`), not
 a route, so a Fleet too old to have one is restarted as well as any other. What
 it can and cannot do:
 
@@ -33,7 +33,7 @@ it can and cannot do:
   seconds is the same code with `no_answer`.
 
 Bridge cannot say which side is stale from the IDs alone, so the sentence does
-not guess. `packages/shell/src/fleet.ts` carries the sentences, and the detail
+not guess. `crates/bridge-native/src/titlebar/face.rs` carries the sentences, and the detail
 row names the first eight digits of each ID so a person can read them to
 someone else.
 

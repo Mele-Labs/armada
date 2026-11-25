@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since mod `0.3.56`. `docs/concepts/session/how-a-job-gets-in.md`, *Where Claude Code skips the mod's hooks*.
-**Additive only**: one word on an open-text field. No `SessionFact` variant, operation, event kind or error is new, and `packages/protocol` is unchanged.
+**Additive only**: one word on an open-text field. No `SessionFact` variant, operation, event kind or error is new, and `classic-final:packages/protocol` is unchanged.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

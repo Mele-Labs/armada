@@ -1,10 +1,14 @@
-//! A form's edits, against this repository's own `armada.yml`.
+//! A form's edits, against a copy of this repository's own `armada.yml`.
 //!
 //! **The hardest file in the house, on purpose.** It is two thirds comment,
 //! spaces its sections apart, quotes some list items and not others, holds a
 //! `{}` port and a server with links — so a writer that holds here holds on a
 //! file Setup wrote, which is simpler in every way. It is compiled in, so the
 //! test reads no file.
+//!
+//! **A copy, kept as the file was at `classic-final`**: the live file lost its
+//! ports and its server with links when Armada Classic was deleted, and those
+//! are the shapes the edits below exercise.
 
 use std::path::Path;
 
@@ -15,7 +19,7 @@ use crate::amending::{
     NotAmended, PortEdit, Unplaceable,
 };
 
-const OWN: &str = include_str!("../../../../armada.yml");
+const OWN: &str = include_str!("amending_manifest.yml");
 
 fn at() -> &'static Path {
     Path::new("armada.yml")

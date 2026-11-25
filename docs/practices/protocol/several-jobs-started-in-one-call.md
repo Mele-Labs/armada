@@ -4,8 +4,8 @@
 
 Since 30 Oct 2026. A lead Job that splits a request into several Jobs starts them with one call and gets every id back in order.
 **One field in and one answer type out**: no operation, route, event kind or error code.
-The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `StartAnotherSessions`, `SessionsHeld` and `HeldOrRefused` in `packages/protocol/src/sessions.ts`, written by hand. Bridge sends neither: the call is an agent's.
+The protocol ID moves with `crates/ipc/src`, the operation file and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `StartAnotherSessions`, `SessionsHeld` and `HeldOrRefused` in `classic-final:packages/protocol/src/sessions.ts`, written by hand. Bridge sends neither: the call is an agent's.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -29,8 +29,8 @@ The unbounded sink and the missing resync message are untouched.
 Since 2 Nov 2026. A Job in a folder with no `armada.yml` has no Manifest id to name, and `start_another_session` refused every call that left it out.
 **One field loosens**: `StartAnotherSession.manifest_id` is optional and left out when absent, on a Job's own fields and on each entry of `jobs` alike.
 No operation, route, event kind or error code moves.
-The protocol ID moves with `crates/ipc/src`, the operation file and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `manifest_id?: string` on `StartAnotherSession` in `packages/protocol/src/sessions.ts`, written by hand. Bridge never sends it: the call is an agent's.
+The protocol ID moves with `crates/ipc/src`, the operation file and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `manifest_id?: string` on `StartAnotherSession` in `classic-final:packages/protocol/src/sessions.ts`, written by hand. Bridge never sends it: the call is an agent's.
 
 **Absent is the caller's own repository**, the `manifest_id` its record carries, which is the implicit id for a folder with no `armada.yml`.
 A call that names one is answered as before, and a `group` still starts the Job in the caller's own.

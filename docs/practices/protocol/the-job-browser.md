@@ -4,10 +4,10 @@
 
 Since 28 Oct 2026. A Job's agent drives a page in Bridge, the Job's page, in a Browser tab the owner sees and uses at any time too.
 Ten operations, ten routes, two event kinds, one report kind and one row kind.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
-Bridge's main process acts on `browser.request` in `apps/desktop/src/main/job-browsers.ts` and `job-browser-acts.ts`.
-The native app acts on it in `crates/bridge-native/src/job_browser/`, with Classic's own page finder built into `page.js` (`apps/desktop/scripts/job-browser-page.mjs`), so an agent reads one snapshot in either app.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
+Bridge's main process acts on `browser.request` in `classic-final:apps/desktop/src/main/job-browsers.ts` and `job-browser-acts.ts`.
+The native app acts on it in `crates/bridge-native/src/job_browser/`, with Classic's own page finder built into `page.js` (`classic-final:apps/desktop/scripts/job-browser-page.mjs`), so an agent reads one snapshot in either app.
 **One Bridge answers an act**: while the native app runs, Classic leaves `browser.request` to it, as it leaves the banners (`native-takeover.ts`).
 
 ## How one act travels
@@ -82,7 +82,7 @@ Bridge tells Fleet with `raise_browser_ask` and `end_browser_ask`, both `agent_a
 Answered 200 with `BrowserAskNoted` `{ session_id, ask_id }`.
 A blank `ask_id` or `text` is refused with 422 `fleet.browser_ask_refused`, and a Job Fleet does not know with 404 under the same code.
 
-**The words are Bridge's**, from `apps/desktop/src/shared/browser-ask.ts`: `text` is `Allow {Label} for {host}?`, and `options` are Allow and Block, in that order.
+**The words are Bridge's**, from `classic-final:apps/desktop/src/shared/browser-ask.ts`: `text` is `Allow {Label} for {host}?`, and `options` are Allow and Block, in that order.
 Local network's Allow carries the description "It can reach apps on this Mac and devices on your network."
 Fleet keeps what it is given and reads none of it.
 
@@ -127,7 +127,7 @@ A Fleet that has no reader between a Bridge closing and another opening keeps th
 ## What stays in Bridge
 
 **Three things cross no seam to Fleet**: `JobBrowserState.acting`, which names the act in progress for the agent mark, the route that reads the Mac's site defaults, and the `defaultsChanged` notice.
-They are Bridge's own channels, in `apps/desktop/src/shared/api/job-browser.ts`, between its main process and its pane.
+They are Bridge's own channels, in `classic-final:apps/desktop/src/shared/api/job-browser.ts`, between its main process and its pane.
 The person's choices in Site settings, which answer a page's permission, download, popup or fullscreen request, stay in Bridge too: Fleet holds only the ask that a row set to Ask raises.
 
 ## The reminder row

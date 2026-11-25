@@ -2,10 +2,10 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `docs/practices/capture-window.md`, *Origins a Job names*.
+Since 15 Oct 2026. `docs/concepts/session.md`, *Showing a window*, and `classic-final:docs/practices/capture-window.md`, *Origins a Job names*.
 **Additive only**: optional fields on `ShowWindow` and on the `window` row, and an operation with its DTOs.
 No event kind or error code is new.
-Bridge's half is `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand.
 There is no number to take: the protocol ID moves with the wire files, and `armada need --status` showed nothing standing on these paths.
 
 | Where | Side | Change |

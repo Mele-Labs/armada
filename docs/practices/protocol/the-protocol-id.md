@@ -18,7 +18,6 @@ says the sides differ, not which one is older.
 | `crates/ipc/src/**/*.rs`, except `tests/` | The DTOs, and every other type Fleet serializes |
 | `crates/ipc/operations/*.toml`, except `_header.toml` | Which operations and event kinds exist |
 | `crates/api/src/routes/**/*.rs` | The method and path each operation is served on |
-| `packages/protocol/src/**/*.ts`, except `*.test.ts` and `connection.ts` | Bridge's hand-written mirror of the DTOs |
 
 Files are taken in path order. Within one, a line that is only a comment is
 dropped and trailing whitespace is trimmed, so editing prose moves nothing. The
@@ -42,27 +41,23 @@ directions and both are chosen.
   branching on it. `crates/ipc/src/requester.rs` is where `kind` argues it,
   and a set Bridge matches on belongs in a `wire_enum!`, which is `ipc` source
   and moves the ID.
-- **It cannot tell that Bridge's mirror was updated.** The DTO types in
-  `packages/protocol` are written by hand. Changing a Rust DTO moves the ID
-  whether or not its mirror was touched, so equal IDs prove two builds read the
-  same wire files, not that the mirror is right. That gap is `[protocol-codegen]`
-  below.
+- **It cannot tell that a copy of the types was updated.** Bridge links
+  `crates/ipc`, so it has no copy. Pocket's types are generated from `ipc`
+  and checked by `cargo xtask verify-wire`, so they are the one copy the gate
+  holds to the Rust.
 
 ## Where each side gets it
 
 - **Rust.** `crates/ipc/build.rs` hashes the files on every build that touched
   them and embeds `ProtocolId::current()`. The hashing is
   `crates/ipc/wire_hash.rs`, a file `build.rs` includes.
-- **TypeScript.** `apps/desktop/codegen/protocol-id.mjs` takes the same hash and
-  `apps/desktop/electron.vite.config.ts` injects it into the main process, the
-  preload and the renderer as `__PROTOCOL_ID__`. `PROTOCOL_ID` in
-  `packages/protocol/src/connection.ts` reads it. **It is not a checked-in
-  file**: a literal in git is a line every branch that touches the wire edits,
-  and two of them conflict, which is the problem the ID exists to end. Under a
-  test runner nothing injects it and `PROTOCOL_ID` reads `unbuilt`, which no Fleet
-  speaks.
-- **They are two implementations of one hash**, written twice because the build
-  script and the Vite config cannot share code. `cargo xtask verify-foundations`
+- **The restart script.** `scripts/protocol-id` takes the same hash of a tree
+  before there is a binary to ask, so `scripts/restart` knows the ID of what it
+  is about to build. **It is not a checked-in file**: a literal in git is a line
+  every branch that touches the wire edits, and two of them conflict, which is
+  the problem the ID exists to end.
+- **They are two implementations of one hash**, written twice because a build
+  script and a restart script cannot share code. `cargo xtask verify-foundations`
   runs both on the working tree and fails when they disagree
   (`xtask/src/rules_protocol/id.rs`), and the Rust half it runs is the file
   `build.rs` includes.
@@ -76,8 +71,8 @@ mismatch screen instead of reading as a file nothing wrote.
 
 ## Contributor workflow
 
-1. Change the DTOs in `crates/ipc`, and mirror them in `packages/protocol` by
-   hand.
+1. Change the DTOs in `crates/ipc`. If Pocket reads the type, run
+   `cargo xtask verify-wire --write` and commit what it writes.
 2. Add or change the operation in `crates/ipc/operations/` and the route in
    `crates/api/src/routes/served/`.
 3. Nothing else. There is no number to choose, no need to declare and no

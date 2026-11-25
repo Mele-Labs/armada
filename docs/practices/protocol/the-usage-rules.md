@@ -4,7 +4,7 @@
 
 Since 18 Oct 2026. Which token rules Fleet tells a Job about, their limits, and the Jobs it told.
 **Additive only**: one operation and the types it carries.
-Bridge's half is `packages/protocol/src/usage-rules.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/usage-rules.ts`, written by hand.
 **Names and counts only**; titles are not carried, and Bridge joins `session_id` to the ones it holds.
 The rules and their words are `docs/concepts/session.md`, *Where the tokens went*.
 

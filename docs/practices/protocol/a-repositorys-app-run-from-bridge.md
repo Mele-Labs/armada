@@ -3,8 +3,8 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 **Additive only**: eight operations, one event kind, and the types they carry.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/app-runs.ts` and `events.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/app-runs.ts` and `events.ts`, written by hand.
 Fleet's half is `crates/fleet/src/app_runs/serving.rs`, which converts what `crates/fleet/src/app_runs.rs` reads into `ipc`'s own types.
 All nine are `Bridge only`: ▶ is a person's press, and an agent that wants a server already has `start_server`.
 

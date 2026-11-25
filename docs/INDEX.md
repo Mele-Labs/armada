@@ -25,15 +25,8 @@ Each ends with the questions it found and did not answer.
 
 - [`practices/rust.md`](practices/rust.md) — crate boundaries, the
   type-system-first pattern, and why each rule exists rather than what it is.
-- [`practices/bridge.md`](practices/bridge.md) — the three-process split, the
-- [`practices/react.md`](practices/react.md) — how a component is written, and which React advice does not apply to a window that loads from disk
-  security posture, and the v1 failure the desktop app exists to escape.
-- [`practices/capture-window.md`](practices/capture-window.md) — the security
-  review behind the one window that loads another repository's running web app:
-  what it may load, what the injected layer may touch, what the page can reach
-  back into, and what is refused outright.
-- [`practices/protocol.md`](practices/protocol.md) — the one seam between Rust
-  and TypeScript: the protocol ID, DTOs, and what survives when the two disagree.
+- [`practices/protocol.md`](practices/protocol.md) — the one seam, the wire between
+  Fleet and its clients: the protocol ID, DTOs, and what survives when the two disagree.
   One file per section, under [`practices/protocol/`](practices/protocol/).
 - [`practices/writing-an-issue.md`](practices/writing-an-issue.md) — an issue has
   two readers who need opposite things. Where the consequence goes, where the
@@ -280,7 +273,7 @@ approximations.
   8,600 events; `git status` is not made cheaper in process.
 - [`spikes/033-what-does-the-css-cockpit-map-cost.md`](spikes/033-what-does-the-css-cockpit-map-cost.md)
   — the baseline the Pixi rebuild of the Cockpit map was measured against, and the canvas map beside
-  it: CPU, frames and layers idle, busy and panning, from `apps/desktop/scripts/trace-map.mjs`.
+  it: CPU, frames and layers idle, busy and panning, from `classic-final:apps/desktop/scripts/trace-map.mjs`.
 - [`spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md`](spikes/034-can-fleet-keep-a-cookie-in-the-keychain.md)
   — a cookie written through `/usr/bin/security` over stdin is read back by two rebuilt, ad-hoc
   signed binaries with no prompt; the Security framework in Fleet's own process was not run.
@@ -360,28 +353,28 @@ approximations.
 - [`spikes/native-bridge-feel.md`](spikes/native-bridge-feel.md)
   — how the native Jobs screen feels and what it costs: a switch or keystroke in 0.2 to 0.5 ms in release
   and under 5 ms in debug on the CPU side, 39 MB headless and 73 MB as a real window, against about 1.0 GB
-  for the Electron Bridge's main window; no thread to open yet, and vsync, present and the OS input path
+  for Classic's main window; no thread to open yet, and vsync, present and the OS input path
   not reachable without a window on screen.
 - [`spikes/scene-draw-time.md`](spikes/scene-draw-time.md)
   — how long a saved prototype scene takes to draw natively: a median of 17 ms from markup to a drawn frame
   in a debug build on a busy machine, 3 ms of it reading the markup and fixtures; release and the display's
   own wait not measured.
 - [`spikes/native-jobs-inventory/list-needs-palette.md`](spikes/native-jobs-inventory/list-needs-palette.md)
-  — what Electron Bridge's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge draw today,
+  — what Classic's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge drew,
   as the spec the native Jobs screens match.
 - [`spikes/native-jobs-inventory/job-view.md`](spikes/native-jobs-inventory/job-view.md)
-  — what Electron Bridge's open Job draws today, its head, tab bar, thread rows, cards and composer,
+  — what Classic's open Job drew, its head, tab bar, thread rows, cards and composer,
   as the spec the native Job view matches.
 - [`spikes/native-jobs-inventory/field-layer.md`](spikes/native-jobs-inventory/field-layer.md)
   — what the Job view's Field layer draws today, its plan bar, replay slider and lens card,
   kept for its port after switch day.
 - [`spikes/native-jobs-inventory/thread-fold-diff.md`](spikes/native-jobs-inventory/thread-fold-diff.md)
-  — where Fleet's thread fold differed from Electron's, row by row, and what was kept as Electron does it.
+  — where Fleet's thread fold differed from Classic's, row by row, and what was kept as Classic did it.
 - [`spikes/native-titlebar-inventory/title-bar-rings-build.md`](spikes/native-titlebar-inventory/title-bar-rings-build.md)
-  — what Electron Bridge's title bar, usage rings, context ring, build switcher and Fleet-down states draw today,
+  — what Classic's title bar, usage rings, context ring, build switcher and Fleet-down states drew,
   as the spec the native title bar matches.
 - [`spikes/native-titlebar-inventory/dispatch-merge-clash.md`](spikes/native-titlebar-inventory/dispatch-merge-clash.md)
-  — what Electron Bridge's dispatch sheet, annotation layer, merge queue strip and write-clash marks draw today,
+  — what Classic's dispatch sheet, annotation layer, merge queue strip and write-clash marks drew,
   as the spec the native ones match.
 - [`spikes/native-titlebar-inventory/handoff.md`](spikes/native-titlebar-inventory/handoff.md)
   — what the native title bar, dispatch and strip work leaves Jobs screens: its files, the shared ones and what a merge keeps, open bugs, walk steps.
@@ -412,7 +405,6 @@ can find them.
 | Working a milestone step end to end | `milestone-step` |
 | Adding or editing a document | `armada-documents` |
 | Filing, citing or answering an open question | `armada-open-questions` |
-| Building or changing a component | `armada-components` |
 | Writing a commit message | `commit-message` |
 | Writing anything a person reads on a surface | `armada-voice` |
 | Starting, checking or cleaning up a local Fleet | `armada-local` |

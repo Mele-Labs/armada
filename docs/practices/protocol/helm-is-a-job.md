@@ -25,7 +25,7 @@ Bridge has moved with it: the dock reads the Helm Job through the Jobs pipeline 
 | `prompts.helm`, `prompts.helmReadOnly` (settings) | Machine setting | Placeholders `{manifest}`, `{folder}`, `{unasked}` and `{manifest}`, `{folder}`. The brief's texts and their placeholders are gone. `agent-prompt.md` section 5a |
 
 **Retired from the wire.** Operations `observe_helm`, `tune_helm`, `get_helm_file` and the event `helm.changed_checkout`; types `TuneHelm`, `HelmBoxFacts`, `HelmConversation`, `HelmMessage`, `HelmOpened`, `HelmClosed`, `HelmSilence`, `HelmChangedCheckout` and `HelmSent`.
-They are deleted in Rust and in `packages/protocol/src` (`helm-thread.ts` with them).
+They are deleted in Rust and in `classic-final:packages/protocol/src` (`helm-thread.ts` with them).
 `observe_commander` and the Commander's types keep the old host.
 A route typo is a runtime 500 here as everywhere (the accepted cost), so the dock should be walked against a Fleet that has this change.
 

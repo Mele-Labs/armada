@@ -1,6 +1,6 @@
 //! `mark_annotation_done`: a session marks a note Bridge sent it as done, and a Job's close marks
-//! its notes done or lets them go. The note is one JSON file Bridge's annotation layer writes
-//! (`Annotation` in `apps/desktop/src/shared/annotations.ts`); Fleet does the file I/O, and the
+//! its notes done or lets them go. The note is one JSON file Bridge's annotation layer writes;
+//! Fleet does the file I/O, and the
 //! bytes are read and rewritten here because this is where bytes may be parsed.
 
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};

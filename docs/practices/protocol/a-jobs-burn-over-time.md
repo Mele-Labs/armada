@@ -4,8 +4,8 @@
 
 Since 19 Nov 2026. One Job's burn from its start to its end, for the native Bridge's chart of it and for an agent.
 **Additive only**: one operation, one route and the types it carries; no event, no error and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/usage-job-timeline.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/usage-job-timeline.ts`, written by hand.
 The rows of one Job are read in one pass and cut into buckets in `crates/store/src/usage_job_timeline.rs`, so Bridge is sent figures and never rows.
 **Names and counts only**; the Job is its id, and no tool is named but through what a pause waited on.
 What each figure is, and how a pause is told from a gap, are `docs/concepts/session/where-the-tokens-went.md`, *A Job's burn over time*.

@@ -5,8 +5,8 @@
 `docs/concepts/autopilot.md`.
 The person checks whether Autopilot works the bugs agents reported, and sets a percent of the account's week at which it pauses.
 **Additive only**: one field on `AutopilotWork`, one on `Autopilot` and one on `AutopilotSettings`, one word on `AutopilotCap`, and a migration with a name and not a number.
-The protocol ID moves with `crates/ipc/src/autopilot.rs`, the operation files and `packages/protocol/src/autopilot.ts`, and there is no number to take.
-Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src/autopilot.rs`, the operation files and `classic-final:packages/protocol/src/autopilot.ts`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/autopilot.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |

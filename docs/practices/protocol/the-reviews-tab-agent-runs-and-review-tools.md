@@ -4,7 +4,7 @@
 
 Since 16 Oct 2026. `docs/concepts/pull-review.md`, *Agent runs*.
 **Additive only**: five operations, new DTOs in `ipc::review_runs`, one event, one optional field on a row, and a setting.
-Bridge's half is `packages/protocol/src/review-runs.ts` and `events.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/review-runs.ts` and `events.ts`, written by hand like the rest.
 There is no number to take: the protocol ID moves with the wire files, and `armada need --status` showed nothing standing on these paths.
 
 | Where | Side | Change |

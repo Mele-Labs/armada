@@ -1,6 +1,6 @@
 //! Settings → Models: the models the harness offers, which of them Jobs may use, and the model and effort each
-//! kind of run starts on. A port of Classic's Kit › Models (`packages/components/src/compositions/KitModels/`,
-//! `apps/desktop/src/renderer/src/kit-models-wire.ts`): read through `GET /models`, saved into settings.json.
+//! kind of run starts on. A port of Classic's Kit › Models (`classic-final:packages/components/src/compositions/KitModels/`,
+//! `classic-final:apps/desktop/src/renderer/src/kit-models-wire.ts`): read through `GET /models`, saved into settings.json.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;

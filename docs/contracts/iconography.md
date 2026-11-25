@@ -213,7 +213,7 @@ what it stopped on.
 
 **It exists because not every surface is served a reason.** The held-worktrees
 list is handed a Job's status and nothing else about why it stopped
-(`packages/protocol/src/holding.ts`), so *an escalated Job renders its reason*
+(`classic-final:packages/protocol/src/holding.ts`), so *an escalated Job renders its reason*
 was a rule that surface could not obey — it drew a blank where a status goes,
 and a blank cannot be told from a finished Job. The glyph is `megaphone`, in
 `packages/icons/icons/`, reserved to this status and held clear of `bell`
@@ -720,12 +720,12 @@ reached for.
   **One exception, the owner's, 2 Oct 2026**: a merge line with nobody in
   it, nothing landed and nothing sent back draws a small picture in the
   border tokens and no words under it. `EmptyLine` in
-  `packages/components/src/compositions/MergeLine/`.
+  `classic-final:packages/components/src/compositions/MergeLine/`.
   **Second exception, the owner's, 16 Oct 2026**: a review tool that looked at a
   pull request and found nothing draws a small picture in the border tokens,
   tinted with the tool's hue at low strength, and under it at most one line
   naming what was checked. `NothingFound` in
-  `apps/desktop/src/renderer/src/pr-review/nothing-found.tsx`.
+  `classic-final:apps/desktop/src/renderer/src/pr-review/nothing-found.tsx`.
 - **Spend, quota, elapsed, step N of M.** Numbers in mono. No gauge, no
   coin, no timer. **One exception, the owner's, 12 Oct 2026**: the Claude plan's 5-hour and weekly limits are one ring of two arcs in the title bar (15 Oct 2026), the context card draws a Session's window as one slim bar of its categories, and a Session's head draws its context as a tank, a pill filled to the percent (14 Oct 2026).
 

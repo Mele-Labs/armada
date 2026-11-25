@@ -22,7 +22,7 @@ Never re-explain what was just done unless asked.
 | Contracts, practices, concepts, journeys, spikes, open questions | The repository, `NickMele/armada` |
 | Registries — tokens, icons, settings, the domain model | The repository, as data files with checks over them |
 | What is being built and in what order | Beads issues, with milestones as epics |
-| A component as built, and how it is agreed | Storybook, `packages/components` |
+| A component as built, and how it is agreed | Storybook, `classic-final:packages/components` |
 
 **Everything an agent reads while writing code is a file in the repository.**
 A link anywhere else is where *read the source* dies, because a subagent cannot

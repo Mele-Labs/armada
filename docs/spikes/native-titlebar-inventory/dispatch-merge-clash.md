@@ -6,18 +6,18 @@ It covers the dispatch sheet and the strip a send leaves, the dev annotation lay
 The last section lists every place these pieces work a value out in TypeScript, and says whether Fleet already sends it.
 
 Paths are relative to the repository root.
-`R` is `apps/desktop/src/renderer/src`.
-`M` is `apps/desktop/src/main`.
+`R` is `classic-final:apps/desktop/src/renderer/src`.
+`M` is `classic-final:apps/desktop/src/main`.
 `DP` is `R/dispatch-panel`.
 `DK` is `R/cockpit/deck`.
-`PC` is `packages/components/src`.
+`PC` is `classic-final:packages/components/src`.
 `IPC` is `crates/ipc/src`.
 `FL` is `crates/fleet/src`.
 `BN` is `crates/bridge-native/src`.
-`PS` is `packages/screens/src`.
-`SH` is `packages/shell/src`.
-`PR` is `packages/protocol/src`.
-`AD` is `apps/desktop/src`.
+`PS` is `classic-final:packages/screens/src`.
+`SH` is `classic-final:packages/shell/src`.
+`PR` is `classic-final:packages/protocol/src`.
+`AD` is `classic-final:apps/desktop/src`.
 `AT` is `crates/core-model/domain/actions.toml`.
 `DPP` is `docs/practices/protocol`.
 Density tokens and the 9 Nov "more room" tweak are as in [`../native-jobs-inventory/list-needs-palette.md`](../native-jobs-inventory/list-needs-palette.md).
@@ -471,8 +471,8 @@ Electron's Studio capture (⌥⌘C, registry `capture_note`, ships) is the shipp
 
 Electron draws neither Fleet view.
 `viewsOf` folds `state.mergeLines` with `mergeLineViews` (`R/merge-line.tsx:25-28`, `PS/merge-line.ts:98-134`), the older `get_merge_lines` read that `DPP/the-merge-line-fleet-reads.md:8` says Electron keeps.
-The merge line view (PR #3367) is `get_merge_line_view` and `merge_line_view.changed` (`IPC/merge_line_view.rs:19-45`); its TypeScript mirror is `PR/merge-line-view.ts:18-19` and the event is typed at `PR/events.ts:80-83`, and nothing under `apps/desktop/src` reads either.
-The calls (PR #3379) are `get_calls`, `calls.changed` and `open_call` (`IPC/standing_calls.rs:59-110`, `PR/standing-calls.ts`); nothing under `apps/desktop/src` reads them either.
+The merge line view (PR #3367) is `get_merge_line_view` and `merge_line_view.changed` (`IPC/merge_line_view.rs:19-45`); its TypeScript mirror is `PR/merge-line-view.ts:18-19` and the event is typed at `PR/events.ts:80-83`, and nothing under `classic-final:apps/desktop/src` reads either.
+The calls (PR #3379) are `get_calls`, `calls.changed` and `open_call` (`IPC/standing_calls.rs:59-110`, `PR/standing-calls.ts`); nothing under `classic-final:apps/desktop/src` reads them either.
 Electron works its calls out itself: `callingHomes` and the keys `main:<root>`, `checkout:<root>`, `pull:<number>` (`DK/homes.ts:19`, `DK/Deck.tsx:1154`, `:1205`, `R/cockpit/answers.ts:132-140`), which are the same keys Fleet's calls carry (`IPC/standing_calls.rs:41-44`).
 
 The panel hides when the layout's `dashboard.panels` omits `merge-line` and when no repository is served a line (`DK/Deck.tsx:1159-1160`); no sentence about the absence is drawn.
@@ -684,7 +684,7 @@ The mark sits on both rows of a pair (`ClashMark.tsx:9`).
 ### 4.5 The paused state
 
 A Job whose changes conflict with a paused Job's gets Fleet's notice in its thread: a message from `Fleet` with `notice: "write_clash"` that names the paused Job's branch and says it is paused, with no instruction.
-The mock text is ``Git says your changes and branch mock/video-multitasking-boards (Job s-4eb87a78, paused) write the same lines of `apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx`.`` (`R/mock/scenarios/write-clash-paused.ts:26-27`, `:73-80`).
+The mock text is ``Git says your changes and branch mock/video-multitasking-boards (Job s-4eb87a78, paused) write the same lines of `classic-final:apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx`.`` (`R/mock/scenarios/write-clash-paused.ts:26-27`, `:73-80`).
 Fleet makes that sentence: `branch <branch> (Job <address>, paused)`, `Job <address> (paused)`, and for main `Git says <base> and your changes write the same lines of <paths>[, landed in <ref>].` (`FL/clashing/telling.rs:30-57`); it names three paths, then `and <n> more` (`:13-22`).
 The paused Job is drawn as any other: the mark does not change for a pause, and a press opens that Job.
 The paused Job's own record carries `hosted.paused {at, resuming}` (`write-clash-paused.ts:42-52`).

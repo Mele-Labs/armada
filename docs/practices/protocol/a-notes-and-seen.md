@@ -4,7 +4,7 @@
 
 Since 14 Nov 2026. A note of a verdict that points at words, and the newest revision of an artifact he opened. `docs/concepts/artifact.md`, *Seen and anchored notes*.
 One field changes type and one field is new, so this is not additive: `ItemAnswer.notes` was strings and is now `ItemNote`s, and no Bridge sent `answer_items` before this change.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |

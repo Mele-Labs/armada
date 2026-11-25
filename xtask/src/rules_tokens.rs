@@ -149,7 +149,7 @@ fn breakpoints(code: &str) -> Vec<(usize, String, String)> {
 
 /// The file with every `/* … */` blanked out, newlines kept so a line number
 /// still means what it says.
-fn strip_comments(text: &str) -> String {
+pub(crate) fn strip_comments(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(start) = rest.find("/*") {
