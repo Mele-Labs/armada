@@ -262,6 +262,8 @@ mod promoting;
 pub mod prompts;
 /// What happened to a pull request, told to the Sessions and Jobs that own it.
 mod pull_notices;
+/// A merge queue that holds runners for nothing or cannot get one: stopped, put back, and called stuck.
+mod queue_watch;
 /// Every comment on a pull request, filed for the Job that holds it, and a line when a reviewer speaks.
 mod pull_comments;
 mod pull_waits;
