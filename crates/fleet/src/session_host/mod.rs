@@ -50,6 +50,7 @@ mod margin_agent;
 pub(crate) mod margin_rounds;
 mod page_actions;
 mod page_votes;
+mod page_repo_css;
 mod page_sealed;
 mod artifact_seen;
 mod for_you;
