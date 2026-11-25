@@ -150,6 +150,7 @@ mod view_tabs;
 #[path = "../job_browser/mod.rs"]
 mod job_browser;
 mod loadout_tab;
+mod feature_tab;
 mod tokens_tab;
 mod api_client_tab;
 pub use listening::scene as listen_scene;

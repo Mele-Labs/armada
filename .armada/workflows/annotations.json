@@ -5,7 +5,7 @@
 {
   "version": 1,
   "workflow_id": "annotations",
-  "name": "Annotations: quiz, change and try, land",
+  "name": "Annotations",
   "for_requests": "A Job dispatched from a set of annotations the owner left on the app: small changes to what he sees, made quickly, offered for his preview, and landed once he says Looks good on them there.",
   "steps": [
     {

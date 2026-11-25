@@ -4,7 +4,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "feature",
-   "name": "feature",
+   "name": "Feature",
    "for_requests": "adding or changing something a person uses",
    "steps": [
     {
@@ -35,7 +35,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "bug",
-   "name": "bug",
+   "name": "Bug",
    "for_requests": "something that worked and no longer does",
    "steps": [
     {
@@ -66,7 +66,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "design_plan",
-   "name": "design_plan",
+   "name": "Design plan",
    "for_requests": "a design to settle before anything is built",
    "steps": [
     {
@@ -92,7 +92,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "prototype",
-   "name": "prototype",
+   "name": "Prototype",
    "for_requests": "a throwaway build to try an idea",
    "steps": [
     {
@@ -119,7 +119,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "feature",
-   "name": "feature",
+   "name": "Feature",
    "for_requests": "adding or changing something a person uses",
    "steps": [
     {
@@ -151,7 +151,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "bug",
-   "name": "bug",
+   "name": "Bug",
    "for_requests": "something that worked and no longer does",
    "steps": [
     {
@@ -210,7 +210,7 @@
   "definition": {
    "version": 1,
    "workflow_id": "design_plan",
-   "name": "design_plan",
+   "name": "Design plan",
    "for_requests": "a design to settle before anything is built",
    "steps": [
     {

@@ -1,7 +1,7 @@
 [
  {
   "id": "feature",
-  "name": "feature",
+  "name": "Feature",
   "version": 1,
   "steps": [],
   "manifest_id": "armada",
@@ -18,7 +18,7 @@
  },
  {
   "id": "bug",
-  "name": "bug",
+  "name": "Bug",
   "version": 1,
   "steps": [],
   "manifest_id": "armada",
@@ -29,7 +29,7 @@
  },
  {
   "id": "design_plan",
-  "name": "design_plan",
+  "name": "Design plan",
   "version": 1,
   "steps": [],
   "manifest_id": "armada",
@@ -47,7 +47,7 @@
  },
  {
   "id": "prototype",
-  "name": "prototype",
+  "name": "Prototype",
   "version": 1,
   "steps": [],
   "manifest_id": "armada",
@@ -69,7 +69,7 @@
  },
  {
   "id": "bug",
-  "name": "bug",
+  "name": "Bug",
   "version": 1,
   "steps": [],
   "manifest_id": "sample-web",

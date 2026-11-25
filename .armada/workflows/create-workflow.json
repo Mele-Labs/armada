@@ -4,7 +4,7 @@
 {
   "version": 1,
   "workflow_id": "create-workflow",
-  "name": "Create a workflow: quiz, propose for your Approve, build what Fleet lacks",
+  "name": "Create workflow",
   "for_requests": "Making a new workflow, or changing one, for how Jobs in this repository run: the steps a Job follows, what each asks of the owner and what ends it. Not a change to what Armada itself does, unless the workflow needs a gate or capability Fleet lacks.",
   "steps": [
     {
