@@ -55,7 +55,11 @@ pub fn open(source: Source, job: Offered, fleet: Option<Entity<FleetConnection>>
 impl PrototypeWindow {
     pub fn new(source: Source, job: Offered, fleet: Option<Entity<FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) -> PrototypeWindow {
         let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
-        let view = cx.new(|cx| PrototypeView::new(source, Home::Window, cx));
+        let view = cx.new(|cx| {
+            let mut view = PrototypeView::new(source, Home::Window, cx);
+            view.set_job(job.id.clone());
+            view
+        });
         let layer = cx.new(|cx| {
             let mut layer = Layer::new(Rc::clone(&area), vec![job.clone()], cx);
             layer.screen = Some("Prototype".into());
