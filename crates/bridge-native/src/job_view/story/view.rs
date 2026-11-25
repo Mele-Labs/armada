@@ -225,9 +225,9 @@ impl StoryTab {
                     .line_height(look.length(token::LEADING_XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                     .text_color(look.color(token::FG_MUTED))
-                    .child("Also shown"),
+                    .child("Shown to you"),
                 Role::Heading,
-                "Also shown",
+                "Shown to you",
             ))
             .children(rows)
             .into_any_element()
