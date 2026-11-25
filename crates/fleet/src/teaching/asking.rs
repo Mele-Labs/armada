@@ -103,6 +103,8 @@ where
                     .collect();
                 options.push(WaitingOption { label: OTHER.to_string(), description: None, picture: None });
                 Some(WaitingItem {
+                    order: 0,
+                    why: String::new(),
                     approves: false,
                     id: id.clone(),
                     text: format!("Where does {} open in {}?", file.name, ask.repository),

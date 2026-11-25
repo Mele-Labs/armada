@@ -53,6 +53,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("mark_annotation_done", shape::of::<crate::MarkAnnotationDone>()),
         ("move_session", shape::of::<crate::MoveSession>()),
         ("order_for_you", shape::of::<crate::OrderForYou>()),
+        ("order_waiting", shape::of::<crate::OrderWaiting>()),
         ("record_plan", shape::of::<crate::RecordPlan>()),
         ("report_bug", shape::of::<crate::ReportBug>()),
         ("raise_conflict", shape::of::<crate::RaiseConflict>()),

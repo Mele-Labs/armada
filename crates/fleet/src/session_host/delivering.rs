@@ -24,6 +24,8 @@ pub(crate) const DELIVERY_ITEM: &str = "delivery";
 /// What the owner is asked. Choices 0, 1 and 2 are [`DeliveryChoice::OFFERED`] in order.
 pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: DELIVERY_ITEM.to_string(),
         text: String::from("How should this work be delivered?"),

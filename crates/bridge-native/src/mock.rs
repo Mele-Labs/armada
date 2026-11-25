@@ -444,6 +444,8 @@ fn card_items(scenario: &str, sessions: &mut [SessionRecord]) {
                 continue;
             }
             one.waiting_for.push(WaitingItem {
+                order: 0,
+                why: String::new(),
                 approves: false,
                 id,
                 text: question.question.clone(),

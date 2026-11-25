@@ -83,6 +83,8 @@ pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, d
         .min()?;
     let id = format!("try:{session}");
     Some(ipc::WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         text: "Ready to try".into(),
         since,

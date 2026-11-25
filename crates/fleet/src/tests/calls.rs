@@ -32,6 +32,8 @@ fn nowhere(_: &str) -> bool {
 
 fn item(id: &str, text: &str, source: WaitingSource, second: u32) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: id.into(),
         text: text.into(),

@@ -367,6 +367,27 @@ The asks head learns from them only when it is trained again: `tools/lm-train` r
 `waiting.rs` still drops an agent item that names the same act and target as Fleet's, which is a fact.
 The model's vectors (`crates/fleet/src/session_host/dedup.rs`) serve only what he marked Not a question, above.
 
+## What he needs first
+
+**Every open ask of a Job carries its place and why it stands there**, so Bridge can show him one at a time.
+Each `WaitingItem` in `SessionRecord.waiting_for` has `order`, from 1, and `why`, one plain sentence, and the list is served in that order.
+**The Job sets the order with `order_waiting`**: the ids of its asks, its own and Fleet's, first to last, each with a `why`.
+The asks it leaves out follow in Fleet's order, and an id that is not an open ask refuses the call, naming it (`crates/ipc/operations/order_waiting.toml`).
+
+**Where the Job set no order, Fleet's is by what the ask is**, and the list's own order within each:
+
+| Place | Asks | Why |
+|---|---|---|
+| First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | Asked first because the work waits on it |
+| Then | A page to read or approve | A page to read |
+| Then | A build to try | Try it once the asks above are answered |
+| Last | The Job's done | The work is done |
+
+**A refresh comes before a prototype or a walk that needs it.**
+Where the Job has a preview to refresh and also a prototype or a walk, the build to try comes first, with the why *The prototype needs this build*, or *The walk needs this build*.
+The owner's own example, 25 Nov 2026: the prototype could not be tried until the build was refreshed.
+The words are in one place, `crates/fleet/src/session_host/needs_first.rs`.
+
 ## Follow-ups kept for Later
 
 **A follow-up the job puts to `defer_later` is kept for that job until it is settled.** Fleet does not read follow-ups off a reply.

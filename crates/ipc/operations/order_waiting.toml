@@ -1,0 +1,17 @@
+[operations.order_waiting]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Set the order the owner sees this job's open asks in, one at a time, first to last, each with why in one plain sentence. Ids are the ones waiting_for answers: your own items' and Fleet's (try:, sketch:, document:, draft:, plan:). Put a preview refresh before a prototype or walk that needs it. Every call states the whole order; asks you leave out follow in Fleet's order. Body: {items: [{id, why}], session_id?}"
+notes = """
+`POST /sessions/waiting/order`, body `OrderWaiting` `{ items: [{ id, why }], session_id? }`. Answers 200 with the `SessionRecord`, and publishes `session.changed`; **through the agent's door, a receipt** of `session_id` and `needs_first`, every open ask in its place as `{ id, why }`.
+
+**Replace-all.** The asks named come first, in this order, each with its `why`. Every ask left out follows in Fleet's fallback order with Fleet's why, and an ask named whose item is settled is passed over. An empty list clears the order.
+
+**Each `WaitingItem` of the Job's `waiting_for` carries `order`, its place from 1, and `why`.** The record serves them in that order. Fleet's fallback, where the Job set none: what blocks the work first (a question, a vote, an approve of a sketch, plan or draft, a walk), then pages, then a build to try, then the done. A build to try comes first where a prototype or a walk on the list needs it. `docs/concepts/session/waiting-on-the-person.md`, *What he needs first*.
+
+Refused whole with 422 `fleet.waiting_order_unknown`, naming each id that is not an open ask of the Job now and listing the ones that are, and nothing changes. 422 `fleet.waiting_order_blank` for an item with no id or no why, or an id named twice.
+
+The Job is placed as `waiting_for`'s is.
+"""
