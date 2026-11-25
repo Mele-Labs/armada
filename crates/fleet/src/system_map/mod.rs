@@ -32,7 +32,7 @@ use crate::daemon::Fleet;
 use crate::feature_library::mapping::FeatureMap;
 
 const NO_PART: &str = "fleet.system_part_unknown";
-const NO_FEATURE: &str = "fleet.feature_unknown";
+const NO_FEATURE: &str = "fleet.system_feature_unknown";
 
 /// One repository of a project, as it is read.
 pub(crate) struct Member {

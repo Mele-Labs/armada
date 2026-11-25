@@ -84,7 +84,7 @@ async fn a_feature_answers_its_own_files_jobs_and_screen() {
     assert!(!other.has_screen, "a server draws nothing");
 
     match rig.fleet.get_system_part(project, None, Some("nothing-of-the-kind".to_string())).await {
-        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.feature_unknown"),
+        Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.system_feature_unknown"),
         other => panic!("{other:?}"),
     }
 }

@@ -174,7 +174,7 @@ where
         let slugs: BTreeSet<String>;
         let mut kept: Option<&store::KeptFeature> = None;
         if let Some(slug) = feature.as_deref().filter(|one| !one.is_empty()) {
-            let one = features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(ipc::WireError::raised("fleet.feature_unknown", format!("the project holds no feature `{slug}`"), self.run_id())))?;
+            let one = features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(ipc::WireError::raised("fleet.system_feature_unknown", format!("the project holds no feature `{slug}`"), self.run_id())))?;
             for (repo, mapped) in maps.iter().enumerate().filter(|(_, mapped)| one.manifest_id.is_empty() || one.manifest_id == mapped.manifest) {
                 let mut paths: Vec<String> = one.paths.clone();
                 paths.extend(map.filed_of(&one.id).filter(|file| mapped.files.iter().any(|(held, _)| held == file) && !one.paths.iter().any(|prefix| owns(prefix, file))).map(str::to_string).take(MOST_FILED));

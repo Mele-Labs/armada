@@ -20,7 +20,7 @@ use crate::daemon::Fleet;
 
 const UNKNOWN: &str = "fleet.system_addition_unknown";
 const NOTE: &str = "fleet.system_addition_note";
-const RUNNING: &str = "fleet.librarian_running";
+const RUNNING: &str = "fleet.system_librarian_running";
 /// A folder of source this big, that no part covers, is worth a part.
 const WORTH_A_PART: usize = 8;
 /// Folders that hold other folders' worth of code: a part is one level below them.
