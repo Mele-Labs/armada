@@ -153,6 +153,33 @@ fn view_label(scope: Scope, group: Group) -> String {
 mod asleep_mac;
 #[cfg(test)]
 mod prioritise_tests;
+#[cfg(test)]
+mod ending_tests;
+
+/// An End he pressed that Fleet has not yet served: what the record held before it, when he pressed it, and the
+/// Mac it ends on, by name, where that is not this one.
+struct Ending {
+    was: (SessionState, Option<ipc::Instant>, Option<JobMark>),
+    at: ipc::Instant,
+    on: Option<String>,
+}
+
+impl Ending {
+    /// `job` as it reads while its End waits: ended, at the press, in the Done group.
+    fn hold(&self, job: &mut SessionRecord) {
+        job.state = SessionState::Ended;
+        job.ended_at = Some(self.at.clone());
+        job.mark = job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done });
+    }
+
+    /// The row's line until Fleet serves the End.
+    fn said(&self) -> SharedString {
+        match &self.on {
+            Some(mac) => format!("Ending on {mac}").into(),
+            None => "Ending".into(),
+        }
+    }
+}
 
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
@@ -210,6 +237,8 @@ struct Row {
     answer: bool,
     /// The Job runs on a Mac that cannot be reached: it stands under that Mac's fold, dimmed, and pulls at him nowhere.
     asleep: bool,
+    /// He pressed End and Fleet still serves the Job live: drawn ended, with this line in place of what it is doing.
+    ending: Option<SharedString>,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -902,6 +931,7 @@ fn lines_grouped(
                 moved: false,
                 answer: false,
                 asleep: false,
+                ending: None,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -942,6 +972,7 @@ fn lines_grouped(
             moved: crate::move_to_mac::moved(job),
             answer: job.answer_unread,
             asleep: asleep_on(job).is_some(),
+            ending: None,
         };
         fn under<'a>(
             parent: &str,
@@ -1215,6 +1246,9 @@ pub struct JobsList {
     /// Every reader of a Job's title reads the record, so the head, the list, the review sheet and the
     /// palette cannot disagree while Fleet's answer is pending.
     asked: HashMap<String, (Option<String>, String)>,
+    /// Jobs he pressed End on that Fleet still serves live, by id. The record reads ended at once, as `asked` holds a
+    /// title, until Fleet serves it ended or refuses the End; a Job on a sleeping Mac stays so until that Mac wakes.
+    ending: HashMap<String, Ending>,
     /// While a row is dragged: the row under the pointer, and whether it drops after it (`reorder.ts`).
     drop: Option<(SharedString, bool)>,
     /// The row being dragged, faded where it stood.
@@ -1335,6 +1369,7 @@ impl JobsList {
                 this.asked.retain(|id, (was, _)| held.jobs.iter().any(|job| job.id.as_str() == id && job.title == *was));
             } else {
                 this.hold_asked_titles(&mut jobs);
+                this.hold_ending(&mut jobs);
             }
             if !unmoved && (jobs != this.jobs || names != this.names) {
                 this.jobs = jobs;
@@ -1422,6 +1457,7 @@ impl JobsList {
             fleet,
             _watch: watch,
             asked: HashMap::new(),
+            ending: HashMap::new(),
             drop: None,
             lifted: None,
             ideas: crate::queued::ideas(cx),
@@ -1623,12 +1659,57 @@ impl JobsList {
             if one == mine {
                 continue;
             }
-            let asked = self.asked.get(one.id.as_str()).filter(|(was, asked)| one.title == *was && mine.title.as_deref() == Some(asked.as_str()));
-            if asked.is_none() || (SessionRecord { title: mine.title.clone(), ..one.clone() }) != *mine {
+            let mut held = one.clone();
+            if let Some((_, asked)) = self.asked.get(one.id.as_str()).filter(|(was, _)| one.title == *was) {
+                held.title = Some(asked.clone());
+            }
+            if let Some(ending) = self.ending.get(one.id.as_str()).filter(|_| one.state != SessionState::Ended) {
+                ending.hold(&mut held);
+            }
+            if held != *mine {
                 return false;
             }
         }
         held.next().is_none()
+    }
+
+    /// Put the Ends still waiting on Fleet over the records it sent, and let go of those it now serves ended.
+    fn hold_ending(&mut self, jobs: &mut [SessionRecord]) {
+        self.ending.retain(|id, ending| match jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            Some(job) if job.state != SessionState::Ended => {
+                ending.hold(job);
+                true
+            }
+            _ => false,
+        });
+    }
+
+    /// He pressed End: the Job reads ended at once, everywhere its record is read, while Fleet ends it in the
+    /// background. On mock data nothing echoes, so the record takes it for good, as Fleet's would.
+    pub fn end_now(&mut self, id: &str, cx: &mut Context<Self>) {
+        let macs = crate::pairing::macs(cx).to_vec();
+        let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        if held.state == SessionState::Ended {
+            return;
+        }
+        let on = held.mac.as_deref().map(|mac| macs.iter().find(|one| one.id == mac).map_or("another Mac", |one| one.name.as_str()).to_string());
+        let ending = Ending { was: (held.state, held.ended_at.clone(), held.mark), at: ipc::Instant::carried(chrono::Utc::now().to_rfc3339()), on };
+        ending.hold(held);
+        if self.fleet.is_some() {
+            self.ending.entry(id.to_string()).or_insert(ending);
+        }
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// Fleet refused the End: the Job stands as Fleet holds it.
+    pub fn unend(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(ending) = self.ending.remove(id) else { return };
+        if let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            (held.state, held.ended_at, held.mark) = ending.was;
+        }
+        self.relist(cx);
+        cx.notify();
     }
 
     fn hold_asked_titles(&mut self, jobs: &mut [SessionRecord]) {
@@ -1834,7 +1915,15 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done)
+        let mut lines = lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done);
+        if !self.ending.is_empty() {
+            for line in lines.iter_mut() {
+                if let Line::Job(row) = line {
+                    row.ending = self.ending.get(row.id.as_ref()).map(Ending::said);
+                }
+            }
+        }
+        lines
     }
 
     /// The title bar was scoped to a project, or back to All or a repository: the list takes the project the
@@ -2354,6 +2443,39 @@ impl JobsList {
         cx.notify();
     }
 
+    /// The row menu's Close: the Job reads ended at once and Fleet ends it in the background, on the Mac that holds
+    /// it. A refusal puts the row back as Fleet holds it and is said in a toast in Fleet's words.
+    pub fn end_row(&mut self, id: &str, cx: &mut Context<Self>) {
+        let port = self.port(cx);
+        self.end_now(id, cx);
+        let Some(port) = port.filter(|_| self.fleet.is_some()) else { return };
+        let body = ipc::encode(&ipc::CloseSession { session_id: ipc::SessionId::carried(id.to_string()) });
+        let id = id.to_string();
+        cx.spawn(async move |this, cx| {
+            let answer = match body {
+                Ok(body) => {
+                    cx.background_executor()
+                        .spawn(async move {
+                            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                            runtime.block_on(crate::transport::post(port, "/sessions/close", body))
+                        })
+                        .await
+                }
+                Err(why) => Err(format!("{why:?}")),
+            };
+            let said = match answer {
+                Ok((status, _)) if (200..300).contains(&status) => return,
+                Ok((status, bytes)) => crate::snooze::refusal_said(status, &bytes),
+                Err(why) => why,
+            };
+            let _ = this.update(cx, |this, cx| {
+                this.unend(&id, cx);
+                crate::toasts::tell(said, cx);
+            });
+        })
+        .detach();
+    }
+
     /// The Jobs an act on this row reaches: the whole selection where the row is in it, else the row alone.
     pub fn reached_by(&self, id: &str) -> Vec<SharedString> {
         if self.selected.iter().any(|one| one.as_ref() == id) {
@@ -2596,7 +2718,7 @@ impl JobsList {
                         None => Note::warn("not sent: no Fleet is connected").field("route", "/fleet/build/pick").emit(),
                     }
                 }
-                "close" => send(port, "/sessions/close", encoded(ipc::encode(&ipc::CloseSession { session_id })), cx),
+                "close" => this.end_row(&job, cx),
                 "fold" => this.set_row_fold(&job, !row_folded.unwrap_or(false), cx),
                 "fold_all" => this.set_all_folds(!all_unfold, cx),
                 field if field.starts_with("view:") => {
@@ -2972,7 +3094,7 @@ impl JobsList {
                 ),
             }
         });
-        let now = row.now.clone().filter(|_| view.on("view:now")).map(|now| {
+        let now = row.ending.clone().or_else(|| row.now.clone().filter(|_| view.on("view:now"))).map(|now| {
             meta(look).min_w_0().truncate().text_color(look.color(if row.paused { token::FG_SUBTLE } else { token::FG_MUTED })).child(now)
         });
         let time = row.last.clone().filter(|_| view.on("view:time")).map(|last| {

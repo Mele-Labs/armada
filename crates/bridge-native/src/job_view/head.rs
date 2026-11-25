@@ -41,7 +41,6 @@ pub(super) struct Overlay {
     pub paused: Option<bool>,
     pub auto_land: Option<bool>,
     pub stopped: bool,
-    pub ended: bool,
     pub naming: bool,
     pub retro: bool,
     pub retried: bool,
@@ -94,10 +93,6 @@ impl Head {
 
     pub fn stopped(&self, id: &str) -> bool {
         self.overlays.get(id).is_some_and(|overlay| overlay.stopped)
-    }
-
-    pub fn ended(&self, id: &str) -> bool {
-        self.overlays.get(id).is_some_and(|overlay| overlay.ended)
     }
 
     pub fn renaming(&self) -> bool {
@@ -318,7 +313,7 @@ fn mark_of(job: Option<&SessionRecord>, overlay: Option<&Overlay>) -> Option<(&'
     let job = job?;
     let state = job.mark?.state;
     let paused = overlay.and_then(|overlay| overlay.paused).unwrap_or_else(|| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()));
-    let state = if overlay.is_some_and(|overlay| overlay.ended) {
+    let state = if state == JobState::Ended {
         JobState::Ended
     } else if paused {
         JobState::Paused
@@ -747,10 +742,21 @@ impl JobView {
         self.open_confirm(confirm, window, cx, move |this, window, cx| this.end(&job, window, cx));
     }
 
+    /// The list's record reads ended at once, so the head, the row and the palette agree while Fleet ends the Job
+    /// in the background, on the Mac that holds it.
     fn end(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        self.overlay_mut(id).ended = true;
+        self.list.update(cx, |list, cx| list.end_now(id, cx));
         let body = ipc::encode(&ipc::CloseSession { session_id: Self::session_id(id) });
-        self.ask_act(id.clone(), "/sessions/close".into(), body, |overlay| overlay.ended = false, window, cx);
+        let job = id.clone();
+        self.head.said.remove(&job);
+        let done: Done = Box::new(move |this, answer, _, cx| {
+            if let Err(why) = answer {
+                this.list.update(cx, |list, cx| list.unend(&job, cx));
+                this.head.said.insert(job, why.into());
+            }
+            cx.notify();
+        });
+        self.post("/sessions/close".into(), body, window, cx, done);
     }
 
     pub(super) fn open_confirm(&mut self, confirm: Entity<Confirm>, window: &mut Window, cx: &mut Context<Self>, yes: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static) {
