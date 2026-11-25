@@ -85,3 +85,8 @@ pub fn listed(library: &FeatureLibrary, query: &str) -> Listed {
 pub fn holds_features(library: &FeatureLibrary) -> bool {
     library.areas.iter().any(|area| !area.features.is_empty())
 }
+
+/// Whether the start panel stands in the page's place: a project's library with no confirmed or seeded feature.
+pub fn starts(library: &FeatureLibrary) -> bool {
+    !library.project.is_empty() && library.areas.iter().flat_map(|area| &area.features).all(|row| row.state == ipc::FeatureState::Pending)
+}

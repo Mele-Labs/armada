@@ -110,6 +110,14 @@ impl Features for FakeDaemon {
         Ok(ipc::DocJobStarted { project: flag.project, slug: flag.slug, target: flag.target, session_id: ipc::SessionId::carried("s-1"), title: String::from("Doc or code: Voting on takes"), brief: String::new(), send_failed: None })
     }
 
+    async fn get_library_start(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::LibraryStart, Refusal> {
+        Ok(ipc::LibraryStart { project: project.unwrap_or_else(|| String::from("p1")), modules: Vec::new(), docs: Vec::new() })
+    }
+
+    async fn draft_module_features(&self, _caller: Option<crate::Caller>, draft: ipc::DraftModules) -> Result<ipc::ModulesDrafted, Refusal> {
+        Ok(ipc::ModulesDrafted { project: draft.project, drafted: Vec::new(), held: Vec::new() })
+    }
+
     async fn stop_librarian(&self, _caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {
         Ok(ipc::LibrarianStopping { project: stop.project, stopping: false })
     }
