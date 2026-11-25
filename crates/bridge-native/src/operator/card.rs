@@ -604,7 +604,7 @@ impl OperatorPageView {
             .focus_visible(move |style| style.border_color(ring))
             .tooltip(tip("Open the card above the talk"))
             .child(div().flex_none().max_w(gpui::relative(0.6)).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
-            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).children(aside.map(|aside| labelled(div().truncate().child(aside.clone()), Role::Status, aside))))
+            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).children(aside.map(|aside| labelled(div().id(SharedString::from(format!("folded-{id}-asks"))).truncate().child(aside.clone()), Role::Status, aside))))
             .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::OPERATOR)));
         // The line goes once it is open, so the keys go back to the page.
         labelled(
