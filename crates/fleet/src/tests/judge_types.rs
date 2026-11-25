@@ -8,7 +8,7 @@ use std::sync::Arc;
 use api::{JudgeReadings, Refusal};
 use ipc::{DeleteJudgeType, JudgeTypes, ReviewToolScope, ReviewToolSource, SaveJudgeType};
 
-use super::judge::{a_job_with_a_plan, answered_with, ask, asked_of, code, ended, readings, the_plan_artifact, ASKED};
+use super::judge::{a_job_with_a_plan, answered_with, asked_of, code, ended, readings, the_plan_artifact, ASKED};
 use super::session_host::Rig;
 
 const NOTHING: &str = r#"{"notes": []}"#;
