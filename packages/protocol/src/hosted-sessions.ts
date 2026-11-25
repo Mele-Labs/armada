@@ -110,6 +110,14 @@ export type StartSession = {
    * its members. Not read with `fork` or `root`.
    */
   project?: string;
+  /**
+   * The workflow the Job follows, the person's pick, which stands over `request`'s reading: the proposer's answer does not
+   * change it. An id the repository holds starts the Job on that workflow; blank starts it on none, a custom Job, and the
+   * proposer fills none in either. Absent, the proposer fills it in from `request`. Not read with `fork` or `root`. Refused as
+   * `POST /sessions/workflow` refuses, before anything is made: 422 `fleet.session_workflow_not_held` where the repository holds
+   * no such workflow, and `fleet.session_workflows_off` where it is switched off.
+   */
+  workflow?: string;
 };
 
 export type TagKind =

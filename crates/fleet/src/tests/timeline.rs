@@ -360,6 +360,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .expect("started");

@@ -250,6 +250,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let whole = ForkFrom { session_id: moved.session_id, at: None };
         let moved = Moved {
