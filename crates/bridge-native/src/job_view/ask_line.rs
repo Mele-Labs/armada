@@ -500,6 +500,25 @@ mod tests {
     }
 
     #[gpui::test]
+    fn both_questions_are_answered_on_their_cards_once_needs_you_brought_the_thread_there(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("ask:call-1", window, cx)));
+        redraw(cx);
+        let card = bounds(cx, Role::Article, &format!("Question: {FIRST}"));
+        let amber = within(cx, Role::Button, "Amber", card).center();
+        cx.simulate_click(amber, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the first leaves the thread");
+        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "and the next question, there since the first, opens no panel over it");
+        let card = bounds(cx, Role::Article, &format!("Question: {SECOND}"));
+        let tooltip = within(cx, Role::Button, "In the tooltip", card).center();
+        cx.simulate_click(tooltip, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, &format!("Question: {SECOND}")), "the second leaves the thread too");
+        assert!(!sheet_holds(&view, cx, "ask:call-1#1"), "and the sheet");
+    }
+
+    #[gpui::test]
     fn a_question_answered_in_words_on_its_card_sends_his_words(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));

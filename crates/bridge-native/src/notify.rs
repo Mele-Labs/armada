@@ -215,7 +215,7 @@ impl Notifier {
         }
         let opened = self.jobs.update(cx, |jobs, cx| jobs.open_job(session_id, cx)).unwrap_or(false);
         Note::info("a banner was pressed").field("opened", opened).emit();
-        // The ask the banner told opens in the review sheet, the one place it is answered; the Job's newest where it told
+        // The ask the banner told opens in the review sheet; the Job's newest where it told
         // none, or where that one no longer waits.
         let told = self.asked.remove(session_id);
         let ask = self.jobs.upgrade().and_then(|jobs| jobs.read(cx).record(session_id).and_then(|record| ask_to_open(&record.waiting_for, told.as_deref())));

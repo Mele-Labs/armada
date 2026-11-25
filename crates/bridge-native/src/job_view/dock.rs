@@ -129,7 +129,7 @@ pub(super) enum Thing<'a> {
     Lapsed(&'a Lapsed),
     /// A row of Fleet's Needs you.
     Row(&'a NeedsYouRow),
-    /// An ask the review sheet holds: one line here, and a press opens the sheet on it. Nothing is answered in the panel.
+    /// An ask the review sheet holds: one line here. A press brings the thread to its card, or opens the sheet where it has none.
     Sheet(super::review::Item),
 }
 
@@ -334,7 +334,7 @@ impl JobView {
                 None => groups.insert(0, Group { kind: Kind::Questions, label: "Questions", things: head }),
             }
         }
-        // What the sheet holds is one line each that opens it there: the one place an ask is answered (19 Nov).
+        // What the sheet holds is one line each, which goes to its card in the thread or opens the sheet on it.
         // A card's questions come both as the head's ask and as Fleet's rows for each: each is listed once.
         let mut listed: HashSet<String> = HashSet::new();
         for group in &mut groups {
@@ -460,19 +460,26 @@ impl JobView {
                 page.bands.tools_away = None;
             }
         }
-        let key = {
+        // Every question there now is seen at once: one answered on its card leaves the next where it stood, with no panel over it.
+        let keys: Vec<String> = {
             let (things, _) = self.things(id, cx);
-            things.iter().find_map(|thing| match thing {
-                Thing::Ask(ask) => Some(ask.call.call.clone()),
-                Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
-                // An open card's question the sheet holds opens the panel once, as the card did, where its line points to the sheet.
-                Thing::Sheet(item) if item.kind == super::review::Kind::Question && item.id.starts_with("ask:") => Some(item.id.clone()),
-                Thing::Row(_) | Thing::Sheet(_) => None,
-            })
+            things
+                .iter()
+                .filter_map(|thing| match thing {
+                    Thing::Ask(ask) => Some(ask.call.call.clone()),
+                    Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
+                    // An open card's question the sheet holds opens the panel once, as the card did.
+                    Thing::Sheet(item) if item.kind == super::review::Kind::Question && item.id.starts_with("ask:") => Some(item.id.clone()),
+                    Thing::Row(_) | Thing::Sheet(_) => None,
+                })
+                .collect()
         };
-        let Some(key) = key else { return };
         if let Some(page) = self.pages.get_mut(id) {
-            if page.dock.seen.insert(key) {
+            let mut new = false;
+            for key in keys {
+                new |= page.dock.seen.insert(key);
+            }
+            if new {
                 page.dock.open = Some(true);
             }
         }
