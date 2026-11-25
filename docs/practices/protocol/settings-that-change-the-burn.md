@@ -4,8 +4,8 @@
 
 Since 19 Nov 2026. The settings the Usage page changes in place, what a change to each would save over the last day, week or fortnight, and the changes already made with the waste before and since, for the page and for an agent.
 **Additive only**: one operation, one route, one setting, one table and the types they carry; no event, no error and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/usage-adjust.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/usage-adjust.ts`, written by hand.
 The new setting, `tokens.subagentCacheTtl`, is one more key of `get_settings` and `save_settings`, which carry it as any other.
 **Names and figures only.**
 What each row is, how a saving is priced and how a change is read are `docs/concepts/session/where-the-tokens-went.md`, *Settings that change it*.

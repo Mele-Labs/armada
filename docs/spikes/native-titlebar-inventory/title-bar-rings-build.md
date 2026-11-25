@@ -6,10 +6,10 @@ It covers the title bar row and its window frame, the plan usage rings with the 
 The places strip in the bar's centre is named where it sits and not described past that.
 
 Paths are relative to the repository root.
-`PC` is `packages/components/src`.
-`TB` is `packages/components/src/compositions/TitleBar`.
-`RS` is `apps/desktop/src/renderer/src`.
-`MN` is `apps/desktop/src/main`.
+`PC` is `classic-final:packages/components/src`.
+`TB` is `classic-final:packages/components/src/compositions/TitleBar`.
+`RS` is `classic-final:apps/desktop/src/renderer/src`.
+`MN` is `classic-final:apps/desktop/src/main`.
 Density tokens, and the 9 Nov "more room" tweak (larger padding and gaps, taller controls, rounded corners from the space, control-height and radius tokens), are as in [`../native-jobs-inventory/list-needs-palette.md`](../native-jobs-inventory/list-needs-palette.md).
 Every pixel value below is Default's, resolved from the token named beside it.
 Two tokens this file uses are not in that table: `--h-control-lg` is 32px Default, 28px Compact, 36px Roomy (`packages/tokens/src/spacing.css`:64, `spacing-sets.css:20`, `:41`), and `--h-title-bar` is 44px in every set (`spacing.css:70`).
@@ -25,7 +25,7 @@ Two tokens this file uses are not in that table: `--h-control-lg` is 32px Defaul
 | Row CSS | `TB/TitleBar.css` |
 | Menu CSS | `TB/TitleMenu.css` |
 | Shell: the row, the panel, the Operator dock, the status slot | `PC/compositions/TheShell/TheShell.tsx` (`TheShell` 98-175, `Dock` 238, `operatorButtonOf` 327) and `TheShell.css` |
-| Shell adapter: builds the picker entries, menu and Operator prop | `packages/shell/src/Shell.tsx` (`Shell` 122, `<TheShell` 187-276) |
+| Shell adapter: builds the picker entries, menu and Operator prop | `classic-final:packages/shell/src/Shell.tsx` (`Shell` 122, `<TheShell` 187-276) |
 | Mount in the app | `RS/App.tsx:828` (`<Shell`), `{...titleRow}` at `:844`, `wordmark` at `:850`, `repository` at `:852-858`, `places` at `:859-870`, `fleet` at `:871-886` |
 | Places strip drawn in the centre | `RS/cockpit/deck/TabBar.tsx` (`TabBar` 38), `deck-chrome.css:5-58` |
 | Window flags | `MN/index.ts:326-330` (`titleBarStyle: "hiddenInset"`, `trafficLightPosition` x 18, y 16) |
@@ -110,18 +110,18 @@ Literals in the row: the `+ 1` pixel in the measuring code (`TitleBar.tsx:475`) 
 | With places, the centre stays below 900px, in column 1, and the end region takes columns 2 onward | same | `TitleBar.css:765-772` |
 | The places draw as glyphs when the row cannot hold their labels | `usePlacesRoom()` reads the room left after the sides, gaps and trigger | `TitleBar.tsx:433-510` |
 | The first column's floor is measured and written to `--armada-title-start-floor` | ResizeObserver on row, start, places, search and end | `TitleBar.tsx:457-497` |
-| The Operator dock folds to a sheet at `--layout-breakpoint` 1100px | `folded: narrow` from `useNarrow()` | `spacing.css:125`, `packages/shell/src/Shell.tsx`:209 |
+| The Operator dock folds to a sheet at `--layout-breakpoint` 1100px | `folded: narrow` from `useNarrow()` | `spacing.css:125`, `classic-final:packages/shell/src/Shell.tsx`:209 |
 
 ### 1.5 Controls
 
 | Control | Label, role and name | What a press does | Shown when |
 |---|---|---|---|
-| Repository picker | `DropdownMenu`, trigger label is the repository name, aria `Repository`, search field aria `Find a repository` | choosing an entry calls `onSelect(id)`: All, a repository, a Workspace heading, `add-repository`, `new-project`, `new-workspace` (`packages/shell/src/Shell.tsx` `pick`); no Fleet call from the row | `repository` and `repositoryMenu` passed (`TitleBar.tsx:546-590`) |
+| Repository picker | `DropdownMenu`, trigger label is the repository name, aria `Repository`, search field aria `Find a repository` | choosing an entry calls `onSelect(id)`: All, a repository, a Workspace heading, `add-repository`, `new-project`, `new-workspace` (`classic-final:packages/shell/src/Shell.tsx` `pick`); no Fleet call from the row | `repository` and `repositoryMenu` passed (`TitleBar.tsx:546-590`) |
 | Picker rows | glyph `Layers` for All and a Workspace, `FolderGit2` for a repository; acts below the rule use `FolderPlus` and `Plus` in the accent colour; row height `--space-8` = 32px; a repository not set up carries the detail `Not set up` | as above | `TitleBar.tsx:775-864`, `TitleBar.css:775-800` |
 | Workspace gear | `Settings` 16px, `role="button"`, aria and tooltip `Open <workspace name>` | `onOpenWorkspace(id)` | a Workspace heading row (`TitleBar.tsx:818-844`) |
 | Repository place glyph | trailing mark, 24px square, `--radius-md` | `trail.open()` from `repositoryTrail` | `trailOf` returns one (`TitleBar.tsx:845-861`) |
-| Manifest button | tooltip and aria `Open the Manifest`, glyph from the surface roster (`FileCog` fallback), disabled when no repository is read | `onOpenManifest` goes to `SURFACE.manifest` | `repositoryMenu.manifest` passed (`packages/shell/src/Shell.tsx`:232-240) |
-| Places | `nav` aria `Places`, tabs with glyph and name: Operator, Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects, System | `goTo(surface)` | `packages/shell/src/surfaces.ts`:419-470, `TabBar.tsx:166-196` |
+| Manifest button | tooltip and aria `Open the Manifest`, glyph from the surface roster (`FileCog` fallback), disabled when no repository is read | `onOpenManifest` goes to `SURFACE.manifest` | `repositoryMenu.manifest` passed (`classic-final:packages/shell/src/Shell.tsx`:232-240) |
+| Places | `nav` aria `Places`, tabs with glyph and name: Operator, Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects, System | `goTo(surface)` | `classic-final:packages/shell/src/surfaces.ts`:419-470, `TabBar.tsx:166-196` |
 | Places menu | right press, ContextMenu key or Shift+F10: `Hide <tab>`, then a `View` label and one checkable row per place; Cockpit and System carry the hint `Always shown` and are disabled | writes the `rail` layout (`layouts.source.setOwn("rail", ...)`), a local setting | `TabBar.tsx:103-132`, `:218-229` |
 | Search trigger | button; name is `Search, or describe work to dispatch`, and with places the name and the `title` are `Search, or describe work to dispatch (⌘K)`; key drawn by `KbdBinding` | `onSearch` opens the command palette (`palette.onOpen`, `App.tsx:843`) | `onSearch` passed (`TitleBar.tsx:602-621`) |
 | Operator reopen | button; `title` is `Open Operator — ⌘J` (title word and binding come from the dock); aria `Operator`; glyph `Bot` 16px; the `⌘J` badge mounts only while Cmd is held | `operator.onOpen` calls `dock.onOpen(true)` | `operatorButtonOf` returns one (`TitleBar.tsx:628-650`) |
@@ -133,7 +133,7 @@ Literals in the row: the `+ 1` pixel in the measuring code (`TitleBar.tsx:475`) 
 | Menu, narrow list | `Repositories` group with a `Find a repository` searchbox, then `Search` (glyph `Search`, key), `Dispatch` (glyph `Plus`, key `⌘N`, disabled when `dispatchDisabled`), and `Operator` (glyph `Bot`, `⌘J`) | `onSearch`, `onDispatch` (`onCompose`, `newSession()`), `operator.onOpen` | only below 900px (`TitleBar.tsx:725-760`, `TitleMenu.css:44-50`) |
 | Teach menu | right press on the bar, or Shift+F10 in it | `onTeach` calls `teachBridge("title_bar", "")` (`App.tsx:848`) | `teachBridge` defined (`TitleBar.tsx:532`, `:538-541`) |
 
-`dispatchDisabled` is `!live`, with `live` true only for `connection.state === "connected"` (`packages/shell/src/Shell.tsx`:154, `:272`).
+`dispatchDisabled` is `!live`, with `live` true only for `connection.state === "connected"` (`classic-final:packages/shell/src/Shell.tsx`:154, `:272`).
 A press on a repository entry, Search, Dispatch or Operator is a window act; none sends a Fleet request from the row.
 
 ### 1.6 States
@@ -164,7 +164,7 @@ The bar's own controls (picker, Manifest button, Menu, Fleet dot, usage meter) h
 ### 1.8 Copy strings
 
 `Search, or describe work to dispatch`, `Search, or describe work to dispatch (⌘K)`, `Repository`, `Find a repository`, `Not set up`, `Open the Manifest`, `Open <name>`, `Nothing matches “<query>”.`, `Repositories`, `Search`, `Dispatch`, `Operator`, `Open Operator — ⌘J`, `Menu`, `Menu, signed out`, `Sign in`, `Account`, `Settings`, `Doctor`, `Places`, `Always shown`, `View`, `Hide <tab>`.
-The picker's All entry reads `All repositories`, or `Nothing set up yet` or `No repository read yet` when no repository is listed (`packages/shell/src/Shell.tsx`:162-164).
+The picker's All entry reads `All repositories`, or `Nothing set up yet` or `No repository read yet` when no repository is listed (`classic-final:packages/shell/src/Shell.tsx`:162-164).
 The wordmark image title is `Armada` (`RS/App.tsx:850`).
 
 ## 2. Usage rings and the step-down offer
@@ -182,7 +182,7 @@ The wordmark image title is `Armada` (`RS/App.tsx:850`).
 | Step-down wire reader and four acts | `RS/fleet-downshift.ts:25-74` (`createFleetDownshift`) |
 | Weekly figure used again on the Usage page | `RS/usage-surface.tsx:73` (`planPercent`) |
 | Main process requests | `MN/plan-usage.ts:54` (`GET /plan_usage`), `MN/model-downshift.ts:44-60` |
-| IPC channels | `apps/desktop/src/shared/api/plan-usage.ts`:25 (`bridge:get-plan-usage`), `apps/desktop/src/shared/api/model-downshift.ts`:34 |
+| IPC channels | `classic-final:apps/desktop/src/shared/api/plan-usage.ts`:25 (`bridge:get-plan-usage`), `classic-final:apps/desktop/src/shared/api/model-downshift.ts`:34 |
 | Fleet routes and events | `crates/api/src/routes.rs`:360-365, `crates/ipc/src/event.rs`:192 (`model_downshift.changed`), `plan_usage.changed` named at `RS/fleet-plan-usage.ts:1` |
 
 ### 2.2 Layout
@@ -271,7 +271,7 @@ The countdown shows the two largest units: `2d 17h`, `2h 14m`, `9m` (`TitleBar.t
 | Mount in the Job's head | `PC/compositions/SessionFrame/SessionFrame.tsx:695-703` |
 | Breakdown shape | `PC/context-breakdown.ts` |
 | Compact act | `RS/cockpit/deck/compact-act.ts:11-26` (`useCompactAct`), `RS/cockpit/deck/session-tiles.ts:287-343` (`offeredOf`), called at `RS/sessions.tsx:2754` |
-| Wire to view model | `packages/screens/src/sessions-wire.ts`:1850-1868 |
+| Wire to view model | `classic-final:packages/screens/src/sessions-wire.ts`:1850-1868 |
 | The word "Compact" in the Aa panel | `PC/compositions/ThreadSettings/ThreadSettings.tsx:36-40` is the text spacing choice `Compact`, a different thing from this act |
 
 ### 3.2 Layout
@@ -368,7 +368,7 @@ Token figures read `53.8k`, `5.0k`, `142k`, `1M` (`ContextFigure.tsx:49-55`).
 | Keep and Revert bar | `RS/trying-bar.tsx:8-31`, `trying-bar.css`, mounted at `RS/App.tsx:899-903` |
 | A restart handed over as a command | `RS/build-change.ts:13-57` (`scripts/preview --restart`, `scripts/restart --main`) |
 | Dim and banner while Fleet swaps | `RS/swap-hold.tsx`, mounted at `RS/App.tsx:826` |
-| Main process requests | `MN/fleet-build.ts` (`GET /fleet/build` 64, `POST /fleet/build/change` 98, `/revert` 132, `/pick` 163, `/swap` 184, `/keep` 210), channels `apps/desktop/src/shared/api/core.ts`:66-90, `:210-215`, handlers `MN/index.ts:1066-1078` |
+| Main process requests | `MN/fleet-build.ts` (`GET /fleet/build` 64, `POST /fleet/build/change` 98, `/revert` 132, `/pick` 163, `/swap` 184, `/keep` 210), channels `classic-final:apps/desktop/src/shared/api/core.ts`:66-90, `:210-215`, handlers `MN/index.ts:1066-1078` |
 | Report shape | `crates/ipc/src/building.rs`:49-110 (`FleetBuildReport`) |
 
 ### 4.2 Layout
@@ -466,17 +466,17 @@ A built time reads `5 Nov, 17:05` (`RS/fleet-build.ts:35-40`).
 
 | What | File |
 |---|---|
-| Connection states | `packages/protocol/src/connection.ts`:118-172 (`reading`, `not_running`, `runtime_file_refused`, `connecting`, `starting`, `unreachable`, `protocol_mismatch`, `connected`) |
-| Words per state: headline, detail, next | `packages/shell/src/fleet.ts`:43-139 (`statementOf`, `silenceOf`), `:173-186` (`fleetStateOf`), `:194-203` (`SHORT_LABEL`) |
-| Failure built from them | `packages/shell/src/failures/reading.ts`:75- (`fleetFailure`), taken at `RS/App.tsx:574` (`failingIn`) |
-| Notice with Restart Fleet | `packages/shell/src/FleetNotice.tsx`:53-139 |
-| Notice block | `packages/shell/src/FailureSurface.tsx`:142- (`FailureBlock`) |
+| Connection states | `classic-final:packages/protocol/src/connection.ts`:118-172 (`reading`, `not_running`, `runtime_file_refused`, `connecting`, `starting`, `unreachable`, `protocol_mismatch`, `connected`) |
+| Words per state: headline, detail, next | `classic-final:packages/shell/src/fleet.ts`:43-139 (`statementOf`, `silenceOf`), `:173-186` (`fleetStateOf`), `:194-203` (`SHORT_LABEL`) |
+| Failure built from them | `classic-final:packages/shell/src/failures/reading.ts`:75- (`fleetFailure`), taken at `RS/App.tsx:574` (`failingIn`) |
+| Notice with Restart Fleet | `classic-final:packages/shell/src/FleetNotice.tsx`:53-139 |
+| Notice block | `classic-final:packages/shell/src/FailureSurface.tsx`:142- (`FailureBlock`) |
 | Band above the screen | `RS/Standing.tsx:55-116` |
 | Fleet panel (the dot's popover body) | `PC/compositions/FleetPanel/FleetPanel.tsx`, `FleetPanel.css` |
 | Panel contents | `RS/left-column.ts:35-86` (`fleetPanelOf`, `fleetPanelClocked`), `:100-131` (`rowsOf`), `:138-153` (`sentenceOf`) |
 | Power-on and fault timing | `RS/cockpit/boot.ts:10-103` (`powerOf`, `usePower`), called at `RS/App.tsx:583` |
-| Restart action | `MN/restart-fleet.ts:1-80`, channel `bridge:restart-fleet` (`apps/desktop/src/shared/api/core.ts`:209), handler `MN/index.ts:1064` |
-| Failure words for a restart that did not take | `packages/shell/src/failures/commands.ts`:174- (`fleetRestartFailure`) |
+| Restart action | `MN/restart-fleet.ts:1-80`, channel `bridge:restart-fleet` (`classic-final:apps/desktop/src/shared/api/core.ts`:209), handler `MN/index.ts:1064` |
+| Failure words for a restart that did not take | `classic-final:packages/shell/src/failures/commands.ts`:174- (`fleetRestartFailure`) |
 
 ### 5.2 The dot on the bar
 
@@ -510,7 +510,7 @@ State and label by connection:
 | `runtime_file_refused` | unknown | `Refused` | neutral |
 | `protocol_mismatch` | unknown | `Mismatch` | neutral |
 
-(`packages/shell/src/fleet.ts`:173-203.)
+(`classic-final:packages/shell/src/fleet.ts`:173-203.)
 
 ### 5.3 The panel in the popover
 
@@ -548,8 +548,8 @@ The panel's `reading` callback is asked at the panel's own clock, so the uptime 
 | `protocol_mismatch` | `Fleet and Bridge do not match` | same | same |
 | `connected` | `Fleet running` | `pid <n> · port <n>` | none |
 
-(`packages/shell/src/fleet.ts`:43-119.)
-A state with no `next` takes no notice (`packages/shell/src/failures/reading.ts`:81).
+(`classic-final:packages/shell/src/fleet.ts`:43-119.)
+A state with no `next` takes no notice (`classic-final:packages/shell/src/failures/reading.ts`:81).
 `elapsed` writes `<n>s`, `<n>m` or `<n>h` (`fleet.ts:36-41`).
 
 ### 5.5 The notice above the screen
@@ -561,7 +561,7 @@ Nothing in it dismisses on a timer (`Standing.tsx:19-21`).
 |---|---|---|
 | Not drawn while powering on | `fleet` is passed as `null` while `power` is `standby` or `kept`, or while a swap is held | `RS/App.tsx:895-897` |
 | Power states | `standby`, `filling`, `kept`, `live`, `fault`; a Fleet down reads `standby` or `kept` for 30s (`POWER_GRACE_MS`) counted from opening or the last answer, then `fault`; a power-on lasts at least 1s (`POWER_LEAST_MS`) and fills over 1.4s (`POWER_FILL_MS`) | `RS/cockpit/boot.ts:10-14`, `:50-61` |
-| `FailureBlock` | notice class from `failure.kind` (`fault` or degraded); headline, code chip, next line, details, values; actions: the Restart Fleet button, then a split `Copy debug info` control | `packages/shell/src/FailureSurface.tsx`:170-212 |
+| `FailureBlock` | notice class from `failure.kind` (`fault` or degraded); headline, code chip, next line, details, values; actions: the Restart Fleet button, then a split `Copy debug info` control | `classic-final:packages/shell/src/FailureSurface.tsx`:170-212 |
 | Restart Fleet button | ghost, size sm, ground sunken; `RotateCw` 16px; label `Restart Fleet`; tooltip `Restart Fleet. Working Drones are adopted and cannot be redirected until they finish.` | `FleetNotice.tsx:96-114`, `:23-24` |
 | Working | `LoaderCircle`, label `Restarting Fleet`, pending and disabled | `FleetNotice.tsx:106-111` |
 | Only on a mismatch | the button draws only when the code is `bridge.fleet.protocol_mismatch` | `FleetNotice.tsx:57`, `:96` |
@@ -583,13 +583,13 @@ Failures of a restart, by `why`:
 | `refused` | `launchd refused to restart Fleet` | `Fleet is as it was. Read the log, or restart it from a terminal.` |
 | `no_answer` | `Fleet did not come back inside 30 seconds` | `Read the Fleet log, then restart it again.` |
 
-(`packages/shell/src/failures/commands.ts`:183-204.)
+(`classic-final:packages/shell/src/failures/commands.ts`:183-204.)
 
 ### 5.6 Other places Fleet down shows
 
 | Place | What | Where |
 |---|---|---|
-| Dispatch disabled | the Dispatch entry in the narrow menu is disabled unless connected | `packages/shell/src/Shell.tsx`:154, `:272` |
+| Dispatch disabled | the Dispatch entry in the narrow menu is disabled unless connected | `classic-final:packages/shell/src/Shell.tsx`:154, `:272` |
 | Overview | `disconnected={live ? null : statement.headline}` and `power` | `RS/App.tsx:1164-1165` |
 | Swap hold | Fleet stopping during a swap is not drawn as a disconnect | `RS/App.tsx:333-334`, `RS/swap-hold.tsx:1-10` |
 
@@ -604,7 +604,7 @@ The last column says whether Fleet already sends the input or the result.
 
 | Piece | TS path:line | Fleet already sends it? |
 |---|---|---|
-| Ring colour bands: warning from 80, danger from 95, for plan limits and the context ring | `packages/components/src/usage.ts`:4-5 (used at `TB/TitleBar.tsx:158`, `:285`, `ContextFigure.tsx:148`, `:289`) | missing; no band field in `crates/ipc/src` or `crates/fleet/src` |
+| Ring colour bands: warning from 80, danger from 95, for plan limits and the context ring | `classic-final:packages/components/src/usage.ts`:4-5 (used at `TB/TitleBar.tsx:158`, `:285`, `ContextFigure.tsx:148`, `:289`) | missing; no band field in `crates/ipc/src` or `crates/fleet/src` |
 | Plan percent: rounded for the label, clamped 0 to 100 for the arc | `TB/TitleBar.tsx:140`, `:277`, `:282` | `percent_used`, whole percent, past 100 on an exceeded spend limit: `crates/ipc/src/plan_usage.rs`:14; the clamp is TS |
 | Which two limits draw, and their names `5h`, `wk` | `TB/TitleBar.tsx:96-112`, `:234-244` | `kind` is sent as open text: `plan_usage.rs:12`; the mapping is TS |
 | Rings loading versus nothing: an empty list draws the loading glyph, an account off a subscription draws nothing | `RS/plan-usage.tsx:23-27`, `TB/TitleBar.tsx:245` | partly: `read_at` and an empty `windows` are sent and documented at `plan_usage.rs:20-30`; the loading rule is TS |
@@ -638,16 +638,16 @@ The last column says whether Fleet already sends the input or the result.
 | Built time text `5 Nov, 17:05` and the 7-character commit | `RS/fleet-build.ts:35-48` | `built_at` and `commit` are sent on the kept builds: `building.rs:161`, `:169`; the formatting and the cut are TS |
 | Swap hold: dim the window while `swapping`, elapsed seconds, the "swapped back" line taken from the start of `failed` | `RS/swap-hold.tsx:27-57` | `swapping` is sent: `building.rs:109`; the seconds counter and matching the text `Swapped back` at the start of `failed` are TS |
 | Snapshot-ready chime on the move to `ready` | `RS/fleet-build.ts:77-89` | the state is sent; the move detection is TS |
-| Fleet dot state from the connection | `packages/shell/src/fleet.ts`:173-186 | missing; the connection is Bridge's own reading of the runtime file in the Electron main process, and Fleet sends no such state |
-| Fleet label word per state | `packages/shell/src/fleet.ts`:194-203 | missing |
-| Fleet headline, detail and next per state, including the three kinds of absence | `packages/shell/src/fleet.ts`:43-119, `:143-156` | missing |
-| Silence text `no answer for <n> · last read <n> ago` | `packages/shell/src/fleet.ts`:128-140 | missing; uses the window's clock and the last read instant |
-| Elapsed text `<n>s`, `<n>m`, `<n>h`; uptime text | `packages/shell/src/fleet.ts`:36-41, `RS/left-column.ts:124-129` | `startedAt` and pid are in the runtime file; the text is TS |
+| Fleet dot state from the connection | `classic-final:packages/shell/src/fleet.ts`:173-186 | missing; the connection is Bridge's own reading of the runtime file in the Electron main process, and Fleet sends no such state |
+| Fleet label word per state | `classic-final:packages/shell/src/fleet.ts`:194-203 | missing |
+| Fleet headline, detail and next per state, including the three kinds of absence | `classic-final:packages/shell/src/fleet.ts`:43-119, `:143-156` | missing |
+| Silence text `no answer for <n> · last read <n> ago` | `classic-final:packages/shell/src/fleet.ts`:128-140 | missing; uses the window's clock and the last read instant |
+| Elapsed text `<n>s`, `<n>m`, `<n>h`; uptime text | `classic-final:packages/shell/src/fleet.ts`:36-41, `RS/left-column.ts:124-129` | `startedAt` and pid are in the runtime file; the text is TS |
 | Which panel rows draw per state | `RS/left-column.ts:100-131` | missing |
 | Power-on versus fault: 30s grace, 1s least, 1.4s fill, kept-from-disk | `RS/cockpit/boot.ts:10-103` | missing |
-| Whether the notice draws at all (`next` present; held while powering on or swapping) | `packages/shell/src/failures/reading.ts`:81, `RS/App.tsx:895-897` | missing |
-| Restart Fleet only on `protocol_mismatch`; the 30s no-answer rule; the "apart" check that a new pid still mismatches | `packages/shell/src/FleetNotice.tsx`:20, `:57`, `:60`, `:62-80` | missing; the restart is a `launchctl` call in the main process (`MN/restart-fleet.ts:42-80`) and Fleet is not asked |
-| Dispatch disabled unless connected | `packages/shell/src/Shell.tsx`:154, `:272` | missing |
+| Whether the notice draws at all (`next` present; held while powering on or swapping) | `classic-final:packages/shell/src/failures/reading.ts`:81, `RS/App.tsx:895-897` | missing |
+| Restart Fleet only on `protocol_mismatch`; the 30s no-answer rule; the "apart" check that a new pid still mismatches | `classic-final:packages/shell/src/FleetNotice.tsx`:20, `:57`, `:60`, `:62-80` | missing; the restart is a `launchctl` call in the main process (`MN/restart-fleet.ts:42-80`) and Fleet is not asked |
+| Dispatch disabled unless connected | `classic-final:packages/shell/src/Shell.tsx`:154, `:272` | missing |
 | Operator reopen button hidden while the full dock is open | `PC/compositions/TheShell/TheShell.tsx:327-336` | not applicable; a window state |
-| Places drawn, with the old Jobs tab never drawn and digits following what is drawn | `packages/shell/src/surfaces.ts`:419-481 | not applicable; a local layout |
+| Places drawn, with the old Jobs tab never drawn and digits following what is drawn | `classic-final:packages/shell/src/surfaces.ts`:419-481 | not applicable; a local layout |
 | Which labels the places give up when the row is narrow | `TB/TitleBar.tsx:433-510` | not applicable; a layout measure |

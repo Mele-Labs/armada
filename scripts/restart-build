@@ -14,11 +14,11 @@
 #       scripts/preview --restart --push-as <name>: the merged preview commit is also pushed
 #       to `preview/<name>` on origin before the restart
 #   scripts/restart-build preview [--adopt] --push-as <name> --tell <mac>
-#       the merge and the push first, with no restart; then the local Fleet is told, with a POST
-#       to `/macs/update` of {mac, build: "preview", commit, ref}, that <mac> builds that commit;
-#       then `scripts/preview --restart --at <commit> --ref preview/<name>`, so this Mac builds the
-#       same commit with no second merge. A failed push or POST is written to the log and the
-#       restart goes on; a failed merge is the run's failure.
+#       scripts/preview --restart --push-as <name> first, so this Mac leaves out a branch that
+#       does not build and builds the rest; once it has, the local Fleet is told, with a POST to
+#       `/macs/update` of {mac, build: "preview", commit, ref}, that <mac> builds the commit built
+#       here. A failed build tells <mac> nothing, and nor does a push that did not hold the commit
+#       built; a failed POST is written to the log and the run still succeeds.
 #   scripts/restart-build preview [--adopt] --at <sha> --ref <ref>
 #       the other Mac's side: scripts/preview --restart --at <sha> --ref <ref>, which builds
 #       exactly that commit and merges nothing. When that build ends it looks at the ref on origin
@@ -236,7 +236,7 @@ def main():
             command += ["--keep-only", "--picked", os.path.join(support, "preview-picked")]
         if "--at" in given:
             command += ["--at", given["--at"], "--ref", given["--ref"]]
-        elif "--push-as" in given and "--tell" not in given:
+        elif "--push-as" in given:
             command += ["--push-as", given["--push-as"]]
         tree = os.path.join(root, ".armada", "preview")
     if adopt:
@@ -278,27 +278,6 @@ def main():
                     return process.returncode
 
     open(log_path, "w").close()
-    if "--tell" in given:
-        # Merge and push with no restart, tell the other Mac, then build the very commit that went.
-        ref = f"preview/{given['--push-as']}"
-        merge = [preview, "--push-as", given["--push-as"]]
-        with open(log_path, "a") as log:
-            log.write(f"$ {' '.join(merge)}\n")
-            log.flush()
-            merged = subprocess.run(merge, cwd=root, stdout=log, stderr=subprocess.STDOUT, env=os.environ)
-        with open(log_path) as f:
-            said = f.read()
-        if merged.returncode != 0:
-            return failed(one_line(said))
-        sha = subprocess.run(["git", "-C", tree, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-        if not sha:
-            return failed(f"the preview at {tree} has no commit to tell {given['--tell']} about")
-        if re.search(rf"^preview: pushed .* to {re.escape(ref)}$", said, re.M):
-            tell(log_path, support, given["--tell"], sha, ref)
-        else:
-            with open(log_path, "a") as log:
-                log.write(f"restart-build: not telling {given['--tell']}: {ref} was not pushed\n")
-        command[2:2] = ["--at", sha, "--ref", ref]
     code = run()
     if code == SUPERSEDED and "--at" in given:
         # A newer request replaced this one: it owns the status, so this one neither fails nor clears it.
@@ -341,6 +320,17 @@ def main():
             log = f.read()
     if code != 0:
         return failed(one_line(log))
+    if "--tell" in given:
+        # This Mac merged, left out what would not build and built the rest: the other Mac is told that commit.
+        told_ref = f"preview/{given['--push-as']}"
+        sha = subprocess.run(["git", "-C", tree, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        with open(log_path) as f:
+            pushed = re.findall(rf"^preview: pushed (\S+) to {re.escape(told_ref)}$", f.read(), re.M)
+        if sha and pushed and sha.startswith(pushed[-1]):
+            tell(log_path, support, given["--tell"], sha, told_ref)
+        else:
+            with open(log_path, "a") as log:
+                log.write(f"restart-build: not telling {given['--tell']}: {told_ref} does not hold the commit built\n")
     try:
         os.remove(status)
     except OSError:

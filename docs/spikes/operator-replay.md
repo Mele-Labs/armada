@@ -98,7 +98,7 @@ A ruling that answered a question Fleet's rules keep for the owner, or answered 
 
 ## The overlap case
 
-The 3 Nov report is not in this store, so the overlap test is the three armada Jobs Fleet told of a write clash that afternoon, in `apps/desktop/src/renderer/src/job-panes/`.
+The 3 Nov report is not in this store, so the overlap test is the three armada Jobs Fleet told of a write clash that afternoon, in `classic-final:apps/desktop/src/renderer/src/job-panes/`.
 
 | Job | At | Arrival | Haiku | Sonnet |
 |---|---|---|---|---|

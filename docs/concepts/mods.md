@@ -272,7 +272,7 @@ A module that throws as it draws is caught at the tab and told there, so it cann
 
 > **Rule.** A tab mod is run in Bridge's own renderer, not in an isolated view.
 > Why: the Fleet API and the components are in this window already, and an isolated view would need each reached through a bridge of messages.
-> The window's script policy admits `blob:` for this one purpose (`docs/practices/bridge.md`, *Security posture*), and still admits no address off the machine.
+> The window's script policy admits `blob:` for this one purpose (`classic-final:docs/practices/bridge.md`, *Security posture*), and still admits no address off the machine.
 
 A built tab is offered by its name in the + menu of every pane, under the rule above Custom, with its glyph.
 Custom there opens a composer; what he writes starts a Mod Job aimed at a tab, and the tab becomes the mod that Job scaffolds (the mod whose `made_by` is that Job).

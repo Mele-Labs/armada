@@ -14,7 +14,7 @@
 | `moveSession` (preload) | Bridge | `moveSession(sessionId, manifestId)`, answering `SessionActed` as `startSession` does |
 
 **Skew.** The ID moves, so a Bridge and a Fleet that differ are refused and the lifeboat serves.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand.
 There is no number to take: `armada need` has nothing to order.
 Attachment kinds and details are open text, so no type changes and a Bridge that has not met `moved` draws the pair as a fork.
 **The event stream is untouched** beyond the `session.changed` each Job already publishes, so the back-pressure risk below is neither better nor worse.

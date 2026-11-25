@@ -1,12 +1,13 @@
 # Native Bridge
 
-**What it is:** The core Bridge rebuilt natively in Rust on gpui, in `crates/bridge-native/`, beside the Electron Bridge, which stays until the owner picks the switch day.
+**What it is:** The Bridge, built natively in Rust on gpui, in `crates/bridge-native/`. It replaced Armada Classic, the Electron Bridge, on 24 Nov 2026.
 
 ---
 
 **Kind:** Surface.
 
-The Electron Bridge is described in [Bridge](bridge.md).
+Armada Classic is deleted and read at the tag `classic-final`.
+What is true of the Bridge in general is in [Bridge](bridge.md).
 How a Job works on the native one is in [the native Bridge practice](../practices/native-bridge.md).
 
 ## Why native
@@ -28,13 +29,12 @@ The owner chose native anyway, for three goals at once.
 **The native Bridge is built on gpui-component and its pinned weekly gpui snapshot, gpui-pre.**
 If gpui-component's one maintainer stops, the build pins Zed's own gpui.
 
-### 2. Electron is frozen
+### 2. Electron is deleted
 
-**Electron takes fixes and small features that help the owner daily.**
-Bigger features go native.
-Each Electron feature that lands during the overlap gets a task in the matching step of the build order below.
+**Classic took fixes and small features until switch day, and is gone from the tree.**
+Everything new goes native.
 
-### 3. A native mod kit, after switch day
+### 3. A native mod kit, still to come
 
 **Code mods, such as tabs and instruments, are sandboxed WebAssembly written in Rust.**
 Themes do not wait for the kit.
@@ -43,6 +43,8 @@ Armada's own light and dark follow macOS, whichever of the two is picked.
 A catalogue theme or a mod stays as picked.
 Job track, the owner's tab mod, waits for the kit.
 The custom tab in a Job's + menu arrives with the kit too, since Armada Classic's unsandboxed React module cannot run in gpui.
+The Mods page, Doctor, Cleanup and Lessons come back natively with a new layout: armada-gmue, armada-c7ra, armada-ua7n and armada-sgrk.
+A setting only Classic kept was let go.
 
 ### 4. Walks and annotations
 
@@ -78,23 +80,22 @@ Each step is its own Job, and at most two run at once.
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. Reviews stands in the places strip on live Fleet data, redesigned as the departures table below says. The pull request side panel's Review tab gives the pull request's author the reading Reviews gives a reviewer, from the same head Fleet keeps: where he left it, who has spoken since, the commits after his (his own pushes left out and counted), the range's files behind Diff since you looked, the checks, and Mark as seen. A commit pressed there opens Files on its files alone, as Commits does |
 | Job tools | Terminal, the API Client and the Browser tool |
 | Asides | The side chat: a Side chat button under the composer and ⌘J open a split tab that asks a read-only copy of the Job. The copy's reads, its answer, Tell the Job and Copy, a Told chip, and Ask on the selection bar, read back from `list_asides` after ⌘W |
-| Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
+| Switch-over | VoiceOver pass, the signed app on both Macs |
 
 ### 7. Switch day
 
-**The owner picks the switch day once the native app does everything he uses daily.**
-Both his Macs switch together, the work Mac included.
-Electron is Armada Classic, with a grey icon, from the foundation on, so the Dock tells the two apps apart.
-`armada://` links stay with Armada Classic until switch day, and move to the native app on that day.
-Armada Classic stays installed for two weeks after it.
-Then the Electron app is deleted from the repo, and the packages Pocket uses stay.
+**Switch day was 24 Nov 2026.**
+`armada://` links and both Macs moved to the native app that day.
+Armada Classic was deleted from the repository, and the packages Pocket uses stayed: `tokens`, `brand`, `icons` and `mods`, and `apps/pocket` and `apps/store`.
+Its code and documents are at the tag `classic-final`, and nothing in the tree launches it.
+`scripts/retire-classic` removes what it left on a Mac, on every restart.
 
 ## How the build looks and behaves
 
 | Area | Rule |
 |---|---|
-| Look | Today's Electron layout and features, on the same tokens. Only the spacing and font tweaks he names change |
-| Each screen | Built to match its Electron screen, then walked natively, on its own, before it lands |
+| Look | Classic's layout and features, on the same tokens. Only the spacing and font tweaks he names change |
+| Each screen | Built to match Classic's screen, then walked natively, on its own, before it lands |
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
@@ -106,7 +107,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | A setup screen (owner, 12 Nov) | Opened cold, with no walk: each state shows the one press that moves it on and the reason when there is one. Nothing tells him to go and do something outside Bridge; a state with nothing to press says what stands, in plain facts. If he needs a walk through it, the screen has failed |
 
 **The speed figures tune the build and gate nothing.**
-They are measured against Electron, where a thread's first paint takes 132 to 239 ms today.
+They were measured against Electron, where a thread's first paint took 132 to 239 ms.
 
 **He usually has more than ten Jobs live.**
 He switches from the list, from palette search and from Needs you.
@@ -258,11 +259,11 @@ The native app and Pocket, which stays web, share those views.
 ## Using it while it is built
 
 **He uses the native app for real work as each screen lands.**
-Refresh preview rebuilds it with Fleet and Electron.
+Refresh preview rebuilds it with Fleet.
 
-## What ships before switch day
+## What shipped by switch day
 
-Everything he uses daily:
+Everything he used daily:
 
 - Jobs list, thread, and the full composer: drafts, attachments, tags, voice, fork, slash commands.
 - Plan and draft approval, Needs you, the command palette and keys.
@@ -275,7 +276,7 @@ Everything he uses daily:
 - Projects, every Settings section, Kit, Reviews, Issues, Usage with Time, Account with phone pairing.
 - Terminal, several per Job, the API Client and the Browser tool.
 
-## What waits for after switch day
+## What native does not have yet
 
 - The mod kit.
 - The Cockpit's map, activity, bays, cleanup grid and flight tiles, and the battlefield, as mods.

@@ -173,7 +173,7 @@ Doctor still reports while Fleet is down, through `armada doctor --json`, a shor
 **Daemon, Armada Server and sidecar are retired names.** Fleet is the daemon and is the sidecar the original architecture decision named; the transport module is Armada API, matching the `api` crate.
 See `../contracts/system-architecture.md`.
 
-**Doctor is a surface, not a peer concept to Bridge.** Bridge is the Electron shell; Doctor is one of the seven surfaces mounted inside it.
+**Doctor is a surface, not a peer concept to Bridge.** Bridge is the shell; Doctor is one of the seven surfaces Classic mounted inside it, and the native Bridge has none yet (armada-c7ra).
 Doctor's behaviour is documented in the Check System Health journey, which is why Bridge's own document carries a pointer rather than a description.
 
 ## Result vocabulary

@@ -5,7 +5,7 @@
 `docs/concepts/operator.md`. Three operations, one event and `SessionHeld.held`.
 
 Since 12 Nov 2026. `crates/ipc/src/job_dispatch.rs`, `crates/fleet/src/operator/dispatching.rs`, `crates/store/migrations/20261112T2000Z-operator_dispatches.table.sql` and `20261112T2100Z-parked_ideas.table.sql`.
-Bridge's half is `packages/protocol/src/job-dispatch.ts` and `DispatchWay` in `operator-board.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/job-dispatch.ts` and `DispatchWay` in `operator-board.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |

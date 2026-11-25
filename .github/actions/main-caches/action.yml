@@ -36,7 +36,7 @@ runs:
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with: { prefix-key: ci1, key: xtask_test-xtask_test, add-job-id-key: "false", lookup-only: "true", save-if: "false" }
 
-    # node-setup's two keys and paths, which together name an entry.
+    # node-setup's key and paths, which together name an entry.
     - id: nm
       uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
@@ -46,14 +46,6 @@ runs:
           apps/*/node_modules
           packages/*/node_modules
         key: nm2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}
-    - id: pw
-      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-      with:
-        lookup-only: true
-        path: |
-          ~/.cache/ms-playwright
-          ~/Library/Caches/ms-playwright
-        key: pw2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
     - id: answer
       shell: bash
@@ -64,7 +56,6 @@ runs:
           acceptance=${{ steps.acceptance.outputs.cache-hit }}
           xtask_test=${{ steps.xtask_test.outputs.cache-hit }}
           node_modules=${{ steps.nm.outputs.cache-hit }}
-          playwright=${{ steps.pw.outputs.cache-hit }}
       run: |
         echo "CACHES $HITS"
         warm=true

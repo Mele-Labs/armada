@@ -4,7 +4,7 @@
 
 Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`, the retired Pilot concept and `docs/concepts/session.md`.
 **Removal only**: no field, operation or event kind is added, so every change below is a Bridge or Fleet that still sends or reads it.
-The protocol ID moves with the hash of `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
+The protocol ID moves with the hash of `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and a pair that disagrees is refused.
 Where a wire type had a Job arm beside a Session arm, the Job arm is gone and Fleet stops producing the value.
 
 | Where | Side | Change |

@@ -3,8 +3,8 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 **Additive only**: two operations, one event kind, one type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/agent-sign-in.ts` and `events.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/agent-sign-in.ts` and `events.ts`, written by hand.
 The names are the vendor's nowhere: the gate refuses a vendor literal outside `adapters`.
 
 | Where | Carries | Notes |

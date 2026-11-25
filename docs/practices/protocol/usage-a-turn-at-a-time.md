@@ -4,7 +4,7 @@
 
 Since 17 Oct 2026. What each of a Job's turns cost, so usage can be read by job, model and tool over a window.
 **Additive only**: one fact, one operation and the types they carry; no event kind, no error and no field on `SessionRecord`.
-Bridge's half is `packages/protocol/src/turn-usage.ts` and `sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/turn-usage.ts` and `sessions.ts`, written by hand.
 The migrations `20261017T1800Z-session_turn_usage.kept` and `20261017T2000Z-session_turn_usage.subagent_bash_use` are additive.
 **Names and counts only**: a tool is its name, never its input.
 

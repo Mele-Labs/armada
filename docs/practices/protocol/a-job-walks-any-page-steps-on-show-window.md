@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-`docs/concepts/session.md`, *Showing a window*, and `docs/practices/capture-window.md`, *A walk in the page*.
+`docs/concepts/session.md`, *Showing a window*, and `classic-final:docs/practices/capture-window.md`, *A walk in the page*.
 A Job in any repository passes the mock walks' own steps with the page it shows, and Bridge plays them from outside the page.
 The protocol ID moves with the files below, and there is no number to take.
 
@@ -17,7 +17,7 @@ The protocol ID moves with the files below, and there is no number to take.
 | `ShowWindow.brief` (`show_window`, `POST /sessions/window`) | Job writes, Fleet checks | `Option<String>`, left out when there is none: the Job's line or two on what changed and what to look at. Trimmed; blank is none. At most 400 characters (`MOST_BRIEF` in `sessioning/shown.rs`); longer is 422 `fleet.session_unnamed`, nothing written |
 | `SessionRow::Window.brief` (`session.row`) | Fleet writes, Bridge reads | The brief the window carries, kept when the walk ends as the takes are. A row written before it has none and reads as before |
 | `Attachment.detail.brief` on the `window` artifact | Fleet writes, Bridge reads | The same text, beside `title` and `variations`; this is where Bridge reads it from the ledger. Absent where the walk has none |
-| `WalkTarget`, `WalkStep`, `ShowWindow.steps`, `SessionRow` `window` `steps`, `ShowWindow.brief`, `SessionRow` `window` `brief` | Bridge reads | `packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest |
+| `WalkTarget`, `WalkStep`, `ShowWindow.steps`, `SessionRow` `window` `steps`, `ShowWindow.brief`, `SessionRow` `window` `brief` | Bridge reads | `classic-final:packages/protocol/src/sessions.ts` and `hosted-sessions.ts`, written by hand like the rest |
 
 **Additive.** Every new field is optional and left out when empty.
 A Fleet before this one ignores `steps`, and a Bridge before it ignores the field on the row.

@@ -7,7 +7,7 @@ Bridge read it in TypeScript from `get_merge_lines` (`mergeLineViews`); the nati
 **Additive only**: one new operation and one new event, and no existing one changes.
 Electron Bridge keeps its own TypeScript reading, so `get_merge_lines` and `merge_lines.changed` are as they were.
 The Rust half is `crates/ipc/src/merge_line_view.rs` and the reading is `crates/fleet/src/merge_line_view.rs`.
-Bridge's half is `packages/protocol/src/merge-line-view.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/merge-line-view.ts`, written by hand.
 
 | Operation | Kind | Carries |
 | --- | --- | --- |

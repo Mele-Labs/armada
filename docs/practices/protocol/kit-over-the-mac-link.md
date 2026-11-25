@@ -5,7 +5,7 @@
 Since 19 Nov 2026. `docs/concepts/kit.md`, *Over the Mac link*.
 **Additive**: four operations Bridge calls, three the Gateways call between Macs, the `kit.changed` event, two error codes and the types they carry.
 The shared home's routes stay and answer for Classic, [The shared home](the-shared-home.md).
-Bridge's half is `packages/protocol/src/kit-link.ts`, written by hand; what one Mac offers another crosses between Fleets and Gateways only and is not mirrored.
+Bridge's half is `classic-final:packages/protocol/src/kit-link.ts`, written by hand; what one Mac offers another crosses between Fleets and Gateways only and is not mirrored.
 Native Bridge draws it from `crates/ipc/src/kit_link.rs` directly.
 
 | Where | Side | Carries |

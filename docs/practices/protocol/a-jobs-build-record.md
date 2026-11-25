@@ -5,7 +5,7 @@
 Since 14 Oct 2026. `docs/concepts/session.md`, *The build record*, and `.claude/decisions/2026-10-14-a-session-builds-a-ring.md`.
 **Additive only**: one optional field on `SessionRecord`, new fact kinds, new timeline kinds and the types they carry.
 No operation, event kind or error is new.
-Bridge's half is `packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/session-build.ts`, `sessions.ts` and `timeline.ts`, written by hand.
 There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
 The migration `20261014T2100Z-session_build.record` has a name and not a number, and is additive.
 

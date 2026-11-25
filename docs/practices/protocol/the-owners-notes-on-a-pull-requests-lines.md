@@ -4,8 +4,8 @@
 
 `docs/concepts/pull-review.md`.
 **Additive only**: five operations, five routes, two error codes and the types they carry; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `apps/desktop/src/shared/api/pull-request-notes.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:apps/desktop/src/shared/api/pull-request-notes.ts`, written by hand, field for field.
 
 `:repository` is the Manifest id, and `repository` in a body or a note is `owner/name`, as the forge names it.
 

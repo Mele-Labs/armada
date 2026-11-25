@@ -4,7 +4,7 @@
 
 `#2092`, `docs/concepts/autopilot.md`.
 **Additive only**: nine operations, one event kind, the DTOs of `ipc::autopilot`, and `origin` gains `autopilot_picked` (*Picked by Autopilot*), a string on the wire like the rest.
-Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/autopilot.ts`, written by hand.
 
 | Operation | Carries | Notes |
 | --- | --- | --- |

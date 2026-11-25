@@ -1,5 +1,5 @@
 //! The in-app annotation layer: ⌥⌘A outside a walk, point at anything, write a note, then send the
-//! notes to a Job picked from a menu or to a new held Job (`apps/desktop/src/renderer/src/annotate/`,
+//! notes to a Job picked from a menu or to a new held Job (`classic-final:apps/desktop/src/renderer/src/annotate/`,
 //! inventory section 2).
 //!
 //! **It reuses the walk's capture** ([`crate::capture::Capture`]): aim at an element or draw a box,

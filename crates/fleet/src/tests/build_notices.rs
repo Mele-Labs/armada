@@ -94,6 +94,17 @@ impl Rig {
         fs::write(self.support().join("preview-left-out"), text).unwrap();
     }
 
+    /// `scripts/preview` has recorded a round that did not build at `commit`: the error, and each branch with what it found.
+    pub(super) fn broke(&self, commit: &str, error: &str, named: &[(&str, &str)]) {
+        let mut text = format!("{commit}\n{error}\n");
+        for (branch, what) in named {
+            let tip = git(self.home.path(), &["rev-parse", branch]);
+            text.push_str(&format!("{branch}\t{tip}\t{what}\n"));
+        }
+        fs::create_dir_all(self.support()).unwrap();
+        fs::write(self.support().join("preview-broke"), text).unwrap();
+    }
+
     fn manifest(&self) -> String {
         self.fleet.repositories().first().expect("served").manifest().id().as_str().to_string()
     }
@@ -420,6 +431,120 @@ async fn a_terminal_session_that_is_not_listening_is_asked_again_with_nothing_ke
     let [said] = held.as_slice() else { panic!("one message held: {held:?}") };
     assert!(said.contains("Fleet and Bridge now run the preview at"), "{said}");
     assert!(rig.told("term-1").await);
+}
+
+const ERROR: &str = "error[E0063]: missing field `workflow` in initializer of `StartSession` (crates/x.rs:697)";
+
+#[tokio::test]
+async fn sessions_holding_the_branches_a_failed_round_names_are_each_told_once_with_who_else_was() {
+    let rig = a_rig();
+    let (one, two) = (rig.a_hosted_session().await, rig.a_hosted_session().await);
+    rig.holds_branch(&one, "armada/work").await;
+    rig.holds_branch(&two, "armada/other").await;
+    let failed = "d".repeat(40);
+    rig.broke(
+        &failed,
+        ERROR,
+        &[("armada/work", "changed StartSession, which crates/x.rs uses"), ("armada/other", "was in it")],
+    );
+
+    rig.fleet.broken_builds_told().await;
+
+    let (one_said, two_said) = (rig.thread_of(&one).await, rig.thread_of(&two).await);
+    let [one_said] = one_said.as_slice() else { panic!("one notice: {one_said:?}") };
+    let [two_said] = two_said.as_slice() else { panic!("one notice: {two_said:?}") };
+    let head = format!("The preview at {} did not build: {ERROR}.", &failed[..7]);
+    assert!(
+        one_said.contains(&format!(
+            "{head}\narmada/work: changed StartSession, which crates/x.rs uses.\n\
+             Also told: {} (armada/other). Message them and agree which of you fixes it.",
+            crate::session_host::address_of(&two)
+        )),
+        "{one_said}"
+    );
+    assert!(
+        two_said.contains(&format!(
+            "{head}\narmada/other: was in it.\n\
+             Also told: {} (armada/work). Message them and agree which of you fixes it.",
+            crate::session_host::address_of(&one)
+        )),
+        "{two_said}"
+    );
+
+    rig.fleet.broken_builds_told().await;
+    assert_eq!(rig.thread_of(&one).await.len(), 1, "told once");
+    assert_eq!(rig.thread_of(&two).await.len(), 1, "told once");
+}
+
+#[tokio::test]
+async fn a_session_named_alone_is_told_without_an_also_told_line_and_a_new_failed_commit_is_told_again() {
+    let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
+    let bystander = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/work").await;
+    rig.holds_branch(&bystander, "armada/long").await;
+    let failed = "d".repeat(40);
+    rig.broke(&failed, ERROR, &[("armada/work", "was in it")]);
+
+    rig.fleet.broken_builds_told().await;
+
+    let said = rig.thread_of(&holding).await;
+    let [said] = said.as_slice() else { panic!("one notice: {said:?}") };
+    assert!(said.contains("armada/work: was in it."), "{said}");
+    assert!(!said.contains("Also told"), "{said}");
+    assert!(rig.thread_of(&bystander).await.is_empty(), "its branch was not named");
+
+    rig.broke(&"e".repeat(40), "error: again", &[("armada/work", "was in it")]);
+    rig.fleet.broken_builds_told().await;
+    assert_eq!(rig.thread_of(&holding).await.len(), 2, "a different failed commit is news");
+}
+
+#[tokio::test]
+async fn a_round_that_names_no_branch_tells_nobody() {
+    let rig = a_rig();
+    let holding = rig.a_hosted_session().await;
+    rig.holds_branch(&holding, "armada/work").await;
+    rig.broke(&"d".repeat(40), ERROR, &[]);
+
+    rig.fleet.broken_builds_told().await;
+
+    assert!(rig.thread_of(&holding).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_session_that_cannot_be_told_of_a_failed_round_is_asked_again_with_nothing_kept() {
+    let rig = a_rig();
+    rig.a_terminal_session("term-1").await;
+    rig.holds_branch("term-1", "armada/work").await;
+    let failed = "d".repeat(40);
+    rig.broke(&failed, ERROR, &[("armada/work", "was in it")]);
+    let kept = || async { rig.fleet.store().lock().await.build_notice_kept(&format!("broke:{failed}"), "term-1").unwrap() };
+
+    rig.fleet.broken_builds_told().await;
+    assert!(!kept().await, "nothing kept for a notice not delivered");
+
+    rig.the_mod_asks("term-1").await;
+    rig.fleet.broken_builds_told().await;
+    let held = rig.the_mod_asks("term-1").await;
+    let [said] = held.as_slice() else { panic!("one message held: {held:?}") };
+    assert!(said.contains("did not build"), "{said}");
+    assert!(kept().await);
+}
+
+#[tokio::test]
+async fn a_failed_round_is_told_while_the_restart_is_still_under_way() {
+    let rig = a_rig();
+    let session = rig.a_hosted_session().await;
+    rig.holds_branch(&session, "armada/work").await;
+    rig.on_file(true);
+    fs::write(rig.support().join("restart-build.status"), "running\npreview\n").unwrap();
+    rig.broke(&"d".repeat(40), ERROR, &[("armada/work", "was in it")]);
+
+    rig.fleet.builds_told_when_due().await;
+
+    let said = rig.thread_of(&session).await;
+    let [said] = said.as_slice() else { panic!("only the failure: {said:?}") };
+    assert!(said.contains("did not build"), "{said}");
 }
 
 /// Fleet runs `builds/current`, a build made at `built_at`.

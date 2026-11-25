@@ -14,4 +14,4 @@ Replacements are at most four a second; a stage change and the last state are al
 
 **Skew.** A Bridge before 23.78 reads a `retro` row as a row kind it does not know and draws nothing for it, or draws it badly; it still reads the retro from `write_session_retro`.
 A Fleet before it sends no such row.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand.
