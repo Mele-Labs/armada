@@ -489,7 +489,7 @@
    added, removed and changed hues win over these where a sketch is read as a
    change. */
 :root, [data-theme] {
-  /* The Usage page's figures and Settings' Modified: `packages/components/src/meaning.css`. */
+  /* The Usage page's figures and Settings' Modified: `classic-final:packages/components/src/meaning.css`. */
   --usage-meter: var(--status-running);
   --usage-worse: var(--status-awaiting-review);
   --usage-over: var(--status-escalated);
@@ -872,7 +872,7 @@
      at --w-dialog-wide's own 640px, "to cap the dock under half a 1280px
      window" — a judgment call with no floor behind it, and the owner ruled it
      out on #1171 and #1176: the dock should grow as wide as the window
-     allows. `clampDockWidth` (packages/components) computes the real ceiling
+     allows. `clampDockWidth` (classic-final:packages/components) computes the real ceiling
      from the window's own width, the left column and --w-work-min below,
      rather than reading one here. */
   --w-dock-min: 320px;
@@ -887,7 +887,7 @@
      while the dock was a column taking width off it; now the panel is the
      whole window either way and this is what keeps the dock from swallowing
      the thing a person opened it to ask about. `dockWidthRange`
-     (packages/components, `dock-handle.tsx`) is the one reader, for the Operator's
+     (classic-final:packages/components, `dock-handle.tsx`) is the one reader, for the Operator's
      dock and for a floating Sheet that resizes — Plan's task panel, where it
      is what stays uncovered of the work area under the title row. Both
      take --w-dock-min above as their floor. */

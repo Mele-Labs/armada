@@ -1,7 +1,7 @@
 //! Settings → Workflows, the workflow picked, beside the list: its id and what it is for, its acts, then its steps,
 //! each a card. A port of Classic's `Detail`, `Act`, `Said`, `Step` and `Compared`
-//! (`packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`), the acts wired as
-//! `apps/desktop/src/renderer/src/workflow-manager.tsx` wires them. Under a copy's steps is the box that asks an
+//! (`classic-final:packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`), the acts wired as
+//! `classic-final:apps/desktop/src/renderer/src/workflow-manager.tsx` wires them. Under a copy's steps is the box that asks an
 //! agent for a change (`change_band.rs`). The lanes come after; `step_card` takes `StepRows` so the lanes'
 //! inspector draws the same card.
 

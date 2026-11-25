@@ -15,7 +15,7 @@ repository. The owner, as admin, bypasses the ruleset.
 
 | Trigger | For | Runs |
 |---|---|---|
-| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build`, `typecheck` and `bridge_build`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
+| `pull_request` into `main` | An early warning before the branch joins the queue | Of what `armada covers` names for the diff, the Checks that compile: `build` and `typecheck`; the test code of `test` and `acceptance`, compiled and not run; and those the merge queue last failed it on |
 | `merge_group` | The queue's test of a branch merged onto `main` | What `armada covers` names for the group, every one |
 | `push` to `main` | Seeing a red `main`, saving the caches pull requests restore, and gating the release | Every Check in CI, unless the merge queue already passed this commit (*A push the queue already passed*), and once a day `test_map`, which is not one of them (*The test map's laps*) |
 | `workflow_dispatch` | Asking for everything by hand | Every Check in CI |
@@ -34,6 +34,14 @@ A pull request runs it only for a change to one of the three, because a native t
 A pull request whose change is inside the crate skips it: the local pre-PR Check ran the native tests, and the queue runs them again on the commit that lands.
 Decided by the owner, 16 Nov 2026, when each run held a `macos-15` runner for 9 to 15 minutes, 12 of them compiling the crate, and the organisation's Mac runners were what PR runs queued behind.
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
+Its `timeout-minutes` is 90: on 25 Nov 2026 the crate compiled in 21 to 39 minutes across 11 runs, and two runs hit the old 60 on a slow Mac.
+
+**A rebuilt queue group cancels its old native job.**
+When an entry fails, the queue rebuilds every group behind it, and each pull request comes back on a new branch, `gh-readonly-queue/main/pr-<n>-<base sha>`.
+GitHub cancels nothing of the abandoned runs, and the workflow's concurrency group is keyed by commit, so their `native` jobs kept their Mac runners for most of an hour.
+On 25 Nov 2026 three such runs held Mac runners while the live groups' `native` jobs waited 10 to 30 minutes or were never picked up, and each of those failures rebuilt the groups behind it again, so four pull requests sat in the queue for hours.
+`plan` reads `<n>` with `.github/ci/queued_pr.py` into its `queued_pr` output, and `native` keys a concurrency group on it with `cancel-in-progress`, so the newer run of a pull request cancels the older one.
+Any other run keys on its own run id and cancels nothing.
 
 **A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.
 The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
@@ -45,8 +53,8 @@ It saved no time that was measured: the third-party crates compile beside the lo
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
-When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`, `desktop_unit 1/2` is `apps/desktop/unit:desktop_test`) and `plan.py --rerun` keeps them past `--quick`.
-A grouped job (`node checks`, `components`, `surface tests 1/2`) does not say which of its keys failed, so its name stands for every key `plan.py` puts in that group, and the run keeps the ones the pull request's own plan names.
+When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`) and `plan.py --rerun` keeps them past `--quick`.
+The grouped job (`node checks`) does not say which of its keys failed, so its name stands for every key `plan.py` puts in that group, and the run keeps the ones the pull request's own plan names.
 The job summary names each one.
 They run on every push until the queue runs the pull request again.
 The whole Check runs, not the one test that failed: a shard's build is most of its six minutes, and the tests in it took under a second on 29 Oct 2026.
@@ -59,7 +67,7 @@ The plan checks out the merge GitHub tests, takes `git merge-base HEAD^1 HEAD^2`
 
 **A branch whose own change hits no Check runs none.** Its merge into `main` leaves `main`'s code as it was, and `main` was checked when that code landed, so rerunning what `main` changed proves nothing new.
 The `main` side is joined in only when the branch's own change hits at least one Check, which keeps the case the rule exists for: a change on `main` that breaks the branch only in combination.
-Decided by the owner, 6 Oct 2026, after a docs-only pull request ran the Rust and desktop Checks because `main` had moved.
+Decided by the owner, 6 Oct 2026, after a docs-only pull request ran the Rust and Electron Checks because `main` had moved.
 
 **The event's own base commit is not used.** It is the commit `main` had when the pull request was opened and does not move. Measured.
 
@@ -80,7 +88,7 @@ The plan then names no Check, so every Check job skips and `ci` passes; the job 
 
 **It skips only while `main` holds every cache its Check jobs save.**
 Pull requests and the queue restore `main`'s caches, and only a push's own jobs write them, since a cache written in a pull request or a merge group is seen by no other.
-`.github/actions/main-caches` looks up, without downloading, the entries `build`, `test`, `acceptance`, `xtask_test`, `node_modules` and Playwright would write, under the very keys those jobs compute.
+`.github/actions/main-caches` looks up, without downloading, the entries `build`, `test`, `acceptance`, `xtask_test` and `node_modules` would write, under the very keys those jobs compute.
 rust-cache adds the job's id to `key`, so the lookup passes `<key>-<job>` and turns that off.
 One missing, after a change to `Cargo.lock`, `pnpm-lock.yaml` or a new stable `rustc`, and the push runs every Check as before, saving it.
 
@@ -121,13 +129,13 @@ The first run took 1 h 54 min (`docs/spikes/test-map-seed.md`) and the one that 
 ```
 changed paths ──> armada covers ──> plan.py ──> checks (JSON array of keys) ──> root name: a static job, `if:` its name is in it
                   reads armada.yml     sorts keys    matrix                  ──> workspace key: one of the grouped `workspace_check` entries
-                  `when:` lists        fails on one                          ──> desktop_test of apps/desktop/unit: one Linux job
+                  `when:` lists        fails on one
                                        it cannot place
                                                                           ci  (needs plan + every Check job + the grouped jobs)
 ```
 
 **A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `keep_build_test`, `format_catch_up_test`).
-A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
+A workspace Check is `<dir>:<name>` (`pocket_test` of `apps/pocket`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job pipes the changed paths into `armada covers`**, with `main`'s last built `armada` or one it builds (*Only `plan` builds `armada`*).
 It is the same answer the merge line and Fleet's gate ask
@@ -141,9 +149,9 @@ build of `armada` failing, is red, never an empty plan.
 A Check added to a manifest that is neither makes `plan` red, so it is never skipped by omission.
 Its tests run in `foundations` with the others in `.github/ci/`.
 
-**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and `apps/desktop` and `apps/desktop/unit`, which reach the macOS shards, the unit job and the grouped jobs.
-`.github/**` is in each root `when` and in those two manifests' `depends_on`.
-The other workspaces would repeat the grouped jobs.
+**A change under `.github/` hits the Checks that exercise every job shape in the workflow:** every root Check, and the workspace Checks that reach the grouped job.
+`.github/**` is in each root `when` and in that workspace's `depends_on`.
+The other workspaces would repeat the grouped job.
 
 `test` and `build` run `armada check <name> --changed`, so the Manifest's own
 `narrow` applies: `run-check` sets `ARMADA_SOLE_TENANT=1`, which keeps the reading
@@ -167,17 +175,16 @@ A pull request changing only those runs `main`'s binary on its own run, and `mai
 Watching every crate the binary links would rebuild on 86 of the last 150 merges; the list above, on 33.
 A commit the cached entry names that is not in the checkout, or no entry at all, builds.
 
-## What `ci` and `desktop_test` are
+## What `ci` is
 
 | Name | Passes when | Failed by |
 |---|---|---|
 | `ci` | The plan succeeded and no Check job, `native`, `test_compile`, `format` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, an unformatted file, a new failing foundations line |
-| `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are the groups below.
 
 **A Check the plan skipped counts as passed.** `ci` is the one name the ruleset
-requires for the Checks below. `desktop_test` is to be added.
+requires for the Checks below.
 
 ## Where each Check runs
 
@@ -187,18 +194,15 @@ requires for the Checks below. `desktop_test` is to be added.
 | `test` | `ubuntu-latest`, four jobs `test 1/4` to `test 4/4` | `armada check test --changed`, whole on `main` and dispatch, each job a quarter of it: a `cargo` ahead on `PATH` adds `--partition slice:<n>/4 --no-tests=pass` to `nextest run` | rust-cache, cargo-nextest |
 | `acceptance` | `ubuntu-latest` | `armada check acceptance` | rust-cache, cargo-nextest |
 | `typecheck` (root) | `ubuntu-latest` | `pnpm typecheck` | node_modules |
-| `node checks`: every workspace key whose name is in `NO_BROWSER` (`typecheck`, `bridge_build`, `pocket_test`, `store_test`) | `ubuntu-latest`, one grouped job, no browser installed | `armada check <key>` for each key in turn, with the `armada` the plan built. A key that fails does not stop the next; the job fails if any did | node_modules |
-| `components`: `components_test` and `storybook` of `packages/components` | `ubuntu-latest`, one grouped job | The same | node_modules, Playwright |
-| `surface tests 1/2`, `2/2`: `screens_test` of `packages/screens` and a surface's `test`, split by a hash of the key so a key keeps its half | `ubuntu-latest`, two grouped jobs | The same | node_modules, Playwright |
+| `node checks`: every workspace key whose name is in `MATRIX` (`typecheck`, `pocket_test`, `store_test`, `bundle_current`) | `ubuntu-latest`, one grouped job | `armada check <key>` for each key in turn, with the `armada` the plan built. A key that fails does not stop the next; the job fails if any did | node_modules |
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
 | `keep_build_test` | `ubuntu-latest` | `python3 scripts/test_keep_build.py` | none |
 | `format_catch_up_test` | `ubuntu-latest` | `python3 scripts/test_format_catch_up.py` | none |
-| `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
+| `xtask_test` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, jobs `desktop_unit 1/2` and `2/2` | `vitest run --maxWorkers=$WIDTH --project 'desktop*' --shard=N/2`, direct. Two shards keep one Chromium page under 300 files (armada-uxuk). `armada check` runs the same from the manifest | node_modules, Playwright |
 
 **No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
 A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
@@ -212,20 +216,12 @@ Measured 7 Oct on the 4-core runner, whole runs of `test`: width 2 median job 45
 Contention at width 4 beyond those two runs is not measured.
 Every
 job prints a `MACHINE` line and writes its Check's wall time to the job summary.
-The root's Node Check and the desktop unit job run their command directly. The grouped jobs
-run `armada check` so a workspace's own `armada.yml` is the command, and they use
+The root's Node Check runs its command directly. The grouped job
+runs `armada check` so a workspace's own `armada.yml` is the command, and it uses
 the binary the plan job built, uploaded as an artifact, so no grouped job builds Rust.
 A grouped job writes a `RESULT` line and a summary line for each key, with the tail of a failed key's log.
 Before the grouping each key had its own job, about 25 on a queue run, and each spent about 0.6 of its 1 minute on checkout and node setup.
 The queue builds five runs together on an account that runs 20 jobs at once, so jobs waited a median 5.3 minutes and 21 at the 90th percentile for a runner.
-
-**`desktop_test` is outside `ci`** until it stops flaking. Its aggregate job
-reports on its own, so a red unit job never blocks a change that `ci` passes.
-
-**The smoke tests are not a Check.** The owner removed `app_smoke` on 13 Oct 2026, after one kept turning main red and nobody was going to maintain it.
-`apps/desktop/vitest.config.ts` still has the `smoke` projects, and `pnpm --dir apps/desktop exec vitest run --project 'smoke*'` runs them by hand, as the walk replays do.
-No manifest, gate or CI job runs them.
-`apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `docs/practices/bridge.md` says what is in each project.
 
 ## Foundations
 
@@ -275,14 +271,13 @@ It runs `pnpm format:check`, which is `biome ci`, over the whole tree, so a file
 Like `foundations`, it is a job of its own and runs on every change: a root Check never sees the paths a workspace owns, and the formatter reads them all in about a second.
 
 **A Job runs it before its pull request opens.**
-`apps/desktop/armada.yml` declares `format_check` with `runs_at: pre_pr`, so Fleet runs it when the agent goes to open the pull request, and refuses `gh pr create` with the log tail until it passes.
-`apps/pocket/armada.yml` and `apps/store/armada.yml` declare it too, because a change under either alone does not reach Bridge's manifest.
+`apps/pocket/armada.yml` and `apps/store/armada.yml` declare `format_check` with `runs_at: pre_pr`, so Fleet runs it when the agent goes to open the pull request, and refuses `gh pr create` with the log tail until it passes.
 It refuses while the slot holds an uncommitted change, since the check reads the files on disk and the pull request carries only what is committed.
 Where Fleet cannot be reached, the first `gh pr create` is turned away once saying so, and the second opens the pull request without the check.
 
 **To fix a red `format`, run `pnpm format` and commit what it changes.**
 A Drone is refused a bare `pnpm`, so it runs `armada run format`.
-`biome.jsonc` says what is formatted and what is left alone, and `docs/practices/bridge.md`, *The formatter*, says why.
+`biome.jsonc` says what is formatted and what is left alone. Classic's reasons for the one-item-a-line layout are in `classic-final:docs/practices/bridge.md`, *The formatter*.
 
 ### Catching a branch up
 
@@ -333,14 +328,9 @@ setup before the step: restoring caches, installing, building `armada`.
 | `build`, `test` | 0 to 55 | Narrowed to what the diff touched |
 | `acceptance` | 24 to 30 | Whole |
 | `typecheck` | 45 to 48 | |
-| `bridge_build` | 5 to 8 | |
-| `storybook` | 32 to 35 | |
-| `screens_test` | 49 to 55 | |
-| `components_test` | 64 to 108 | |
 | `hooks_test` | 1 | |
 | `preview_test` | 10 | Measured locally, not on a runner |
 | `foundations`, whole job | 40 cold, 28 to 32 warm | Main's own run adds 8 when its reading is not cached. Setup and checkout are most of the rest |
-| `desktop_test` per shard (before the split) | 68 to 275 | The slowest shard varied the most between runs |
 
 **A whole `test` was not measured to completion.** It stopped at the first
 failure, which was a Linux-only test failing on `main`.
@@ -350,7 +340,6 @@ failure, which was a Linux-only test failing on `main`.
 | Check | Why |
 |---|---|
 | `scripts_test` | Dropped. It tested `armada land`, which this workflow replaces, and failed on Linux: the non-macOS `clone_tree` in `cloning.rs` returns `NotCloned` |
-| `desktop_test` in `ci` | Flaky on the macOS runner. Reported separately until it is stable |
 | Any Check on a self-hosted runner | None exist, and a public repository does not use one |
 
 `hooks_test` runs when `.claude/hooks/**` changes, since that is its `when:`. `preview_test` runs when `scripts/preview`, `scripts/restart`, its own test or `armada.yml` changes.
@@ -367,17 +356,16 @@ A pull request and a merge group never release.
 
 | | |
 |---|---|
-| Builds | `armada` with the `shipped` profile, optimised and stripped, the native Bridge with `cargo build --release` on its own manifest, and the Electron app, for Apple Silicon, on a `macos-15` runner |
-| Makes | `Armada.app`, the native Bridge, with `scripts/native-app`, the script a restart makes its copy with. `Armada Classic.app` is the Electron app, with the grey icon |
-| Puts Fleet | Inside `Armada.app`, at `Contents/Resources/bin/armada`, with the Claude Code mod beside it in `Contents/Resources/mod`, then signs the bundle again ad hoc. Classic carries no Fleet |
+| Builds | `armada` with the `shipped` profile, optimised and stripped, and the native Bridge with `cargo build --release` on its own manifest, for Apple Silicon, on a `macos-15` runner |
+| Makes | `Armada.app`, the native Bridge, with `scripts/native-app`, the script a restart makes its copy with |
+| Puts Fleet | Inside `Armada.app`, at `Contents/Resources/bin/armada`, with the Claude Code mod beside it in `Contents/Resources/mod`, then signs the bundle again ad hoc |
 | Version | `v0.<minor>.<commits on main>`. The minor is the root `package.json`'s, bumped by hand. The hash is in the release notes and in `Contents/Resources/version` |
-| Attaches | `Armada-macos-arm64.zip`, holding both apps side by side, and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
+| Attaches | `Armada-macos-arm64.zip`, holding the app, and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
 | A commit already tagged | Is not released twice. The run says so and stops |
 
 **The native Bridge has a `target` of its own**, since it is outside the root workspace, so the job names it to `rust-setup`'s `workspaces` input and rust-cache keeps both.
-The job unpacks the zip again and checks both signatures and `armada help` before it publishes, which is what `install.sh` unpacks.
-`install.sh` replaces `Armada.app` and `Armada Classic.app` in `/Applications` and opens both.
-An `Armada.app` already there, such as the Electron app this name had before, is replaced and nothing else is.
+The job unpacks the zip again and checks the signature and `armada help` before it publishes, which is what `install.sh` unpacks.
+`install.sh` replaces `Armada.app` in `/Applications` and opens it, and removes the `Armada Classic.app` an earlier release put there.
 
 **One release builds at a time.** A merge that lands meanwhile waits, and a newer merge replaces the one waiting, so two quick merges make one release.
 
@@ -392,12 +380,6 @@ A signed download a person double-clicks is `armada-67`.
 never `pull_request_target`, reads no secret and runs on GitHub's hosted runners.
 Its `release` job alone holds `contents: write`, to create the tag and the release, and runs only on a commit already on `main`.
 Every third-party action is pinned to a full commit SHA with its version beside it.
-
-## Owed at the cutover
-
-| Owed | Where |
-|---|---|
-| The ruleset also requiring `desktop_test` | Repository settings |
 
 ## What `foundations` measured and what it did not
 

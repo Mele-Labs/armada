@@ -31,7 +31,7 @@ vibrating.
 
 ## Depth
 
-One look, drawn by `packages/components/src/depth.css`, `pages.css` and the roles in
+One look, drawn by `classic-final:packages/components/src/depth.css`, `pages.css` and the roles in
 `packages/tokens/takes.css`. The root carries `data-look="new"`, which
 `@armada/components/src/look` sets in each window that loads the stylesheet. There is no flag to turn it off.
 
@@ -327,7 +327,7 @@ say which slots were available. Like a verdict, it never sums onto a Job.
 
 **A page's state takes the same three things wherever it appears**: its hue on the frame, a wash on the ground, and the figure or glyph at full strength.
 What is at rest stays neutral, so what is lit reads.
-`packages/components/src/meaning.css` draws it on the pages outside the Cockpit.
+`classic-final:packages/components/src/meaning.css` draws it on the pages outside the Cockpit.
 The owner asked for it on 1 Nov 2026 ("so many pages are monotone") and approved it on a walk: a Usage figure going up lights its tile, since every figure there is burn; the plan's window lights at 80% and at 95%; a Job's peak context lights at 400k.
 `--setting-modified` borrows the hue of the slider beside it.
 A setting moved off what ships has no Job state to alias, so it is the one here that says "look" and not a state.

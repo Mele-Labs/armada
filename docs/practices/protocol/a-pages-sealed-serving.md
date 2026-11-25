@@ -6,7 +6,7 @@ Since 14 Nov 2026. One kept revision of a Job's page as one HTML answer a client
 **Additive only**: one operation, one route and one refusal code.
 No event kind, no body and no field on an existing type.
 `host_kit`, added on 19 Nov 2026, is an optional query field that is `false` where it is left out.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand: the query and the messages both ways. Classic does not call it, and native and Pocket host the page later.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand: the query and the messages both ways. Classic does not call it, and native and Pocket host the page later.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ A message whose `armada` is not `1` is ignored by the page and refused by `ipc`.
 
 **The Rust types** are in `crates/ipc/src/artifact.rs`: `PageToHost` and `HostToPage`, each an enum tagged by `kind`, and `PageMessage<T>`, which writes `armada: 1` beside the message and refuses any other number when it reads one.
 They are not route bodies and have no operation file: the host's call to Fleet is `press_page_action` or `cast_page_vote`.
-`PageToHost` and `HostToPage` in `packages/protocol/src/job-artifacts.ts` mirror them, and `crates/ipc/src/tests/page_messages.rs` reads that file.
+`PageToHost` and `HostToPage` in `classic-final:packages/protocol/src/job-artifacts.ts` mirror them, and `crates/ipc/src/tests/page_messages.rs` reads that file.
 `apps/pocket/src/pageKit.test.ts` runs the kit's script against a fake DOM and holds which channel it picks.
 
 | Way | `kind` | Carries | The other side |

@@ -4,8 +4,8 @@
 
 Since 23 Oct 2026. A request that replies first and finishes in a spawned task has no answer left to refuse with, so its failure rides the stream.
 **One event kind, no operation and no new route beyond the `/events` row**: `act.failed` is in `crates/ipc/operations/act.failed.toml`, `Bridge only`.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/act-failed.ts`, written by hand, field for field, and `onActFailed` on the BridgeApi.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/act-failed.ts`, written by hand, field for field, and `onActFailed` on the BridgeApi.
 
 | Where | Side | Carries |
 | --- | --- | --- |

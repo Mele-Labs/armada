@@ -8,4 +8,5 @@
 - **Icons:** lucide-react, version pinned — 12px in badges, 16px in
   navigation and buttons, strokeWidth 2 throughout. See
   [Iconography](../iconography.md)
-- **App:** electron-vite + React + TypeScript
+- **Desktop app:** Rust on gpui, `crates/bridge-native`
+- **Phone app:** Vite + React + TypeScript, `apps/pocket`

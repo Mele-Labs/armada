@@ -31,7 +31,7 @@ fn what_an_entry_does_not_carry_is_left_out_not_sent_as_null() {
     assert_eq!(encode(&whole).unwrap(), r#"{"manifest_id":"armada","slot":10,"entries":[]}"#, "`cut` only when cut");
 }
 
-/// The three kinds and the three holders are the spellings `packages/protocol/src/bay-history.ts` lists.
+/// The three kinds and the three holders are the spellings `classic-final:packages/protocol/src/bay-history.ts` lists.
 #[test]
 fn the_kinds_are_the_spellings_the_mirror_lists() {
     let leased = BayHistoryEntry::Leased {

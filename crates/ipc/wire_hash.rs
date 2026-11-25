@@ -1,8 +1,9 @@
 // Included by `build.rs` and by `xtask`; expects `fs` and `Path` in scope.
 
-/// The wire surface, hashed: Fleet's DTOs, the operation inventory, the route
-/// table and Bridge's mirror of the DTOs. The same list, normalisation and hash are written in
-/// `apps/desktop/codegen/protocol-id.mjs`; change one and change the other.
+/// The wire surface, hashed: Fleet's DTOs, the operation inventory and the route
+/// table. The same list, normalisation and hash are written in
+/// `scripts/protocol-id`, which `scripts/restart` calls before anything is built;
+/// change one and change the other.
 ///
 /// Comment-only lines are dropped so editing prose does not move the ID.
 /// A comment after code on the same line still counts.
@@ -15,11 +16,6 @@ fn protocol_id(root: &Path) -> String {
     collect(root, "crates/api/src/routes", &mut files, &|rel| rel.ends_with(".rs"));
     collect(root, "crates/ipc/operations", &mut files, &|rel| {
         rel.ends_with(".toml") && !rel.ends_with("/_header.toml")
-    });
-    collect(root, "packages/protocol/src", &mut files, &|rel| {
-        rel.ends_with(".ts")
-            && !rel.ends_with(".test.ts")
-            && !rel.ends_with("/connection.ts")
     });
     files.sort();
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;

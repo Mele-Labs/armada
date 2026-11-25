@@ -4,8 +4,8 @@
 
 Since 21 Oct 2026. `docs/concepts/kit.md`.
 **Additive except one field**: four operations, four routes, one error code and the types they carry, and `uninstall` on `SetupItem`; no event kind.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/kit.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/kit.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ Restore names a place Fleet answered with, and Fleet keeps the way back in `~/.a
 
 **Refusals** are a 422 `fleet.kit_piece_refused`: a source that is no longer a piece of `kind`, a `choice` the fresh look does not hold or one left out where it holds several, a skill that is not the person's own, a plugin not installed or whose uninstall failed, and a place Fleet did not trash.
 
-**Bridge's call** is `apps/desktop/src/main/kit.ts`, and `packages/surfaces/manifest/src/fake/kit-pieces.ts` answers the four in the mock.
+**Bridge's call** is `classic-final:apps/desktop/src/main/kit.ts`, and `classic-final:packages/surfaces/manifest/src/fake/kit-pieces.ts` answers the four in the mock.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the routes answers 404, and an older Bridge leaves `uninstall` unread.

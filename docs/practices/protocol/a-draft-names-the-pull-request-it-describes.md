@@ -5,9 +5,9 @@
 Since 12 Nov 2026. A Job that proposes a new description for a pull request it holds puts a draft to the person, and he had to match each draft to its pull request himself.
 Fleet now links the two, so a client can show the waiting draft on the pull request's card and page, and the pull request on the draft.
 **Additive only**: two optional fields out, one optional field in, and one type they carry; no operation, route or event kind, and one error code.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `PullRequestDraft` in `crates/ipc/src/pull_requests.rs`; the link is kept and given back in `crates/fleet/src/session_host/drafting.rs`.
-Bridge's half is `packages/protocol/src/pull-requests.ts` and `sessions.ts`, written by hand, field for field. Electron Bridge reads neither field.
+Bridge's half is `classic-final:packages/protocol/src/pull-requests.ts` and `sessions.ts`, written by hand, field for field. Electron Bridge reads neither field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

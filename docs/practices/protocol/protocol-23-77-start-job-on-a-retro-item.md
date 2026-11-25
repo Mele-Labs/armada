@@ -17,4 +17,4 @@ A second press answers 200 with that Job, sets `send_failed` again, and sends no
 
 **Skew.** A Fleet before 23.77 has no route and answers 404, and never sends `session_proposed`, which Bridge reads as absent.
 A Bridge before it never calls the route and ignores the field.
-Bridge's half is `packages/protocol/src/retro-session.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/retro-session.ts`, written by hand.

@@ -5,8 +5,8 @@ It records what is, and proposes nothing.
 The Job view (head, thread, composer) is another file; this one only says where these screens link into it.
 
 Paths are relative to the repository root.
-`DK` is `apps/desktop/src/renderer/src/cockpit/deck`.
-`PC` is `packages/components/src`.
+`DK` is `classic-final:apps/desktop/src/renderer/src/cockpit/deck`.
+`PC` is `classic-final:packages/components/src`.
 Density follows his `spacing.density` setting (Compact, Default, Roomy).
 Default is `packages/tokens/src/spacing.css`; Compact and Roomy are `packages/tokens/src/spacing-sets.css` (`:root[data-spacing="compact"]` line 5, `"roomy"` line 26).
 Every pixel value below is Default's, resolved from the token named beside it.
@@ -41,7 +41,7 @@ Durations (`motion.css`): `--duration-press` 90ms, `--duration-fast` 120ms, `--d
 
 | Fact | Where |
 |---|---|
-| Two surfaces are named "Jobs" in `DECK_TABS`; both are hidden and both map to the Cockpit tab | `packages/shell/src/surfaces.ts` (`SURFACE`, `DECK_TABS`, `drawnTabs`), `apps/desktop/src/renderer/src/App.tsx:~266` (hidden list), `:~630` (`goTo`) |
+| Two surfaces are named "Jobs" in `DECK_TABS`; both are hidden and both map to the Cockpit tab | `classic-final:packages/shell/src/surfaces.ts` (`SURFACE`, `DECK_TABS`, `drawnTabs`), `classic-final:apps/desktop/src/renderer/src/App.tsx:~266` (hidden list), `:~630` (`goTo`) |
 | The Jobs list is the Cockpit's left column, `section[aria-label="Jobs"]` | `DK/Deck.tsx:~771` |
 | The deck is a 3-column grid: Jobs list, centre stage, right bays. Left column width is `--deck-left`, default `calc(var(--space-12) * 6)` = 288px | `DK/deck.css:56`, `:65` |
 | No calls panel exists. A call is the pulsing row, the Calls HUD, the Needs you card in the Job thread, the toast and the Dock badge | `DK/Deck.tsx`, `DK/ConsoleCalls.tsx` (the Calls HUD, out of scope: it goes with the Cockpit console after switch day), `NeedsYouPanel.tsx`, section 5 |
@@ -54,7 +54,7 @@ Both Jobs tabs in `DECK_TABS` are hidden, and there is no separate Jobs page.
 **Data source.**
 The row's lamp, status glyph state and group come from `SessionRecord.mark {state, lamp, group, once_read}` (PR #3374, `crates/ipc/src/job_mark.rs`).
 For the native app that replaces `order.ts` `toneOf`, `lampOf` and `groupOf`, and `jobStateOf`.
-The glyph for each state is Electron's `MARK` table in `packages/components/src/compositions/SessionFrame/SessionFrame.tsx:87` (table in 1.4).
+The glyph for each state is Electron's `MARK` table in `classic-final:packages/components/src/compositions/SessionFrame/SessionFrame.tsx:87` (table in 1.4).
 `crates/ipc/src/job_mark.rs` is not in this checkout, so the tone/lamp/group rules below are today's Electron code and are the reference until that file lands.
 
 ### 1.1 Where it lives
@@ -71,7 +71,7 @@ The glyph for each state is Electron's `MARK` table in `packages/components/src/
 | Row menu | `DK/RowMenu.tsx` |
 | Hover card | `DK/inspect-cards.tsx` (`SubjectCard`) |
 | Subject model, state mark | `DK/ship.ts` (`sessionMark` 205, builder 395-610, calls 745-815) |
-| State vocabulary | `packages/screens/src/session-state.ts` (`jobStateOf`), `PC/compositions/SessionFrame/SessionFrame.tsx` (`SessionState`, `MARK` 87, `bucketOf` 117) |
+| State vocabulary | `classic-final:packages/screens/src/session-state.ts` (`jobStateOf`), `PC/compositions/SessionFrame/SessionFrame.tsx` (`SessionState`, `MARK` 87, `bucketOf` 117) |
 | CSS, in cascade order (later wins ties) | `PC/depth.css` (row ~358-430, selection ~385, group head ~291), `PC/compositions/ListCard/ListCard.css`, `DK/deck.css` (list 177-680, `.deck-mark` 2059, fold 2335-2395, arrival 2873), `DK/console-bridge.css` (flight strips ~975-1090) |
 | Look is forced | `look.ts` sets `data-look="new"`, so the `depth.css` rules apply; `console-bridge.css` is unconditional (`:root:root`) and loads after `deck.css` |
 
@@ -274,9 +274,9 @@ Source of truth: `crates/core-model/domain/actions.toml`, read by `isPressed`; d
 |---|---|---|
 | `Subject` | `kind` (`session | pr | ...`), `key` (`session:<id>`), `id`, `title`, `mark` (glyph, said, tone), `phase`, `at`, `idleMinutes`, `paused`, `past`, `earlier`, `linked` (depth, rails, group, from), `handoff`, `reply`, `tab`, `bayAsk`, `pr`, `root` | `DK/ship.ts` |
 | `Scope` | `"active" | "paused" | "quiet" | "ended" | "all"` | `store.ts:25` |
-| `Session` (draft) | list row source: `paused`, `toolsMissing`, issue, workflow | `packages/screens/src/draft/sessions.ts:1096` |
-| `SessionRecord` | wire: `state`, `waiting_for`, `hosted.start`, `hosted.paused`, `title`, `started_at` | `packages/protocol/src/sessions.ts` |
-| `Item` | a call: `key`, `title`, `kind`, `fact`, `waiting.item.source` | `apps/desktop/src/renderer/src/Dashboard.tsx` |
+| `Session` (draft) | list row source: `paused`, `toolsMissing`, issue, workflow | `classic-final:packages/screens/src/draft/sessions.ts:1096` |
+| `SessionRecord` | wire: `state`, `waiting_for`, `hosted.start`, `hosted.paused`, `title`, `started_at` | `classic-final:packages/protocol/src/sessions.ts` |
+| `Item` | a call: `key`, `title`, `kind`, `fact`, `waiting.item.source` | `classic-final:apps/desktop/src/renderer/src/Dashboard.tsx` |
 | `RowView` | boolean per `ViewField` | `row-view.tsx` |
 
 Calls come from `useItems("command-central")`; `incomingOf` (`store.ts:526`) and `callOwnerOf` (`store.ts:578`) pick one call per Job.
@@ -318,8 +318,8 @@ The list-side pulse is in 1.4; the Calls HUD and Dock are in section 5.
 | Panel | `PC/compositions/NeedsYouPanel/NeedsYouPanel.tsx` (715 lines), `NeedsYouPanel.css` (426 lines) |
 | Other bands in the same family | `PC/compositions/NeedsYouPanel/WaitingBand.tsx` (a wait that is not him), `HandoffBand`, `StartAct`, `useEscapeFold.ts`, `useScrimFold.ts` |
 | Row rendering and marks | `PC/compositions/SessionLedger/SessionLedger.tsx` (`waitingMark` 892, `WAITING_ACT` 275, `QUESTION` 330, `REPLY` 312, `HELD_CHILD` 318, `READ_FROM_REPLY` 324, `LedgerRows`, `RestartKey`), `SessionLedger.css` |
-| Host (what the panel is given) | `apps/desktop/src/renderer/src/sessions.tsx:~2354-2660` and `:~3300-3380` |
-| Waiting data | `apps/desktop/src/renderer/src/cockpit/waiting.ts` |
+| Host (what the panel is given) | `classic-final:apps/desktop/src/renderer/src/sessions.tsx:~2354-2660` and `:~3300-3380` |
+| Waiting data | `classic-final:apps/desktop/src/renderer/src/cockpit/waiting.ts` |
 | Key | registry `needs_you`, `⇧⌘Y`, scope `thread` |
 
 ### 2.2 Layout
@@ -450,7 +450,7 @@ Arrow keys step between `LIST_KEYS` (open buttons, offer keys, `[data-aside]`, r
 ### 2.9 Data
 
 `LedgerEntry` (`SessionLedger.tsx`): `key`, `act`, `text`, `name`, `options`, `onReply`, `onOpen`, `onDismiss`, `onMisread`, `onConfirmed`, `confirmed`, `restart`, `start`, `operator`.
-Wire: `WaitingItem`, `WaitingSource`, `WaitingAct`, `SessionStanding` in `packages/protocol/src/sessions.ts`.
+Wire: `WaitingItem`, `WaitingSource`, `WaitingAct`, `SessionStanding` in `classic-final:packages/protocol/src/sessions.ts`.
 `CALL_WORD` in 1.4 maps `source` to a word.
 `BLOCKED` sources for sound: `ask_card`, `permission`, `window_ask`, `plan`, `slot_choice`, `delivery`, `task_done`, `browser_ask` (`session-attention.ts:19`).
 
@@ -466,7 +466,7 @@ The reply box inside a ledger row (`LedgerRows`, `replying`, `SessionLedger.tsx:
 |---|---|
 | Sheet composition | `PC/compositions/ReviewSheet/ReviewSheet.tsx` (512 lines), `ReviewSheet.css` (151 lines) |
 | Shell it sits in | `PC/primitives/Sheet/Sheet.tsx`, `Sheet.css` |
-| Host that builds the items | `apps/desktop/src/renderer/src/session-view/JobReviewSheet.tsx` (425 lines) |
+| Host that builds the items | `classic-final:apps/desktop/src/renderer/src/session-view/JobReviewSheet.tsx` (425 lines) |
 | Opened from | `sessions.tsx:3326-3330` (`setReviewSheetFor(session.id)`) |
 | Key | `⇧⌘Y` (`needs_you`) in `NeedsYouPanel.tsx:357-375` |
 
@@ -561,7 +561,7 @@ The sheet bodies (plan card, `SketchBody`, `DocumentBody`, `DraftRow`) belong to
 
 | What | File |
 |---|---|
-| Entries, sections, acts | `packages/shell/src/Palette.tsx` (sections ~535-600; session entries ~777-790; `metaOfJob` 1163; `KIND` 1182; `actionsOf`/`ownActs` ~1300-1420) |
+| Entries, sections, acts | `classic-final:packages/shell/src/Palette.tsx` (sections ~535-600; session entries ~777-790; `metaOfJob` 1163; `KIND` 1182; `actionsOf`/`ownActs` ~1300-1420) |
 | Component | `PC/primitives/CommandPalette/CommandPalette.tsx`, `.css`, `actions-panel.tsx`, `row-meta.tsx` |
 | Mount and rows | `PaletteMount.tsx`, `palette-job-row.ts`, `palette-page.ts`, `palette-rows.ts:~210-250` |
 | Contract | `docs/contracts/design-system/keyboard-and-command-palette.md` (grep only) |
@@ -701,15 +701,15 @@ The pulsing row, the Cockpit tab pip, the Calls HUD, the toast and the Dock badg
 
 | Signal | File |
 |---|---|
-| macOS banner for a Job that started waiting | `apps/desktop/src/main/session-attention.ts` (rule, words, tone), `apps/desktop/src/main/index.ts:~677-725` (effect) |
-| Banner hold | `apps/desktop/src/main/banners.ts` (`showHeld`) |
-| Banner sound | `apps/desktop/src/main/telling.ts` (`soundOf`), `apps/desktop/sounds/armada-blocked.wav`, `armada-waiting.wav`, `tones.mjs` |
+| macOS banner for a Job that started waiting | `classic-final:apps/desktop/src/main/session-attention.ts` (rule, words, tone), `classic-final:apps/desktop/src/main/index.ts:~677-725` (effect) |
+| Banner hold | `classic-final:apps/desktop/src/main/banners.ts` (`showHeld`) |
+| Banner sound | `classic-final:apps/desktop/src/main/telling.ts` (`soundOf`), `classic-final:apps/desktop/sounds/armada-blocked.wav`, `armada-waiting.wav`, `tones.mjs` |
 | Other OS notices | `downshift-notice.ts`, `agent-sign-in-notice.ts` (same `showHeld`) |
-| Dock badge | `apps/desktop/src/renderer/src/cockpit/DockCount.tsx`; main `index.ts:1142-1144` |
-| In-app toast | `apps/desktop/src/renderer/src/cockpit/CallAlerts.tsx`, `arrivals.ts` (`alertOf` 51), `PC/primitives/Toast/Toast.tsx`, `Toast.css` |
+| Dock badge | `classic-final:apps/desktop/src/renderer/src/cockpit/DockCount.tsx`; main `index.ts:1142-1144` |
+| In-app toast | `classic-final:apps/desktop/src/renderer/src/cockpit/CallAlerts.tsx`, `arrivals.ts` (`alertOf` 51), `PC/primitives/Toast/Toast.tsx`, `Toast.css` |
 | Tab pip | `PC/primitives/Tabs/Tabs.css:149` |
 | Calls HUD | `DK/ConsoleCalls.tsx`, tile in `DK/ConsoleBays.tsx:~215-260` and `flight-controls.ts` (built-in tile `needs`, label `Calls`, glyph `megaphone`) |
-| UI sounds (separate) | `apps/desktop/src/renderer/src/ui-sounds.ts`, `app-effects.ts:68` |
+| UI sounds (separate) | `classic-final:apps/desktop/src/renderer/src/ui-sounds.ts`, `app-effects.ts:68` |
 | Contract | `docs/contracts/design-system/sound.md` |
 | Setting | `features.notifications` (live), `features.uiSounds`; `crates/config/settings.toml:~258` |
 
@@ -777,7 +777,7 @@ Calls tile: `Calls`.
 
 `Told` (`sessionId`, `title`, `body`, `tone`), `Tone` (`blocked | waiting`), `Alert` (`key`, `keys`, `sentence`), `Held`, `Item`, `WaitingItem` (`id`, `text`, `since`, `source`), `SessionRecord.waiting_for`.
 
-"Which Jobs he has been in" is `apps/desktop/src/renderer/src/cockpit/viewed.ts`, and it moves to a Fleet view; Fleet will serve it to the native app.
+"Which Jobs he has been in" is `classic-final:apps/desktop/src/renderer/src/cockpit/viewed.ts`, and it moves to a Fleet view; Fleet will serve it to the native app.
 Today's behaviour, which the Fleet view has to reproduce:
 
 | Aspect | Today |

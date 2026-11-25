@@ -100,7 +100,7 @@ Migrations `20261113T1200Z-workflow_drafts.table.sql` and `20261113T1200Z-workfl
 ## Skew and the stream
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-Bridge's half is `packages/protocol/src/workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
 **The event stream.** Untouched: a draft raises no event of its own, and a publish raises the `repositories.changed` a save already did.
 A Bridge learns an agent's change landed from `WorkflowChange.drafted` on the list it already polls while a change drafts, and reads the draft then.
 The open risk below is neither better nor worse.

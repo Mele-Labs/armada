@@ -29,4 +29,4 @@ Fleet places the caller by its connection, and a caller it cannot place stays `o
 **An asked run is never a `CheckRun`**, so a dry result cannot be read as a gate's pass. It is its own row in `asked_runs`; a `running` row begun by a Fleet that is gone reads `lost`.
 
 **One migration, V113**, `asked_runs`, pointing at `jobs`.
-**Bridge's half**, mirrored by hand in `packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.40 still type.
+**Bridge's half**, mirrored by hand in `classic-final:packages/protocol`: `requester.ts` holds `Requester`, `AskedRun`, `requesterOf` and the kind spellings; `requester` and `asked_runs` are optional there so a fixture and a Fleet before 23.40 still type.

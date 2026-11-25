@@ -1,4 +1,4 @@
-//! A `screen` node's layout tree as a client draws it: `screen.ts`'s `ScreenElement` in Rust, so the
+//! A `screen` node's layout tree as a client draws it: Classic's `ScreenElement` (`classic-final:packages/components/src/compositions/SketchScene/screen.ts`) in Rust, so the
 //! native Bridge reads one without decoding JSON itself. **All of it or nothing**: a tree the checks in
 //! `sketch::screen` find a problem in reads as `None`, as `readScreen` gives `undefined`.
 

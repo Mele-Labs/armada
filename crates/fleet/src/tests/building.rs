@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, SnapshotState};
 
 use crate::building::{
-    checkout_of, left_out_in, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
+    broke_in, checkout_of, left_out_in, Broke, Building, LeftOut, NotChanged, NotOffered, NotReverted, NotSnapshotted,
     NotSwapped,
 };
 use crate::kept_builds::{fleet_label, fleet_program, APP, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
@@ -330,6 +330,47 @@ fn the_branches_left_out_are_read_for_the_running_build_only() {
     assert_eq!(read.len(), 2, "{read:?}");
     assert_eq!(read["armada/a"], LeftOut { tip: "a".repeat(40), why: "conflict: apps/a.ts, apps/b.ts".into() });
     assert_eq!(read["armada/b"], LeftOut { tip: "b".repeat(40), why: "does not build: x.rs".into() });
+}
+
+#[test]
+fn the_rounds_that_did_not_build_are_read_a_block_each_and_unreadable_lines_are_skipped() {
+    let support = TempDir::new();
+    assert!(broke_in(support.path()).is_empty(), "no file");
+
+    let (first, second, third) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
+    let (tip_a, tip_b) = ("1".repeat(40), "2".repeat(40));
+    fs::write(
+        support.path().join("preview-broke"),
+        format!(
+            "{first}\nerror[E0063]: missing field `workflow` (crates/x.rs:7)\narmada/a\t{tip_a}\tchanged StartSession, which crates/x.rs uses\nno tab here\narmada/b\t{tip_b}\twas in it\n\n\
+             {second}\nerror: nobody to tell\n\n\
+             not a commit\nerror: skipped\narmada/a\t{tip_a}\twas in it\n\n\
+             {third}\nerror: last\narmada/a\t{tip_a}\tleft out: does not build: crates/x.rs"
+        ),
+    )
+    .unwrap();
+
+    let read = broke_in(support.path());
+    let branch = |name: &str, tip: &String, what: &str| (name.to_string(), tip.clone(), what.to_string());
+    assert_eq!(
+        read,
+        [
+            Broke {
+                commit: first,
+                error: "error[E0063]: missing field `workflow` (crates/x.rs:7)".into(),
+                branches: vec![
+                    branch("armada/a", &tip_a, "changed StartSession, which crates/x.rs uses"),
+                    branch("armada/b", &tip_b, "was in it"),
+                ],
+            },
+            Broke { commit: second, error: "error: nobody to tell".into(), branches: Vec::new() },
+            Broke {
+                commit: third,
+                error: "error: last".into(),
+                branches: vec![branch("armada/a", &tip_a, "left out: does not build: crates/x.rs")],
+            },
+        ]
+    );
 }
 
 #[tokio::test]

@@ -19,7 +19,7 @@ use crate::repositories::Served;
 use crate::wire_types::{changed_types, TypeChange};
 
 /// Where the wire is read. A branch that changes nothing here has no reason to hear of it.
-const READERS: [&str; 3] = ["crates/bridge-native", "apps/pocket", "packages/protocol"];
+const READERS: [&str; 2] = ["crates/bridge-native", "apps/pocket"];
 
 /// How many places a type is read are named.
 const PLACES: usize = 3;

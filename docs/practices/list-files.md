@@ -3,7 +3,7 @@
 A list file is one where every line stands alone and a change is a line added:
 an operation table, an icon registry, a module list. Two branches that each add
 a line to one conflict on the last line, however unrelated the lines are. On
-14 Sep to 3 Oct that was `packages/components/src/index.ts` 35 times,
+14 Sep to 3 Oct that was `classic-final:packages/components/src/index.ts` 35 times,
 the operation table 21 and `crates/fleet/src/tests/mod.rs` 11 (#1059).
 
 **A list is a directory with one file an entry.** Two branches adding two
@@ -20,7 +20,7 @@ conflict where git's union merge would not have.
 | `crates/ipc/operations/` | `<operation>.toml` holding `[operations.<operation>]`; a dotted event name is the file name, `job.created.toml`. `_header.toml` says what the fields are | `crates/ipc/build.rs`, the protocol rules in `xtask`, and `fleet`'s door test |
 | `packages/icons/icons/` | `<glyph>.toml` holding `[icons.<glyph>]` and every `[[icons.<glyph>.usage]]` of it. `_header.toml` says what the fields are | the icon and action rules in `xtask` |
 | `packages/icons/conventions/` | `<rule>.toml` holding `[conventions.<rule>]` | the same |
-| `apps/desktop/src/renderer/src/mock/scenarios/` | A file exporting one `Scenario`; `scenario.ts` reads the directory with `import.meta.glob` | `scenario.ts` |
+| `classic-final:apps/desktop/src/renderer/src/mock/scenarios/` | A file exporting one `Scenario`; `scenario.ts` reads the directory with `import.meta.glob` | `scenario.ts` |
 | `crates/fleet/src/tests/` | A `<module>.rs`; `crates/fleet/build.rs` writes `mods.inc`, which git ignores, and `mod.rs` includes it | `crates/fleet/build.rs` |
 
 **The key is the file's name.** `cargo xtask verify-foundations` (*every list
@@ -54,9 +54,9 @@ Add the file. Nothing else lists it.
 
 | File | Why not | What would make it one |
 |---|---|---|
-| `packages/components/src/index.ts` | A barrel. TypeScript has no glob export, so each component is a line someone writes, and a branch adding one conflicts with another doing the same. 35 conflicts in three weeks | Importing a component by its own path, `@armada/components/<Name>`, which gives up the one curated entry |
+| `classic-final:packages/components/src/index.ts` | A barrel. TypeScript has no glob export, so each component is a line someone writes, and a branch adding one conflicts with another doing the same. 35 conflicts in three weeks | Importing a component by its own path, `@armada/components/<Name>`, which gives up the one curated entry |
 | `crates/ipc/src/lib.rs` | `pub use` re-exports are rustfmt-wrapped multi-line statements, not lines, and `#[cfg(test)] mod tests;` sits between the two lists | One `pub use m::*;` a module, which gives up the curated export surface |
-| `packages/protocol/src/pending.ts` | Deletions: two branches deleting different entries conflict, and a directory does not change that | None; it is edited by removing |
+| `classic-final:packages/protocol/src/pending.ts` | Deletions: two branches deleting different entries conflict, and a directory does not change that | None; it is edited by removing |
 
 ## Limits
 

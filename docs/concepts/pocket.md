@@ -34,7 +34,7 @@ Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
 ## What the app keeps in its own folder
 
-Pocket imports nothing from Bridge Classic's packages, `packages/components` and `packages/screens`.
+Pocket imports nothing from Bridge Classic's packages, `classic-final:packages/components` and `classic-final:packages/screens`.
 The components and screen modules it draws are in `apps/pocket/src/kit/`, copied from those packages and trimmed to what Pocket calls.
 `kit/components/` holds the components with their stylesheets, and `kit/screens/` holds the wire mapping, the page reader for a Job's document and the copy.
 Pocket still shares `@armada/tokens` and `@armada/brand`, which are no one surface's.

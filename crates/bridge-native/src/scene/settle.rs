@@ -1,4 +1,4 @@
-//! Ported from `packages/components/src/compositions/SketchScene/settle.ts`.
+//! Ported from `classic-final:packages/components/src/compositions/SketchScene/settle.ts`.
 
 use std::cmp::Ordering;
 

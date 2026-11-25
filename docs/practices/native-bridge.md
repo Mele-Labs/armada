@@ -35,22 +35,23 @@ Missing logic is a Fleet change, so Pocket gets it too.
 
 ## The design loop
 
-**A native screen is a port of its Electron screen, never a redesign.**
-It keeps the layout, controls, states and keys it has today.
+**A native screen is a port of its Classic screen, never a redesign.**
+It keeps the layout, controls, states and keys Classic had, read at the tag `classic-final`.
+A screen the owner has asked to come back with a new layout is not a port: Mods, Doctor, Cleanup and Lessons (armada-gmue, armada-c7ra, armada-ua7n, armada-sgrk).
 Every feature goes through the same five steps, in order.
 
-1. An inventory of the Electron screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
+1. An inventory of the Classic screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A parity check against running Electron, by the Job and then by a checker that did not build it.
+3. A parity check against the inventory, by the Job and then by a checker that did not build it.
 4. The branch offered with `offer_preview`, which he tries in his preview after Refresh preview.
    He takes notes on it there with ⌥⌘A, or approves, and changes go into the native screens only.
 5. Land.
 
 **The parity check passes before any walk is shown.**
-It compares pictures, not code: Electron's renderer on the mock Fleet in Playwright, at the walk window's size and on the same scenarios, beside each step of `--shots`.
+It compares pictures, not code: each step of `--shots` against what the inventory says Classic drew.
 The Job looks at every picture itself, and a subagent's own table never signs off.
 Then the orchestrating Job runs a checker agent that did not build the feature, and looks at the pictures before the walk is shown.
-At least these match Electron:
+At least these match Classic:
 
 | Area | Matches |
 |---|---|
@@ -111,19 +112,14 @@ The host is Apple's WKWebView, laid over its pane's frame, with the page's pictu
 
 ## What gpui cannot match
 
-**A screen is drawn as Electron draws it, and these are the known gaps.**
+**A screen is drawn as Classic drew it, and these are the known gaps.**
 Say the ones a screen shows in the brief of its walk.
-A native walk is shown alone, never with the Electron screen in a second tab: he opens Electron himself to compare (9 Nov 2026).
+A native walk is shown alone, never beside a picture of the Classic screen (9 Nov 2026).
 
 | Gap | Where it shows | Why |
 |---|---|---|
-| No letter-spacing | The Jobs list's group heads, set at 0.18em in Electron | gpui's text style has no tracking |
+| No letter-spacing | The Jobs list's group heads, set at 0.18em in Classic | gpui's text style has no tracking |
 | No weight 600 in Plex Mono | The same heads, which ask for 600 | `packages/tokens/fonts` ships Mono at 400 and 500, and a browser fakes the bold where gpui does not |
-
-## The overlap rule
-
-**An Electron feature that lands gets a task in the matching step of the build order in [Native Bridge](../concepts/native-bridge.md).**
-Electron takes only fixes and small features that help the owner daily.
 
 ## Targets
 

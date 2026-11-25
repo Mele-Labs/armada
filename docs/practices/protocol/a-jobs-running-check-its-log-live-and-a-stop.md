@@ -4,7 +4,7 @@
 
 Since 16 Oct 2026. `docs/concepts/session.md`.
 **Additive only**: one value on `SessionCheckAct` (`chunk`), one optional field on `SessionCheckAnswer` (`stop`), `SessionCheckStop`, `SessionCheckOutputMessage` and its opening, and three operations, `observe_session_check` (`GET /sessions/checks/:run/observe`, a WebSocket), `stop_session_check` and `force_stop_session_check` (`POST /sessions/checks/:run/stop` and `/force_stop`), all `agent_access` `No`.
-Fleet and Bridge both carry them; Bridge's half is `packages/protocol/src/sessions.ts`, written by hand.
+Fleet and Bridge both carry them; Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand.
 There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
 
 **Fleet never reaches the Check's process.** `armada check` runs in the Job's own process, so it tells Fleet what it printed in `chunk` calls (a quarter-second apart) and Fleet answers each with the stop a person asked for.

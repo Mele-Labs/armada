@@ -1,7 +1,7 @@
 //! Settings → Workflows, under a copy's steps: the box that tells an agent what to change, and the change it comes
 //! back with for him to approve, send back or dismiss. A port of Classic's `Agent`, `StepChangeCard` and
-//! `FieldValue` (`packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`), `stepChangesOf`
-//! (`diff.ts`) and `agentOf` (`apps/desktop/src/renderer/src/workflow-manager-wire.ts`), the acts wired as
+//! `FieldValue` (`classic-final:packages/components/src/compositions/WorkflowManager/WorkflowManager.tsx`), `stepChangesOf`
+//! (`diff.ts`) and `agentOf` (`classic-final:apps/desktop/src/renderer/src/workflow-manager-wire.ts`), the acts wired as
 //! `workflow-manager.tsx` wires them. Fleet's routes are `crates/ipc/operations/*_workflow_change*.toml`.
 
 use std::cell::{Cell, RefCell};

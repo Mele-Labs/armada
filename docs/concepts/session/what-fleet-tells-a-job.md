@@ -132,4 +132,4 @@ A Fleet that does not serve `armada` keeps the dispute and starts nothing, and s
 
 **Bridge marks the notice.** Fleet's card in the thread carries a Disputed mark, and a line under it gives the reason, how it was spotted and a press that opens the review Job.
 Where no review was started the line says so and draws no press.
-`packages/components/src/compositions/SessionThread/DisputedRow.tsx` draws it.
+`classic-final:packages/components/src/compositions/SessionThread/DisputedRow.tsx` draws it.

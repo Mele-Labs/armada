@@ -190,14 +190,14 @@ A new kind of rule, or a different way Fleet works, is a code mod: a Job impleme
 | Piece | Home |
 |---|---|
 | The operations | `read_teaching`, `save_teaching`, `list_word_rules` in `crates/ipc/operations/` |
-| The wire | `crates/ipc/src/teaching.rs`, mirrored by `packages/protocol/src/teaching.ts` |
+| The wire | `crates/ipc/src/teaching.rs`, mirrored by `classic-final:packages/protocol/src/teaching.ts` |
 | Notice words | `crates/ipc/src/notices.rs` |
 | Reading, checking, saving, finding addresses, asking | `crates/fleet/src/teaching/` |
-| The panel | `TeachPanel` in `packages/components/src/compositions/TeachPanel/`, and the walks `teach-anything`, `teach-mods` and `teach-rule` in the mock |
+| The panel | `TeachPanel` in `classic-final:packages/components/src/compositions/TeachPanel/`, and the walks `teach-anything`, `teach-mods` and `teach-rule` in the mock |
 | What a Words mod and a Fleet mod hold | [Mod](mods.md) |
 | Reading and keeping a rule | `crates/fleet/src/teaching/ruling.rs`, over `rule_as_read` in `crates/fleet/src/piece_saving.rs` |
 
-Fleet's three operations are built, and Bridge's calls to them are in `apps/desktop/src/main/teaching.ts`.
+Fleet's three operations are built, and Bridge's calls to them are in `classic-final:apps/desktop/src/main/teaching.ts`.
 No real window provides a Teach source yet, so only the mock draws Teach.
 
 ## What is kept

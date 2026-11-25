@@ -5,7 +5,7 @@
 Since 14 Oct 2026. `docs/concepts/session.md`, *Working on*.
 **Additive only**: one optional field on `SessionRecord` and three types.
 No operation, event kind or error is new.
-Bridge's half is `packages/protocol/src/session-activity.ts` and `sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/session-activity.ts` and `sessions.ts`, written by hand.
 There is no number to take: the protocol ID moves with `crates/ipc/src/session_activity.rs`.
 
 | Where | Carries | Absent |
@@ -33,7 +33,7 @@ A Fleet restart starts the field empty.
 
 **A server knows the Job that started it.** `ServerState.session_id` (since 22 Oct 2026, optional, left out while empty) is the Job whose agent called `start_server`, placed by its connection as `show_window` places one.
 `Commands::start_server` takes the caller for it, which is Rust only and not on the wire.
-Bridge's half is `session_id` on `ServerState` in `packages/protocol/src/servers.ts`.
+Bridge's half is `session_id` on `ServerState` in `classic-final:packages/protocol/src/servers.ts`.
 
 **Skew.** A Bridge that predates this ignores an `activity` it does not read.
 A Fleet that predates it sends none, and Bridge treats that as no activity.

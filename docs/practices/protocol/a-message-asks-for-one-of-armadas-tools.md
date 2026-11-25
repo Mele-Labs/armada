@@ -4,8 +4,8 @@
 
 Since 19 Nov 2026. The native Bridge's message box lists Armada's own tools under its + button and `ask_for_tool` (⌘/), and the one picked goes in at the caret as a chip.
 **Additive only**: one `TagKind`; no operation, route, event kind or field.
-There is no number to bump: the protocol ID moves with `crates/ipc/src` and `packages/protocol/src`.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand; Pocket's `apps/pocket/src/wire/hosted-sessions.ts` is generated.
+There is no number to bump: the protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand; Pocket's `apps/pocket/src/wire/hosted-sessions.ts` is generated.
 
 | Where | Side | Carries |
 | --- | --- | --- |

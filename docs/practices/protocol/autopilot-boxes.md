@@ -5,8 +5,8 @@
 `docs/concepts/autopilot.md`.
 The person checks what goes on autopilot and which kinds of decision a helper may answer, and Fleet keeps what was checked.
 **Additive only**: two fields on two types, and a migration with a name and not a number.
-The protocol ID moves with `crates/ipc/src/autopilot.rs`, the operation files and `packages/protocol/src/autopilot.ts`, and there is no number to take.
-Bridge's half is `packages/protocol/src/autopilot.ts`, written by hand.
+The protocol ID moves with `crates/ipc/src/autopilot.rs`, the operation files and `classic-final:packages/protocol/src/autopilot.ts`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/autopilot.ts`, written by hand.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -8,7 +8,7 @@
 
 Since 19 Oct 2026; collections and environments since 21 Oct 2026.
 The wire is `docs/practices/protocol.md`, *Requests*, and the nine operations in `crates/ipc/operations/`: `get_requests`, `save_request_collection`, `save_request_environment`, `delete_request_environment`, `save_request_to_collection`, `send_request`, `send_requests`, `list_request_runs` and `get_request_run`.
-Bridge's panel is `apps/desktop/src/renderer/src/shared-panel/requests.tsx`.
+Bridge's panel is `classic-final:apps/desktop/src/renderer/src/shared-panel/requests.tsx`.
 
 ## Who uses it
 
@@ -157,7 +157,7 @@ Requests opens from the palette, `⌘K`, by name, and from a Job's Requests tile
 | `requests-collections-and-environments` | A saved request opened from the thread, an environment with a secret, a send, and the palette with no Job |
 | `requests-repository-picker` | The Repository picker, and a repository whose own file will not read |
 
-Both are in `apps/desktop/src/renderer/src/mock/walks/`.
+Both are in `classic-final:apps/desktop/src/renderer/src/mock/walks/`.
 
 ## Not built
 

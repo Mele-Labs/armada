@@ -1,6 +1,6 @@
 //! Settings → Keyboard shortcuts: every act with a key, grouped by where a person stands when they press it, each
 //! key a control that takes the next key pressed. A port of Classic's `KeyboardSettings.tsx` and `KeyBindingRow`,
-//! with the grouping, spelling and conflicts of `packages/components/src/keymap.ts`. What changes here is kept by
+//! with the grouping, spelling and conflicts of `classic-final:packages/components/src/keymap.ts`. What changes here is kept by
 //! Fleet as `key_bindings` and laid over `actions.toml`'s keys (`docs/concepts/key-bindings.md`).
 
 use std::collections::BTreeMap;
