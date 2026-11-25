@@ -636,6 +636,7 @@ pub(crate) fn hub_of(
         forge_read_at: None,
         quiet_since: None,
         quiet_reason: None,
+        queue_stuck: None,
     })
 }
 
