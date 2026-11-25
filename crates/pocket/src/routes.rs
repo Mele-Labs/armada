@@ -170,6 +170,12 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/thread", get(forward::forward))
         .route("/api/sessions/repository_file", get(forward::forward))
         .route("/api/sessions/ready_to_try/answer", post(forward::forward))
+        // The Judge on demand: a press, a note sent or dismissed, a reading opened, and the judge types a press offers.
+        .route("/api/sessions/judge", post(forward::forward))
+        .route("/api/sessions/judge/send", post(forward::forward))
+        .route("/api/sessions/judge/dismiss", post(forward::forward))
+        .route("/api/sessions/judge/read", post(forward::forward))
+        .route("/api/judge_types/:repository", get(forward::forward))
         .route("/api/plan_usage", get(forward::forward))
         // Refresh preview: Fleet's own refusals and its both-Macs refresh, as they are.
         .route("/api/fleet/build/change", post(forward::forward))
