@@ -50,10 +50,22 @@ jobs:
       compile: ${{ steps.covers.outputs.compile }}
       native: ${{ steps.covers.outputs.native }}
       whole: ${{ steps.paths.outputs.whole }}
+      queued_pr: ${{ steps.queued_pr.outputs.pr }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+
+      # The pull request a queue run tests, which `native` keys its concurrency on.
+      - name: The queued pull request
+        id: queued_pr
+        if: github.event_name == 'merge_group'
+        env:
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          pr=$(python3 .github/ci/queued_pr.py "$HEAD_REF")
+          echo "QUEUED_PR ${pr:-none}"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
 
       # A push to main the merge queue already tested is the same commit: the
       # queue's run on this sha passed `ci`. A read that fails warns and runs
@@ -892,8 +904,17 @@ jobs:
     name: native
     needs: plan
     if: needs.plan.outputs.native == 'true'
+    # A rebuilt queue group reruns the same pull request on a new base, and GitHub cancels
+    # nothing of the abandoned run, whose `native` would hold one of the few Mac runners for
+    # most of an hour. Keyed on the pull request, the newer run cancels it. Any other run
+    # keys on its own id and cancels nothing. docs/practices/ci.md, *A rebuilt queue group
+    # cancels its old native job*.
+    concurrency:
+      group: native-queue-${{ needs.plan.outputs.queued_pr || github.run_id }}
+      cancel-in-progress: ${{ needs.plan.outputs.queued_pr != '' }}
     runs-on: macos-15
-    timeout-minutes: 60
+    # The crate compiled in 21 to 39 minutes on 25 Nov 2026, and 60 timed out on a slow Mac.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # The crate has a `target` of its own, named so it is cached.

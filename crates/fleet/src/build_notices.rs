@@ -23,11 +23,12 @@ use adapters::BranchInBuild;
 use ipc::BuildSource;
 use store::{AttachmentState, HolderKind, SessionState, Store};
 
-use crate::building::{commit_in, left_out_in, restarting_in, source_in, LeftOut};
+use crate::building::{broke_in, commit_in, left_out_in, restarting_in, source_in, Broke, LeftOut};
 use crate::clock::elapsed;
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
 use crate::repositories::Served;
+use crate::session_host::address_of;
 
 /// What a session is told, in bare facts. `why` is what the preview recorded of each branch it left out.
 fn said(
@@ -56,6 +57,18 @@ fn said(
                 format!("{branch} is in it up to {}; {since} commits since are not.", short(newest))
             }
         });
+    }
+    out
+}
+
+/// What a session is told of a preview round that did not build. `others` are the other sessions told the same.
+fn said_broke(round: &Broke, mine: &[&(String, String, String)], others: &[String]) -> String {
+    let mut out = format!("The preview at {} did not build: {}.", short(&round.commit), round.error.trim_end_matches('.'));
+    for (branch, _, what) in mine {
+        out.push_str(&format!("\n{branch}: {what}."));
+    }
+    if !others.is_empty() {
+        out.push_str(&format!("\nAlso told: {}. Message them and agree which of you fixes it.", others.join(", ")));
     }
     out
 }
@@ -111,7 +124,50 @@ where
             }
             sweep.builds_told_last = Some(now);
         }
+        self.broken_builds_told().await;
         self.builds_told().await;
+    }
+
+    /// Tell each live Session holding a branch a failed preview round named, once per failed commit.
+    /// **Not held back by a restart under way**: a round can fail and the script go again while the status
+    /// says running, and the Jobs should hear at once. Nothing here fails the turn.
+    pub(crate) async fn broken_builds_told(self: &Arc<Self>) {
+        let support = crate::runtime::support_dir(&self.host().home);
+        let broke = broke_in(&support);
+        if broke.is_empty() {
+            return;
+        }
+        for served in self.repositories().served() {
+            let held = branches_held(&*self.store().lock().await, &served);
+            for round in &broke {
+                self.broke_told_in(&held, round).await;
+            }
+        }
+    }
+
+    /// One repository's sessions for one failed round. A session that cannot be told keeps nothing, to be asked again.
+    async fn broke_told_in(self: &Arc<Self>, held: &BTreeMap<String, BTreeSet<String>>, round: &Broke) {
+        let named: BTreeMap<&String, Vec<&(String, String, String)>> = held
+            .iter()
+            .map(|(session, branches)| (session, round.branches.iter().filter(|(branch, ..)| branches.contains(branch)).collect::<Vec<_>>()))
+            .filter(|(_, mine)| !mine.is_empty())
+            .collect();
+        let key = format!("broke:{}", round.commit);
+        for (session, mine) in &named {
+            if self.store().lock().await.build_notice_kept(&key, session).unwrap_or(true) {
+                continue;
+            }
+            let others = named.iter().filter(|(other, _)| other != &session).map(|(other, theirs)| {
+                let branches: Vec<&str> = theirs.iter().map(|(branch, ..)| branch.as_str()).collect();
+                format!("{} ({})", address_of(other), branches.join(", "))
+            });
+            let text = said_broke(round, mine, &others.collect::<Vec<_>>());
+            if !matches!(self.told_news_by_fleet(session, &text, ipc::Notice::BuildMoved).await, Ok(true)) {
+                continue;
+            }
+            let at = self.now();
+            let _ = self.store().lock().await.keep_build_notice(&key, session, &at);
+        }
     }
 
     /// An item that asks him to refresh or restart Fleet settles itself once Fleet runs a build made after the item

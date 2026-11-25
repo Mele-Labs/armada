@@ -672,6 +672,15 @@ Fleet never starts a restart the owner did not press for.
 **Each notice is told once per build, and a restart does not repeat it.** The store keeps (build commit, job).
 A job that cannot be told now is asked again at the next reading and nothing is kept for it, and its wait stands until it is.
 
+### Telling jobs a preview did not build
+
+**A preview that fails to build is told to the Jobs it names, not only drawn on the Fleet panel.** Until 25 Nov 2026 a failed refresh was a red line on the panel, and no Job heard, so the owner had nobody to hand it to.
+Fleet reads `Armada/preview-broke` (`docs/practices/running-locally.md`) once an interval, while a restart is still under way too, since a round can fail while the script goes again.
+For each failed commit, each live Job holding a branch the block names is told once: `The preview at <commit> did not build: <error>.`, then `<branch>: <what>.` for each of its branches named.
+When the block names branches other Jobs hold, it adds `Also told:` with their addresses and asks them to message each other and agree which of them fixes it.
+A clash of two branches that build alone is not one Job's fault, and they are the ones who can settle it.
+A Job that could not be told is asked again on the next reading.
+
 ### Offering a branch for the preview
 
 **A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
