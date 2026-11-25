@@ -23,6 +23,9 @@ Bridge's half is `classic-final:packages/protocol/src/merge-line-view.ts`, writt
 | `main` | `green`, or `red` with the first failed job as `failed` and the others as `also`; absent otherwise |
 | `landed`, `checkout`, `read_at`, `quiet_since`, `quiet_reason`, `queue_stuck` | The hub's, as they are |
 
+**Fleet fills `queue_stuck`** from a drop for want of a runner whose put-backs are spent, or an entry that waited past its estimate, and clears it when a pull request merges or nothing waits.
+`docs/concepts/fleet.md`, *A stuck merge queue*, says how.
+
 **Someone else's pull request is listed only while it is in the queue, and then quietly.**
 It keeps its number, title, branch, address and author, and its place; its queue state is `in_queue`, and `mine` stays false so a client can tell.
 Every other field is absent and `draft` and `merge_by_hand` are false, so nothing downstream raises a card for it; its `tone` is `calm`, and `held_by` is whatever the ledger says.
