@@ -19,6 +19,7 @@ use gpui_component::input::{InputEvent, Position, TextareaState};
 use ipc::SessionTag;
 
 use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
+use super::story::{self, FeatureChoice, Keyed, Story};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::job_view::composer::{attached, clipped_keyed, pick_files, read_files, Attached};
 use crate::job_view::offer::Pick;
@@ -41,6 +42,8 @@ pub enum Asked {
     Closed,
     /// The words rested: which repository do they name.
     ReadRepository(String),
+    /// A sentence needs the feature catalog of this project, by Fleet's id. The answer is [`DispatchSheet::set_features`].
+    ReadFeatures(String),
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
     /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
@@ -74,6 +77,18 @@ pub(super) struct HeldTool {
     pub tag: SessionTag,
     pub key: FocusHandle,
 }
+
+/// A state of the box that ⌘Z comes back to: the words where no sentence stands, or the sentence, and the tools held.
+#[derive(Clone)]
+pub(super) struct Shape {
+    plain: Option<String>,
+    story: Option<Story>,
+    tools: Vec<SessionTag>,
+    preset: Vec<String>,
+}
+
+/// The most steps ⌘Z goes back.
+const HISTORY: usize = 200;
 
 /// The popover a trigger in the drawer opens.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -122,6 +137,25 @@ pub struct DispatchSheet {
     /// The act is waiting for the repository read to answer.
     waiting: bool,
     pub(super) menu: Option<Menu>,
+    /// The sentence being written, once an opening is taken. The request's own box is put away while it stands.
+    pub(super) story: Option<Story>,
+    /// The opening marked in the list under the caret, among the ones the typed words begin.
+    pub(super) opening: usize,
+    /// The feature catalog of one project, by Fleet's id, as last answered.
+    catalog: Option<(String, Vec<FeatureChoice>)>,
+    /// The project whose catalog was asked for and has not answered.
+    features_asked: Option<String>,
+    /// The tools the sentence's kind put in, which go again where it turns to plain words.
+    preset: Vec<String>,
+    /// The states ⌘Z goes back to, newest last, and the ones it came from, for ⌘Y.
+    past: Vec<Shape>,
+    future: Vec<Shape>,
+    /// The blank a run of letters is going into: the run is one step, so a letter in it adds none.
+    run: Option<usize>,
+    /// The request's box holds what ⌘Z or Esc put in it and nothing was typed since: its ⌘Z and ⌘Y are the sentence's.
+    untouched: bool,
+    pub(super) story_key: FocusHandle,
+    pub(super) list_scroll: gpui::ScrollHandle,
     /// The tools the + lists are open, with the active row.
     pub(super) tools_open: Option<usize>,
     /// The tools picked, in the order picked, one of each.
@@ -157,7 +191,7 @@ pub struct DispatchSheet {
 
 impl Focusable for DispatchSheet {
     fn focus_handle(&self, cx: &App) -> FocusHandle {
-        self.request.focus_handle(cx)
+        self.words_focus(cx)
     }
 }
 
@@ -173,7 +207,7 @@ impl DispatchSheet {
             match event {
                 PadEvent::Attached(drawn) => this.drawn.push(drawn.clone()),
                 PadEvent::Closed => {
-                    let focus = this.request.focus_handle(cx);
+                    let focus = this.words_focus(cx);
                     window.focus(&focus, cx);
                 }
             }
@@ -199,6 +233,17 @@ impl DispatchSheet {
             asking: false,
             waiting: false,
             menu: None,
+            story: None,
+            opening: 0,
+            catalog: None,
+            features_asked: None,
+            preset: Vec::new(),
+            past: Vec::new(),
+            future: Vec::new(),
+            run: None,
+            untouched: false,
+            story_key: cx.focus_handle(),
+            list_scroll: gpui::ScrollHandle::new(),
             tools_open: None,
             tools: Vec::new(),
             wait_menu: None,
@@ -284,6 +329,10 @@ impl DispatchSheet {
         }
         self.keys_were = window.focused(cx);
         self.open = true;
+        self.past.clear();
+        self.future.clear();
+        self.run = None;
+        self.untouched = false;
         let me = cx.entity().downgrade();
         self.intercept = Some(cx.intercept_keystrokes(move |event, window, cx| {
             let Some(me) = me.upgrade() else { return };
@@ -319,6 +368,7 @@ impl DispatchSheet {
         }
         self.open = false;
         self.intercept = None;
+        self.flatten(window, cx);
         self.menu = None;
         self.tools_open = None;
         self.wait_menu = None;
@@ -337,12 +387,29 @@ impl DispatchSheet {
         self.tagged.as_ref().map(|(id, title)| Offered { id: id.clone(), title: title.clone() })
     }
 
+    /// The request's words: the sentence as composed while one is being written, else the box's own.
     pub(super) fn words(&self, cx: &App) -> String {
-        self.request.read(cx).value().to_string()
+        match &self.story {
+            Some(story) => story.words(),
+            None => self.request.read(cx).value().to_string(),
+        }
     }
 
     pub(super) fn worded(&self, cx: &App) -> bool {
-        !self.words(cx).trim().is_empty() || self.holds()
+        match &self.story {
+            // The tools a kind presets are no words: nothing starts until a blank holds some.
+            Some(story) => story.has_words() || !self.files.is_empty() || !self.drawn.is_empty(),
+            None => !self.words(cx).trim().is_empty() || self.holds(),
+        }
+    }
+
+    /// What has the keys when the words do: the sentence while one is written, else the request's box.
+    pub(super) fn words_focus(&self, cx: &App) -> FocusHandle {
+        if self.story.is_some() {
+            self.story_key.clone()
+        } else {
+            self.request.focus_handle(cx)
+        }
     }
 
     /// The request holds something besides words: a file, a sketch, or a tool.
@@ -379,9 +446,293 @@ impl DispatchSheet {
         self.drafting = self.drafting && self.waiting;
         let cursor = request.read(cx).cursor().min(words.len());
         self.tools_open = None;
+        self.opening = 0;
+        self.untouched = false;
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
         cx.notify();
+    }
+
+    // -- the sentence -------------------------------------------------------------------------------
+
+    /// The kinds whose opening the words begin: the ghost and its list stand while there are any.
+    pub(super) fn openings(&self, cx: &App) -> Vec<usize> {
+        if self.story.is_some() {
+            return Vec::new();
+        }
+        story::openings(&self.words(cx))
+    }
+
+    /// An opening taken, by Tab or →, or a press on its row: the box becomes the sentence, with the caret in its first
+    /// blank and the kind's tools held.
+    pub(super) fn take_opening(&mut self, kind: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(chosen) = super::story_kinds::kinds().get(kind) else { return };
+        let before = self.shape_now(cx);
+        self.menu = None;
+        self.tools_open = None;
+        self.preset.clear();
+        for id in &chosen.tools {
+            let Some(tool) = ipc::ask_tools::ask_tool(id) else { continue };
+            if !self.tools.iter().any(|one| one.tag.id == tool.id) {
+                let tag = SessionTag { kind: ipc::TagKind::Tool, id: tool.id.to_string(), title: tool.name.to_string(), url: None };
+                self.tools.push(HeldTool { tag, key: cx.focus_handle() });
+                self.preset.push(tool.id.to_string());
+            }
+        }
+        self.request.update(cx, |state, cx| state.set_value("", window, cx));
+        self.story = Some(Story::new(kind));
+        self.remember(before);
+        self.features_asked = None;
+        let focus = self.story_key.clone();
+        window.focus(&focus, cx);
+        self.story_moved(cx);
+        self.want_features(cx);
+        cx.notify();
+    }
+
+    /// The sentence's words went into the request's box, which has the sentence's place again. The tools its kind put in go.
+    fn flatten(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(story) = self.story.take() else { return };
+        let words = match story.words() {
+            // Nothing typed into a blank: the opening stays, as it was typed.
+            words if words.is_empty() => format!("{} ", story.kind().opening),
+            words => words,
+        };
+        let preset = std::mem::take(&mut self.preset);
+        self.tools.retain(|one| !preset.contains(&one.tag.id));
+        self.request.update(cx, |state, cx| {
+            state.set_value(words.clone(), window, cx);
+            end_of(state, &words, window, cx);
+        });
+    }
+
+    /// Esc, or ⌫ in the first blank, or any door that wants the request's box: the sentence is plain words and the keys are in the box.
+    pub(super) fn plain_words(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.story.is_none() {
+            return;
+        }
+        let before = self.shape_now(cx);
+        self.flatten(window, cx);
+        self.remember(before);
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        // Setting the value says nothing to the field's watchers: the draft and the reads follow here.
+        let request = self.request.clone();
+        self.typed(&request, window, cx);
+        self.untouched = true;
+    }
+
+    // -- undo ----------------------------------------------------------------------------------------
+
+    /// The box as it stands, for ⌘Z to come back to.
+    fn shape_now(&self, cx: &App) -> Shape {
+        Shape {
+            plain: self.story.is_none().then(|| self.request.read(cx).value().to_string()),
+            story: self.story.clone(),
+            tools: self.tools.iter().map(|one| one.tag.clone()).collect(),
+            preset: self.preset.clone(),
+        }
+    }
+
+    /// A change is made: the state before it is a step, and what ⌘Y had is gone.
+    fn remember(&mut self, before: Shape) {
+        self.past.push(before);
+        if self.past.len() > HISTORY {
+            self.past.remove(0);
+        }
+        self.future.clear();
+        self.run = None;
+    }
+
+    /// A state brought back: the sentence with its blank and tools, or the words the box held.
+    fn restore(&mut self, shape: Shape, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools = shape.tools.into_iter().map(|tag| HeldTool { tag, key: cx.focus_handle() }).collect();
+        self.preset = shape.preset;
+        self.run = None;
+        match shape.story {
+            Some(story) => {
+                self.story = Some(story);
+                let focus = self.story_key.clone();
+                window.focus(&focus, cx);
+                self.story_moved(cx);
+                self.want_features(cx);
+            }
+            None => {
+                self.story = None;
+                let words = shape.plain.unwrap_or_default();
+                self.request.update(cx, |state, cx| {
+                    state.set_value(words.clone(), window, cx);
+                    end_of(state, &words, window, cx);
+                });
+                let focus = self.request.focus_handle(cx);
+                window.focus(&focus, cx);
+                let request = self.request.clone();
+                self.typed(&request, window, cx);
+                self.untouched = true;
+            }
+        }
+        cx.notify();
+    }
+
+    /// ⌘Z: the last step is taken back. False where there is none.
+    pub(super) fn undo(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(back) = self.past.pop() else { return false };
+        let now = self.shape_now(cx);
+        self.future.push(now);
+        self.restore(back, window, cx);
+        true
+    }
+
+    /// ⌘Y or ⇧⌘Z: the step ⌘Z took back is made again. False where there is none.
+    pub(super) fn redo(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(again) = self.future.pop() else { return false };
+        let now = self.shape_now(cx);
+        self.past.push(now);
+        self.restore(again, window, cx);
+        true
+    }
+
+    /// ⌘Z, ⌘Y and ⇧⌘Z while the sentence has the keys, or while the request's box holds what the sentence left in it. True where taken.
+    fn history_key(&mut self, key: &str, shift: bool, in_request: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let redo = key == "y" || shift;
+        let sentence = self.story.is_some() && self.story_key.is_focused(window);
+        let left = in_request && self.untouched && if redo { !self.future.is_empty() } else { !self.past.is_empty() };
+        if !(sentence || left) {
+            return false;
+        }
+        // The key is the sentence's whether or not it has a step to go to: no other ⌘Z answers while it is in a blank.
+        let _ = if redo { self.redo(window, cx) } else { self.undo(window, cx) };
+        true
+    }
+
+    /// A blank's words changed: what `typed` does for the box, for the sentence.
+    fn story_moved(&mut self, cx: &mut Context<Self>) {
+        let words = self.words(cx);
+        crate::drafts::keep(KEEP_REQUEST, &words, cx);
+        self.face.refused = None;
+        self.asking = false;
+        self.sending = false;
+        self.drafting = self.drafting && self.waiting;
+        self.tools_open = None;
+        self.reread(&words, cx);
+        cx.notify();
+    }
+
+    /// The feature catalog of the project the picker names, which the sentence's feature blanks list.
+    pub(super) fn features(&self) -> &[FeatureChoice] {
+        let project = self.project();
+        catalog_of(&self.catalog, project.as_deref())
+    }
+
+    /// Ask for the catalog of the project the picker names, once, where a sentence stands and it is not held.
+    fn want_features(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project().filter(|_| self.story.is_some()) else { return };
+        if self.catalog.as_ref().is_some_and(|(held, _)| *held == project) || self.features_asked.as_ref() == Some(&project) {
+            return;
+        }
+        self.features_asked = Some(project.clone());
+        cx.emit(Asked::ReadFeatures(project));
+    }
+
+    /// The app's answer to [`Asked::ReadFeatures`]: the project's features, or none where Fleet could not say.
+    pub fn set_features(&mut self, project: String, features: Vec<FeatureChoice>, cx: &mut Context<Self>) {
+        if self.features_asked.as_ref() == Some(&project) {
+            self.features_asked = None;
+        }
+        self.catalog = Some((project, features));
+        cx.notify();
+    }
+
+    /// The keys while a blank has them. True where the sentence took the key.
+    fn story_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let before = self.shape_now(cx);
+        let project = self.project();
+        let catalog = catalog_of(&self.catalog, project.as_deref());
+        let Some(story) = self.story.as_mut() else { return false };
+        let mods = &event.keystroke.modifiers;
+        let at = story.at;
+        // Letters typed into one blank, and a letter taken back, are one step however many go in.
+        let key = event.keystroke.key.as_str();
+        let letters = matches!(story.piece(), super::story_kinds::Piece::Blank(_) | super::story_kinds::Piece::Feature(_))
+            && !matches!(key, "tab" | "enter")
+            && (key == "backspace" || event.keystroke.key_char.is_some());
+        let keyed = story.key(event.keystroke.key.as_str(), mods.shift, mods.platform, mods.control || mods.alt, event.keystroke.key_char.as_deref(), catalog);
+        if story.list_open(catalog) {
+            self.list_scroll.scroll_to_item(story.row);
+        }
+        match keyed {
+            Keyed::Ignored => return false,
+            Keyed::Taken => {
+                // Moving on from a blank ends its run; moving the mark in a list does not.
+                if !matches!(key, "up" | "down") {
+                    self.run = None;
+                }
+            }
+            Keyed::Changed => {
+                if !(letters && self.run == Some(at)) {
+                    self.remember(before);
+                }
+                self.run = letters.then_some(at);
+                self.story_moved(cx);
+            }
+            Keyed::Start => self.act(window, cx),
+            Keyed::Plain | Keyed::Opening => self.plain_words(window, cx),
+            Keyed::Leave { back } => {
+                self.run = None;
+                self.step_focus(back, window, cx)
+            }
+            Keyed::Paste => {
+                let text = cx.read_from_clipboard().and_then(|item| item.text()).unwrap_or_default();
+                let line = text.lines().next().unwrap_or_default().trim();
+                if !line.is_empty() {
+                    self.remember(before);
+                    if let Some(story) = self.story.as_mut() {
+                        story.typed(line);
+                    }
+                    self.story_moved(cx);
+                }
+            }
+        }
+        cx.notify();
+        true
+    }
+
+    /// A blank pressed: it has the keys.
+    pub(super) fn story_go(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.run = None;
+        if let Some(story) = self.story.as_mut() {
+            story.go_to(at);
+        }
+        let focus = self.story_key.clone();
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    /// A row of the feature list pressed: its feature is in the blank, and the keys go on.
+    pub(super) fn story_row(&mut self, row: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        self.remember(before);
+        let project = self.project();
+        let catalog = catalog_of(&self.catalog, project.as_deref());
+        if let Some(story) = self.story.as_mut() {
+            story.take_row(row, catalog);
+        }
+        let focus = self.story_key.clone();
+        window.focus(&focus, cx);
+        self.story_moved(cx);
+    }
+
+    /// The choice pressed: the other word stands, and it has the keys.
+    pub(super) fn story_choose(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        self.remember(before);
+        if let Some(story) = self.story.as_mut() {
+            story.go_to(at);
+            story.choice = 1 - story.choice;
+        }
+        let focus = self.story_key.clone();
+        window.focus(&focus, cx);
+        self.story_moved(cx);
     }
 
     /// The words rested: the repository is read again, and the Job the words tag is looked for.
@@ -564,9 +915,13 @@ impl DispatchSheet {
         self.queueing = false;
         self.waiting = false;
         crate::drafts::clear(KEEP_REQUEST, cx);
+        self.past.clear();
+        self.future.clear();
         self.files.clear();
         self.drawn.clear();
         self.tools.clear();
+        self.preset.clear();
+        self.story = None;
         self.wait = None;
         self.tagged = None;
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
@@ -608,6 +963,7 @@ impl DispatchSheet {
             let held = self.drafting;
             self.begin(held, window, cx);
         }
+        self.want_features(cx);
         cx.notify();
     }
 
@@ -659,7 +1015,7 @@ impl DispatchSheet {
     pub(super) fn remove_file(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
         self.files.retain(|one| one.key != key);
         // The caret goes back to the request where the chip was.
-        let focus = self.request.focus_handle(cx);
+        let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         cx.notify();
     }
@@ -703,7 +1059,7 @@ impl DispatchSheet {
         self.tools_open = if self.tools_open.is_some() { None } else { Some(0) };
         self.menu = None;
         self.wait_menu = None;
-        let focus = self.request.focus_handle(cx);
+        let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         cx.notify();
     }
@@ -713,18 +1069,27 @@ impl DispatchSheet {
         self.tools_open = None;
         if let Some(Pick::Tag { kind, id, title, url }) = crate::job_view::ask_tools::rows().into_iter().nth(at).map(|row| row.pick) {
             if !self.tools.iter().any(|one| one.tag.id == id) {
+                let before = self.shape_now(cx);
                 self.tools.push(HeldTool { tag: SessionTag { kind, id, title, url }, key: cx.focus_handle() });
+                if self.story.is_some() {
+                    self.remember(before);
+                }
             }
         }
-        let focus = self.request.focus_handle(cx);
+        let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         cx.notify();
     }
 
     /// A tool's chip removed: it does not go, and the caret goes back to the request.
     pub(super) fn remove_tool(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        let held = self.tools.len();
         self.tools.retain(|one| one.tag.id != id);
-        let focus = self.request.focus_handle(cx);
+        if self.story.is_some() && self.tools.len() != held {
+            self.remember(before);
+        }
+        let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         cx.notify();
     }
@@ -737,11 +1102,12 @@ impl DispatchSheet {
         self.face.pick(&id);
         self.face.refused = None;
         self.asking = false;
+        self.want_features(cx);
         if was_asking {
             // The act was waiting on a repository: it goes at once.
             self.act(window, cx);
         } else {
-            let focus = self.request.focus_handle(cx);
+            let focus = self.words_focus(cx);
             window.focus(&focus, cx);
         }
         cx.notify();
@@ -753,13 +1119,17 @@ impl DispatchSheet {
         match key.id {
             // The sheet is a dialog, and the key does nothing while one is up.
             "new_job" | "send_message" => {}
-            "dispatch_after" => self.request.update(cx, |state, cx| state.insert("@", window, cx)),
+            "dispatch_after" => {
+                self.plain_words(window, cx);
+                self.request.update(cx, |state, cx| state.insert("@", window, cx))
+            }
             "dispatch_repository" => {
                 let Some(digit) = key.digit else { return };
                 let Some(chip) = self.face.chips.iter().find(|chip| chip.key == Some(digit)).cloned() else { return };
                 let none_chosen = self.repository().is_none();
                 self.face.pick(&chip.id());
                 self.asking = false;
+                self.want_features(cx);
                 // With none chosen, the key also sends.
                 if none_chosen && self.worded(cx) {
                     self.act(window, cx);
@@ -781,6 +1151,10 @@ impl DispatchSheet {
             cx.stop_propagation();
             return;
         }
+        if plain_cmd(mods) && matches!(key, "z" | "y") && self.history_key(key, mods.shift, in_request, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
         // The tools, as the `@` menu: arrows wrap, ↵ or ⇥ pick, Esc closes them with the keys in the request.
         if let Some(active) = self.tools_open {
             let len = crate::job_view::ask_tools::rows().len().max(1);
@@ -794,7 +1168,7 @@ impl DispatchSheet {
                 "enter" | "tab" if plain => self.pick_tool(active, window, cx),
                 "escape" => {
                     self.tools_open = None;
-                    let focus = self.request.focus_handle(cx);
+                    let focus = self.words_focus(cx);
                     window.focus(&focus, cx);
                 }
                 _ => return,
@@ -825,13 +1199,38 @@ impl DispatchSheet {
             cx.notify();
             return;
         }
+        // A sentence being written takes the keys while a blank has them.
+        if self.story.is_some() && self.story_key.is_focused(window) && self.story_keys(event, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
+        // The words begin an opening: ↑ ↓ choose among the ones they begin, ⇥ or → at the end takes the one marked.
+        if in_request && plain && !mods.shift {
+            let begun = self.openings(cx);
+            if !begun.is_empty() {
+                let marked = self.opening % begun.len();
+                let at_end = self.request.read(cx).cursor() >= self.words(cx).len();
+                match key {
+                    "tab" => self.take_opening(begun[marked], window, cx),
+                    "right" if at_end => self.take_opening(begun[marked], window, cx),
+                    "down" | "up" if begun.len() > 1 => {
+                        self.opening = if key == "down" { (marked + 1) % begun.len() } else { (marked + begun.len() - 1) % begun.len() };
+                        crate::ui_sounds::moved();
+                    }
+                    _ => return,
+                }
+                cx.stop_propagation();
+                cx.notify();
+                return;
+            }
+        }
         match key {
             "escape" => {
                 if talk::put_away(self, cx) || self.wait_menu.take().is_some() || self.popup.take().is_some() {
                     // Only the menu closes.
                 } else if self.asking {
                     self.asking = false;
-                    let focus = self.request.focus_handle(cx);
+                    let focus = self.words_focus(cx);
                     window.focus(&focus, cx);
                 } else {
                     self.close(window, cx);
@@ -868,8 +1267,14 @@ impl DispatchSheet {
             let parts = if wait.needs.is_some() { 4 } else { 3 };
             stops.extend(self.parts[..parts].iter().cloned());
         }
-        stops.extend(self.tools.iter().map(|one| one.key.clone()));
-        stops.push(self.request.focus_handle(cx));
+        // The sentence stands where the request's box does, and its tools come after it, as its footer draws them.
+        if self.story.is_some() {
+            stops.push(self.story_key.clone());
+            stops.extend(self.tools.iter().map(|one| one.key.clone()));
+        } else {
+            stops.extend(self.tools.iter().map(|one| one.key.clone()));
+            stops.push(self.request.focus_handle(cx));
+        }
         if self.takes_files() {
             stops.extend([self.tools_key.clone(), self.attach_key.clone(), self.sketch_key.clone()]);
         }
@@ -914,7 +1319,7 @@ impl DispatchSheet {
         });
         let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
             this.popup = None;
-            let focus = this.request.focus_handle(cx);
+            let focus = this.words_focus(cx);
             window.focus(&focus, cx);
             cx.notify();
         });
@@ -925,7 +1330,7 @@ impl DispatchSheet {
     }
 
     fn picked(&mut self, kind: Pop, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let focus = self.request.focus_handle(cx);
+        let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         match kind {
             Pop::Model => self.model = id.strip_prefix("model:").filter(|one| !one.is_empty()).map(|one| one.to_string().into()),
@@ -1011,7 +1416,7 @@ impl DispatchSheet {
         let key = event.keystroke.key.as_str();
         if key == "escape" {
             if self.wait_menu.take().is_none() {
-                let focus = self.request.focus_handle(cx);
+                let focus = self.words_focus(cx);
                 window.focus(&focus, cx);
             }
             cx.stop_propagation();
@@ -1068,6 +1473,7 @@ impl Hears for DispatchSheet {
 
     /// Heard words join the request; nothing is started by them.
     fn heard_words(&mut self, words: Vec<String>, window: &mut Window, cx: &mut Context<Self>) {
+        self.plain_words(window, cx);
         let next = talk::joined_all(self.words(cx), &words);
         self.request.update(cx, |state, cx| {
             state.set_value(next.clone(), window, cx);
@@ -1086,6 +1492,19 @@ fn next_stop(len: usize, now: Option<usize>, back: bool) -> usize {
         (Some(at), true) => (at + len - 1) % len,
         (None, false) => 0,
         (None, true) => len - 1,
+    }
+}
+
+/// ⌘ held, and no ⌥ or ⌃: a chord of the history.
+fn plain_cmd(mods: &gpui::Modifiers) -> bool {
+    mods.platform && !mods.alt && !mods.control
+}
+
+/// The catalog held for `project`, or none where it is held for another or not at all.
+fn catalog_of<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, project: Option<&str>) -> &'a [FeatureChoice] {
+    match held {
+        Some((one, features)) if Some(one.as_str()) == project => features,
+        _ => &[],
     }
 }
 
@@ -1388,6 +1807,145 @@ mod tests {
             sheet.drawn.push(drawn("d1"));
             sheet.answered(window, cx);
             assert!(!sheet.holds(), "a Job started takes them; the next sheet starts empty");
+        });
+    }
+
+    // -- the sentence ---------------------------------------------------------------------------------
+
+    /// One chord or key, as the sheet's own handler hears it.
+    fn press(sheet: &mut DispatchSheet, key: &'static str, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        let keystroke = gpui::Keystroke::parse(key).expect("a key");
+        sheet.on_key(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+    }
+
+    /// Letters typed one key at a time.
+    fn write(sheet: &mut DispatchSheet, text: &str, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        for letter in text.chars() {
+            let keystroke = gpui::Keystroke { modifiers: gpui::Modifiers::none(), key: letter.to_string(), key_char: Some(letter.to_string()) };
+            sheet.on_key(&KeyDownEvent { keystroke, is_held: false, prefer_character_input: false }, window, cx);
+        }
+    }
+
+    /// The box holds "When" with the keys in it, and Tab takes the opening it begins.
+    fn take_bug(sheet: &mut DispatchSheet, window: &mut Window, cx: &mut Context<DispatchSheet>) {
+        sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
+        let request = sheet.request.focus_handle(cx);
+        window.focus(&request, cx);
+        press(sheet, "tab", window, cx);
+    }
+
+    fn blank_words(sheet: &DispatchSheet) -> Vec<String> {
+        sheet.story.as_ref().expect("a sentence stands").values.clone()
+    }
+
+    #[gpui::test]
+    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_its_tools_held(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
+            assert!(sheet.tools_held().is_empty());
+            press(sheet, "tab", window, cx);
+            let story = sheet.story.as_ref().expect("Tab took the opening");
+            assert_eq!(story.kind().id, "bug");
+            assert_eq!(story.piece(), &super::super::story_kinds::Piece::Blank("do what"), "the caret is in the first blank");
+            assert!(sheet.story_key.is_focused(window), "the sentence has the keys");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "", "the typed opening is the sentence now");
+            assert_eq!(held_tools(sheet), ["terminal", "browser"], "the kind's preset is held");
+            assert_eq!(sheet.preset, ["terminal", "browser"]);
+        });
+    }
+
+    #[gpui::test]
+    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_preset_gone(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            assert_eq!(held_tools(sheet), ["terminal", "browser"]);
+            press(sheet, "backspace", window, cx);
+            assert!(sheet.story.is_none(), "plain words again");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When I ", "the opening is kept");
+            assert!(sheet.request.focus_handle(cx).is_focused(window), "the keys are in the box");
+            assert!(held_tools(sheet).is_empty(), "the tools its kind put in go");
+        });
+    }
+
+    #[gpui::test]
+    fn esc_turns_the_sentence_into_its_words_as_plain_text(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click");
+            press(sheet, "escape", window, cx);
+            assert!(sheet.story.is_none());
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When I click");
+            assert!(sheet.request.focus_handle(cx).is_focused(window));
+        });
+    }
+
+    #[gpui::test]
+    fn a_run_of_letters_in_one_blank_is_one_step_command_z_takes_it_back_and_command_y_or_shift_command_z_brings_it_back(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click");
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "", "five letters, one step");
+            assert!(sheet.story.is_some(), "the sentence is still written");
+            press(sheet, "cmd-y", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "⌘Y");
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "");
+            press(sheet, "cmd-shift-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "⇧⌘Z");
+        });
+    }
+
+    #[gpui::test]
+    fn a_new_change_after_an_undo_drops_the_redo(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "");
+            write(sheet, "tap", window, cx);
+            press(sheet, "cmd-y", window, cx);
+            assert_eq!(blank_words(sheet)[0], "tap", "what ⌘Z took back is gone");
+            press(sheet, "cmd-shift-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "tap");
+        });
+    }
+
+    #[gpui::test]
+    fn command_z_after_esc_brings_the_sentence_back(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            write(sheet, "click", window, cx);
+            press(sheet, "escape", window, cx);
+            assert!(sheet.story.is_none());
+            assert!(held_tools(sheet).is_empty());
+            press(sheet, "cmd-z", window, cx);
+            assert_eq!(blank_words(sheet)[0], "click", "the sentence is back with what was typed");
+            assert!(sheet.story_key.is_focused(window), "and has the keys");
+            assert_eq!(held_tools(sheet), ["terminal", "browser"], "with its tools");
+            assert_eq!(sheet.words(cx), "When I click");
+        });
+    }
+
+    #[gpui::test]
+    fn command_z_past_the_taken_opening_returns_plain_words_with_the_typed_opening(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            assert!(sheet.story.is_some());
+            press(sheet, "cmd-z", window, cx);
+            assert!(sheet.story.is_none(), "plain mode");
+            assert_eq!(sheet.request.read(cx).value().to_string(), "When", "the opening as it was typed");
+            assert!(sheet.request.focus_handle(cx).is_focused(window));
+            assert!(held_tools(sheet).is_empty(), "the preset goes with the sentence");
         });
     }
 }

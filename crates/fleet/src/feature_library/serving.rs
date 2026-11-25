@@ -127,6 +127,14 @@ where
         self.doc_job_started(caller, flag).await
     }
 
+    async fn get_library_start(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::LibraryStart, Refusal> {
+        self.library_start_read(caller, project).await
+    }
+
+    async fn draft_module_features(&self, caller: Option<api::Caller>, draft: ipc::DraftModules) -> Result<ipc::ModulesDrafted, Refusal> {
+        self.modules_drafted(caller, draft).await
+    }
+
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
     }

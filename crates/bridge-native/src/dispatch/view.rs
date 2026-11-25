@@ -16,7 +16,7 @@ use crate::job_view::composer::{attach_button, tray};
 use crate::job_view::sketch_pad::{drawn_tiles, sketch_button};
 use crate::keymap::{self, Act};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, ActiveLook, Look, Token};
 use crate::titlebar::parts::{glyph, kbd, mono, sans, spinner, tip, Btn, Weight};
 
 impl Render for DispatchSheet {
@@ -76,7 +76,7 @@ impl Render for DispatchSheet {
                     .flex_col()
                     .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
                     .children(self.tray(window, cx))
-                    .child(self.line(cx))
+                    .child(self.line(window, cx))
                     .children(self.menu_view(cx))
                     .children(self.tool_list(cx))
                     .child(self.tools(window, cx)),
@@ -270,7 +270,7 @@ impl DispatchSheet {
     }
 
     /// The line: the kind's glyph, the words, `⇥` and the key that opens the sheet.
-    fn line(&self, cx: &Context<Self>) -> impl IntoElement {
+    fn line(&self, window: &Window, cx: &Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
         let words = self.words(cx);
@@ -279,7 +279,8 @@ impl DispatchSheet {
             words.find(&needle).map(|at| at..at + needle.len())
         });
         let line_h = look.length(token::LEADING_LG);
-        let field = div()
+        let begun = self.openings(cx);
+        let plain = div()
             .relative()
             .flex_1()
             .min_w_0()
@@ -295,7 +296,10 @@ impl DispatchSheet {
                     .text_size(look.length(token::TEXT_LG))
                     .line_height(line_h)
                     .text_color(gpui::transparent_black())
-                    .child(highlighted(&words, tag_range, look.color(token::BG_RAISED), look.color(token::BORDER_DEFAULT))),
+                    .child(match begun.is_empty() {
+                        true => highlighted(&words, tag_range, look.color(token::BG_RAISED), look.color(token::BORDER_DEFAULT)),
+                        false => self.ghost(&words, &begun, cx),
+                    }),
             )
             .child(labelled(
                 // The text-box key context comes with the Jobs screens' `TEXT_BOX` in keymap.rs: add it to
@@ -320,7 +324,18 @@ impl DispatchSheet {
                     ),
                 Role::TextInput,
                 "Request",
-            ));
+            ))
+            .children(self.openings_line(cx));
+        // A sentence being written has the request's place, and its kind's glyph the Job's.
+        let kind = self.story.as_ref().map(|story| story.kind());
+        let field = match kind {
+            Some(_) => self.story_field(window, cx),
+            None => plain.into_any_element(),
+        };
+        let (mark_glyph, mark_ink, mark_name) = match kind {
+            Some(kind) => (kind.glyph, look.color(Token(kind.hue)), kind.name),
+            None => (Kind::Job.glyph(), look.color(token::ACCENT), Kind::Job.word()),
+        };
         div()
             .flex()
             .items_start()
@@ -328,10 +343,10 @@ impl DispatchSheet {
             .px(look.length(token::SPACE_6))
             .py(look.length(token::SPACE_4))
             .child(
-                div().id("dispatch-prompt").flex_none().h(line_h).flex().items_center().tooltip(tip(Kind::Job.word())).child(labelled(
-                    div().id("dispatch-kind").child(glyph(Kind::Job.glyph(), mark, look.color(token::ACCENT))),
+                div().id("dispatch-prompt").flex_none().h(line_h).flex().items_center().tooltip(tip(mark_name)).child(labelled(
+                    div().id("dispatch-kind").child(glyph(mark_glyph, mark, mark_ink)),
                     Role::Image,
-                    Kind::Job.word(),
+                    mark_name,
                 )),
             )
             .child(field)
@@ -349,7 +364,8 @@ impl DispatchSheet {
 
     /// What goes with the request, as tiles over the words: files as a Job's box shows them, then sketches.
     fn tray(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
-        if !self.holds() {
+        // While a sentence stands its tools are in its own footer.
+        if !self.holds() || (self.story.is_some() && self.files.is_empty() && self.drawn.is_empty()) {
             return None;
         }
         let look = cx.look();
@@ -360,7 +376,9 @@ impl DispatchSheet {
             })
         };
         let mut drawn = drawn_tiles(&self.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx));
-        drawn.extend(self.tool_chips(window, cx));
+        if self.story.is_none() {
+            drawn.extend(self.tool_chips(window, cx));
+        }
         // A Job that waits starts with no message, so what is held is said not to go.
         let unsent = (!self.takes_files()).then(|| {
             labelled(
@@ -479,7 +497,7 @@ impl DispatchSheet {
     }
 
     /// Each tool held, as a chip of its hue beside the tiles: a press, or Enter or Space on it, removes it.
-    fn tool_chips(&self, window: &Window, cx: &Context<Self>) -> Vec<gpui::AnyElement> {
+    pub(super) fn tool_chips(&self, window: &Window, cx: &Context<Self>) -> Vec<gpui::AnyElement> {
         let look = cx.look();
         let painted = crate::job_view::ask_tools::painted(look);
         self.tools

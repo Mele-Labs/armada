@@ -190,6 +190,8 @@ pub fn bind(cx: &mut App) {
         };
         reach(cx, move |this, window, cx| this.open_sheet(add, window, cx));
     });
+    // ⌘Y redoes in the request's box, as ⇧⌘Z does, which the box binds itself.
+    cx.bind_keys([gpui::KeyBinding::new("cmd-y", gpui_component::input::Redo, Some("dispatch > Input"))]);
     cx.on_action(|_: &Toggle, cx: &mut App| reach(cx, |this, window, cx| this.toggle_layer(window, cx)));
     cx.on_action(|_: &Shoot, cx: &mut App| reach(cx, |this, window, cx| this.shoot_layer(window, cx)));
 }
@@ -416,6 +418,11 @@ impl DispatchScreen {
             self.new_terminal(picked.clone(), window, cx);
             return;
         }
+        // A sentence's feature list: Fleet's catalog of the project, or the walks' own.
+        if let Asked::ReadFeatures(project) = asked {
+            self.read_features(project.clone(), cx);
+            return;
+        }
         // Queue for later is kept here, on a live Fleet or not.
         if let Asked::Queue { words, repository, project, model, effort } = asked {
             self.queue_idea(words, repository, project.clone(), model.clone(), effort.clone(), window, cx);
@@ -430,7 +437,7 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), project: project.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::JobHere(_) | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::JobHere(_) | Asked::ReadFeatures(_) | Asked::Closed => {}
             }
         }
         cx.notify();
@@ -544,6 +551,20 @@ impl DispatchScreen {
             })
             .detach();
         }
+    }
+
+    /// A sentence's feature blanks want the catalog of `project`: read from Fleet off the main thread, or the walks' own on the mock.
+    /// A failed read answers with none, so the list holds the kind's own row.
+    fn read_features(&mut self, project: String, cx: &mut Context<Self>) {
+        let live = self.fleet_port(cx).map(|port| crate::features::wire::library(port, &project, cx));
+        cx.spawn(async move |this, cx| {
+            let features = match live {
+                Some(asked) => asked.await.map(|library| super::story::catalog_of(&library)).unwrap_or_default(),
+                None => scenes::features(&project),
+            };
+            let _ = this.update(cx, |this, cx| this.sheet.update(cx, |sheet, cx| sheet.set_features(project, features, cx)));
+        })
+        .detach();
     }
 
     /// The words rested: Fleet reads which repository they name, and the chip it names is chosen. Where it names

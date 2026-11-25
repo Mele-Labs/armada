@@ -4,7 +4,10 @@
 
 use adapter_traits::{FromOutside, OnFile, PullComment};
 
+use adapter_traits::PullRequestStanding;
+
 use super::pull_notices::{a_rig, pull, Rig};
+use super::pull_refreshing::{refreshed, the_forge_shows};
 
 const OWNER: &str = "harborowner";
 const REVIEWER: &str = "quinnreviewer";
@@ -171,4 +174,29 @@ async fn a_pull_request_taken_on_with_comments_is_told_once_for_all() {
         ],
         "oldest first: {file}"
     );
+}
+
+/// No event says a comment was written, so a pull request heard live has its comments read when
+/// an event or the safety read reads it, which is a refresh, and not by the minute reading.
+#[tokio::test]
+async fn a_comment_on_a_pull_request_heard_live_is_told_by_its_event_read() {
+    let (rig, _) = a_rig_on_seven().await;
+    let mut seven = pull(7, vec![]);
+    seven.author = Some(FromOutside::verbatim(OWNER));
+    the_forge_shows(&rig, PullRequestStanding::Open, vec![seven]);
+    // Read once before it was heard live, with nothing said on it yet.
+    comments_are(&rig, vec![]);
+    rig.reads().await;
+    let root = rig.fleet.repositories().first().unwrap().root().to_string();
+    rig.fleet.heard_live().await.mark(&root, 7, true);
+    comments_are(&rig, vec![said("IC_1", REVIEWER, "2026-11-03T10:00:00Z")]);
+
+    rig.reads().await;
+    assert!(told_of_comments(&rig).is_empty(), "the minute reading leaves it to its events");
+
+    refreshed(&rig, 7).await.expect("the forge answered");
+    refreshed(&rig, 7).await.expect("the forge answered");
+    let told = told_of_comments(&rig);
+    let [line] = told.as_slice() else { panic!("told once: {told:?}") };
+    assert!(line.contains(&format!("#7: 1 new comment from {REVIEWER}")), "{line}");
 }

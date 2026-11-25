@@ -1,7 +1,7 @@
 //! What the thread pins at its foot: Stop (A1.10), the card of the subagents running now (A4.3), the card of
 //! what the Job waits on that is not the person, the card of the items it waits on that another holds, the card of
 //! what he sent that waits for the Job's Mac, the card of a wait for a worktree slot, and the card of a move to his
-//! other Mac, and the line of an answer to his question he has not read.
+//! other Mac.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{RunningKind, RunningWork, ThreadItem, ToolSubagent, ToolSubagentState};
@@ -56,15 +56,14 @@ impl JobView {
         )
     }
 
-    /// What stands at the foot of the view over the rows: the chip to what waits below, over the subagents card, over the
-    /// line of an answer he has not read (`questions.rs`).
+    /// What stands at the foot of the view over the rows: the chip to what waits below, over the subagents card.
     pub(super) fn render_foot(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
-        let (chip, pin, answer) = (self.render_callchip(id, cx), self.render_subagents_pin(id, cx), self.render_answer_line(id, cx));
-        if chip.is_none() && pin.is_none() && answer.is_none() {
+        let (chip, pin) = (self.render_callchip(id, cx), self.render_subagents_pin(id, cx));
+        if chip.is_none() && pin.is_none() {
             return None;
         }
         let look = cx.look();
-        Some(div().absolute().bottom(look.length(token::SPACE_2)).left_0().right_0().flex().flex_col().gap(look.length(token::SPACE_2)).children(chip).children(pin).children(answer).into_any_element())
+        Some(div().absolute().bottom(look.length(token::SPACE_2)).left_0().right_0().flex().flex_col().gap(look.length(token::SPACE_2)).children(chip).children(pin).into_any_element())
     }
 
     /// Stop: ends what the agent is doing. The Job stays live and its next message resumes it.
