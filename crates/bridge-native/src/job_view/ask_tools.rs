@@ -331,7 +331,7 @@ mod tests {
             mark(&view, at, cx);
             assert!(!key(&view, "right", cx), "row {at} is not API Client's");
             let (label, within, query, names) = level(&view, cx);
-            assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8), "→ left the tools list where it was");
+            assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", rows().len()), "→ left the tools list where it was");
         }
         mark(&view, api_client_at(), cx);
         assert!(key(&view, "right", cx));
@@ -349,7 +349,7 @@ mod tests {
         view.update(cx, |view, _| view.composer.offer.as_mut().expect("a list").current = 2);
         assert!(key(&view, "left", cx));
         let (label, within, query, names) = level(&view, cx);
-        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8));
+        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", rows().len()));
         assert_eq!(view.read_with(cx, |view, _| view.composer.offer.as_ref().map(|offer| offer.current)), Some(api_client_at()), "the row he came in by is marked");
     }
 
