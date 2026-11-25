@@ -741,6 +741,9 @@ impl JobView {
                 return None;
             }
         }
+        if let Some(line) = self.asking_line(item, page, look, cx) {
+            return Some(line);
+        }
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => {

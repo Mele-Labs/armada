@@ -1,6 +1,7 @@
 //! One ask as one line, wherever something points to it: the mark of its kind in its hue, the question itself and its age.
 //! An ask is answered on its card in the thread or in the review sheet (25 Nov, reversing one place of 19 Nov). A line in
-//! Needs you brings the thread to the ask's card, and opens the sheet on it only where the thread holds no card for it.
+//! Needs you brings the thread to the first card for the Job's first ask; only that ask stands as a card, so any other
+//! is a line in the thread and opens the sheet on it.
 //! `.claude/decisions/2026-11-19-one-ask-one-item-one-place.md`.
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString, Window};
@@ -99,25 +100,28 @@ impl JobView {
         cx.notify();
     }
 
-    /// Where the thread draws the card that answers `item`, and the card's key: the first card where it is the Job's first ask,
-    /// else the plan, the pinned sketch, or the thread card of a sketch, page or draft.
+    /// Where the thread draws the card that answers `item`, and the card's key: the first card, where it is the Job's first
+    /// ask. Only the first open ask stands as a card; any other is a line in the thread, so the sheet takes it.
     pub(super) fn ask_place(&self, job: &str, item: &Item, cx: &gpui::App) -> Option<(usize, String)> {
         let page = self.pages.get(job)?;
-        let held = self.thread(job, cx)?;
-        let extra = |is: &dyn Fn(&super::Extra) -> bool| page.extras.iter().position(is).map(|at| page.items + at);
-        // The first open ask stands on the card at the thread's foot. A question or an artifact after it has no card to
-        // answer until its turn, so the sheet takes it.
-        let first = self.first_ask(job, cx).filter(|first| same_item(&first.id, &item.id) || artifact_in(first).is_some_and(|artifact| artifact_in(item) == Some(artifact)));
-        if let Some(first) = first {
-            let at = extra(&|one| matches!(one, super::Extra::First(_)))?;
-            return Some((at, super::first_card::first_key(&first)));
-        }
-        // A plan or a sketch after it is a line in the thread while it asks (`open_ask_of`), so the sheet takes it too.
-        if item.id.starts_with("ask:") || artifact_in(item).is_some() || matches!(item.kind, super::review::Kind::Plan | super::review::Kind::Sketch) {
+        let first = self.first_ask(job, cx).filter(|first| same_item(&first.id, &item.id) || artifact_in(first).is_some_and(|artifact| artifact_in(item) == Some(artifact)))?;
+        let at = page.extras.iter().position(|one| matches!(one, super::Extra::First(_)))?;
+        Some((page.items + at, super::first_card::first_key(&first)))
+    }
+
+    /// The thread card of a page or a draft that still asks, as one line that opens the sheet on it: only the first open ask
+    /// stands as a card. Once settled, here or in Fleet, it draws as its card again.
+    pub(super) fn asking_line(&self, item: &ThreadItem, page: &super::Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if !matches!(item, ThreadItem::Document(_) | ThreadItem::Row { row: SessionRow::Draft { settled: None, .. } }) {
             return None;
         }
-        let at = held.items.iter().rposition(|one| card_item(one, &held.items).is_some_and(|key| same_item(&key, &item.id)))?;
-        Some((at, card_key(&held.items[at])?))
+        if page.cards.answers.contains_key(&card_key(item)?) {
+            return None;
+        }
+        let job = self.shown.as_deref()?;
+        let key = card_item(item, &self.thread(job, cx)?.items)?;
+        let ask = self.open_ask_of(job, &key, cx)?;
+        Some(self.ask_pointer(&format!("thread:{key}"), &ask, Stands::Thread, look, cx))
     }
 
     /// The artifact of parts in the thread, its takes among them, as one line while it asks.
@@ -712,9 +716,10 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_page_and_a_sketch_that_ask_are_approved_on_their_cards_and_leave_the_sheet(cx: &mut gpui::TestAppContext) {
+    fn a_page_after_the_first_ask_is_a_line_until_its_turn_on_the_first_card(cx: &mut gpui::TestAppContext) {
         const CARD: &str = "Document: Stale branch design, Revision 2";
         const PIN: &str = "Drawing: Tail layout";
+        const PAGE: &str = "Page: Approve Stale branch design";
         let first_id = |view: &JobView, cx: &gpui::App| view.first_ask("mock-01", cx).map(|first| first.id).unwrap_or_default();
         let (view, cx) = rooted_job_with(
             cx,
@@ -723,7 +728,7 @@ mod tests {
             size(px(1440.), px(900.)),
             |jobs| {
                 let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
-                // Only the sketch and the page ask, so the first card is the sketch's and the page stands on its own card.
+                // Only the sketch and the page ask, so the first card is the sketch's and the page waits its turn.
                 job.waiting_for.retain(|item| item.id.starts_with("sketch:"));
                 let item = br#"{"id":"document:design","text":"Approve Stale branch design","since":"2026-11-09T13:50:00Z","source":"document"}"#;
                 job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).expect("the page item decodes"));
@@ -740,18 +745,18 @@ mod tests {
         redraw(cx);
         let sketch = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, cx| view.review_items("mock-01", cx).iter().any(|one| one.name.contains("Tail layout")));
         assert!(sheet_holds(&view, cx, "document:design") && sketch(&view, cx), "the sheet holds both while they wait");
-        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("document:design", window, cx)));
-        redraw(cx);
-        let card = bounds(cx, Role::Article, CARD);
-        within(cx, Role::Button, "Ask for changes", card);
-        let approve = within(cx, Role::Button, "Approve", card).center();
-        cx.simulate_click(approve, gpui::Modifiers::none());
-        redraw(cx);
-        assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place");
-        assert!(!sheet_holds(&view, cx, "document:design"), "approved on its card, the page leaves the sheet");
         // The sketch is first, so the first card is its one place: no pin stands for it while it asks.
         let extras = view.read_with(cx, |view, _| view.pages.get("mock-01").map(|page| page.extras.clone()).unwrap_or_default());
         assert!(extras.iter().all(|extra| !matches!(extra, super::super::Extra::Sketch(_))), "no pin while it asks: {extras:?}");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask(&first_id(&view, cx), window, cx)));
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, CARD), "while the sketch comes first, the page is no card");
+        assert!(drawn(cx, Role::Button, "Approve Stale branch design"), "it is one line in the thread");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("document:design", window, cx)));
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("document:design"), "a press on its line in Needs you opens the sheet on it");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.close_review(window, cx)));
         cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask(&first_id(&view, cx), window, cx)));
         redraw(cx);
         let pin = bounds(cx, Role::Article, PIN);
@@ -759,6 +764,17 @@ mod tests {
         cx.simulate_click(approve, gpui::Modifiers::none());
         redraw(cx);
         assert!(!sketch(&view, cx), "approved on its card, the sketch leaves the sheet");
+        // Its turn: the page is first now, and the first card is where it is answered.
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("document:design", window, cx)));
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the thread comes to its card");
+        let card = bounds(cx, Role::Article, PAGE);
+        within(cx, Role::Button, "Ask for changes", card);
+        let approve = within(cx, Role::Button, "Approve", card).center();
+        cx.simulate_click(approve, gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!sheet_holds(&view, cx, "document:design"), "approved on the first card, the page leaves the sheet");
+        assert!(drawn(cx, Role::Article, CARD), "settled, the page draws as its card again");
     }
 
     #[test]
