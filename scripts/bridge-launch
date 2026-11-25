@@ -4,11 +4,9 @@
 # says whether Bridge meant to stop. `scripts/restart` writes the plist that names
 # it, with `KeepAlive={SuccessfulExit:false}`, so a status of 1 reopens Bridge.
 #
-# **`electron-vite preview` exits 0 however Electron ended**: it passes the child's
-# exit code to `process.exit`, and a child ended by a signal has none (29 Oct, a
-# Bridge killed by a closing Job stayed down). So Bridge leaves a mark on a quit
-# the person meant (`apps/desktop/src/main/index.ts`, `will-quit`), and the mark,
-# not the status, is read here.
+# **The exit status does not say whether Bridge meant to stop**: a Bridge ended by a
+# signal has none (29 Oct, a Bridge killed by a closing Job stayed down). So Bridge
+# leaves a mark on a quit the person meant, and the mark, not the status, is read here.
 #
 # **Three exits within a minute of opening, in a row, and it stays down**, so a
 # Bridge that cannot start does not open and close every ThrottleInterval.

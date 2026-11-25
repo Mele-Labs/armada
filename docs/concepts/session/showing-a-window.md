@@ -15,7 +15,7 @@ Fleet places a hosted job by its connection, as for its asks, so the call names 
 It writes one `window` artifact on the ledger however often the address is shown, and a quiet `window` row on the thread each time, which is what makes Bridge open the tab.
 Pressing the ledger row or the thread row opens it again, only for an address the ledger shows as a window.
 **A note taken on the page is held on the job**, with the element it pointed at, and shown at the end of the thread.
-While any is held, Approve becomes Send notes, a split button, and sending them goes to the job as one turn from the person, which wakes it (*Pending notes*, `docs/practices/capture-window.md`).
+While any is held, Approve becomes Send notes, a split button, and sending them goes to the job as one turn from the person, which wakes it (*Pending notes*, `classic-final:docs/practices/capture-window.md`).
 The window is pinned to the origin it opened on, as a server's is, and to the `origins` the call names (*A deployed page*).
 **`variations`, a list of `{name, url}`, offers alternatives of one change in the one tab**, `url` the first's and each held to the same `http`/`https` rule.
 The person picks one: the bar draws them under *Pick one* on its first row, a press swaps the page, and the pin moves to the origin of the take chosen and to no address the job did not send.
@@ -35,7 +35,7 @@ A page that plays its own walk (Armada's mock) is passed none and plays as it di
 **Where a job passes steps to one anyway, the page's own walk wins**: Bridge stops the steps, the bar drives the page's walk, the page's card leaves to the bar, and Fleet tells the job once (`window_failed`).
 The steps hold their first act until the page has been looked at for a walk of its own.
 Since 28 Oct 2026, when a mock shown with steps drew its own card beside the bar's steps; playing every mock walk from the window is `armada-iam`.
-`docs/practices/capture-window.md`, *A walk in the page*.
+`classic-final:docs/practices/capture-window.md`, *A walk in the page*.
 **The bar says whether the page is ready to walk**, a Job mark at its start (*Ready to walk*, or *Still changing*) and the bar's hue, and Approve reads *Not ready* while it changes.
 **It is detected, not declared:** `show_window` says ready, the mod's report of a file the job itself wrote (`wrote`; a subagent's does not count) or a note from the window marks every window the job showed as working (`detail.working` on its artifact), and showing the page again or the end of the turn (`turn_completed`) marks it ready.
 **A second mark, `detail.changed`, is set with `working` and stays when the page is ready.**
@@ -46,7 +46,7 @@ The bar's ready mark reads `working` only.
 A subagent whose own transcript shows it finished is settled spent at the turn end, since the mod never settles one and one left standing kept every window working for a day.
 Only subagents count: a server or a shell left running holds no window.
 **The tab sits beside the job's thread**, so the walk is read and answered without leaving the job.
-A pull request's walk keeps the walk window and its panel beside the page: `docs/practices/capture-window.md`, *The panel beside the page*.
+A pull request's walk keeps the walk window and its panel beside the page: `classic-final:docs/practices/capture-window.md`, *The panel beside the page*.
 
 **A deployed page** can be walked as a local one is.
 A staging environment behind single sign-on redirects to a provider and back, so `show_window` takes `origins`, a list of other `http` or `https` origins (a host and an optional port, no path) the window may pass through.
@@ -68,7 +68,7 @@ A load of one that fails is told to nobody.
 A tab reopened from the ledger or the thread signs in with none, so it relies on the jar.
 A popup onto the shown origin or a named one opens as a child of the window and closes on `window.close()`; every other popup is refused.
 The window's user agent is Chrome's, without the Electron token.
-While the page is at a provider or its popup is open, a walk with `steps` waits on its step and tells the job nothing (`docs/practices/capture-window.md`, *A popup a Job's page opened*).
+While the page is at a provider or its popup is open, a walk with `steps` waits on its step and tells the job nothing (`classic-final:docs/practices/capture-window.md`, *A popup a Job's page opened*).
 
 **A question asked while the person walks a page is put to him as at any other time.**
 A walk is a tab of the job and can stay open for hours, so a job that could not ask for that long could not ask at all.

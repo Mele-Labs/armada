@@ -4,8 +4,8 @@
 
 Since 20 Nov 2026. The Job's right column follows its workflow step: the tabs the step opens, the time on it, what ends it, and whether it has stood past its usual time.
 **Additive**: one optional field on `SessionRecord`, two new types, one optional field on `StepReading`; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take. An older Fleet sends neither and Bridge draws the column as it does now.
-Bridge's half is `packages/protocol/src/sessions.ts` and `setup.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take. An older Fleet sends neither and Bridge draws the column as it does now.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts` and `setup.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -1,10 +1,8 @@
 //! `show_sketch`: a session draws the person a diagram.
 //!
-//! **The scene is checked here, in the crate where bytes enter, against the rules of
-//! `parseScene` in `packages/components/src/compositions/SketchScene/scene.ts`.** Bridge draws a
+//! **The scene is checked here, in the crate where bytes enter.** Bridge draws a
 //! scene that does not validate as an empty frame and says nothing, so the only place an agent can
-//! be told what is wrong with its drawing is before it is kept. `tests/sketch.rs` reads the three
-//! lists below out of that file and fails when they differ.
+//! be told what is wrong with its drawing is before it is kept.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -47,8 +45,7 @@ pub const SCENE_ICONS: [&str; 25] = [
     "server", "settings", "shield-check", "terminal", "webhook", "wrench", "zap",
 ];
 
-/// The glyphs a `mock` may name as `<i data-icon>`: the keys of `MOCK_ICONS` in
-/// `packages/components/src/compositions/SketchScene/mock-icons.ts`, which a test holds this to.
+/// The glyphs a `mock` may name as `<i data-icon>`. A test holds the tool description to this list.
 pub const MOCK_GLYPHS: [&str; 53] = [
     "activity", "bell", "bot", "box", "check", "chevron-down", "chevron-right", "circle", "circle-alert",
     "circle-check", "circle-dot", "circle-help", "circle-pause", "circle-x", "clock", "cpu", "ellipsis", "eye",

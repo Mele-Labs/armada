@@ -4,8 +4,8 @@
 
 Since 13 Nov 2026. [Drawing a sketch](../../concepts/session/drawing-a-sketch.md), *The design catalogue*.
 **Additive only**: one operation, one route and the types it answers; no event kind and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-The mirror is `packages/protocol/src/design-catalogue.ts`, written by hand; Bridge does not call the route.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+The mirror is `classic-final:packages/protocol/src/design-catalogue.ts`, written by hand; Bridge does not call the route.
 
 | Where | Side | Carries |
 | --- | --- | --- |

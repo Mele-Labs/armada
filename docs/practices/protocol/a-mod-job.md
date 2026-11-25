@@ -4,8 +4,8 @@
 
 Since 23 Oct 2026. `docs/concepts/mods.md`, *A Mod Job*.
 **Additive**: one operation, one route, the two types they carry, and seven optional fields on existing types; no event kind.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/mods.ts` and `sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |

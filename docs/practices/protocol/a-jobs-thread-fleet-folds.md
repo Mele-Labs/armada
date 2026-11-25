@@ -7,7 +7,7 @@ Bridge folded it in TypeScript from `get_session` and `session.row`; the native 
 **Additive only**: three new operations and one new event, and no existing one changes.
 Electron Bridge keeps its own TypeScript reading, so `get_session` and `session.row` are as they were.
 The Rust half is `crates/ipc/src/job_thread.rs` and the fold is `crates/fleet/src/thread_view.rs`.
-Bridge's half is `packages/protocol/src/job-thread.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/job-thread.ts`, written by hand.
 
 | Operation | Kind | Carries |
 | --- | --- | --- |

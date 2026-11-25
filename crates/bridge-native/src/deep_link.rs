@@ -1,5 +1,5 @@
 //! `armada://pull/<owner>/<name>/<number>`: what macOS hands the app to open, read the way
-//! Electron's `DeepLinks` reads it (`apps/desktop/src/main/deep-link.ts`, `shared/pull-link.ts`).
+//! Electron's `DeepLinks` reads it (`classic-final:apps/desktop/src/main/deep-link.ts`, `shared/pull-link.ts`).
 //!
 //! **Claimed.** `scripts/native-app` writes `CFBundleURLTypes` into the app's `Info.plist`, so macOS
 //! sends the scheme here. A link is read, then held until Fleet has said whether `features.deepLinks`

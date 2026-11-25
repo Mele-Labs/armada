@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
-use crate::rules_stylesheets::strip_comments;
+use crate::rules_tokens::strip_comments;
 use crate::{files_with_ext, Report};
 
 /// Where the shared names are declared.

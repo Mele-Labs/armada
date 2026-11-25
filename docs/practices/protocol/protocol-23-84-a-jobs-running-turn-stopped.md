@@ -10,4 +10,4 @@
 
 **Skew.** A Fleet before 23.84 has no route and answers 404, so a Bridge that draws Stop shows the refusal.
 A Bridge before it never calls it.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `stopSession` on the preload.

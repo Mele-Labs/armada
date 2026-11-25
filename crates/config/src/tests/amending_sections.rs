@@ -1,13 +1,13 @@
 //! A form's edits to the rest of the schema — `base`, `evidence:`,
 //! `after_merge`, `setup` and the `drone:` dials — against this repository's
-//! own `armada.yml`, for `amending.rs`'s reason: it is the hardest file in the
+//! `armada.yml` as `amending.rs` keeps it, for its reason: it is the hardest file in the
 //! house.
 
 use std::path::Path;
 
 use crate::amending::{amend, CheckEdit, Edit, EvidenceEdit, NewEvidence, NotAmended};
 
-const OWN: &str = include_str!("../../../../armada.yml");
+const OWN: &str = include_str!("amending_manifest.yml");
 
 fn at() -> &'static Path {
     Path::new("armada.yml")

@@ -4,8 +4,8 @@
 
 Since 31 Oct 2026. What a Job's quick bar is offered beyond the lines he saved: up to three answers a small model writes to the agent's last message, and up to six lines he sends often across every Job.
 **Additive only**: one operation, one route and one type; no event kind, no field on an existing type, nothing kept on disk.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/session-quick.ts`, written by hand, field for field, and `readSessionQuick` on the BridgeApi.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/session-quick.ts`, written by hand, field for field, and `readSessionQuick` on the BridgeApi.
 
 | Where | Side | Carries |
 | --- | --- | --- |

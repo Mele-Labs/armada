@@ -101,48 +101,6 @@ fn the_edge_the_store_refuses_to_leave_proposed_is_named() {
     assert!(read.contains("produced"));
 }
 
-const WIRE: &str = r#"
-export type StudioNodeContent =
-  /** A reference to the run; never its status. */
-  | { kind: "run"; run_id: string }
-  /**
-   * What a person pointed at and said; fixed at capture.
-   */
-  | { kind: "note"; said: string }
-  | { kind: "job"; job_id: string };
-
-export type ForgeState = "open" | "closed";
-
-export type ProposeStudioEdge = {
-  from: string;
-  to: string;
-  kind: "same_as" | "blocks";
-};
-"#;
-
-#[test]
-fn a_union_of_tags_reads_back_as_its_tags() {
-    let read = sources::tags(WIRE, "StudioNodeContent");
-    assert_eq!(
-        read.len(),
-        3,
-        "a doc comment's own `;` ended the union early"
-    );
-    assert!(read.contains("job"));
-}
-
-#[test]
-fn an_object_type_is_read_past_its_first_semicolon() {
-    let read = sources::literals(WIRE, "ProposeStudioEdge");
-    assert_eq!(
-        read.len(),
-        2,
-        "the `from` field ended the declaration early"
-    );
-    assert!(read.contains("same_as"));
-    assert_eq!(sources::literals(WIRE, "ForgeState").len(), 2);
-}
-
 #[test]
 fn the_lexicon_bans_the_word_and_not_the_article() {
     let read = sources::never_words(

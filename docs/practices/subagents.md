@@ -78,8 +78,8 @@ on an older harness, such as 2.1.42, would miss the mod's skill altogether.
 | Type | Model | Takes |
 |---|---|---|
 | `rust-engineer` | job's | `crates/`, `xtask/` |
-| `bridge-engineer` | job's | `apps/`, `packages/` |
-| `protocol-engineer` | job's | Anything crossing the Rust/TypeScript wire |
+| `bridge-engineer` | job's | `apps/`, `packages/`: Pocket, the store and the shared packages |
+| `protocol-engineer` | job's | Anything that changes the wire |
 | `gpui-engineer` | job's | `crates/bridge-native/`, the native Bridge |
 | `docs-writer` | `sonnet` | `docs/`, `.claude/skills/`, issue bodies |
 | `fixture-author` | `sonnet` | One testkit NDJSON fixture |

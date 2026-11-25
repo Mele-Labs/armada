@@ -20,4 +20,4 @@ This is the bounded-with-a-count shape the open WebSocket risk asks for, one sub
 
 **Skew.** A Fleet before 23.76 has neither route and answers 404, so a Bridge that offers the block has nothing to call.
 A Bridge before it never asks.
-Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand like the rest.

@@ -4,7 +4,7 @@ use super::*;
 
 
 /// Whether an address is one Bridge's window will load: any `http` or `https` address with a host
-/// and no blank in it (`docs/practices/capture-window.md`).
+/// and no blank in it (`classic-final:docs/practices/capture-window.md`).
 pub(super) fn shows_a_page(url: &str) -> bool {
     let Some(rest) = url
         .strip_prefix("http://")

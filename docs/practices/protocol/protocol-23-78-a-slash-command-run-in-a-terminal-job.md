@@ -10,4 +10,4 @@
 
 **Skew.** A Fleet before 23.78 answers 404 and Bridge shows the refusal as for any act on a Job.
 A Bridge before it never calls the route.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest.

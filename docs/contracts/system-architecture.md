@@ -72,8 +72,7 @@ in Armada Decisions.
 
 | Process | Language | Lifetime | Started by |
 | --- | --- | --- | --- |
-| Bridge | TypeScript / Electron | While the app is open | The user |
-| Native Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
+| Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
 | Operator | One agent session with Fleet's tools, hosted by Fleet | One per machine, for as long as its context lasts | Fleet, while `features.operator` is on |
@@ -87,8 +86,8 @@ than spawning a second one. This is also why a protocol mismatch is dangerous: i
 happens mid-Job, with Drones burning tokens. See the lifeboat in section 6.
 
 **Why a separate daemon rather than an embedded backend.** Fleet must
-outlive the Electron window. The same choice leaves room for a future
-non-Electron client, web or mobile, against the same backend.
+outlive the Bridge window. The same choice leaves room for another client
+against the same backend, which is what Pocket, the phone app, is.
 
 **Bridge finds Fleet through a runtime file** carrying port, pid and
 protocol ID, written on startup and removed on clean exit. Bridge
@@ -130,9 +129,8 @@ specified, open in Armada Decisions.
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Desktop shell | Electron | Multi-Drone monitoring, diffs, real-time panes. v1's recorded pain was the terminal surface, not the engine: 9 of 11 readable failures were layout, legibility, or freeze complaints |
-| Renderer build | electron-vite, `apps/desktop` | Set up in M0 — Foundations |
-| UI | React, shadcn primitives, lucide-react icons | Job Board row must build from tokens and shadcn alone, nothing invented |
+| Desktop shell | Native, Rust on gpui | Multi-Drone monitoring, diffs, real-time panes. v1's recorded pain was the terminal surface, not the engine: 9 of 11 readable failures were layout, legibility, or freeze complaints |
+| Phone UI | React, Pocket's own kit, `apps/pocket` | Pocket's rows build from tokens alone, nothing invented |
 | Design tokens | `packages/tokens` | Shared across surfaces. Status tokens double as Doctor's pass/warn/fail palette |
 | JS package manager | pnpm workspace | Sits beside the Cargo workspace in one repo. Fleet and Bridge version together |
 | Backend | Rust, 12-crate Cargo workspace | Seams justified by v1 measurement, not prediction. See the Armada Crates database |
@@ -147,7 +145,7 @@ specified, open in Armada Decisions.
 under `core-model` or `adapter-traits`. This is checked in CI, not by
 review.
 
-## Why Electron and not a TUI
+## Why a window and not a TUI
 
 **The evidence is recorded, not a general preference.** Of 77 failure and
 inbox entries in v1, 9 of 11 readable failures were the same complaint in
@@ -156,17 +154,17 @@ was illegible, the columns flip-flopped, there are conflicts and no way to
 see what they are. The recorded pain was the surface, not the engine.
 
 A fixed-width terminal pane cannot hold a diff, an evidence bundle or a
-design doc, and it was measurably slow and freeze-prone. Electron's runtime
-overhead is the accepted cost of multi-Drone visualization.
+design doc, and it was measurably slow and freeze-prone. A window's overhead
+is the accepted cost of multi-Drone visualization.
 
-**A native Bridge is being built beside the Electron one.**
-It replaces Electron on the switch day the owner picks.
-The rationale above records why Electron was chosen over a TUI; [Native Bridge](../concepts/native-bridge.md) owns the move to gpui.
+**The Bridge is native.**
+Armada Classic, the Electron Bridge, was deleted on the switch day and is read at the tag `classic-final`.
+The rationale above records why a window was chosen over a TUI; [Native Bridge](../concepts/native-bridge.md) owns the move to gpui.
 
 **Review and reply are one loop, not two.** Reviewing and deciding is a
 back-and-forth exercise and feedback has to reach the Drone, so a design
 that puts review and reply in separate surfaces — or even separate panels —
-recreates the v1 problem inside Electron. **Bridge's review UI keeps review
+recreates the v1 problem inside a window. **Bridge's review UI keeps review
 and reply-with-feedback as a single continuous interaction.**
 
 ---
@@ -258,14 +256,14 @@ spans. Drop that table and the decision reopens.
 
 **Versioning.** There is no version number to bump. Each build carries a
 protocol ID, a hash of the wire surface: the `ipc` DTOs, the operation
-inventory, the route table and Bridge's TypeScript mirror of them.
-`crates/ipc/build.rs` embeds it in Fleet and `electron.vite.config.ts` injects
-the same hash into Bridge, so two branches that both change the wire change
+inventory and the route table.
+`crates/ipc/build.rs` embeds it in Fleet and Bridge links the same crate, and
+`scripts/protocol-id` prints it for a restart, so two branches that both change the wire change
 different files and never conflict on a number. Equal IDs connect. Anything
 else is refused: Bridge opens no socket and falls back to the v0 lifeboat.
 There is no order between two IDs, so a mismatch says the sides differ and not
 which one is older. `cargo xtask verify-foundations` fails if Fleet's and
-Bridge's hashing disagree, so a cross-language change is a build failure
+the restart script's hashing disagree, so a change to one is a build failure
 rather than a runtime surprise. `docs/practices/protocol.md` says what the
 hash covers and what it cannot see.
 
@@ -274,13 +272,13 @@ hash covers and what it cannot see.
 escalation reasons, step and criterion verdicts. A checked-in file beside
 them supplies the verb, the icon and the status token for each variant,
 since no enum can generate "hit the sub-dispatch cap". The codegen emits
-one TypeScript module carrying the join, and `verify-enum-verbs` fails the
+one Rust module carrying the join, and `verify-enum-verbs` fails the
 build where any variant is missing any of the three — the same assertion
 the icon rule makes and the same one the token section intends, run once
 rather than three times.
 
 **Bridge authors no roster.** Not the status list behind a filter, not the
-reason list behind a badge, not the enum→verb map. It imports the generated
+reason list behind a badge, not the enum→verb map. It uses the generated
 module. This is the point rather than a convenience: `lib/job-states.js`
 was the previous answer, it carried six escalation reasons after the enum
 went to seven, and it failed that way three times. A hand-maintained map on
@@ -469,10 +467,9 @@ keyboard, so it is a UI mode switch rather than an API operation.
 
 ## Repo layout
 
-Settled in M0 — Foundations: `apps/desktop` via electron-vite, `crates/*`
-for the twelve crates, `packages/tokens`, `docs/`. The sidecar path
-resolves through one function in `src/main` — dev reads `target/debug/`,
-packaged reads `extraResources`.
+Settled in M0 — Foundations: `crates/*` for the crates, `apps/` for Pocket and
+the store, `packages/tokens`, `docs/`. Bridge is `crates/bridge-native`, a
+workspace of its own beside the root one.
 
 ## Runtime paths
 
@@ -783,8 +780,8 @@ in tests with zero network, and that crate seam holds regardless of the
 process answer. **Named for the crate.** "Armada Server" and "Daemon" are
 retired names, still in use elsewhere in the docs.
 
-**Three surfaces have no crate.** Bridge, Doctor and Job Board live in
-`apps/desktop`. The crate structure is the Rust half of the system only.
+**Pocket has no crate.** It lives in `apps/pocket`. The crate structure is the
+Rust half of the system only.
 
 ---
 

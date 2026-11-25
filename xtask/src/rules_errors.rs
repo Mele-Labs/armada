@@ -8,20 +8,19 @@
 //! invent — the declaration form already exists in both languages, and this
 //! reads it rather than proposing one.
 //!
-//! | Half | Declared as | Found by |
-//! | --- | --- | --- |
-//! | Rust | `const NO_SUCH_JOB: &str = "fleet.no_such_job";` | the literal's shape |
-//! | Bridge | `const FLEET_UNREACHABLE: BridgeCode = "bridge.fleet.unreachable";` | the type annotation |
+//! A Rust code is declared as `const NO_SUCH_JOB: &str = "fleet.no_such_job";`
+//! and found by the literal's shape, because nothing types a code there — and a
+//! dotted lowercase string is also what a file name looks like, which is why
+//! [`FILE_EXTENSIONS`] exists. That is a guess, and it is the loud kind: a wrong
+//! include shows up as a duplicate naming a file name, not as silence.
 //!
-//! Bridge's half is exact, because the type says so. Rust's is a shape, because
-//! nothing types a code there — and a dotted lowercase string is also what a
-//! file name looks like, which is why [`FILE_EXTENSIONS`] exists. That is a
-//! guess, and it is the loud kind: a wrong include shows up as a duplicate
-//! naming a file name, not as silence.
+//! **There is no Bridge half any more.** The Electron Bridge declared its own
+//! codes under `bridge.`, found by a type annotation, and went with it. The
+//! prefix stays reserved, so a Rust code that takes it still fails.
 //!
-//! **Nothing here is hardcoded to a path.** Both halves walk source roots and
-//! match on the declaration, so moving `failures.ts` costs nothing and losing
-//! it entirely fails on the empty set rather than passing.
+//! **Nothing here is hardcoded to a path.** The scan walks the source root and
+//! matches on the declaration, and losing every declaration fails on the empty
+//! set rather than passing.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -34,18 +33,9 @@ use crate::{files_with_ext, Report};
 /// collides with itself is worse than no gate.
 const RUST_ROOTS: &[&str] = &["crates"];
 
-/// Where a Bridge code may be declared. Both roots, and no file names — the
-/// #344 agent may move `failures.ts` while this is being written.
-const BRIDGE_ROOTS: &[&str] = &["apps", "packages"];
-
-/// The namespace Bridge mints in. The prefix is the whole mechanism keeping the
-/// two sets disjoint without a collector spanning both, so a Rust code that
-/// took it would break the one assumption letting this rule check each half
-/// alone.
+/// The namespace the Electron Bridge minted in, reserved: a Rust code that took
+/// it would read as one of Bridge's.
 const BRIDGE_PREFIX: &str = "bridge.";
-
-/// The type annotation that makes a Bridge declaration exact.
-const BRIDGE_TYPE: &str = ": BridgeCode = ";
 
 /// Final segments that make a dotted lowercase literal a file name rather than
 /// a code. Four live in `crates/` today — `fleet.json`, `armada.yml`,
@@ -71,25 +61,19 @@ impl Declaration {
     }
 }
 
-/// Rule: two declarations of one code fail, in either language, naming both
-/// sites.
+/// Rule: two declarations of one code fail, naming both sites.
 ///
 /// **The contract says the set is closed by collection and names a command
-/// that did not exist.** Until this, the only thing keeping Bridge's eleven
-/// codes distinct was that they are declared in one file and somebody read it,
-/// and the Rust seventeen had the same bound one file over.
+/// that did not exist.** Until this, the only thing keeping the codes distinct
+/// was that they are declared beside the refusal that raises them and somebody
+/// read it.
 ///
-/// The two halves are checked separately and neither decides anything about
-/// the other, because the `bridge.` prefix already holds them apart. The one
-/// thing that would break that — a Rust code taking the prefix — is the third
-/// finding below.
-///
-/// **An empty half fails.** Both sets are non-empty today, so zero means the
-/// scan stopped matching, which is the failure a rule keyed to a convention
-/// dies of and never reports.
+/// **An empty set fails.** It is non-empty today, so zero means the scan
+/// stopped matching, which is the failure a rule keyed to a convention dies of
+/// and never reports.
 pub fn one_code_names_one_failure(root: &Path) -> Report {
     let mut report = Report::new("one code, one failure");
-    let (rust, bridge) = collect(root);
+    let rust = collect(root);
 
     if rust.is_empty() {
         report.fail(
@@ -98,32 +82,19 @@ pub fn one_code_names_one_failure(root: &Path) -> Report {
              the declaration form moved and the scan went dark rather than green",
         );
     }
-    if bridge.is_empty() {
-        report.fail(format!(
-            "packages/, apps/ — no `{}` declaration matched. Eleven matched when \
-             this rule was written; an empty set means the type was renamed or the \
-             annotation dropped, and nothing is being checked",
-            BRIDGE_TYPE.trim()
-        ));
-    }
 
     collisions(&mut report, &rust, "Rust");
-    collisions(&mut report, &bridge, "Bridge");
     borrowed_namespace(&mut report, &rust);
     report
 }
 
-/// A Rust code that took Bridge's prefix.
-///
-/// The one way the two halves could collide while each passes its own check,
-/// and the reason this rule may read them separately at all.
+/// A Rust code that took the Electron Bridge's prefix.
 fn borrowed_namespace(report: &mut Report, rust: &[Declaration]) {
     for declared in rust {
         if declared.code.starts_with(BRIDGE_PREFIX) {
             report.fail(format!(
                 "{} — `{}` is declared in Rust and takes Bridge's `{BRIDGE_PREFIX}` \
-                 namespace. The prefix is the only thing holding the two sets apart, \
-                 and this rule checks each half alone on the strength of it",
+                 namespace, which is reserved",
                 declared.site(),
                 declared.code
             ));
@@ -159,8 +130,8 @@ fn collisions(report: &mut Report, declared: &[Declaration], half: &str) {
     }
 }
 
-/// Both halves, each sorted by code then by site.
-pub fn collect(root: &Path) -> (Vec<Declaration>, Vec<Declaration>) {
+/// Every Rust code, sorted by code then by site.
+pub fn collect(root: &Path) -> Vec<Declaration> {
     let mut rust = Vec::new();
     for source_root in RUST_ROOTS {
         for path in files_with_ext(root, &root.join(source_root), &["rs"]) {
@@ -170,19 +141,8 @@ pub fn collect(root: &Path) -> (Vec<Declaration>, Vec<Declaration>) {
             rust.extend(rust_declarations(&path, &text));
         }
     }
-    let mut bridge = Vec::new();
-    for source_root in BRIDGE_ROOTS {
-        for path in files_with_ext(root, &root.join(source_root), &["ts", "tsx"]) {
-            let Ok(text) = fs::read_to_string(root.join(&path)) else {
-                continue;
-            };
-            bridge.extend(bridge_declarations(&path, &text));
-        }
-    }
-    for half in [&mut rust, &mut bridge] {
-        half.sort_by(|a, b| (&a.code, &a.path, a.line).cmp(&(&b.code, &b.path, b.line)));
-    }
-    (rust, bridge)
+    rust.sort_by(|a, b| (&a.code, &a.path, a.line).cmp(&(&b.code, &b.path, b.line)));
+    rust
 }
 
 /// Every Rust code declared in one file.
@@ -191,24 +151,6 @@ pub fn rust_declarations(path: &str, text: &str) -> Vec<Declaration> {
     let mut found = Vec::new();
     for (n, line) in lines.iter().enumerate() {
         let Some(code) = rust_code_on(line) else {
-            continue;
-        };
-        found.push(Declaration {
-            code,
-            path: path.to_string(),
-            line: n + 1,
-            meaning: meaning_above(&lines, n),
-        });
-    }
-    found
-}
-
-/// Every Bridge code declared in one file.
-pub fn bridge_declarations(path: &str, text: &str) -> Vec<Declaration> {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut found = Vec::new();
-    for (n, line) in lines.iter().enumerate() {
-        let Some(code) = bridge_code_on(line) else {
             continue;
         };
         found.push(Declaration {
@@ -247,21 +189,6 @@ fn rust_code_on(line: &str) -> Option<String> {
     let literal = value.trim().strip_suffix(';')?;
     let literal = unquote(literal)?;
     looks_like_a_code(literal).then(|| literal.to_string())
-}
-
-/// The code a TypeScript line declares, read off the type annotation.
-///
-/// No shape test: `BridgeCode` is a template literal type, so a declaration
-/// that forgets the prefix does not compile and one that is not a code cannot
-/// carry the annotation.
-fn bridge_code_on(line: &str) -> Option<String> {
-    let line = line.trim();
-    if line.starts_with("//") || line.starts_with('*') {
-        return None;
-    }
-    let value = line.split_once(BRIDGE_TYPE)?.1;
-    let literal = value.trim().strip_suffix(';').unwrap_or(value.trim());
-    Some(unquote(literal.trim())?.to_string())
 }
 
 /// Whether a string literal is a code rather than a file name or a version.

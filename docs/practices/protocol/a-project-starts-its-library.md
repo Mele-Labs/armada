@@ -5,7 +5,7 @@
 Since 24 Nov 2026. `docs/concepts/feature-catalog.md`, *Starting a library*.
 **Additive only**: two operations and routes; no field on an existing type and no event kind.
 There is no number to bump: the protocol ID moves with `crates/ipc/src`, the operation files and the route table.
-Only the native Bridge reads it; `packages/protocol` mirrors no feature type, and Classic draws nothing of it.
+Only the native Bridge reads it.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -1,5 +1,5 @@
 //! A workflow definition's text, read for its steps and changed in the one place Settings edits, a step's
-//! `instructions` (`packages/components/src/compositions/WorkflowManager/definition.ts`). The text is read with its
+//! `instructions` (`classic-final:packages/components/src/compositions/WorkflowManager/definition.ts`). The text is read with its
 //! keys in the order the file wrote them, so what goes back to `save_workflow` is the file as it was but for those
 //! words.
 

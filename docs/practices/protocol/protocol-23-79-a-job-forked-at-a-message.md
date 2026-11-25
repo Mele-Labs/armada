@@ -11,4 +11,4 @@
 | `Attachment.detail` of `forked_from` | `at`, `cut` | `at` is the row id as sent, which Bridge cuts the folded old rows at. `cut` is the transcript line the agent is told to end at and Bridge does not read it. Both absent for a whole-conversation fork |
 
 **Skew.** A Fleet before 23.79 reads a `fork` with an `at` as it reads one without and refuses a live job 409, so a Bridge that sends `at` to it shows the refusal.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `forkSessionAt` on the preload.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand like the rest; the part that offers the act is `forkSessionAt` on the preload.

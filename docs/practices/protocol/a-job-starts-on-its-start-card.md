@@ -40,7 +40,7 @@ The hold survives a Fleet restart because the column does.
 
 **Skew.** A Bridge and a Fleet from either side of this change have different IDs, so the two are refused regardless.
 The event stream is untouched beyond the `session.changed` a hosted Job already rides on, which makes the unmeasured sink risk neither better nor worse.
-Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand.
 
 ## Every new Job is held, with its first message on the card
 

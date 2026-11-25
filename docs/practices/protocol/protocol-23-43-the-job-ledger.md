@@ -14,4 +14,4 @@
 **`kind` on an attachment is open text, and `state` is not.** A kind Fleet has not met is kept as it arrived; every kind's state is `standing`, `spent` or `given_back`, so a released slot and a spent need are read the same way.
 A holder is `{ kind: session | job, id }` and no foreign key to either.
 
-**One migration**, `session_ledger.tables`: `sessions` and `ledger_attachments`. Bridge's half is `packages/protocol/src/sessions.ts`, written by hand like the rest.
+**One migration**, `session_ledger.tables`: `sessions` and `ledger_attachments`. Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand like the rest.
