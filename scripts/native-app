@@ -10,8 +10,7 @@
 # ships one, and a second recipe would let the two differ.
 #
 # The binary is renamed to `Contents/MacOS/Armada`, because the Dock and the app
-# switcher read the executable's file name (`scripts/armada-electron` has the
-# measurement). The icon is the brand's, from beside this script unless one is
+# switcher read the executable's file name, not the plist's. The icon is the brand's, from beside this script unless one is
 # given. The two notification tones go in Resources beside it. Armada Voice, the helper Talk hears and speaks
 # through, goes in `Contents/Helpers`, built first when it is missing or stale. A caller that adds
 # to the bundle afterwards signs it again: writing into a signed bundle breaks the seal.
@@ -37,19 +36,19 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp -c "$binary" "$app/Contents/MacOS/Armada" 2>/dev/null || cp "$binary" "$app/Contents/MacOS/Armada"
 chmod 755 "$app/Contents/MacOS/Armada"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
-# The notification tones, in Resources, the first place macOS looks up a banner's sound by name. The same files
-# Armada Classic bundles (`extraResources` in `apps/desktop/electron-builder.yml`); `crates/bridge-native/src/notify.rs` names them.
-sounds="$here/../apps/desktop/sounds"
+# The notification tones, in Resources, the first place macOS looks up a banner's sound by name.
+# `crates/bridge-native/src/notify.rs` names them.
+sounds="$here/../crates/bridge-native/sounds"
 for tone in armada-blocked armada-waiting; do
   [[ -f "$sounds/$tone.wav" ]] || fail "$sounds/$tone.wav is missing"
   cp "$sounds/$tone.wav" "$app/Contents/Resources/$tone.wav"
 done
-# Armada Voice, the helper Talk hears and speaks through, as the Electron app carries it: in `Contents/Helpers`,
-# where the binary looks first. Built here, by `node apps/desktop/native/voice/build.mjs`, when it is missing or older
+# Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`,
+# where the binary looks first. Built here, by `node crates/bridge-native/native/voice/build.mjs`, when it is missing or older
 # than a file in its folder, from the tree this script sits in or `$NATIVE_APP_TREE` (`scripts/keep-build` names its
 # own). A build that fails says so in one line and the app is made without it: Talk then uses macOS Dictation.
 tree="${NATIVE_APP_TREE:-$here/..}"
-voice_dir="$tree/apps/desktop/native/voice"
+voice_dir="$tree/crates/bridge-native/native/voice"
 voice="$voice_dir/build/Armada Voice.app"
 voice_binary="$voice/Contents/MacOS/armada-voice"
 if [[ -f "$voice_dir/build.mjs" ]] \

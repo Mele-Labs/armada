@@ -32,7 +32,7 @@ pub enum FeaturePageEvent {
     Retired,
 }
 
-enum Source {
+pub(super) enum Source {
     Live(Entity<FleetConnection>),
     Mock,
 }
@@ -71,6 +71,12 @@ pub(super) enum Region {
     /// The Keep button of the same.
     Keep,
     Start,
+    /// The Check button of the Docs card.
+    Check,
+    /// The Start a Job button of the flag under a doc that disagrees with the code, the one at `flag_at`.
+    FlagStart,
+    /// The Dismiss button of the same flag.
+    FlagDismiss,
 }
 
 pub struct FeaturePageView {
@@ -82,6 +88,15 @@ pub struct FeaturePageView {
     pub(super) start: FocusHandle,
     pub(super) retire: FocusHandle,
     pub(super) keep: FocusHandle,
+    pub(super) check: FocusHandle,
+    pub(super) flag_start: FocusHandle,
+    pub(super) flag_dismiss: FocusHandle,
+    /// Where the press of Check on the docs stands.
+    pub(super) checking: super::doc_checks::Checking,
+    /// Where his answer to a doc's flag stands.
+    pub(super) flag_answer: super::doc_checks::FlagAnswer,
+    /// The flagged doc the keys are on, among those the Docs card shows.
+    pub(super) flag_at: usize,
     /// Where the answer to the proposal to retire the feature stands.
     pub(super) retiring: Retiring,
     /// What the mock answers a retire press with, in place of Fleet: a refusal's sentence, or none.
@@ -91,9 +106,9 @@ pub struct FeaturePageView {
     /// The floor plan, laid out again only when the plan read differs from the one it was laid out for.
     pub(super) floor: page_model::Floor,
     floor_of: Option<Option<ipc::FloorPlan>>,
-    source: Source,
-    project: String,
-    slug: String,
+    pub(super) source: Source,
+    pub(super) project: String,
+    pub(super) slug: String,
     /// The area's title where whoever opened the page knows it.
     pub(super) area: Option<String>,
     pub(super) page: Load<FeaturePage>,
@@ -134,6 +149,7 @@ pub struct FeaturePageView {
     read_port: Option<u16>,
     work: Option<Task<()>>,
     answering: Option<Task<()>>,
+    pub(super) doc_work: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
 
@@ -183,6 +199,12 @@ impl FeaturePageView {
             start: cx.focus_handle(),
             retire: cx.focus_handle(),
             keep: cx.focus_handle(),
+            check: cx.focus_handle(),
+            flag_start: cx.focus_handle(),
+            flag_dismiss: cx.focus_handle(),
+            checking: Default::default(),
+            flag_answer: Default::default(),
+            flag_at: 0,
             retiring: Retiring::Idle,
             mock_refusal: None,
             well_at: 0,
@@ -214,6 +236,7 @@ impl FeaturePageView {
             read_port: None,
             work: None,
             answering: None,
+            doc_work: None,
             _subs: Vec::new(),
         }
     }
@@ -284,7 +307,7 @@ impl FeaturePageView {
         }
     }
 
-    fn port(&self, cx: &App) -> Option<u16> {
+    pub(super) fn port(&self, cx: &App) -> Option<u16> {
         match &self.source {
             Source::Live(fleet) => fleet.read(cx).held().port(),
             Source::Mock => None,
@@ -640,6 +663,14 @@ impl FeaturePageView {
         if !self.wells().is_empty() {
             regions.push(Region::Well);
         }
+        // The Docs card's own buttons, while the keys are on that card, as a written card's wells are.
+        if self.section == Section::Docs && self.can_check() {
+            regions.push(Region::Check);
+        }
+        if self.section == Section::Docs && !self.flagged().is_empty() {
+            regions.push(Region::FlagStart);
+            regions.push(Region::FlagDismiss);
+        }
         if self.proposes_retire() {
             regions.push(Region::Retire);
             regions.push(Region::Keep);
@@ -663,6 +694,12 @@ impl FeaturePageView {
             Region::Keep
         } else if self.start.is_focused(window) {
             Region::Start
+        } else if self.check.is_focused(window) {
+            Region::Check
+        } else if self.flag_start.is_focused(window) {
+            Region::FlagStart
+        } else if self.flag_dismiss.is_focused(window) {
+            Region::FlagDismiss
         } else {
             Region::Rail
         }
@@ -685,6 +722,9 @@ impl FeaturePageView {
             Region::Retire => &self.retire,
             Region::Keep => &self.keep,
             Region::Start => &self.start,
+            Region::Check => &self.check,
+            Region::FlagStart => &self.flag_start,
+            Region::FlagDismiss => &self.flag_dismiss,
         };
         window.focus(handle, cx);
         cx.notify();
@@ -734,7 +774,8 @@ impl FeaturePageView {
                         }
                         cx.notify();
                     }
-                    Region::Chips | Region::Retire | Region::Keep | Region::Start => {}
+                    Region::FlagStart | Region::FlagDismiss => self.step_flag(by, cx),
+                    Region::Chips | Region::Retire | Region::Keep | Region::Start | Region::Check => {}
                 }
             }
             "features_chip" if region == Region::Chips => self.step_chip(if act.slot == 0 { -1 } else { 1 }, cx),
@@ -746,6 +787,9 @@ impl FeaturePageView {
                 Region::Retire => self.answer_retire(true, window, cx),
                 Region::Keep => self.answer_retire(false, window, cx),
                 Region::Start => self.start_job(cx),
+                Region::Check => self.check_docs(window, cx),
+                Region::FlagStart => self.start_doc_job(window, cx),
+                Region::FlagDismiss => self.dismiss_doc_flag(window, cx),
             },
             "features_story" if region == Region::Rows => {
                 if let Some(at) = self.row_at {

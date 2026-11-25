@@ -12,7 +12,7 @@ use super::session_host::rig_placing;
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
 fn drawn(id: &SessionId, title: &str) -> ShowSketch {
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn about(id: &SessionId, item: &str, artifact: Option<&str>) -> SetWaitingFor {

@@ -85,12 +85,12 @@ NEVER = ("main", "preview")
 PUSHED = "preview/"
 # Exit code of `--at` when the ref has moved to a newer commit: scripts/restart-build reads it.
 SUPERSEDED = 75
-# What `git clean` keeps: the build directories, the Bridge, native Bridge and
+# What `git clean` keeps: the build directories, the native Bridge and
 # phone app build stamps `scripts/restart` compares sources against, the test
 # list Fleet's build script writes (a recompile of Fleet when it goes), and the
 # notes the owner pins from the Bridge he runs here, which the annotation layer
 # writes under the checkout.
-KEEP = ("/target", "node_modules", "/apps/desktop/out", "/crates/bridge-native/target",
+KEEP = ("/target", "node_modules", "/crates/bridge-native/target",
         "/apps/pocket/dist", "/crates/fleet/src/tests/mods.inc", "/.armada/annotations")
 
 
@@ -604,7 +604,7 @@ def does_not_build(root, base, rows, tips, output, wt):
             continue
         touched = set(out(root, "diff", "--name-only", f"{base}...{tips[branch]}").splitlines())
         # pnpm, tsc and vite print paths relative to the package (`src/App.tsx` for
-        # `apps/desktop/src/App.tsx`), so a path no branch file equals is matched by its tail.
+        # `apps/pocket/src/App.tsx`), so a path no branch file equals is matched by its tail.
         files = []
         for path in named:
             files += [path] if path in touched else sorted(f for f in touched if f.endswith("/" + path))

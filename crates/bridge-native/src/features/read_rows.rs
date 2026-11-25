@@ -2,7 +2,7 @@
 //! then the Job that read it and the day; a decision says the question, then what he chose, then the Job and the day. The glyph
 //! of a row is its kind in a hue, and every mark on it has a tooltip.
 
-use gpui::{div, prelude::*, px, Div, ElementId, FontWeight, Role, SharedString, Stateful};
+use gpui::{div, prelude::*, px, AnyElement, Div, ElementId, FontWeight, Role, SharedString, Stateful};
 
 use super::asks::{frame, Spot};
 use super::dossier::{pill, pill_quiet};
@@ -44,7 +44,8 @@ fn last(look: &Look, words: &str) -> Div {
 }
 
 /// A doc or a ticket a Job read. A doc whose address is gone has its title struck through and subtle, and says so in a chip.
-pub fn read(look: &Look, id: impl Into<ElementId>, row: &ReadRow, spot: Spot) -> Stateful<Div> {
+/// `under` is the flag a press of Check left, drawn before the last line; a doc a check found agreeing says so last.
+pub fn read(look: &Look, id: impl Into<ElementId>, row: &ReadRow, spot: Spot, under: Option<AnyElement>) -> Stateful<Div> {
     let id: ElementId = id.into();
     let key = format!("{id}");
     let ink = if row.gone { look.color(token::FG_SUBTLE) } else { look.color(hue_of(row.glyph)) };
@@ -97,7 +98,8 @@ pub fn read(look: &Look, id: impl Into<ElementId>, row: &ReadRow, spot: Spot) ->
     });
     let gone = row.gone.then(|| labelled(pill_quiet(look, "gone").id(SharedString::from(format!("{key}-gone"))).tooltip(tip("This address no longer answers")), Role::Label, "gone"));
     let tail = (gone.is_some() || !row.last.is_empty()).then(|| line(look).gap_x(look.length(token::SPACE_2)).children(gone).child(div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(row.last.clone()))));
-    let body = div().flex_1().min_w_0().flex().flex_col().child(head).children(gist).children(drift).children(tail);
+    let checked = row.checked.as_ref().map(|said| labelled(last(look, said).id(SharedString::from(format!("{key}-checked"))), Role::Label, said.clone()));
+    let body = div().flex_1().min_w_0().flex().flex_col().child(head).children(gist).children(drift).children(under).children(tail).children(checked);
     frame(look, id, spot).child(mark(look, SharedString::from(format!("{key}-kind")), row.glyph, ink, kind_said(row.glyph))).child(body)
 }
 

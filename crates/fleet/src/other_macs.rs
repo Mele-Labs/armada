@@ -313,6 +313,10 @@ where
         self.pull_held_by_other_mac(repository, number).await
     }
 
+    fn ready_in_this_build(&self, asked: &ipc::AnswerReadyToTry) -> Result<(), Refusal> {
+        self.ready_in_build_here(asked)
+    }
+
     async fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> Result<ActAnswered, Refusal> {
         self.acted_on_other_mac(mac, act).await
     }
@@ -419,6 +423,14 @@ where
         self.kit_held(held).await
     }
 
+    async fn share_home_layout(&self) -> Result<ipc::HomeLayout, Refusal> {
+        Ok(self.home_layout_shared())
+    }
+
+    async fn hold_other_mac_home_layout(&self, held: ipc::OtherMacHomeLayout) -> Result<MacNamed, Refusal> {
+        self.home_layout_held(held).await
+    }
+
     async fn kit_settle_from_mac(&self, mac: String, settled: ipc::KitSettled) -> Result<(), Refusal> {
         self.kit_settle_held(mac, settled).await
     }
@@ -495,7 +507,11 @@ where
                 self.run_id(),
             )));
         }
-        self.events().relay(crossed.event);
+        let mut event = crossed.event;
+        if let Event::JobThreadTail(tail) = &mut event {
+            self.ready_cards_restamped(&mut tail.items);
+        }
+        self.events().relay(event);
         Ok(MacNamed { mac })
     }
 

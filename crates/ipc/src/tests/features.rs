@@ -104,3 +104,22 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     let share: Vec<&str> = LibrarianPart::ALL.into_iter().filter(|one| one.spends_model_share()).map(LibrarianPart::name).collect();
     assert_eq!(share, ["drift", "since_you_looked", "gists"], "the model-written parts are the ones a night's share bounds");
 }
+
+#[test]
+fn a_check_of_the_docs_says_its_shape_and_a_doc_carries_what_it_found() {
+    let check = "{at: string, disagrees?: {doc_quote: string, code_at: string, code_quote: string}, dismissed?: boolean}";
+    assert_eq!(shape::of::<crate::DocCheck>(), check);
+    assert_eq!(shape::of::<crate::CheckDocs>(), "{project: string, slug: string}");
+    assert_eq!(shape::of::<crate::DocsChecked>(), format!("{{project: string, slug: string, checked: [{{target: string, check: {check}}}], unchecked?: [string], calls: number}}"));
+    assert_eq!(shape::of::<crate::DocFlag>(), "{project: string, slug: string, target: string}");
+    assert_eq!(shape::of::<crate::DocJobStarted>(), "{project: string, slug: string, target: string, session_id: string, title: string, brief: string, send_failed?: string}");
+    let read = shape::of::<crate::FeatureRead>();
+    assert!(read.ends_with(&format!("drifted?: [string], check?: {check}}}")), "{read}");
+}
+
+#[test]
+fn a_library_start_says_its_shape_and_a_draft_names_what_it_kept_and_passed_over() {
+    assert_eq!(shape::of::<crate::LibraryStart>(), "{project: string, modules: [{name: string, slug: string, path: string, held?: boolean}], docs: [string]}");
+    assert_eq!(shape::of::<crate::DraftModules>(), "{project: string}");
+    assert_eq!(shape::of::<crate::ModulesDrafted>(), "{project: string, drafted: [string], held?: [string]}");
+}

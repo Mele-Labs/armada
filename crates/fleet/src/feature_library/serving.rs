@@ -115,6 +115,26 @@ where
         self.retire_answered(caller, answer).await
     }
 
+    async fn check_docs(&self, caller: Option<api::Caller>, check: ipc::CheckDocs) -> Result<ipc::DocsChecked, Refusal> {
+        self.docs_checked(caller, check).await
+    }
+
+    async fn dismiss_doc_flag(&self, caller: Option<api::Caller>, flag: ipc::DocFlag) -> Result<ipc::DocFlag, Refusal> {
+        self.doc_flag_dismissed(caller, flag).await
+    }
+
+    async fn start_doc_job(self: std::sync::Arc<Self>, caller: Option<api::Caller>, flag: ipc::DocFlag) -> Result<ipc::DocJobStarted, Refusal> {
+        self.doc_job_started(caller, flag).await
+    }
+
+    async fn get_library_start(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::LibraryStart, Refusal> {
+        self.library_start_read(caller, project).await
+    }
+
+    async fn draft_module_features(&self, caller: Option<api::Caller>, draft: ipc::DraftModules) -> Result<ipc::ModulesDrafted, Refusal> {
+        self.modules_drafted(caller, draft).await
+    }
+
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
     }

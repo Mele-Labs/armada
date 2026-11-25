@@ -392,8 +392,8 @@ pub fn helper() -> Option<PathBuf> {
     if bundled.is_file() {
         return Some(bundled);
     }
-    let built = exe.ancestors().find(|dir| dir.join("apps/desktop/native/voice").is_dir())?;
-    let built = built.join("apps/desktop/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice");
+    let built = exe.ancestors().find(|dir| dir.join("crates/bridge-native/native/voice").is_dir())?;
+    let built = built.join("crates/bridge-native/native/voice/build/Armada Voice.app/Contents/MacOS/armada-voice");
     built.is_file().then_some(built)
 }
 

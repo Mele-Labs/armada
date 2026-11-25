@@ -57,6 +57,7 @@ mod workflow;
 /// A Project is a set of repositories and monorepo folders here; Workspace is only the Manifest's monorepo unit.
 mod project;
 mod values;
+mod metrics;
 /// A piece as the YAML text its file holds.
 mod writing;
 mod yaml;

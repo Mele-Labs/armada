@@ -94,6 +94,7 @@ fn has_page(thing: &Thing) -> bool {
     match thing {
         Thing::Ask(_) | Thing::Lapsed(_) => true,
         Thing::Row(row) => !row_options(row).is_empty() || kind_of(row).is_some(),
+        Thing::Sheet(_) => false,
     }
 }
 
@@ -339,7 +340,7 @@ impl JobView {
         let large = labelled(
             button(look, SharedString::from(format!("look-open-large:{key}")), "Open large", Tone::Ghost, false, None, true)
                 .on_click(cx.listener(move |this, _, window, cx| {
-                    // Large is the Review panel with the sketch in its detail, so one layer holds it: the panel's own F enlarges it further.
+                    // Large is the Review panel with the sketch in its detail, so one layer holds it.
                     if this.review_items(&job, cx).iter().any(|item| item.id == waiting) {
                         this.open_review_on(&waiting, window, cx);
                     } else {

@@ -13,6 +13,7 @@
 mod aa;
 mod acts;
 mod artifacts_tab;
+mod ask_line;
 mod for_you_tab;
 mod questions;
 mod reader_sheet;
@@ -154,7 +155,7 @@ pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use judge_cards::{ask_judge_choice, ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
-pub use review::{open_over, OperatorRead};
+pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;
@@ -233,7 +234,7 @@ pub(crate) enum Extra {
     Waiting,
     /// The sends that wait for the Mac the Job runs on (`crate::waiting_sends`).
     WaitsFor,
-    /// The tracker items the Job waits on because another holds them, and its claims not sent (`claim_waits`).
+    /// The tracker items the Job waits on because another holds them (`claim_waits`).
     ClaimWaits,
     /// The Job is moving to his other Mac: its steps, the one it is at filled in (`moving`).
     Moving,
@@ -245,6 +246,10 @@ pub(crate) enum Extra {
     Ready,
     /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
     Parts(String, u32),
+    /// What he sent from the sheet on an ask no card of the thread stands for, by its key (`ask_line::answer_key`).
+    Answer(String),
+    /// The open card of questions, by its call: a line for each question the sheet holds (`ask_line::asked_lines`).
+    Asked(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -285,6 +290,11 @@ struct Page {
     extras: Vec<Extra>,
     /// The cards of artifacts of parts kept before later items of the thread, each drawn under the item it follows.
     anchors: Vec<parts_fold::Anchor>,
+    /// His answers from the sheet that no card of the thread stands for, each under the item before later ones (`ask_line`).
+    answered: Vec<parts_fold::Anchor>,
+    /// What the sheet holds of this Job and what he answered, as last measured: a question draws as a line while the
+    /// sheet holds it, so a change measures the thread's end again.
+    asks: Vec<String>,
     /// The thread version the list was last measured for.
     version: Option<u64>,
     /// The folds the person opened, by item id.
@@ -326,7 +336,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: Vec::new(), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), answered: Vec::new(), asks: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: Vec::new(), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -1075,6 +1085,26 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let mut cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // His answers stand on the card they were asked on; one no card stands for stands where he gave it.
+        let parts: Vec<String> = self.parts_artifacts(id).iter().map(|one| one.id.clone()).collect();
+        let loose: Vec<(String, u32, ipc::Instant)> = self
+            .record(id, cx)
+            .map(|record| record.answers.iter().filter(|one| !ask_line::answer_in_place(one, &held.head, &held.items, &parts)).map(|one| (ask_line::answer_key(one), 0, one.at.clone())).collect())
+            .unwrap_or_default();
+        let (answered, loose_tail) = parts_fold::place(&held.items, &loose);
+        cards.extend(loose_tail.into_iter().map(|(key, _)| Extra::Answer(key)));
+        // The open card of questions is answered in the sheet: the thread points to it.
+        if let Some(asked) = held.head.asked.as_ref().filter(|asked| !asked.call.questions.is_empty()) {
+            cards.push(Extra::Asked(asked.call.call.clone()));
+        }
+        let asks: Vec<String> = self
+            .review_items(id, cx)
+            .into_iter()
+            .chain(self.artifact_items(id, None))
+            .map(|item| item.id)
+            .filter(|item| self.dock_of(id).is_none_or(|dock| !dock.hidden.contains(item)))
+            .chain(self.record(id, cx).into_iter().flat_map(|record| record.answers.iter().map(ask_line::answer_key)))
+            .collect();
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
         if ready_compact::asks(&held.items) {
             cards.push(Extra::Ready);
@@ -1099,7 +1129,7 @@ impl JobView {
             extras.push(Extra::End);
         }
         // The items it waits on that another holds stand with its other waits.
-        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty() || job.claims_unsent) {
+        if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty()) {
             extras.push(Extra::ClaimWaits);
         }
         // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
@@ -1121,7 +1151,7 @@ impl JobView {
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
-        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was && page.ready == ready {
+        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && page.answered == answered && page.asks == asks && dirty.is_none() && above == above_was && page.ready == ready {
             return;
         }
         let total = lead + before + items + extras.len();
@@ -1129,6 +1159,9 @@ impl JobView {
         let from = ready_compact::first_change(&page.ready, &ready).map_or(from, |at| from.min(at));
         // A card kept under an item that is not new changes that item's element, so the list measures from there.
         let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
+        let from = parts_fold::first_difference(&page.answered, &answered).map_or(from, |at| from.min(at));
+        // What the sheet holds or he answered moved: the lines that point to it, at the thread's end, draw again.
+        let from = if page.asks == asks { from } else { from.min(items) };
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
         // does a row drawn again under the top: gpui's splice puts the top at the range's start otherwise.
@@ -1150,6 +1183,8 @@ impl JobView {
         page.count = total;
         page.extras = extras;
         page.anchors = anchors;
+        page.answered = answered;
+        page.asks = asks;
         page.version = Some(version);
         page.ready = ready;
         if first {

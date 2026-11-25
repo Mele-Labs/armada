@@ -43,7 +43,7 @@ fn every_key_reads_and_writes_back() {
         pr_mode: Some(PrMode::Ready),
         auto_merge: Some(AutoMerge::ChecksPass),
         review_model: Some("big-model".into()),
-        look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()), board: None },
+        look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()), board: None, metrics: Vec::new() },
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
         reviews: ReviewsNamed { plans: Some(ReviewMode::ReviewAndApprove), pull_requests: Some(ReviewMode::Review), walks: Some(WalkReview::Review) },
         agent_starts: Some(AgentStarts::AskMe),
@@ -148,7 +148,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         pr_mode: Some(mode),
         auto_merge: Some(merge),
         review_model: Some(format!("model-{word}")),
-        look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()), board: None },
+        look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()), board: None, metrics: Vec::new() },
         tracker: None,
         reviews: ReviewsNamed::default(),
         agent_starts: None,
@@ -384,4 +384,71 @@ fn a_boards_blocks_are_written_and_read_back_with_a_kind_the_build_does_not_know
     assert_eq!(round(board.clone()), Some(board), "every block, its kind and view as written, in order");
     assert_eq!(round(Board::default()), Some(Board::default()), "no block drawn is a board, not none");
     assert_eq!(values_of("values:\n  look:\n    density: roomy\n").look.board, None, "one that wrote none has none");
+}
+
+fn recipes() -> Vec<core_model::MetricRecipe> {
+    use core_model::{MetricCall, MetricCredential, MetricRecipe};
+    let credential = || MetricCredential { name: "sentry".into(), how: "A Sentry auth token with read access".into(), url: Some("https://sentry.io/settings/auth-tokens/".into()) };
+    vec![
+        MetricRecipe {
+            id: "errors".into(),
+            title: "Errors".into(),
+            call: MetricCall::Http {
+                method: "GET".into(),
+                url: "https://sentry.io/api/0/projects/acme/shop/issues/".into(),
+                headers: vec![("Authorization".into(), "Bearer {credential}".into()), ("Accept".into(), "application/json".into())],
+                body: None,
+            },
+            map: "{rows: [{label: \"open\", value: length}]}".into(),
+            every_secs: Some(120),
+            credential: Some(credential()),
+        },
+        MetricRecipe {
+            id: "queue".into(),
+            title: "Queue".into(),
+            call: MetricCall::Mcp {
+                server: vec!["npx".into(), "-y".into(), "@example/mcp".into()],
+                env: vec![("TOKEN".into(), "{credential}".into())],
+                tool: "depth".into(),
+                arguments: "{\"queue\": \"main\"}".into(),
+            },
+            map: ".".into(),
+            every_secs: None,
+            credential: Some(credential()),
+        },
+        MetricRecipe {
+            id: "uptime".into(),
+            title: "Uptime".into(),
+            call: MetricCall::Cli { argv: vec!["/bin/echo".into(), "{\"rows\":[]}".into()], env: vec![("TOK".into(), "{credential}".into())] },
+            map: ".".into(),
+            every_secs: None,
+            credential: Some(credential()),
+        },
+    ]
+}
+
+#[test]
+fn a_projects_metric_recipes_are_written_and_read_back_in_order_beside_the_board() {
+    use core_model::{Board, BoardBlock};
+    let board = Board { blocks: vec![BoardBlock { kind: "metric:errors".into(), x: 0, y: 0, w: 3, h: 2, view: "list".into() }] };
+    let values = Values { look: Look { board: Some(board.clone()), metrics: recipes(), ..Look::default() }, ..Values::default() };
+    let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(values);
+    let written = project_text(&project).expect("text");
+    assert!(written.contains("metrics:"), "{written}");
+    let read = parse_project(Path::new("shop.yml"), &written).expect("what was written reads").values().look.clone();
+    assert_eq!(read.metrics, recipes(), "every recipe, each call's keys and the order written");
+    assert_eq!(read.board, Some(board), "the board is kept beside them");
+    assert!(values_of("values:\n  look:\n    density: roomy\n").look.metrics.is_empty(), "a file that wrote none has none");
+    assert!(values_of("values:\n  look:\n    metrics: []\n").look.metrics.is_empty(), "an empty list is none");
+}
+
+#[test]
+fn a_metric_recipe_that_does_not_read_is_refused_with_its_key() {
+    let bad = |recipe: &str| refused(&format!("values:\n  look:\n    metrics:\n{recipe}"));
+    let said = bad("      - id: errors\n        title: Errors\n        map: .\n        call: {transport: grpc}\n");
+    assert!(said.contains("values.look.metrics[0].call.transport"), "{said}");
+    let said = bad("      - id: errors\n        title: Errors\n        call: {transport: cli, argv: [a]}\n");
+    assert!(said.contains("values.look.metrics[0].map"), "{said}");
+    let twice = "      - {id: a, title: A, map: ., call: {transport: cli, argv: [a]}}\n";
+    assert!(bad(&format!("{twice}{twice}")).contains("values.look.metrics[1].id"), "an id is the project's own");
 }

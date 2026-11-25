@@ -67,3 +67,30 @@ pub fn who(port: u16, project: &str, cx: &App) -> Task<Result<ipc::WhosOnWhat, R
 pub fn retire(port: u16, body: &ipc::AnswerRetire, cx: &App) -> Task<Result<ipc::RetireAnswered, Refused>> {
     request(port, Ask::Post("/features/retire".into(), crate::settings::wire::body(body)), "RetireAnswered", cx)
 }
+
+/// `POST /features/docs/check`: put each doc of a feature to the model against its code. `crates/ipc/operations/check_docs.toml`.
+pub fn check_docs(port: u16, body: &ipc::CheckDocs, cx: &App) -> Task<Result<ipc::DocsChecked, Refused>> {
+    request(port, Ask::Post("/features/docs/check".into(), crate::settings::wire::body(body)), "DocsChecked", cx)
+}
+
+/// `POST /features/docs/dismiss`: quiet a doc's flag until the doc or the code changes. `crates/ipc/operations/dismiss_doc_flag.toml`.
+pub fn dismiss_doc_flag(port: u16, body: &ipc::DocFlag, cx: &App) -> Task<Result<ipc::DocFlag, Refused>> {
+    request(port, Ask::Post("/features/docs/dismiss".into(), crate::settings::wire::body(body)), "DocFlag", cx)
+}
+
+/// `POST /features/docs/job`: start a Job that asks him whether the doc or the code is right. `crates/ipc/operations/start_doc_job.toml`.
+pub fn start_doc_job(port: u16, body: &ipc::DocFlag, cx: &App) -> Task<Result<ipc::DocJobStarted, Refused>> {
+    request(port, Ask::Post("/features/docs/job".into(), crate::settings::wire::body(body)), "DocJobStarted", cx)
+}
+
+/// `GET /features/start?project=`: the modules and docs a project with no feature of its own starts from.
+/// `crates/ipc/operations/get_library_start.toml`.
+pub fn library_start(port: u16, project: &str, cx: &App) -> Task<Result<ipc::LibraryStart, Refused>> {
+    request(port, Ask::Get(format!("/features/start?project={}", crate::link::percent_encoded(project))), "LibraryStart", cx)
+}
+
+/// `POST /features/start/draft`: each module of the project kept as a pending feature. `crates/ipc/operations/draft_module_features.toml`.
+pub fn draft_modules(port: u16, project: &str, cx: &App) -> Task<Result<ipc::ModulesDrafted, Refused>> {
+    let body = ipc::DraftModules { project: project.to_string() };
+    request(port, Ask::Post("/features/start/draft".into(), crate::settings::wire::body(&body)), "ModulesDrafted", cx)
+}

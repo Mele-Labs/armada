@@ -1,7 +1,8 @@
 //! Hearing from the forge that a pull request changed. A Job's open pull request is subscribed to,
 //! and an event reads that one again through the same path as a person's Refresh, so each notice
-//! is still told once (`crate::pull_refreshing`). **The sweep keeps running whatever this does**:
-//! an account with events off, a stream that dropped and a pull request past the limit are all the
+//! is still told once (`crate::pull_refreshing`). **A pull request whose stream is attached is left
+//! out of the minute sweep** (`engine::Live`) and read on its events and every ten minutes besides.
+//! An account with events off, a stream that dropped and a pull request past the limit are all the
 //! sweep's to read, a minute late. `engine` holds the subscriptions.
 
 mod engine;
@@ -15,6 +16,7 @@ use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
 use engine::{Hearing, Timing, Want};
+pub(crate) use engine::Live;
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -47,6 +49,11 @@ where
         wanted
     }
 
+    /// The pull requests whose stream is attached now, which the minute sweep leaves to their events.
+    pub(crate) async fn heard_live(&self) -> Live {
+        self.sweeping().lock().await.heard_live.clone()
+    }
+
     /// Read one pull request again as a person's Refresh does. Says whether it is over.
     async fn pull_heard_again(self: &Arc<Self>, want: Want) -> bool {
         let manifest = ManifestId::carried(&want.manifest);
@@ -72,19 +79,24 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    let (hearing, heard) = Hearing::opened(source, Timing::SHIPPED, Arc::new(told));
-    let (asked, reading) = (Arc::clone(&fleet), fleet);
-    tokio::spawn(hearing.run(
-        heard,
-        move || {
-            let fleet = Arc::clone(&asked);
-            async move { fleet.pulls_wanted().await }
-        },
-        move |want| {
-            let fleet = Arc::clone(&reading);
-            async move { fleet.pull_heard_again(want).await }
-        },
-    ))
+    tokio::spawn(async move {
+        let live = fleet.heard_live().await;
+        let (hearing, heard) = Hearing::opened(source, Timing::SHIPPED, Arc::new(told), live);
+        let (asked, reading) = (Arc::clone(&fleet), fleet);
+        hearing
+            .run(
+                heard,
+                move || {
+                    let fleet = Arc::clone(&asked);
+                    async move { fleet.pulls_wanted().await }
+                },
+                move |want| {
+                    let fleet = Arc::clone(&reading);
+                    async move { fleet.pull_heard_again(want).await }
+                },
+            )
+            .await
+    })
 }
 
 #[cfg(test)]

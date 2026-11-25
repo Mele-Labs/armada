@@ -204,15 +204,9 @@ where
             )
         })?;
         let row = self.row_id(&id);
-        // **One open artifact per Job**: a draft proposed while one still asks him is a part of it. One that describes a
-        // pull request is that pull request's own, and is not.
+        // A draft that joined an artifact before each ask was its own item keeps it across its revisions.
         let own = format!("{DRAFT_PREFIX}{title}");
-        let kept_in = held.iter().find(|one| one.kind == "artifact" && one.target == own).and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned());
-        let joins = match (kept_in, pull.is_some()) {
-            (Some(root), _) => Some(root),
-            (None, false) => self.artifact_joined(&id, &harness, &own, &title, false).await?,
-            (None, true) => None,
-        };
+        let joins = held.iter().find(|one| one.kind == "artifact" && one.target == own).and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned());
         let link = pull.map(|pull| link_of(&id, &row, &pull, &held, (&text, before.as_deref()), self.instant().as_str()));
         // His ruling of 13 Nov: a draft under the title of one still open is its next revision, so his list
         // holds one item. The Job replaced it itself, so it is sent nothing. One he is answering stands.

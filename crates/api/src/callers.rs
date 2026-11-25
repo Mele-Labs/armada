@@ -97,6 +97,10 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("upsert_features", "keeps the feature catalog"),
     ("change_feature", "keeps the feature catalog"),
     ("answer_retire", "keeps the feature catalog"),
+    ("check_docs", "keeps the feature catalog"),
+    ("dismiss_doc_flag", "keeps the feature catalog"),
+    ("start_doc_job", "keeps the feature catalog"),
+    ("draft_module_features", "keeps the feature catalog"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),
@@ -139,6 +143,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_mac_claims", "pairs his other Macs"),
     ("hold_refresh_claim", "pairs his other Macs"),
     ("hold_other_mac_kit", "pairs his other Macs"),
+    ("hold_other_mac_home_layout", "pairs his other Macs"),
     ("kit_settle_from_mac", "pairs his other Macs"),
     // A Job switching what crosses would write into his other Macs' setups.
     ("set_kit_link_kind", "changes what his Kit sends his other Macs"),

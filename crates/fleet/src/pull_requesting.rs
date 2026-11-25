@@ -412,6 +412,9 @@ where
         numbers.extend(self.lifecycle_pulls_in_flight(manifest_id.as_str()).await);
         numbers.sort_unstable();
         numbers.dedup();
+        // One heard live is read on its events, through the same reading (`crate::pull_hearing`).
+        let live = self.heard_live().await;
+        numbers.retain(|number| !live.contains(root, *number));
         // **One queue for the whole reading**: it is the base's, the same for every pull request.
         let mut queue = QueueOnce::default();
         for number in numbers {

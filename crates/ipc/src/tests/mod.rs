@@ -61,6 +61,7 @@ mod layout;
 mod key_bindings;
 mod kit_pieces;
 mod time_format;
+mod home_layout;
 /// Where Jobs' time went: a figure nobody produced is an absent key.
 mod time_summary;
 mod mods;
@@ -109,6 +110,7 @@ mod timeline;
 mod bay_history;
 /// Walk notes: absent where empty, so a 23.17 peer sees nothing new.
 mod window_asks;
+mod part_questions;
 mod sketch;
 mod sketch_answers;
 mod document_answers;

@@ -22,6 +22,7 @@ files, a rule can — and the rule is the point.
 | `actions.toml` | The verb, the glyph and the binding every act in Bridge carries |
 | `studio-kinds.toml` | What a [Studio](../../../docs/concepts/studio.md)'s graph is made of: its node kinds and their states, its edge kinds, the forge states a node carries and the rungs of promotion between them |
 | `ask_tools.toml` | Armada's own tools a person asks the agent for from the message box, in the list's order: each one's name, glyph, hue and the line Fleet says to the agent. Every operation an agent can reach names its tool here in `ask_tool`, or `none` |
+| `story_kinds.toml` | The kinds of Job a person starts by writing a sentence into the dispatch box: each one's opening words, the sentence after them with its blanks, the workflow and tools it starts with, and its hue and glyph. Native Bridge reads it, built in |
 
 **`actions.toml` is the one file here that is not a domain enum**, and it lives
 here for the reason `enum-verbs.toml` does: it is a set code reads, and a set

@@ -220,7 +220,7 @@ impl Dropdown {
     pub(super) fn width(&self, look: &Look) -> Pixels {
         let detailed = self.entries.iter().any(|entry| matches!(entry, Entry::Row(Row { detail: Some(_), .. })));
         let chipped = self.entries.iter().any(|entry| matches!(entry, Entry::Row(Row { beside, .. }) if beside.chip.is_some()));
-        look.length(token::W_MENU) + if detailed { look.length(token::SPACE_12) } else { px(0.) } + if chipped { look.length(token::SPACE_12) * 2. } else { px(0.) }
+        look.length(token::W_MENU) + if detailed { look.length(token::SPACE_12) } else { px(0.) } + if chipped { look.length(token::SPACE_12) * 2. } else { px(0.) } + if self.wide { look.length(token::SPACE_12) * 2. } else { px(0.) }
     }
 
     /// The row the submenu opens beside: tinted, a bar at its left, its right edge square; and a Mac's chip and a

@@ -110,7 +110,7 @@ and the next start replaces it, saying so.
 
 ## Restarting onto a new build
 
-**`scripts/restart` moves the running Fleet — and Bridge and the native Bridge, once they need to —
+**`scripts/restart` moves the running Fleet — and the native Bridge, once it needs to —
 onto the latest `main`**, without the owner leaving Bridge for a terminal. A
 checkout on `main` is fast-forwarded to `origin/main` first; the restart
 refuses if it cannot be. Two callers: an agent, through Bash, after a merge that touches
@@ -126,14 +126,11 @@ The first line printed is `restart: log <path>`; the command then follows the lo
 `ARMADA_RESTART_DETACHED` tells a script called inside one not to detach again, and `scripts/restart-build` sets it, since Fleet already starts it in a session of its own.
 A dry run and `--keep-only` stop no Fleet and run as they are.
 
-**Bridge is launched from a copy of Electron's app named Armada Classic**, made under
-`node_modules/.cache/armada-bridge/` with a changed `Info.plist`, the grey
-`ClassicIcon.icns` in place of Electron's icon, and the signature
-`scripts/signing-identity` gives (no Apple certificate either way), and handed to `electron-vite preview` as
-`ELECTRON_EXEC_PATH`. That is what puts "Armada Classic" in the menu bar, Dock and app
-switcher of an unpackaged Bridge, apart from the native Armada. The name has a space, so every script quotes the path.
-It is rebuilt only when Electron's version
-changes, the name or icon does, or what signs it does.
+**Nothing launches Armada Classic, the Electron Bridge, any more, and every restart removes what it left.**
+`scripts/retire-classic` boots `com.armada.fleet.bridge` out of launchd, deletes its plist, and deletes an `Armada Classic.app` in `~/Applications`, or in `/Applications` where `$HOME` is the account's own.
+Where none of that is there it does nothing, so it runs every time, and a dry run says what it would remove.
+A Classic started by hand from a terminal is left running.
+It also deletes `Armada/electron/` and `Armada/node_modules/`, which kept builds used to fill for it.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
@@ -193,25 +190,6 @@ its holder when a restart itself was killed, which happens rarely, so a
 person clearing it by hand beats a machine racing to guess it is safe — the
 one case this lock exists for.
 
-**The Bridge build stamp records when the build it reflects started, not
-when the run around it ended.** A marker is written the moment Bridge's
-build begins, before `pnpm build` runs, and only that marker's time — never
-"now" — becomes the stamp once this run decides the running Bridge matches
-it: after a successful reopen, or after deciding none was needed. Stamping
-"now" at the end would mark a run as covering edits made *during* its own
-multi-minute build, which a later run would then never see as changed. A
-run that fails or refuses anywhere after the build (the late Drone check,
-Fleet's own restart, a Bridge that would not quit) leaves the stamp exactly
-as it was, so the next run still finds Bridge changed and rebuilds and
-reopens it rather than trusting a build nobody is running yet.
-
-**A Bridge built for another protocol is rebuilt whatever the stamp says.**
-The stamp only sees `apps/` and `packages/`, and the protocol ID also hashes
-`crates/ipc` and `crates/api/src/routes`. So the restart reads the ID compiled
-into `out/main/index.js` and rebuilds when it is not the tree's. Confirmed 14
-Oct 2026: a wire change in `crates/` alone moved Fleet's protocol, the restart
-said "Bridge is unchanged", and Bridge could not connect.
-
 **It runs Fleet under a launchd job it bootstraps on first use**, the design
 `docs/concepts/fleet.md` (Daemon lifecycle, Restarting Fleet) specifies: the
 plist lives beside the runtime file, outside `~/Library/LaunchAgents` so it is
@@ -226,12 +204,6 @@ loaded program back and refuses if it is not that path. It is
 never a second `armada serve`, which is the "two Fleets" failure `armada-local`
 already warns about, this time from a script rather than a name.
 
-**It rebuilds Bridge only where `apps/` or `packages/` moved since its last
-build**, and reopens it only then — otherwise Bridge reconnects to the new
-Fleet on its own (`apps/desktop/src/main/socket.ts`). Reopening is a second,
-separate launchd job for the same reason Fleet's is one: the window has to
-outlive the job that asked for it.
-
 **It builds and opens the native Bridge too.**
 `cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/`, `packages/tokens/` or the root `Cargo.toml` moved since the last build, or the last build was for another protocol.
 The root `Cargo.toml` is watched because `ipc` and `core-model` take their lints and edition from it.
@@ -244,7 +216,7 @@ A build that fails stops the restart before Fleet is stopped.
 Cargo keeps every old hash's output and rustc an older session in every incremental cache, so on 19 Nov 2026 the preview's two build folders held 29 GB, 16 of it never read again.
 Cargo's JSON names every unit the build used, fresh ones too; files under any other hash go, and each crate keeps its newest cache and that cache's newest session.
 A unit dropped by mistake is compiled again, nothing worse.
-It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
+It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.
 The app writes `Armada/bridge-native-quit` when it quits after its window opened (`crates/bridge-native/src/main.rs`), and `bridge-launch` reads that as a quit the person meant.
 **One live app runs at a time**, however it was opened (`crates/bridge-native/src/instance.rs`).
@@ -262,7 +234,7 @@ A restart opens it where its job is not loaded or runs from anywhere but `builds
 **The protocol is read off the running process**, not the build before: `scripts/running-bridge` finds the build the app's binary is in and reads that build's `protocol_id`.
 A restart that died after it moved `builds/current` left the next one seeing no difference, and native on the old protocol (13 Nov 2026).
 A running app whose build cannot be read is reopened.
-Its job is booted out and in, never kickstarted, for the reason Bridge's is.
+Its job is booted out and in, never kickstarted: `kickstart -k` ignores the plist just written.
 
 **The Phone Gateway runs inside Fleet, not as a job of its own, and it is
 opt-in.** Fleet starts it while an empty file, `pocket`, sits beside the runtime
@@ -293,14 +265,13 @@ owner's own `com.armada.fleet`.
 ### Kept builds
 
 **Every restart keeps the build it installs**, so going back to the build before is two links and two launchd reboots, with nothing compiled.
-`scripts/keep-build make` copies the `armada` binary, Bridge's `out/`, `sounds/`, launchers and the native Bridge as `Armada.app` into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, a hash of Bridge's `out/`, and on a preview each branch merged in as a `[[job]]` row.
+`scripts/keep-build make` copies the `armada` binary, the `bridge-launch` launcher and the native Bridge as `Armada.app` into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, and on a preview each branch merged in as a `[[job]]` row.
 `keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
-Its `tree` line is that tree's path, where Bridge's annotation layer writes notes, since a kept Bridge has no repository above it.
-`node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
-Electron is kept once per version under `Armada/electron/<version>/`, and `launch-bridge` runs that copy, so a relaunch onto an older build gets its own Electron.
-**`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name, as for Electron's copy.
+Its `tree` line is that tree's path, where the annotation layer writes notes, since a kept Bridge has no repository above it.
+A build kept before Armada Classic was retired still carries `bridge`, `bridge_shell`, `electron`, `node_modules` and `page_reload` rows; they are read past and nothing writes them now.
+**`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name.
 `scripts/native-app` makes it, and the release job makes the app it ships with the same script, so a restart's app and a release's app are the same bundle.
-`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node apps/desktop/native/voice/build.mjs` when `Armada Voice.app` is missing from `apps/desktop/native/voice/build/` or older than a file in that folder.
+`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node crates/bridge-native/native/voice/build.mjs` when `Armada Voice.app` is missing from `crates/bridge-native/native/voice/build/` or older than a file in that folder.
 It needs Xcode's command line tools (`swiftc`); where the build fails it prints one line saying so and makes the app without the helper, so Talk falls back to macOS Dictation.
 `NATIVE_APP_TREE` names another tree to build and take the helper from, which `scripts/keep-build` sets to the tree it keeps, so a preview's helper is its own.
 Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed by `scripts/signing-identity`.
@@ -327,26 +298,16 @@ A build kept before Fleet had its bundle cannot be copied there, so revert and s
 The first build signed with the certificate asks once more, since its requirement is new, and every build after keeps the answer.
 Deleting the certificate in Keychain Access puts builds back to ad hoc.
 `build.toml` holds a `native` hash of the binary and the icon, and a build kept before the native Bridge has neither.
-A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.
-
-**Bridge reloads its page in place where only the page changed.**
-A swap, a revert or a restart reopens Bridge only where the two builds' `bridge_shell` (a hash of `out/main` and `out/preload`) or `electron` differ.
-A restart also reopens it where the running Bridge was built for another protocol than the new Fleet's, read off its process as the native Bridge's is, and a page reload does not stand in for that.
-Otherwise the running Bridge, once Fleet is back, loads its window's page from the build `current` names (`apps/desktop/src/main/page-reload.ts`), which keeps the window, its process and the voice addon in it.
-A build kept before Bridge could do this has no `page_reload = true` line, and is reopened as before.
-Only the main window reloads; another window keeps its page until it is opened again.
-
-**Launchd runs Bridge through `builds/current`, and Fleet from the copy of `current`'s bundle in `Armada/fleet/`.**
-A tree's `target/` and `out/` are rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
-The first restart onto kept builds reopens Bridge, because its job still names a tree.
-**A revert or a swap reopens the native Bridge where the two builds' `native` hashes differ**, as it reopens Bridge: `armada build revert` boots `com.armada.fleet.native` after Fleet, from `builds/current`.
+**Launchd runs the native Bridge through `builds/current`, and Fleet from the copy of `current`'s bundle in `Armada/fleet/`.**
+A tree's `target/` is rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
+**A revert or a swap reopens the native Bridge where the two builds' `native` hashes differ**: `armada build revert` boots `com.armada.fleet.native` after Fleet, from `builds/current`.
 It is left open where they match, where the build moved to keeps no native app, and where the job was never written (`scripts/restart` writes it).
-A swap back from a Fleet that did not answer leaves it as it is, as it leaves Bridge.
+A swap back from a Fleet that did not answer leaves it as it is.
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, when that build keeps no `Armada Fleet.app`, or when Fleet's plist does not name `Armada/fleet/Armada Fleet.app/Contents/MacOS/armada`.
 A build kept before that plist runs this check against `builds/current/armada`, so reverting from the first build that runs Fleet from `Armada/fleet/` to one before it is refused; `scripts/restart` moves onto any commit instead.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, copies the previous build's Fleet to `Armada/fleet/`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' main, preload or Electron differ, and the native Bridge only where their `native` hashes do.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, copies the previous build's Fleet to `Armada/fleet/`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots the native Bridge only where the two builds' `native` hashes differ.
 A second revert swaps back.
 **The app menu's "Revert to the build before…" and the palette's row start it too**, from Bridge's main process, so they work with the page blank.
 Both ask with a native dialog, and where Fleet does not answer they run `builds/previous/armada build revert` themselves (`apps/desktop/src/main/revert-asked.ts`).
@@ -430,9 +391,7 @@ from where, the two guard numbers, the snapshot, the files it would write and
 whether a Drone would refuse it. It takes no lock and writes no file. It is
 only for `--from`.
 
-**A switch of source reopens Bridge.** The build stamp belongs to a tree, so
-moving between trees rebuilds and reopens Bridge whatever either stamp says.
-`Armada/restart-source` records which tree the open Bridge came from; only
+**`Armada/restart-source` records which tree the running build came from**; only
 `--from` writes it and the next `scripts/restart --main` removes it.
 
 ## A preview of unlanded work
@@ -515,7 +474,7 @@ it merged or was abandoned. Use it, and land from the branch.
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
 **The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, moved and cleaned between runs
-with `target/`, `node_modules/`, Bridge's build output, the native Bridge's `target/`, the phone app's `dist/` and Fleet's generated `crates/fleet/src/tests/mods.inc` kept, so
+with `target/`, `node_modules/`, the native Bridge's `target/`, the phone app's `dist/` and Fleet's generated `crates/fleet/src/tests/mods.inc` kept, so
 builds stay warm.
 The merge commits are built first, without the worktree, and the worktree then lands on the last of them in one step.
 Git rewrites only the files whose content differs from the last preview, so a file an in-flight branch changes keeps its mtime when nothing in it moved.

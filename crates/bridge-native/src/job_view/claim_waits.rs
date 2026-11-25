@@ -1,12 +1,12 @@
-//! The claims card: each tracker item the Job waits on because another Job or a person holds it, and a line while
-//! its claims have not reached the project's store (`docs/practices/protocol/a-jobs-wait-on-a-held-item.md`). It
-//! stands at the thread's end with the other waits, and has no act: Fleet wakes the Job when a wait ends.
+//! The claims card: each tracker item the Job waits on because another Job or a person holds it
+//! (`docs/practices/protocol/a-jobs-wait-on-a-held-item.md`); claims not yet in the project's store are a badge on the
+//! composer's toolbar, not a card. It stands at the thread's end with the other waits, and has no act: Fleet wakes the Job when a wait ends.
 
 use chrono::{DateTime, Local, Utc};
 use gpui::{div, prelude::*, AnyElement, Context, Hsla, Role, SharedString};
 use ipc::{ClaimWait, ClaimWaitEnds, Instant, Mac};
 
-use super::rows::{glyph, mono, tip, Size};
+use super::rows::{mono, tip};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -71,16 +71,15 @@ pub(super) fn waited(since: &Instant, now: DateTime<Utc>) -> Option<String> {
     })
 }
 
-/// The line drawn while the Job's claims have not reached the store.
-pub(super) const UNSENT: &str = "Other Jobs cannot see what this Job holds yet";
-/// Under it: when they go.
-pub(super) const UNSENT_UNDER: &str = "The project's store did not take them. Armada keeps trying";
+/// The badge the composer's toolbar wears while the Job's claims have not reached the store, and what its tooltip says.
+pub(super) const UNSENT: &str = "Not shared yet";
+pub(super) const UNSENT_TIP: &str = "Other Jobs cannot see what this Job holds yet. Armada keeps trying";
 
 impl JobView {
     /// The card, or `None` where the Job waits on no held item and every claim is sent.
     pub(super) fn claim_waits_card(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let record = self.record(id, cx)?;
-        if record.claim_waits.is_empty() && !record.claims_unsent {
+        if record.claim_waits.is_empty() {
             return None;
         }
         let now = crate::mock::fixed_now().map_or_else(Utc::now, |now| now.with_timezone(&Utc));
@@ -88,10 +87,6 @@ impl JobView {
         // As the column narrows (under 400px) the chip and the figure go under the words, so the words keep the width.
         let narrow = self.pane.is_some_and(|pane| (pane - look.length(token::SPACE_4) * 2.).min(self.column(look)) < gpui::px(400.));
         let rows = record.claim_waits.iter().enumerate().map(|(at, wait)| self.claim_wait_row(at, wait, now, narrow, look, cx));
-        let unsent = record.claims_unsent.then(|| {
-            let mark = div().id("claims-unsent-mark").flex_none().child(glyph(look, "unplug", Size::Small, waiting)).tooltip(tip("Not sent"));
-            labelled(line(look, "claims-unsent", mark.into_any_element(), UNSENT, None, UNSENT_UNDER, false, narrow), Role::Row, UNSENT).into_any_element()
-        });
         Some(
             labelled(
                 div()
@@ -107,8 +102,7 @@ impl JobView {
                     .border_color(waiting)
                     .bg(look.color(token::BG_SUNKEN))
                     .shadow(look.shadows(token::SHADOW_OVERLAY))
-                    .children(rows)
-                    .children(unsent),
+                    .children(rows),
                 Role::Region,
                 "Claims",
             )
@@ -302,5 +296,15 @@ mod tests {
         assert_eq!(waited(&since, at("2026-11-17T10:00:00Z")).as_deref(), Some("3 d"));
         assert_eq!(waited(&since, at("2026-11-14T09:00:00Z")).as_deref(), Some("<1 min"), "a clock behind Fleet's counts none");
         assert_eq!(waited(&Instant::carried("not a time"), at("2026-11-14T10:00:00Z")), None);
+    }
+
+    #[gpui::test]
+    fn claims_not_sent_are_a_badge_by_the_context_ring_and_draw_no_claims_card(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{drawn, rooted_job};
+        let (view, cx) = rooted_job(cx, "claim-waits", "mock-01", gpui::size(gpui::px(1400.), gpui::px(900.)), |_| {});
+        let (unsent, waits) = view.read_with(cx, |view, cx| view.record("mock-01", cx).map(|job| (job.claims_unsent, job.claim_waits.len())).expect("the Job is held"));
+        assert_eq!((unsent, waits), (true, 0), "the Job's claims are unsent and it waits on no item");
+        assert!(!drawn(cx, Role::Region, "Claims"), "with no wait there is no claims card");
+        assert!(drawn(cx, Role::Status, UNSENT), "the badge stands in the composer's toolbar");
     }
 }
