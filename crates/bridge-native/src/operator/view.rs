@@ -546,17 +546,18 @@ impl OperatorPageView {
             self.status_card(look, cx)
         } else if let Some(idea) = self.front_idea(cx) {
             // A kept idea brought from Next up stands in front in the Operator's card's place.
-            if folded { self.folded(&idea.id, super::parked::words_of(&idea).into(), look, cx) } else { self.idea_card(&idea, window, look, cx) }
+            if folded { self.folded(&idea.id, super::parked::words_of(&idea).into(), None, look, cx) } else { self.idea_card(&idea, window, look, cx) }
         } else if let Some(turn) = self.front_working() {
             // A card from the feed's working entries stands there too, to be read: it is picked, so it takes no press.
-            if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.working_card(turn, look, cx) }
+            if folded { self.folded(&turn.id, face::card_title(turn), face::ask_line(turn), look, cx) } else { self.working_card(turn, look, cx) }
         } else if let Some(turn) = self.open_item() {
             // An open card gives up the room it cannot have by scrolling what it says, its answers and foot kept whole.
             pinned = !folded && !face::answers_on_card(turn);
-            if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.card(turn, false, window, look, cx) }
+            if folded { self.folded(&turn.id, face::card_title(turn), face::ask_line(turn), look, cx) } else { self.card(turn, false, window, look, cx) }
         } else if folded {
             // Nothing is in front: the Operator's state stands in the card's place.
-            self.folded("status", status.title(now).into(), look, cx)
+            let last = self.page.as_ref().and_then(|page| page.feed.first()).map(|entry| super::status::last_act(entry, now).into());
+            self.folded("status", status.title(now).into(), last, look, cx)
         } else {
             self.status_card(look, cx)
         };
@@ -565,6 +566,10 @@ impl OperatorPageView {
         self.answers_hidden.set(gpui::px(0.));
         let last = front.len();
         front.push(card);
+        // Too narrow for the side column, Next up stands under the card, so no queued card is out of sight.
+        if !self.side_fits(window, look) {
+            front.extend(self.next_up(look, cx));
+        }
         // A Job's build to try keeps its whole height, so its answers are never scrolled away: the talk gives up its room.
         let whole = !folded && !matches!(status, Status::Off) && !self.stopped_in_front() && self.ready_in_front().is_some();
         let dim = matches!(status, Status::Stopped { .. });

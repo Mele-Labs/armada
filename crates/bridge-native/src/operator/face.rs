@@ -163,6 +163,11 @@ pub fn asks_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.job.as_ref().map(|_| turn.item.text.clone().into())
 }
 
+/// The card's ask in one sentence, for a line beside its title: what a Job asks, else what the Operator made of it.
+pub fn ask_line(turn: &OperatorTurnItem) -> Option<SharedString> {
+    asks_of(turn).or_else(|| turn.read.as_ref().map(|read| SharedString::from(read.read.clone()))).filter(|said| !said.trim().is_empty())
+}
+
 /// The Operator's pick, where it read one: an empty `pick` is none.
 pub fn pick_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.read.as_ref().map(|read| read.pick.trim()).filter(|pick| !pick.is_empty()).map(|pick| SharedString::from(pick.to_string()))

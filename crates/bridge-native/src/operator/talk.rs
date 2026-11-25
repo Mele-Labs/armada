@@ -102,9 +102,6 @@ impl OperatorPageView {
         }
         let kept = self.talk_said.iter().zip(&said).take_while(|(old, new)| old == new).count();
         self.talk_list.splice(kept..self.talk_said.len(), said.len() - kept);
-        if said.len() > self.talk_said.len() {
-            self.unfolded = false;
-        }
         self.talk_said = said;
     }
 

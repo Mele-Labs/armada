@@ -56,6 +56,11 @@ pub fn is_call_key(tag: &str) -> bool {
     tag.starts_with("mac:") || is_review_key(tag)
 }
 
+/// An Operator card's banner, tagged with its id, `turn:<n>`.
+pub fn is_card_key(tag: &str) -> bool {
+    tag.starts_with("turn:")
+}
+
 /// A review asked of him, `review:<owner/name>#<number>`: `CallArrivalKind::ReviewRequested`.
 pub fn is_review_key(tag: &str) -> bool {
     tag.starts_with("review:")
@@ -208,6 +213,11 @@ impl Notifier {
             crate::operator::screen::open_asked(asked, cx);
             return;
         }
+        if is_card_key(session_id) {
+            crate::operator::screen::open_card(session_id, cx);
+            Note::info("a banner was pressed").field("card", session_id).emit();
+            return;
+        }
         if is_call_key(session_id) {
             crate::operator::screen::open_call(session_id.to_string(), cx);
             Note::info("a banner was pressed").field("call", session_id).emit();
@@ -253,6 +263,13 @@ mod tests {
 
     fn arrival(job: &str, title: &str, text: &str, tone: CallTone) -> CallArrival {
         CallArrival { session_id: SessionId::carried(job), title: title.into(), text: text.into(), tone, kind: CallArrivalKind::Needs, key: None, item: None }
+    }
+
+    #[test]
+    fn an_operator_cards_banner_tag_is_a_card_and_not_a_job_or_a_call() {
+        assert!(is_card_key("turn:79"));
+        assert!(!is_call_key("turn:79"));
+        assert!(!is_card_key("mock-01") && !is_card_key("mac:studio"));
     }
 
     #[test]
