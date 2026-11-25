@@ -186,7 +186,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         // Main green, the queue stuck two hours on `native`: the fragment rides in the line's `checkout` place, any field after `main`.
         "strip-queue-stuck" => {
             let stuck = format!(
-                r#","queue_stuck":{{"since":"{}","cause":{{"kind":"no_runner"}},"job":"native","pulls":[4039,4041,4033,4037],"log_url":"https://github.com/Mele-Labs/armada/actions/runs/1"}}"#,
+                r#","queue_stuck":{{"since":"{}","cause":{{"kind":"no_runner"}},"job":"native","pulls":[3395,3392,3390,3376],"log_url":"https://github.com/Mele-Labs/armada/actions/runs/1"}}"#,
                 ago(2 * 3600)
             );
             Strip { lines: vec![line(armada(GREEN, &stuck, 40, None))], ..rest() }

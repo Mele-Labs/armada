@@ -86,6 +86,12 @@ pub static LIVE: [Step; 5] = [
     marks("Fleet stopped, with the same Job open: the title bar says so, and the line Fleet last said stays drawn, as Electron keeps it", "strip-live-down", "button", READY),
 ];
 
+/// The stuck merge queue alone: the band on main's card, and where its log opens.
+pub static QUEUE_STUCK: [Step; 2] = [
+    marks("A merge queue stuck on a job with no runner: an amber band on main's card, since when, and the pull requests in their order", "strip-queue-stuck", "status", "Merge queue stuck"),
+    step("Open log goes to the failed job's page", Verb::Look, "button", "Open log"),
+];
+
 pub static STEPS: [Step; 42] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
     step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),

@@ -1658,7 +1658,7 @@ mod tests {
         strip
             .update(cx, |this, _, _| {
                 let stuck = this.data.lines[0].view.queue_stuck.as_ref().expect("the scene's view carries the field");
-                assert_eq!((stuck.cause, stuck.job.as_deref(), stuck.pulls.as_slice()), (QueueStuckCause::NoRunner, Some("native"), &[4039, 4041, 4033, 4037][..]));
+                assert_eq!((stuck.cause, stuck.job.as_deref(), stuck.pulls.as_slice()), (QueueStuckCause::NoRunner, Some("native"), &[3395, 3392, 3390, 3376][..]));
                 assert!(stuck.log_url.is_some());
                 assert!(matches!(this.data.lines[0].view.main, Some(MainView::Green { .. })), "main itself is green");
                 assert!(this.card == Some(Card::Main(0)), "the scene comes with main's card open");
