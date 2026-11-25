@@ -78,6 +78,18 @@ pub(super) struct HeldTool {
     pub key: FocusHandle,
 }
 
+/// A state of the box that ⌘Z comes back to: the words where no sentence stands, or the sentence, and the tools held.
+#[derive(Clone)]
+pub(super) struct Shape {
+    plain: Option<String>,
+    story: Option<Story>,
+    tools: Vec<SessionTag>,
+    preset: Vec<String>,
+}
+
+/// The most steps ⌘Z goes back.
+const HISTORY: usize = 200;
+
 /// The popover a trigger in the drawer opens.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Pop {
@@ -135,6 +147,13 @@ pub struct DispatchSheet {
     features_asked: Option<String>,
     /// The tools the sentence's kind put in, which go again where it turns to plain words.
     preset: Vec<String>,
+    /// The states ⌘Z goes back to, newest last, and the ones it came from, for ⌘Y.
+    past: Vec<Shape>,
+    future: Vec<Shape>,
+    /// The blank a run of letters is going into: the run is one step, so a letter in it adds none.
+    run: Option<usize>,
+    /// The request's box holds what ⌘Z or Esc put in it and nothing was typed since: its ⌘Z and ⌘Y are the sentence's.
+    untouched: bool,
     pub(super) story_key: FocusHandle,
     pub(super) list_scroll: gpui::ScrollHandle,
     /// The tools the + lists are open, with the active row.
@@ -219,6 +238,10 @@ impl DispatchSheet {
             catalog: None,
             features_asked: None,
             preset: Vec::new(),
+            past: Vec::new(),
+            future: Vec::new(),
+            run: None,
+            untouched: false,
             story_key: cx.focus_handle(),
             list_scroll: gpui::ScrollHandle::new(),
             tools_open: None,
@@ -306,6 +329,10 @@ impl DispatchSheet {
         }
         self.keys_were = window.focused(cx);
         self.open = true;
+        self.past.clear();
+        self.future.clear();
+        self.run = None;
+        self.untouched = false;
         let me = cx.entity().downgrade();
         self.intercept = Some(cx.intercept_keystrokes(move |event, window, cx| {
             let Some(me) = me.upgrade() else { return };
@@ -420,6 +447,7 @@ impl DispatchSheet {
         let cursor = request.read(cx).cursor().min(words.len());
         self.tools_open = None;
         self.opening = 0;
+        self.untouched = false;
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
         cx.notify();
@@ -439,6 +467,7 @@ impl DispatchSheet {
     /// blank and the kind's tools held.
     pub(super) fn take_opening(&mut self, kind: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(chosen) = super::story_kinds::kinds().get(kind) else { return };
+        let before = self.shape_now(cx);
         self.menu = None;
         self.tools_open = None;
         self.preset.clear();
@@ -452,6 +481,7 @@ impl DispatchSheet {
         }
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
         self.story = Some(Story::new(kind));
+        self.remember(before);
         self.features_asked = None;
         let focus = self.story_key.clone();
         window.focus(&focus, cx);
@@ -481,12 +511,98 @@ impl DispatchSheet {
         if self.story.is_none() {
             return;
         }
+        let before = self.shape_now(cx);
         self.flatten(window, cx);
+        self.remember(before);
         let focus = self.request.focus_handle(cx);
         window.focus(&focus, cx);
         // Setting the value says nothing to the field's watchers: the draft and the reads follow here.
         let request = self.request.clone();
         self.typed(&request, window, cx);
+        self.untouched = true;
+    }
+
+    // -- undo ----------------------------------------------------------------------------------------
+
+    /// The box as it stands, for ⌘Z to come back to.
+    fn shape_now(&self, cx: &App) -> Shape {
+        Shape {
+            plain: self.story.is_none().then(|| self.request.read(cx).value().to_string()),
+            story: self.story.clone(),
+            tools: self.tools.iter().map(|one| one.tag.clone()).collect(),
+            preset: self.preset.clone(),
+        }
+    }
+
+    /// A change is made: the state before it is a step, and what ⌘Y had is gone.
+    fn remember(&mut self, before: Shape) {
+        self.past.push(before);
+        if self.past.len() > HISTORY {
+            self.past.remove(0);
+        }
+        self.future.clear();
+        self.run = None;
+    }
+
+    /// A state brought back: the sentence with its blank and tools, or the words the box held.
+    fn restore(&mut self, shape: Shape, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools = shape.tools.into_iter().map(|tag| HeldTool { tag, key: cx.focus_handle() }).collect();
+        self.preset = shape.preset;
+        self.run = None;
+        match shape.story {
+            Some(story) => {
+                self.story = Some(story);
+                let focus = self.story_key.clone();
+                window.focus(&focus, cx);
+                self.story_moved(cx);
+                self.want_features(cx);
+            }
+            None => {
+                self.story = None;
+                let words = shape.plain.unwrap_or_default();
+                self.request.update(cx, |state, cx| {
+                    state.set_value(words.clone(), window, cx);
+                    end_of(state, &words, window, cx);
+                });
+                let focus = self.request.focus_handle(cx);
+                window.focus(&focus, cx);
+                let request = self.request.clone();
+                self.typed(&request, window, cx);
+                self.untouched = true;
+            }
+        }
+        cx.notify();
+    }
+
+    /// ⌘Z: the last step is taken back. False where there is none.
+    pub(super) fn undo(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(back) = self.past.pop() else { return false };
+        let now = self.shape_now(cx);
+        self.future.push(now);
+        self.restore(back, window, cx);
+        true
+    }
+
+    /// ⌘Y or ⇧⌘Z: the step ⌘Z took back is made again. False where there is none.
+    pub(super) fn redo(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(again) = self.future.pop() else { return false };
+        let now = self.shape_now(cx);
+        self.past.push(now);
+        self.restore(again, window, cx);
+        true
+    }
+
+    /// ⌘Z, ⌘Y and ⇧⌘Z while the sentence has the keys, or while the request's box holds what the sentence left in it. True where taken.
+    fn history_key(&mut self, key: &str, shift: bool, in_request: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let redo = key == "y" || shift;
+        let sentence = self.story.is_some() && self.story_key.is_focused(window);
+        let left = in_request && self.untouched && if redo { !self.future.is_empty() } else { !self.past.is_empty() };
+        if !(sentence || left) {
+            return false;
+        }
+        // The key is the sentence's whether or not it has a step to go to: no other ⌘Z answers while it is in a blank.
+        let _ = if redo { self.redo(window, cx) } else { self.undo(window, cx) };
+        true
     }
 
     /// A blank's words changed: what `typed` does for the box, for the sentence.
@@ -529,25 +645,47 @@ impl DispatchSheet {
 
     /// The keys while a blank has them. True where the sentence took the key.
     fn story_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let before = self.shape_now(cx);
         let project = self.project();
         let catalog = catalog_of(&self.catalog, project.as_deref());
         let Some(story) = self.story.as_mut() else { return false };
         let mods = &event.keystroke.modifiers;
+        let at = story.at;
+        // Letters typed into one blank, and a letter taken back, are one step however many go in.
+        let key = event.keystroke.key.as_str();
+        let letters = matches!(story.piece(), super::story_kinds::Piece::Blank(_) | super::story_kinds::Piece::Feature(_))
+            && !matches!(key, "tab" | "enter")
+            && (key == "backspace" || event.keystroke.key_char.is_some());
         let keyed = story.key(event.keystroke.key.as_str(), mods.shift, mods.platform, mods.control || mods.alt, event.keystroke.key_char.as_deref(), catalog);
         if story.list_open(catalog) {
             self.list_scroll.scroll_to_item(story.row);
         }
         match keyed {
             Keyed::Ignored => return false,
-            Keyed::Taken => {}
-            Keyed::Changed => self.story_moved(cx),
+            Keyed::Taken => {
+                // Moving on from a blank ends its run; moving the mark in a list does not.
+                if !matches!(key, "up" | "down") {
+                    self.run = None;
+                }
+            }
+            Keyed::Changed => {
+                if !(letters && self.run == Some(at)) {
+                    self.remember(before);
+                }
+                self.run = letters.then_some(at);
+                self.story_moved(cx);
+            }
             Keyed::Start => self.act(window, cx),
             Keyed::Plain | Keyed::Opening => self.plain_words(window, cx),
-            Keyed::Leave { back } => self.step_focus(back, window, cx),
+            Keyed::Leave { back } => {
+                self.run = None;
+                self.step_focus(back, window, cx)
+            }
             Keyed::Paste => {
                 let text = cx.read_from_clipboard().and_then(|item| item.text()).unwrap_or_default();
                 let line = text.lines().next().unwrap_or_default().trim();
                 if !line.is_empty() {
+                    self.remember(before);
                     if let Some(story) = self.story.as_mut() {
                         story.typed(line);
                     }
@@ -561,6 +699,7 @@ impl DispatchSheet {
 
     /// A blank pressed: it has the keys.
     pub(super) fn story_go(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.run = None;
         if let Some(story) = self.story.as_mut() {
             story.go_to(at);
         }
@@ -571,6 +710,8 @@ impl DispatchSheet {
 
     /// A row of the feature list pressed: its feature is in the blank, and the keys go on.
     pub(super) fn story_row(&mut self, row: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        self.remember(before);
         let project = self.project();
         let catalog = catalog_of(&self.catalog, project.as_deref());
         if let Some(story) = self.story.as_mut() {
@@ -583,6 +724,8 @@ impl DispatchSheet {
 
     /// The choice pressed: the other word stands, and it has the keys.
     pub(super) fn story_choose(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        self.remember(before);
         if let Some(story) = self.story.as_mut() {
             story.go_to(at);
             story.choice = 1 - story.choice;
@@ -772,6 +915,8 @@ impl DispatchSheet {
         self.queueing = false;
         self.waiting = false;
         crate::drafts::clear(KEEP_REQUEST, cx);
+        self.past.clear();
+        self.future.clear();
         self.files.clear();
         self.drawn.clear();
         self.tools.clear();
@@ -924,7 +1069,11 @@ impl DispatchSheet {
         self.tools_open = None;
         if let Some(Pick::Tag { kind, id, title, url }) = crate::job_view::ask_tools::rows().into_iter().nth(at).map(|row| row.pick) {
             if !self.tools.iter().any(|one| one.tag.id == id) {
+                let before = self.shape_now(cx);
                 self.tools.push(HeldTool { tag: SessionTag { kind, id, title, url }, key: cx.focus_handle() });
+                if self.story.is_some() {
+                    self.remember(before);
+                }
             }
         }
         let focus = self.words_focus(cx);
@@ -934,7 +1083,12 @@ impl DispatchSheet {
 
     /// A tool's chip removed: it does not go, and the caret goes back to the request.
     pub(super) fn remove_tool(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let before = self.shape_now(cx);
+        let held = self.tools.len();
         self.tools.retain(|one| one.tag.id != id);
+        if self.story.is_some() && self.tools.len() != held {
+            self.remember(before);
+        }
         let focus = self.words_focus(cx);
         window.focus(&focus, cx);
         cx.notify();
@@ -994,6 +1148,10 @@ impl DispatchSheet {
         let plain = !mods.platform && !mods.control && !mods.alt;
         let in_request = self.request.focus_handle(cx).is_focused(window);
         if in_request && talk::key_down(self, event, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
+        if plain_cmd(mods) && matches!(key, "z" | "y") && self.history_key(key, mods.shift, in_request, window, cx) {
             cx.stop_propagation();
             return;
         }
@@ -1335,6 +1493,11 @@ fn next_stop(len: usize, now: Option<usize>, back: bool) -> usize {
         (None, false) => 0,
         (None, true) => len - 1,
     }
+}
+
+/// ⌘ held, and no ⌥ or ⌃: a chord of the history.
+fn plain_cmd(mods: &gpui::Modifiers) -> bool {
+    mods.platform && !mods.alt && !mods.control
 }
 
 /// The catalog held for `project`, or none where it is held for another or not at all.

@@ -69,6 +69,7 @@ pub enum Keyed {
     Paste,
 }
 
+#[derive(Clone)]
 pub struct Story {
     pub kind: usize,
     /// What each piece holds: the words of a blank, nothing for text and choices.

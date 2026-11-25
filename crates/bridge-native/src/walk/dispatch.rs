@@ -134,7 +134,7 @@ pub static COMPOSER_FLOW: [Step; 15] = [
 ];
 
 /// A sentence written into the box: the openings, an opening taken, its blanks filled from the keyboard, and the feature list.
-pub static STORY: [Step; 12] = [
+pub static STORY: [Step; 22] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("The empty box names the six openings on one quiet line", Verb::Look, "label", "Openings: When I, I want to, What if, How should, Why is, Talk about"),
     step("Typing Wh ghosts the rest of the first opening and lists the three that begin so, under the caret", Verb::Typed("Wh"), "listbox", "Openings"),
@@ -147,5 +147,15 @@ pub static STORY: [Step; 12] = [
     step("The last blank is filled the same way", Verb::Typed("the draft is lost"), "status", "Starts: bug workflow · Start a Job page"),
     step("The line under the sentence says what it starts, with the feature's page and the tools its kind asks for as chips", Verb::Look, "button", "Remove Terminal"),
     step("Esc turns the whole sentence into plain words", Verb::Key("escape"), "textbox", "Request"),
+    step("⌘Z after Esc brings the sentence back, with the keys in the blank they were in", Verb::Key("cmd-z"), "textbox", "what happens"),
+    step("More letters go into the blank", Verb::Typed(" twice"), "textbox", "what happens"),
+    step("⌘Z takes the run of letters back as one step", Verb::Key("cmd-z"), "textbox", "what happens"),
+    step("⌘Y puts it back", Verb::Key("cmd-y"), "textbox", "what happens"),
+    step("⌘Z and then ⇧⌘Z take it back and put it again", Verb::Keys(&["cmd-z", "cmd-shift-z"]), "textbox", "what happens"),
+    step("Esc turns it to plain words again", Verb::Key("escape"), "textbox", "Request"),
+    step("In the plain box ⌘Z still takes the Esc back to the sentence, and ⌘Y goes forward to the words", Verb::Keys(&["cmd-z", "cmd-y"]), "textbox", "Request"),
+    step("Words typed in the plain box", Verb::Typed(" now"), "textbox", "Request"),
+    step("⌘Z takes them back, as the box's own history does", Verb::Key("cmd-z"), "textbox", "Request"),
+    step("⌘Y puts them back, as ⇧⌘Z does", Verb::Key("cmd-y"), "textbox", "Request"),
 ];
 

@@ -190,6 +190,8 @@ pub fn bind(cx: &mut App) {
         };
         reach(cx, move |this, window, cx| this.open_sheet(add, window, cx));
     });
+    // ⌘Y redoes in the request's box, as ⇧⌘Z does, which the box binds itself.
+    cx.bind_keys([gpui::KeyBinding::new("cmd-y", gpui_component::input::Redo, Some("dispatch > Input"))]);
     cx.on_action(|_: &Toggle, cx: &mut App| reach(cx, |this, window, cx| this.toggle_layer(window, cx)));
     cx.on_action(|_: &Shoot, cx: &mut App| reach(cx, |this, window, cx| this.shoot_layer(window, cx)));
 }
