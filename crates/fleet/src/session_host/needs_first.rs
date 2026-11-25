@@ -13,7 +13,7 @@ use store::KeptWaitingPlace;
 use crate::daemon::Fleet;
 
 /// **Fleet's whys, in one place**, so they are read against the armada-voice skill together: facts, no dashes.
-pub(crate) const WHY_BLOCKS: &str = "Asked first because the work waits on it";
+pub(crate) const WHY_BLOCKS: &str = "The work waits on your answer";
 pub(crate) const WHY_PAGE: &str = "A page to read";
 pub(crate) const WHY_TRY: &str = "Try it once the asks above are answered";
 pub(crate) const WHY_DONE: &str = "The work is done";

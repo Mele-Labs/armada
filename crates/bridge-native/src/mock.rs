@@ -479,7 +479,7 @@ fn fleet_places(sessions: &mut [SessionRecord]) {
             WaitingSource::Document => (2, "A page to read"),
             WaitingSource::ReadyToTry => (3, "Try it once the asks above are answered"),
             WaitingSource::Done => (4, "The work is done"),
-            _ => (1, "Asked first because the work waits on it"),
+            _ => (1, "The work waits on your answer"),
         };
         let mut keyed: Vec<((usize, usize), WaitingItem)> = std::mem::take(&mut one.waiting_for)
             .into_iter()

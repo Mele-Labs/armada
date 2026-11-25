@@ -1092,9 +1092,19 @@ impl JobView {
         let (answered, loose_tail) = parts_fold::place(&held.items, &loose);
         cards.extend(loose_tail.into_iter().map(|(key, _)| Extra::Answer(key)));
         // Of all he is asked, only the first in Fleet's order stands as a card; the next takes its place once it is answered.
-        if let Some(first) = self.first_ask(id, cx) {
-            cards.push(Extra::First(first_card::first_key(&first)));
+        let first = self.first_ask(id, cx);
+        if let Some(first) = &first {
+            cards.push(Extra::First(first_card::first_key(first)));
         }
+        // The waiting plan and the pinned sketch stand over the thread only once they no longer ask: while the plan is first the
+        // first card is its one place, else its card is a line (`plan_card`), and the sketch's own card in the thread is.
+        let first_is_plan = first.as_ref().is_some_and(|first| first.kind == review::Kind::Plan);
+        let pin = held.head.sketch.as_ref().map(|one| one.sketch.clone());
+        extras.retain(|extra| match extra {
+            Extra::Plan(state) => !(first_is_plan && *state == PlanCardState::Waiting),
+            Extra::Sketch(_) => pin.as_deref().is_none_or(|ledger| self.open_ask_of(id, ledger, cx).is_none()),
+            _ => true,
+        });
         let asks: Vec<String> = self
             .review_items(id, cx)
             .into_iter()

@@ -128,6 +128,13 @@ impl JobView {
         self.job_asks(job, None, cx).into_iter().next()
     }
 
+    /// The open ask a plan's or sketch's own card stands for, `item` as its card names it: while there is one, the first card
+    /// is the only place it is answered, and its own card is a line.
+    pub(super) fn open_ask_of(&self, job: &str, item: &str, cx: &gpui::App) -> Option<Item> {
+        let plan = item.starts_with("plan:");
+        self.job_asks(job, None, cx).into_iter().find(|one| super::ask_line::same_item(&one.id, item) || (plan && one.kind == Kind::Plan))
+    }
+
     /// The first card at list place `ix`: the bar of steps, a hairline, the question and why it is first, then its answers.
     pub(super) fn first_card(&self, ix: usize, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let job = self.shown.clone()?;
@@ -409,6 +416,35 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_first_ask_that_is_a_plan_stands_once_as_the_first_card(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = crate::job_view::parts_fold::rooted_job_with(
+            cx,
+            "job-view",
+            "mock-01",
+            size(px(1440.), px(900.)),
+            |jobs| {
+                let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+                job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+            },
+            |threads| {
+                if let Some(thread) = threads.get_mut("mock-01") {
+                    thread.head.asked = None;
+                }
+            },
+        );
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let first = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("an ask is open");
+        assert_eq!(first.kind, Kind::Plan, "with the questions answered the plan is first");
+        let extras = view.read_with(cx, |view, _| view.pages.get("mock-01").map(|page| page.extras.clone()).unwrap_or_default());
+        assert!(extras.iter().all(|extra| !matches!(extra, crate::job_view::Extra::Plan(_))), "the plan's own card does not stand: {extras:?}");
+        assert_eq!(extras.iter().filter(|extra| matches!(extra, crate::job_view::Extra::First(_))).count(), 1, "the first card does: {extras:?}");
+        assert!(!drawn(cx, Role::Article, "Plan to approve"), "nothing else draws the plan as a card");
+        assert_eq!(drawn_like(cx, Role::Article, "Plan: ").len(), 1, "the plan stands once, as the first card");
+        assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "its bar names it now");
+    }
+
+    #[gpui::test]
     fn the_step_bar_names_the_ask_now_the_next_and_how_many_more(cx: &mut gpui::TestAppContext) {
         let (view, cx) = thread_shown(cx);
         let open = ask_ids(&view, cx);
@@ -436,7 +472,7 @@ mod tests {
         assert_eq!(open.get(..3), Some(&["ask:call-1".to_string(), "ask:call-1#1".into(), "plan:2".into()][..]), "the Job's own order first, then Fleet's");
         press(cx, Role::Button, "Open Review Sheet");
         assert!(drawn(cx, Role::Label, "The tooltip's words wait on where the count shows"), "a row's second line is its why");
-        assert!(drawn(cx, Role::Label, "Asked first because the work waits on it"), "Fleet's why where the Job named none");
+        assert!(drawn(cx, Role::Label, "The work waits on your answer"), "Fleet's why where the Job named none");
     }
 
     fn item(id: &str, since: &str) -> Item {

@@ -549,6 +549,10 @@ impl JobView {
     fn plan_ix(&self, job: &SharedString, cx: &gpui::App) -> Option<usize> {
         let page = self.pages.get(job)?;
         let held = self.thread(job, cx)?;
+        // A plan that still asks is the first card or a line, and neither holds its notes.
+        if self.open_ask_of(job, "plan:", cx).is_some() {
+            return None;
+        }
         let at = page.extras.iter().position(|extra| matches!(extra, super::Extra::Plan(_)))?;
         Some(held.items.len() + at)
     }
@@ -558,9 +562,17 @@ impl JobView {
     pub(super) fn show_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.judge_job() else { return };
         if !self.review_open() {
-            let Some(ix) = self.plan_ix(&job, cx) else { return };
-            if let Some(page) = self.pages.get(&job) {
-                page.list.scroll_to_reveal_item(page.entry(ix));
+            match self.plan_ix(&job, cx) {
+                Some(ix) => {
+                    if let Some(page) = self.pages.get(&job) {
+                        page.list.scroll_to_reveal_item(page.entry(ix));
+                    }
+                }
+                // While it asks, the plan has no card of its own in the thread: it is read whole in the sheet.
+                None => {
+                    let Some(version) = self.record(&job, cx).and_then(|record| record.plan.as_ref()).map(|plan| plan.version) else { return };
+                    self.open_review_on(&format!("plan:{version}"), window, cx);
+                }
             }
         }
         cx.notify();

@@ -378,7 +378,7 @@ The asks it leaves out follow in Fleet's order, and an id that is not an open as
 
 | Place | Asks | Why |
 |---|---|---|
-| First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | Asked first because the work waits on it |
+| First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | The work waits on your answer |
 | Then | A page to read or approve | A page to read |
 | Then | A build to try | Try it once the asks above are answered |
 | Last | The Job's done | The work is done |

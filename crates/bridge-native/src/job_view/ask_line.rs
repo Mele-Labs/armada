@@ -112,19 +112,9 @@ impl JobView {
             let at = extra(&|one| matches!(one, super::Extra::First(_)))?;
             return Some((at, super::first_card::first_key(&first)));
         }
-        if item.id.starts_with("ask:") || artifact_in(item).is_some() {
+        // A plan or a sketch after it is a line in the thread while it asks (`open_ask_of`), so the sheet takes it too.
+        if item.id.starts_with("ask:") || artifact_in(item).is_some() || matches!(item.kind, super::review::Kind::Plan | super::review::Kind::Sketch) {
             return None;
-        }
-        let plan = held.head.plan.as_ref().filter(|plan| item.kind == super::review::Kind::Plan || same_item(&format!("plan:{}", plan.version), &item.id));
-        if let Some(plan) = plan {
-            if let Some(at) = extra(&|one| matches!(one, super::Extra::Plan(_))) {
-                return Some((at, plan.id.clone()));
-            }
-        }
-        if let Some(sketch) = held.head.sketch.as_ref().filter(|sketch| sketch.sketch == item.id) {
-            if let Some(at) = extra(&|one| matches!(one, super::Extra::Sketch(_))) {
-                return Some((at, format!("pin:{}", sketch.id)));
-            }
         }
         let at = held.items.iter().rposition(|one| card_item(one, &held.items).is_some_and(|key| same_item(&key, &item.id)))?;
         Some((at, card_key(&held.items[at])?))
@@ -668,26 +658,52 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_waiting_plan_is_a_card_in_the_thread_approved_there_and_it_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
+    fn a_waiting_plan_after_the_first_ask_is_a_line_that_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
         assert!(sheet_holds(&view, cx, "plan:2"), "the sheet holds the plan while it waits");
+        let extras = view.read_with(cx, |view, _| view.pages.get("mock-01").map(|page| page.extras.clone()).unwrap_or_default());
+        let at = extras.iter().position(|extra| matches!(extra, super::super::Extra::Plan(_))).expect("the plan keeps its place over the thread");
+        view.update(cx, |view, cx| {
+            if let Some(page) = view.pages.get_mut("mock-01") {
+                let ix = page.items + at;
+                page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(ix), offset_in_item: px(0.) });
+            }
+            cx.notify();
+        });
+        redraw(cx);
+        assert!(!drawn(cx, Role::Article, "Plan to approve"), "while a question comes first, the plan is no card");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("plan:2", window, cx)));
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("plan:2"), "a press on its line in Needs you opens the sheet on it");
+    }
+
+    #[gpui::test]
+    fn a_waiting_plan_that_is_first_is_the_first_card_approved_there_and_it_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job_with(
+            cx,
+            "job-view",
+            "mock-01",
+            size(px(1440.), px(900.)),
+            |jobs| {
+                let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+                job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+            },
+            |threads| {
+                if let Some(thread) = threads.get_mut("mock-01") {
+                    thread.head.asked = None;
+                }
+            },
+        );
         cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask("plan:2", window, cx)));
         redraw(cx);
         redraw(cx);
         assert!(!view.read_with(cx, |view, _| view.review_open()), "the thread holds its card, so the sheet stays shut");
-        let card = bounds(cx, Role::Article, "Plan to approve");
-        for answer in ["Approve", "Not yet"] {
-            within(cx, Role::Button, answer, card);
-        }
-        // The plan is long: its answers stand at its foot, a wheel further down.
-        let (thread, foot) = (bounds(cx, Role::Region, "Thread"), within(cx, Role::Button, "Approve", card).center());
-        if !thread.contains(&foot) {
-            view.update(cx, |view, _| view.pages.get("mock-01").map(|page| page.list.scroll_by(foot.y - thread.center().y)));
-            redraw(cx);
-        }
-        let card = bounds(cx, Role::Article, "Plan to approve");
+        let name = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).map(|first| format!("Plan: {}", first.name)).expect("the plan is first");
+        let card = bounds(cx, Role::Article, &name);
+        within(cx, Role::Button, "Ask for changes", card);
         let approve = within(cx, Role::Button, "Approve", card).center();
         cx.simulate_click(approve, gpui::Modifiers::none());
         redraw(cx);
@@ -698,7 +714,8 @@ mod tests {
     #[gpui::test]
     fn a_page_and_a_sketch_that_ask_are_approved_on_their_cards_and_leave_the_sheet(cx: &mut gpui::TestAppContext) {
         const CARD: &str = "Document: Stale branch design, Revision 2";
-        const PIN: &str = "Sketch to approve: Tail layout";
+        const PIN: &str = "Drawing: Tail layout";
+        let first_id = |view: &JobView, cx: &gpui::App| view.first_ask("mock-01", cx).map(|first| first.id).unwrap_or_default();
         let (view, cx) = rooted_job_with(
             cx,
             "job-view",
@@ -732,13 +749,10 @@ mod tests {
         redraw(cx);
         assert!(!view.read_with(cx, |view, _| view.review_open()), "it answers in place");
         assert!(!sheet_holds(&view, cx, "document:design"), "approved on its card, the page leaves the sheet");
-        view.update(cx, |view, cx| {
-            if let Some(page) = view.pages.get_mut("mock-01") {
-                let at = page.extras.iter().position(|extra| matches!(extra, super::super::Extra::Sketch(_))).map(|at| page.items + at).expect("the sketch is pinned");
-                page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(at), offset_in_item: px(0.) });
-            }
-            cx.notify();
-        });
+        // The sketch is first, so the first card is its one place: no pin stands for it while it asks.
+        let extras = view.read_with(cx, |view, _| view.pages.get("mock-01").map(|page| page.extras.clone()).unwrap_or_default());
+        assert!(extras.iter().all(|extra| !matches!(extra, super::super::Extra::Sketch(_))), "no pin while it asks: {extras:?}");
+        cx.update(|window, cx| view.update(cx, |view, cx| view.go_to_ask(&first_id(&view, cx), window, cx)));
         redraw(cx);
         let pin = bounds(cx, Role::Article, PIN);
         let approve = within(cx, Role::Button, "Approve", pin).center();
