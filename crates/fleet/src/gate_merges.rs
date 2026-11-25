@@ -101,7 +101,7 @@ fn recorded_at<'a>(plan: &'a KeptPlan, group: &str) -> Option<&'a str> {
 }
 
 /// A pull request not merged, closed or given back.
-fn open(pull: &KeptAttachment) -> bool {
+pub(crate) fn open(pull: &KeptAttachment) -> bool {
     pull.state != AttachmentState::GivenBack
         && !crate::build_record::merged(pull)
         && pull.detail.get("state").map(String::as_str) != Some("closed")

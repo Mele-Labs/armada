@@ -30,7 +30,7 @@ A preview names no plan group, so the answer is never tied to one; Needs rework 
 A group handed to a Job of its own is tied to that Job's pull requests, by the `group` on its `started_to` row, followed through a handoff.
 The Job's own pull requests are tied to its one `merged` group that is not handed on.
 With several such groups Fleet keeps no file list for a pull request to tell them apart, so a merge is tied by when it came: to a group whose tasks are all done, merged after the first of them was completed.
-A group none of whose tasks was ever completed is tied to no merge, and its gate waits on his `Approve` or `Skip this group`.
+A group none of whose tasks was ever completed is tied to no merge, and its gate stays open for the agent to settle.
 A group closes on its newest tied merge once nothing tied to it is still open and none of its tasks reads pending or in progress, so a group that lands in several pull requests closes on the last.
 A merge from before the group was recorded closes nothing of it; Fleet knows that time for a group the newest version added, and reads the plan's first recording for the rest.
 **A walk shown for a group is that group's part** (owner, 8 Nov 2026).
@@ -69,11 +69,15 @@ Fleet keeps the call and its summary in `session_gate_holds`, stamps no `done_si
 Open follow-ups still refuse it, and the in-flight reason is skipped, since the gate covers it.
 A task still open in a group whose gate is `merged` refuses it too, by name, with `fleet.gate_tasks_open` (owner, 17 Nov 2026).
 A merge closes a group only once its tasks are done, so the task is the Job's to finish, and holding the call would leave the gate to the person, who cannot see why it is open.
+**A merge gate with no pull request on the way is the agent's, never the person's** (owner, 25 Nov 2026).
+Where the first open gate is `merged` and no pull request tied to its group is open, `all_done` is refused with `fleet.gate_merge_unopened`.
+The refusal names the group and says to open a pull request, or to record the plan again with that group's gate removed.
+A call held at an earlier gate is cleared when that gate closes onto such a merge, and the agent is told why.
 When the last gate closes Fleet runs the call itself, and tells the agent if it is refused.
 A call held stops standing as `done_since` does: when he writes, or a turn of the agent's own begins.
 A held call reaches the person in Needs you only for a gate nothing in the Job can close, and only while nothing in the Job runs.
-That is an approval of any kind, a merge no open pull request is on the way to, or Checks no run has begun.
-Its text says what is true, such as `"<group title>" has no open pull request to merge` for a merge.
+That is an approval of any kind, or Checks no run has begun.
+Its text says what is true, such as `"<group title>" waits on Checks at a pushed commit`.
 The item offers `Approve` and `Skip this group`, each with a line saying it closes the group and ends the Job if nothing else is open, and goes when the gate closes.
 `Approve` on a `plan_approved` gate approves the plan, and on any other closes the gate on his word.
 `Skip this group` closes it as skipped.
