@@ -78,6 +78,9 @@ pub(crate) struct Sweep {
     /// The wire types a pull request changes, by repository, number and commit, so a reading costs
     /// the forge one ask. `crate::wire_notices`.
     pub(crate) wire_types: BTreeMap<String, Vec<crate::wire_types::TypeChange>>,
+    /// The pull requests whose event stream is attached, which the pull reading leaves to their
+    /// events. `crate::pull_hearing`.
+    pub(crate) heard_live: crate::pull_hearing::Live,
 }
 
 /// When the forge last answered a repository's whole visit, and when it first stopped answering.

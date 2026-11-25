@@ -415,7 +415,7 @@ pub fn reads(path: &str) -> bool {
 /// (`docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*). A start and a dispatch cross
 /// too, but name their Mac in the body, so they are not acts on a Job held there.
 pub fn crosses(path: &str) -> bool {
-    const ROUTES: [&str; 19] = [
+    const ROUTES: [&str; 20] = [
         "/sessions/message",
         "/sessions/ask/answer",
         "/sessions/waiting/answer",
@@ -425,6 +425,7 @@ pub fn crosses(path: &str) -> bool {
         "/sessions/sketch/answer",
         "/sessions/document/answer",
         "/sessions/stop",
+        "/sessions/close",
         "/sessions/artifacts/press",
         "/sessions/artifacts/vote",
         "/sessions/artifacts/seen",
@@ -753,6 +754,7 @@ mod tests {
             "/sessions/sketch/answer",
             "/sessions/document/answer",
             "/sessions/stop",
+            "/sessions/close",
             "/sessions/artifacts/press",
             "/sessions/artifacts/vote",
             "/sessions/artifacts/seen",
@@ -766,10 +768,10 @@ mod tests {
         ] {
             assert!(crosses(path), "{path} crosses");
         }
-        for path in ["/sessions/pause", "/sessions/snooze", "/sessions/rename", "/sessions/close", "/sessions/judge", "/sessions/waiting/dismiss", "/sessions/tune", "/sessions/start", "/sessions/dispatch", "/pull_requests/armada/3548/refresh", "/sessions/message/edit", "/sessions/artifacts/edit"] {
+        for path in ["/sessions/pause", "/sessions/snooze", "/sessions/rename", "/sessions/judge", "/sessions/waiting/dismiss", "/sessions/tune", "/sessions/start", "/sessions/dispatch", "/pull_requests/armada/3548/refresh", "/sessions/message/edit", "/sessions/artifacts/edit"] {
             assert!(!crosses(path), "{path} stays");
         }
-        assert!(goes("/sessions/stop") && goes("/sessions/judge/read") && goes("/queued/take_back"));
+        assert!(goes("/sessions/stop") && goes("/sessions/close") && goes("/sessions/judge/read") && goes("/queued/take_back"));
         assert!(!goes("/sessions/pause"));
     }
 

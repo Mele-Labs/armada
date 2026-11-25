@@ -1,7 +1,7 @@
 //! His questions to a Job and the replies that answer them, as the owner approved them in a sketch on 17 Nov 2026: the Q&A
-//! tab, the answer folded under his question in the thread, the one pinned line while an answer is unread, and ⌥↑ ⌥↓ to
-//! step between his questions. Fleet's `list_job_questions` is the whole list, read again where `session.story` says it
-//! moved, and where the agent writes in the shown Job. **Nothing here sorts it.**
+//! tab, the answer folded under his question in the thread, and ⌥↑ ⌥↓ to
+//! step between his questions. An unread answer is not pinned at the thread's foot: it is already in the thread.
+//! Fleet's `list_job_questions` is the whole list, read again where `session.story` says it moved, and where the agent writes in the shown Job. **Nothing here sorts it.**
 //!
 //! A jump scrolls the thread to the reply's item, reading earlier items until the thread holds it, and tells Fleet he read
 //! the answer (`mark_answer_read`).
@@ -27,8 +27,6 @@ pub(super) struct Questions {
     want_focus: Option<String>,
     /// The row a jump goes to that the thread does not hold yet, by Job: earlier items are read until it does.
     seeking: HashMap<String, String>,
-    /// Which unread answer the pinned line shows, by Job: its place among them.
-    pinned: HashMap<String, usize>,
     /// What the mock Fleet answers for its Job, taken when the view was made.
     mock: Option<JobQuestions>,
     /// The agent's last message in each held thread, by Job, as last seen: a new one reads the questions again.
@@ -51,11 +49,6 @@ impl Questions {
     pub(super) fn mock(mock: Option<JobQuestions>) -> Self {
         Questions { mock, ..Default::default() }
     }
-}
-
-/// The answers he has not read, in Fleet's order, which is newest first: the pinned line steps through these.
-pub(super) fn unread(read: &JobQuestions) -> Vec<&JobQuestion> {
-    read.questions.iter().filter(|one| one.answer.as_ref().is_some_and(|answer| !answer.read)).collect()
 }
 
 /// The thread item that holds row `row`: one drawn as it came, or one folded into a run of calls, a Check run or a Fleet turn.
@@ -228,14 +221,6 @@ impl JobView {
             }),
         );
         Some(wire)
-    }
-
-    /// Dismiss: every answer of the Job not read yet reads as read, with no jump and no tab opened.
-    fn dismiss_answers(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let rows: Vec<String> = self.questions.read.get(job).and_then(Option::as_ref).map(|read| unread(read).iter().map(|one| one.row_id.clone()).collect()).unwrap_or_default();
-        for row in rows {
-            self.mark_answer_read(job, &row, window, cx);
-        }
     }
 
     /// To the reply that answers his question at `row`, which he has then read; to the question itself while none does.
@@ -579,150 +564,17 @@ impl JobView {
         )
         .into_any_element()
     }
-
-    /// The pinned line at the thread's foot while an answer is unread: which question it answers, ‹ › where more than one
-    /// is, Jump, and Dismiss, which reads them all. It goes once every answer is read.
-    pub(super) fn render_answer_line(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
-        let read = self.questions.read.get(id.as_ref())?.as_ref()?;
-        let unread = unread(read);
-        let page = self.pages.get(id)?;
-        let at = self.questions.pinned.get(id.as_ref()).copied().unwrap_or(0).min(unread.len().checked_sub(1)?);
-        let question = unread[at];
-        let look = cx.look();
-        let jump = page.keys.spot("answer-line:jump", cx);
-        let arrows = (unread.len() > 1).then(|| {
-            let arrow = |key: &'static str, icon: &'static str, name: &'static str, by: isize| {
-                let spot = page.keys.spot(&format!("answer-line:{key}"), cx);
-                let (keyed, pressed) = (id.to_string(), id.to_string());
-                labelled(
-                    super::tabs::frame(look, SharedString::from(format!("answer-line:{key}")), icon)
-                        .track_focus(&spot.focus)
-                        .focus_visible(|button| button.bg(look.color(token::BG_HOVER)))
-                        .tooltip(tip(name))
-                        .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
-                            if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
-                                cx.stop_propagation();
-                                this.step_pinned(&keyed, by, cx);
-                            }
-                        }))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            cx.stop_propagation();
-                            this.step_pinned(&pressed, by, cx);
-                        })),
-                    Role::Button,
-                    name,
-                )
-            };
-            div().flex_none().flex().items_center().child(arrow("newer", "chevron-left", "Newer answer", -1)).child(arrow("older", "chevron-right", "Older answer", 1))
-        });
-        let dismiss = {
-            let spot = page.keys.spot("answer-line:dismiss", cx);
-            let (keyed, pressed) = (id.to_string(), id.to_string());
-            labelled(
-                super::tabs::frame(look, "answer-line:dismiss", "x")
-                    .track_focus(&spot.focus)
-                    .focus_visible(|button| button.bg(look.color(token::BG_HOVER)))
-                    .tooltip(tip("Dismiss"))
-                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                        if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
-                            cx.stop_propagation();
-                            this.dismiss_answers(&keyed, window, cx);
-                        }
-                    }))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        cx.stop_propagation();
-                        this.dismiss_answers(&pressed, window, cx);
-                    })),
-                Role::Button,
-                "Dismiss the unread answer",
-            )
-        };
-        let said = format!("Answered: {}", one_line(&question.words));
-        let line = div()
-            .id("answer-line")
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .h(look.length(token::H_CONTROL) + look.length(token::SPACE_2))
-            .pl(look.length(token::SPACE_3))
-            .pr(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_MD))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::YOU_EDGE))
-            .bg(look.color(token::BG_RAISED))
-            .shadow(look.shadows(token::SHADOW_OVERLAY))
-            .text_size(look.length(token::TEXT_SM))
-            .text_color(look.color(token::FG_DEFAULT))
-            .child(labelled(div().id("answer-line-dot").flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::YOU)).tooltip(tip("Answer not read")), Role::Image, "Answer not read"))
-            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said.clone())))
-            .children(arrows)
-            .child(self.jump_button("answer-line:jump-button", &jump.focus, id, &question.row_id, look, cx))
-            .child(dismiss);
-        Some(
-            div()
-                .w_full()
-                .px(look.length(token::SPACE_4) + super::bleed(look))
-                .flex()
-                .justify_center()
-                .child(div().w_full().min_w_0().max_w(self.column(look)).child(labelled(line, Role::Group, "Unread answer")))
-                .into_any_element(),
-        )
-    }
-
-    /// The room the pinned line takes at the thread's foot, so the last row is not under it.
-    pub(super) fn answer_room(&self, id: &SharedString, cx: &Context<Self>) -> gpui::Pixels {
-        let unread = self.questions.read.get(id.as_ref()).and_then(Option::as_ref).is_some_and(|read| !unread(read).is_empty());
-        let look = cx.look();
-        if unread {
-            look.length(token::H_CONTROL) + look.length(token::SPACE_2) * 2.
-        } else {
-            gpui::px(0.)
-        }
-    }
-
-    /// ‹ and ›: the pinned line shows the newer or the older unread answer.
-    fn step_pinned(&mut self, job: &str, by: isize, cx: &mut Context<Self>) {
-        let count = self.questions.read.get(job).and_then(Option::as_ref).map_or(0, |read| unread(read).len());
-        if count == 0 {
-            return;
-        }
-        let at = self.questions.pinned.get(job).copied().unwrap_or(0).min(count - 1) as isize;
-        self.questions.pinned.insert(job.to_string(), (at + by).clamp(0, count as isize - 1) as usize);
-        cx.notify();
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn question(row: &str, answer: Option<(&str, bool)>) -> JobQuestion {
-        let at = ipc::Instant::carried("2026-11-17T14:00:00Z");
-        JobQuestion {
-            row_id: row.into(),
-            words: format!("Question {row}?"),
-            asked_at: at.clone(),
-            answer: answer.map(|(reply, read)| JobAnswer { reply_row: reply.into(), excerpt: "Yes.".into(), answered_at: at.clone(), read }),
-        }
-    }
-
     #[test]
     fn a_nudge_quotes_his_question_and_says_whether_it_was_answered() {
         assert!(nudge_message("What do\nI tell it?", false).ends_with("> What do I tell it?"));
         assert!(nudge_message("Why?", false).starts_with("I haven't had an answer"));
         assert!(nudge_message("Why?", true).starts_with("Bringing this question back up"));
-    }
-
-    #[test]
-    fn the_pinned_line_steps_through_the_unread_answers_in_fleets_order_and_never_an_open_question() {
-        let read = JobQuestions {
-            session_id: SessionId::carried("j".to_string()),
-            questions: vec![question("q5", None), question("q4", Some(("r4", false))), question("q3", Some(("r3", true))), question("q2", Some(("r2", false))), question("q1", None)],
-        };
-        let rows: Vec<&str> = unread(&read).iter().map(|one| one.row_id.as_str()).collect();
-        assert_eq!(rows, ["q4", "q2"], "newest first as Fleet serves them; the read and the unanswered are left out");
-        let none = JobQuestions { session_id: SessionId::carried("j".to_string()), questions: vec![question("q1", None), question("q2", Some(("r2", true)))] };
-        assert!(unread(&none).is_empty(), "no unread answer: no line");
     }
 
     #[test]
@@ -770,23 +622,11 @@ mod tests {
     }
 
     #[gpui::test]
-    fn dismissing_the_unread_answer_reads_every_answer_of_the_job_and_takes_the_line_away(cx: &mut gpui::TestAppContext) {
-        use super::super::parts_fold::{drawn, redraw, rooted_job};
+    fn an_unread_answer_is_not_pinned_at_the_threads_foot(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{drawn, rooted_job};
         let (view, cx) = rooted_job(cx, "job-questions", "mock-01", gpui::size(gpui::px(1400.), gpui::px(900.)), |_| {});
-        assert!(drawn(cx, Role::Group, "Unread answer"), "the line stands while an answer is unread");
-        let unread_now = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.questions.read.get("mock-01").and_then(Option::as_ref).map_or(usize::MAX, |read| unread(read).len()));
-        assert_eq!(unread_now(&view, cx), 1);
-        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
-        // The key is what drives it here: a click made in the test window does not reach the pinned line (Jump's does not either).
-        view.update_in(cx, |view, window, cx| {
-            let spot = view.pages.get("mock-01").and_then(|page| page.keys.spot_of("answer-line:dismiss")).expect("Dismiss is drawn on the line");
-            window.focus(&spot.focus, cx);
-        });
-        assert!(drawn(cx, Role::Button, "Dismiss the unread answer"), "Dismiss is drawn on the line");
-        cx.simulate_keystrokes("enter");
-        redraw(cx);
-        assert_eq!(unread_now(&view, cx), 0, "every answer of the Job reads as read");
-        assert!(!drawn(cx, Role::Group, "Unread answer"), "the line is gone");
-        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no tab opened, no jump made");
+        let unread = view.read_with(cx, |view, _| view.questions.read.get("mock-01").and_then(Option::as_ref).is_some_and(|read| read.questions.iter().any(|one| one.answer.as_ref().is_some_and(|answer| !answer.read))));
+        assert!(unread, "the Job holds an answer he has not read");
+        assert!(!drawn(cx, Role::Group, "Unread answer"), "the answer is in the thread, so no line stands at its foot");
     }
 }
