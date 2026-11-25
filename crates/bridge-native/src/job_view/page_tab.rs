@@ -574,6 +574,8 @@ impl JobView {
         let wanted: Vec<(String, u32, String)> = chosen.as_ref().map(|item| self.panel_pages_of(item, cx)).unwrap_or_default();
         let job = chosen.as_ref().map(|item| SharedString::from(item.job.clone()));
         let is_document = chosen.as_ref().is_some_and(|item| item.kind == super::review::Kind::Document);
+        // The page the sheet draws with its margin: a document that asks, or the artifact of its one page part that stands for it.
+        let margin = job.as_ref().and_then(|job| self.sheet_margin_page(job, cx));
         let Some(review) = self.review_mut() else { return };
         review.pages.retain(|key, (tab, _)| wanted.iter().any(|(page, revision, _)| job.as_ref().is_some_and(|job| *key == panel_key(job, page)) && *revision == tab.read(cx).revision()));
         let Some(job) = job else { return };
@@ -594,12 +596,14 @@ impl JobView {
             self.fetch_page(tab, window, cx);
             if is_document {
                 self.panel_seen(&job, &page, revision, window, cx);
+            }
+            if margin.as_deref() == Some(page.as_str()) {
                 // The margin beside a page that asks marks its passages in the page, and brings the thread he is on into view.
                 self.margin_page_came(&job, &super::reader::reader_id(super::row_tabs::RowKind::Document, &page), cx);
             }
         }
         // The readers of a Job not shown are kept here: the shown Job's are kept as its tabs are.
-        if is_document && self.shown.as_ref() != Some(&job) {
+        if margin.is_some() && self.shown.as_ref() != Some(&job) {
             self.sync_readers(&job, window, cx);
         }
     }

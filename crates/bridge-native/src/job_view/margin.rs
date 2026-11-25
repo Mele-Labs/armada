@@ -654,6 +654,47 @@ mod tests {
         assert!(narrow.top() > wide.top(), "and stands below the page");
     }
 
+    /// The page as a real Fleet lists it: an artifact of one page part, which asks him to approve it, named by the page's path.
+    fn as_fleet_lists_it(view: &gpui::Entity<super::JobView>, cx: &mut gpui::VisualTestContext) {
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                "quiet",
+                |artifact| {
+                    let revision = artifact.revisions.last().map_or(1, |last| last.number);
+                    let added = artifact.revisions.first().map(|first| first.at.clone()).expect("the page's first revision");
+                    artifact.parts = vec![ipc::ArtifactPart {
+                        id: "quiet".into(),
+                        content: ipc::PartContent::Page { path: "quiet".into() },
+                        asks: true,
+                        state: ipc::PartState::Open,
+                        revision,
+                        drawn: revision.to_string(),
+                        added,
+                        answer: None,
+                        question: Some("Approve \u{201c}Quiet hours for notices\u{201d}?".into()),
+                    }];
+                },
+                cx,
+            )
+        });
+        redraw(cx);
+    }
+
+    #[gpui::test]
+    fn a_page_fleet_lists_as_an_artifact_of_one_page_part_reads_in_the_sheet_with_its_margin(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        as_fleet_lists_it(&view, cx);
+        view.update_in(cx, |view, window, cx| view.open_document("quiet", window, cx));
+        redraw(cx);
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten()).expect("the sheet is open on an item");
+        assert_eq!((chosen.job.as_str(), chosen.kind), ("plan-job", super::super::review::Kind::Artifact), "the page's artifact stands for it");
+        let tab = view.read_with(cx, |view, _| view.sheet_page("plan-job", "quiet")).expect("the sheet holds the live page");
+        assert_eq!(tab.read_with(cx, |tab, _| tab.job().to_string()), "plan-job", "the page is read from its own Job");
+        assert_eq!(view.read_with(cx, |view, cx| view.sheet_reader(cx)), Some(("plan-job".into(), reader_name())), "the page's margin is the sheet's");
+        assert!(all_of(cx, Role::Group, "Margin").pop().is_some(), "and is drawn beside the page");
+    }
+
     #[gpui::test]
     fn open_on_a_round_of_a_page_that_asks_opens_the_sheet_on_its_first_thread(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(560.)), |_| {});

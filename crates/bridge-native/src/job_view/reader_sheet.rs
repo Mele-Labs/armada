@@ -234,12 +234,17 @@ impl JobView {
     }
 
     /// The page the sheet shows of Job `job` with its margin: the page its chosen item asks him to approve, where the Job's thread
-    /// holds the page's card.
+    /// holds the page's card. Fleet lists every page as an artifact of its one page part, and that artifact stands for the page's
+    /// own item in the sheet, so a page alone that still asks is one too.
     pub(super) fn sheet_margin_page(&self, job: &str, cx: &gpui::App) -> Option<String> {
-        let item = self.review_chosen().filter(|item| self.review_open() && item.job == job && item.kind == Kind::Document)?;
-        let page = item.id.strip_prefix("document:")?;
-        self.thread(job, cx).and_then(|held| super::review::document_card(&held.items, page))?;
-        Some(page.to_string())
+        let item = self.review_chosen().filter(|item| self.review_open() && item.job == job)?;
+        let page = match item.kind {
+            Kind::Document => item.id.strip_prefix("document:")?.to_string(),
+            Kind::Artifact if self.page_alone(&item) && self.artifact_verdict(&item) == Some(None) => self.panel_pages_of(&item, cx).into_iter().next()?.0,
+            _ => return None,
+        };
+        self.thread(job, cx).and_then(|held| super::review::document_card(&held.items, &page))?;
+        Some(page)
     }
 
     /// The sheet's page's reader, as the Job and the reader's name, where the sheet shows a page with its margin.
