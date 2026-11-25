@@ -24,7 +24,7 @@ use api::Sessions;
 use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 use store::{Holder, KeptAttachment};
 
-use super::document_answers::{is_document, DOCUMENT_READS, READ_ITEM_PREFIX};
+use super::document_answers::{is_document, DOCUMENT_READS};
 use super::artifact_for::with_for;
 use super::page_actions::actions_that_will_not_run;
 use super::page_measure::buried_ask;
@@ -133,9 +133,8 @@ where
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
         detail.extend(super::document_page::features_of(html).map(|slugs| (ipc::ARTIFACT_FEATURE.to_string(), slugs)));
-        // **One open artifact per Job**: a page that asks, written while one still asks him, is a part of it. A page
-        // that joined one keeps it across its revisions.
-        let kept_in = {
+        // A page that joined an artifact before each ask was its own item keeps it across its revisions.
+        let joins = {
             let store = self.store().lock().await;
             store
                 .attachments_of(&store::Holder::session(id))
@@ -143,16 +142,10 @@ where
                 .and_then(|held| held.into_iter().find(|one| one.kind == "artifact" && one.target == path))
                 .and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned())
         };
-        let joins = match (kept_in, asks) {
-            (Some(root), _) => Some(root),
-            (None, true) => self.artifact_joined(id, adapters::HOSTED_HARNESS, path, &title_of(html, path), false).await.ok().flatten(),
-            (None, false) => None,
-        };
         detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
-        let _ = self.store().lock().await.restore_waiting(id, &format!("{READ_ITEM_PREFIX}{path}"));
         // His margin threads read the new revision before the row that says so goes out.
         self.margins_found_again(id, path, html).await;
         let _ = self
@@ -293,12 +286,9 @@ where
             let now = self.instant().as_str().to_string();
             let mut store = self.store().lock().await;
             let _ = store.carry_owner_revisions(old, new, &page.target, &target);
-            // What he dismissed of it stays dismissed, and what he read of it is read still, so a page waits to be
-            // read again only where it did.
-            for prefix in [DOCUMENT_ITEM_PREFIX, READ_ITEM_PREFIX] {
-                if dismissed.contains(&format!("{prefix}{}", page.target)) {
-                    let _ = store.dismiss_waiting(new, &format!("{prefix}{target}"));
-                }
+            // What he dismissed of it stays dismissed, and the revision he last read stays read.
+            if dismissed.contains(&format!("{DOCUMENT_ITEM_PREFIX}{}", page.target)) {
+                let _ = store.dismiss_waiting(new, &format!("{DOCUMENT_ITEM_PREFIX}{target}"));
             }
             if let Some(kept) = opened.iter().find(|one| one.artifact == page.target) {
                 let _ = store.keep_artifact_seen(new, &target, kept.revision);

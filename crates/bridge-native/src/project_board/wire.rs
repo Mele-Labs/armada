@@ -2,7 +2,7 @@
 //! issue searches and the review lists Fleet already served, and the layout and the ranked issues of the project.
 
 use gpui::{App, AppContext as _, Task};
-use ipc::{AppRun, AppRunDraft, AppRunList, BoardLayout, IssueList, IssueQueries, ManifestConfig, NamedAppRun, ProjectBoard, RankedIssues, SaveProjectBoard, SearchIssues};
+use ipc::{AppRun, AppRunDraft, AppRunList, BoardLayout, IssueList, IssueQueries, ManifestConfig, MetricReadings, NamedAppRun, ProjectBoard, RankedIssues, SaveMetricToken, SaveProjectBoard, SearchIssues};
 
 use crate::link::percent_encoded;
 use crate::settings::wire::{body, request, scoped, Ask, Refused};
@@ -41,6 +41,19 @@ pub fn board(port: u16, project: &str, cx: &App) -> Task<Result<ProjectBoard, Re
 pub fn save_board(port: u16, project: &str, layout: Option<BoardLayout>, cx: &App) -> Task<Result<ProjectBoard, Refused>> {
     let path = format!("/projects/project/{}/board", percent_encoded(project));
     request(port, Ask::Post(path, body(&SaveProjectBoard { layout })), "ProjectBoard", cx)
+}
+
+/// `GET /projects/project/:id/metrics`: what each recipe the project keeps read. Fleet decides whether a reading is stale and
+/// fetches it again, so this is asked as often as the dashboard is open and no oftener.
+pub fn metrics(port: u16, project: &str, cx: &App) -> Task<Result<MetricReadings, Refused>> {
+    request(port, Ask::Get(format!("/projects/project/{}/metrics", percent_encoded(project))), "MetricReadings", cx)
+}
+
+/// `POST /projects/project/:id/metrics/token`: a token for one credential, kept in this Mac's keychain by Fleet. The token is in
+/// this request and nowhere else.
+pub fn save_metric_token(port: u16, project: &str, credential: &str, token: String, cx: &App) -> Task<Result<MetricReadings, Refused>> {
+    let path = format!("/projects/project/{}/metrics/token", percent_encoded(project));
+    request(port, Ask::Post(path, body(&SaveMetricToken { credential: credential.to_string(), token })), "MetricReadings", cx)
 }
 
 /// `GET /projects/project/:id/ranked_issues`: the open issues nobody holds and the pull requests of others, each with the

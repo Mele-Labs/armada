@@ -1,6 +1,6 @@
-//! An artifact of parts read whole in a tab of its own, as a page and a draft are read in theirs. Every part is answered
-//! there as it is on the card (`parts_card`): takes with 1 to 4 and Send pick, words with Approve and Ask for changes, buttons
-//! pressed. The drawing is large; the card there never folds, so what he answered stays to read.
+//! An artifact of parts read whole in a tab of its own, as a page and a draft are read in theirs. While it asks it is read
+//! only, under one line that opens the review sheet, the one place it is answered (one ask, one place, 19 Nov). The drawing
+//! is large; the card there never folds, so what he answered stays to read.
 
 use gpui::{div, prelude::*, AnyElement, Context, KeyDownEvent, Window};
 
@@ -52,6 +52,14 @@ impl JobView {
                 cx.notify();
                 return;
             }
+        }
+        // One that asks is answered in the sheet: Enter opens it there, and no key answers it here.
+        if self.reads_only(artifact, cx) {
+            if !mods.modified() && event.keystroke.key == "enter" {
+                cx.stop_propagation();
+                self.open_artifact_review(artifact, window, cx);
+            }
+            return;
         }
         self.parts_key(artifact, event, window, cx);
     }

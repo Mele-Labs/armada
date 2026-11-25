@@ -38,7 +38,7 @@ use crate::building::{
     answer_ready_to_try,
 };
 use crate::limiting::{get_limits, save_limits};
-use crate::preferring::{get_preferences, save_preferences};
+use crate::preferring::{get_home_layout, get_preferences, save_home_layout, save_preferences};
 use crate::queries::{
     get_manifest_drift, get_manifest_reading, list_manifests, list_models, list_workflows,
     list_worktrees, search_files,
@@ -928,6 +928,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))
         .route("/preferences/save", post(save_preferences::<D>))
+        .route("/home/layout", get(get_home_layout::<D>).post(save_home_layout::<D>))
         .route("/settings", get(crate::settling::get_settings::<D>))
         .route("/settings/save", post(crate::settling::save_settings::<D>))
         .route("/phone", get(crate::settling::get_phone::<D>).post(crate::settling::set_phone::<D>))
@@ -972,6 +973,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/projects/project/:project/board",
             get(crate::projects::get_project_board::<D>).post(crate::projects::save_project_board::<D>),
         )
+        .route(
+            "/projects/project/:project/metrics",
+            get(crate::projects::read_metrics::<D>).post(crate::projects::save_metric::<D>),
+        )
+        .route("/projects/project/:project/metrics/try", post(crate::projects::try_metric::<D>))
+        .route("/projects/project/:project/metrics/token", post(crate::projects::save_metric_token::<D>))
+        .route("/projects/project/:project/metrics/:id/remove", post(crate::projects::remove_metric::<D>))
         .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
         .route(
             "/projects/project/:project/store",

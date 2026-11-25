@@ -340,13 +340,20 @@ impl JobView {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
-                _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
+                // An asking card the sheet holds is one line pointing to it there.
+                _ => self.card_pointer(item, &held.items, page, look, cx).or_else(|| self.item(ix, item, last && working && !asking, after, page, look, now, window, cx)),
             }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
         // The cards of artifacts kept after this item stand under it, in the element it is drawn in.
-        let kept: Vec<AnyElement> = if ix < page.items { page.anchors.iter().filter(|held| held.item == ix).filter_map(|held| self.parts_card(ix, &held.artifact, held.revision, false, false, page, look, cx)).collect() } else { Vec::new() };
+        let mut kept: Vec<AnyElement> = if ix < page.items { page.anchors.iter().filter(|held| held.item == ix).filter_map(|held| self.parts_card(ix, &held.artifact, held.revision, false, false, page, look, cx)).collect() } else { Vec::new() };
+        // His answers no card stands for, under the item before them.
+        if ix < page.items {
+            if let Some(record) = self.record(&id, cx) {
+                kept.extend(page.answered.iter().filter(|held| held.item == ix).filter_map(|held| record.answers.iter().find(|one| super::ask_line::answer_key(one) == held.artifact)).map(|answer| self.answer_card(answer, look, cx)));
+            }
+        }
         let drawn = if kept.is_empty() { drawn } else { Some(div().w_full().flex().flex_col().gap(self.row_gap(look)).children(drawn).children(kept).into_any_element()) };
         let Some(drawn) = drawn else { return nothing() };
         // Aa's Spacing: the gap under each row, and the room a message takes above itself and above the row after it.
@@ -768,7 +775,16 @@ impl JobView {
     fn extra(&self, head: &ipc::ThreadHead, items: &[ThreadItem], page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
-            Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
+            Extra::Sketch(_) => {
+                let card = head.sketch.as_ref()?;
+                return self.pin_pointer(card, page, look, cx).or_else(|| Some(self.sketch_pin(page.items + at, card, page, look, cx)));
+            }
+            Extra::Answer(key) => {
+                let job = self.shown.as_ref()?;
+                let answer = self.record(job, cx)?.answers.iter().find(|one| super::ask_line::answer_key(one) == *key)?;
+                return Some(self.answer_card(answer, look, cx));
+            }
+            Extra::Asked(call) => return head.asked.as_ref().filter(|asked| asked.call.call == *call).and_then(|asked| self.asked_lines(&asked.call, look, cx)),
             Extra::Parts(artifact, revision) => return self.parts_card(page.items + at, artifact, *revision, false, false, page, look, cx),
             Extra::Judging(reading) => return Some(self.judging_card(reading, look, cx)),
             Extra::Pending(i) => {

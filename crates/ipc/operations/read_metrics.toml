@@ -1,0 +1,10 @@
+[operations.read_metrics]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The live metric readings of a project's dashboard"
+notes = """
+`GET /projects/project/:project/metrics`. Answers `MetricReadings { project, readings }`, a `MetricReading { id, title, state, answer?, read_at?, kept }` for each recipe the project keeps under `look.metrics`, in the file's order. **Fleet fetches a recipe only where it was never read or its last attempt is older than its `every_secs`** (60 where it names none), and serves what it holds otherwise, so Bridge asking while the dashboard is open is the only clock: there is no timer in Fleet. `state` is `read`, `no_token` with the `credential` this Mac's keychain lacks, or `broken` with a `why` scrubbed of the token; a broken fetch keeps the last `answer` that read. `kept` is the first numeric row of each reading Fleet made, oldest first, at most 500. Two asks at once wait on one fetch. `docs/practices/protocol/projects.md`, *Metrics*.
+
+A copy of another Mac's project is read with this Mac's tokens. 404 `fleet.no_such_project` for a project he has none of. 422 `fleet.project_unreadable` where its file did not read.
+"""

@@ -1,8 +1,8 @@
 //! The builds a restart keeps in `Armada/builds/`, and the swap back to the one before.
 //!
-//! `scripts/keep-build` makes a folder per build, holding the `armada` binary, Bridge's `bridge/`
-//! and a `build.toml` of what went in, and points `current` at it with the old one as `previous`.
-//! launchd runs Bridge through `current` and Fleet from the copy of `current`'s bundle under `fleet/`,
+//! `scripts/keep-build` makes a folder per build, holding the `armada` binary, the native Bridge's
+//! `Armada.app` and a `build.toml` of what went in, and points `current` at it with the old one as `previous`.
+//! launchd runs the native Bridge through `current` and Fleet from the copy of `current`'s bundle under `fleet/`,
 //! so **a revert places one bundle, changes two links and boots the jobs out and back in**; no plist
 //! is written. `docs/practices/running-locally.md`, *Kept builds*.
 //!
@@ -76,17 +76,9 @@ pub struct KeptBuild {
     pub commit: String,
     /// `main` or `preview`.
     pub source: String,
-    /// A hash of Bridge's `out/`: two builds with the same one run the same Bridge.
-    pub bridge: Option<String>,
-    /// A hash of `out/main` and `out/preload` alone: two builds with the same one differ only in the page.
-    pub bridge_shell: Option<String>,
-    /// The Electron version Bridge runs on.
-    pub electron: Option<String>,
     /// A hash of the native Bridge's binary and icon: two builds with the same one keep the same
     /// `Armada.app`. Absent from a build kept without a native Bridge.
     pub native: Option<String>,
-    /// Its Bridge reloads its page in place, from the build `current` names, when Fleet comes back.
-    pub page_reload: bool,
     /// The branches merged into it, which only a preview build has.
     pub jobs: Vec<String>,
     /// Why a swap onto it was undone: its Fleet did not answer in time.
@@ -100,12 +92,7 @@ struct Record {
     built_at: String,
     commit: String,
     source: String,
-    bridge: Option<String>,
-    bridge_shell: Option<String>,
-    electron: Option<String>,
     native: Option<String>,
-    #[serde(default)]
-    page_reload: bool,
     unhealthy: Option<String>,
     tree: Option<String>,
     #[serde(default, rename = "job")]
@@ -148,26 +135,11 @@ pub fn kept_named(builds: &Path, name: &str) -> Option<KeptBuild> {
         built_at: record.built_at,
         commit: record.commit,
         source: record.source,
-        bridge: record.bridge,
-        bridge_shell: record.bridge_shell,
-        electron: record.electron,
         native: record.native,
-        page_reload: record.page_reload,
         jobs: record.jobs.into_iter().map(|row| row.branch).collect(),
         unhealthy: record.unhealthy,
         tree: record.tree,
     })
-}
-
-/// Bridge is booted onto the build moved to where its main process, preload or Electron differs, or a
-/// record lacks the hash. **Where only the page differs**, the running Bridge reloads its window from the
-/// build `current` names once Fleet comes back (`apps/desktop/src/main/page-reload.ts`), if its build
-/// says it can: one kept before it could is booted as before.
-fn bridge_reopens(from: &KeptBuild, to: &KeptBuild) -> bool {
-    if from.bridge.is_some() && from.bridge == to.bridge {
-        return false;
-    }
-    from.bridge.is_none() || !from.page_reload || from.bridge_shell.is_none() || from.bridge_shell != to.bridge_shell || from.electron != to.electron
 }
 
 /// The native Bridge is booted onto the build moved to where it keeps one and the app differs from the
@@ -331,6 +303,7 @@ pub fn kept_tried(support: &Path) -> std::io::Result<Vec<String>> {
 pub struct Undo {
     pub built_at: String,
     pub commit: String,
+    /// The Bridge reopens: the native Bridge, the only one there is, keeps an app that differs from the running build's.
     pub bridge_reopens: bool,
     /// Branches the running build holds and the one reverted to does not.
     pub takes_out: Vec<String>,
@@ -344,7 +317,7 @@ pub fn undoing(from: &KeptBuild, to: &KeptBuild) -> Undo {
     Undo {
         built_at: to.built_at.clone(),
         commit: to.commit.clone(),
-        bridge_reopens: bridge_reopens(from, to),
+        bridge_reopens: native_reopens(from, to),
         takes_out: missing_from(&from.jobs, &to.jobs),
         brings_back: missing_from(&to.jobs, &from.jobs),
     }
@@ -676,8 +649,6 @@ pub fn stamp_now() -> String {
 pub struct Reverted {
     pub from: KeptBuild,
     pub to: KeptBuild,
-    /// Bridge was booted onto the build reverted to: its `out/` differs, or a record lacks the hash.
-    pub bridge_reopened: bool,
     /// The native Bridge was booted onto the build reverted to: it keeps one, and the app differs.
     pub native_reopened: bool,
     /// The store as it stood before the swap.
@@ -685,7 +656,7 @@ pub struct Reverted {
 }
 
 /// Swap onto the previous build: copy the store, point `current` at `previous` and `previous` at
-/// what was current, boot Fleet out and in, and Bridge where its `out/` differs. `label` is the
+/// what was current, boot Fleet out and in, and the native Bridge where its app differs. `label` is the
 /// Fleet's launchd job, `com.armada.fleet` unless a scratch Fleet's override names another. `stamp`
 /// names the store copy. **Refused before anything changes** where there is no previous build, or
 /// launchd's Fleet does not run from `builds/current`, since then the links move nothing.
@@ -693,22 +664,21 @@ pub fn revert(support: &Path, label: &str, stamp: &str, services: &dyn Services)
     swap(support, label, stamp, services, true)
 }
 
-/// [`revert`], with Bridge booted where `bridge` and the builds' `out/` differ.
+/// [`revert`], with the native Bridge booted where `bridge` is set and the builds' apps differ.
 fn swap(support: &Path, label: &str, stamp: &str, services: &dyn Services, bridge: bool) -> Result<Reverted, String> {
     let (from, to) = revertible(support, label)?;
     let (store_copy, old_pid) = flipped(support, label, stamp, services, &from, &to)?;
     services.fleet_came_up(support, old_pid)?;
-    let bridge_reopened = bridge && bridged(support, label, services, &from, &to)?;
     let native_reopened = bridge && native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
     services.launch_services_pointed(support);
-    Ok(Reverted { from, to, bridge_reopened, native_reopened, store_copy })
+    Ok(Reverted { from, to, native_reopened, store_copy })
 }
 
 /// Swap onto the snapshot `scripts/restart --keep-only` kept, settling as a restart does: a Fleet
 /// that does not answer within [`HEALTHY_WITHIN`] has its build marked `unhealthy` and is swapped
 /// back from, with Bridge left where it is. Bridge moves only once the new Fleet answers, and only
-/// where the builds' `out/` differ. **Refused before anything changes** where there is no snapshot.
+/// where the builds' native apps differ. **Refused before anything changes** where there is no snapshot.
 pub fn swap_onto(support: &Path, label: &str, stamp: &str, services: &dyn Services) -> Result<Settled, String> {
     let builds = support.join(BUILDS);
     let (from, to) = swappable(support, label)?;
@@ -721,21 +691,10 @@ pub fn swap_onto(support: &Path, label: &str, stamp: &str, services: &dyn Servic
             Err(back) => Err(format!("{why}. The swap back failed too: {back}")),
         };
     }
-    bridged(support, label, services, &from, &to)?;
     native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
     services.launch_services_pointed(support);
     Ok(Settled::Healthy)
-}
-
-/// Bridge booted onto `to` where its `out/` differs from `from`'s and its job is there to boot.
-fn bridged(support: &Path, label: &str, services: &dyn Services, from: &KeptBuild, to: &KeptBuild) -> Result<bool, String> {
-    let bridge_plist = support.join(format!("{label}.bridge.plist"));
-    let reopens = bridge_reopens(from, to) && bridge_plist.is_file();
-    if reopens {
-        services.rebooted(&format!("{label}.bridge"), &bridge_plist)?;
-    }
-    Ok(reopens)
 }
 
 /// The native Bridge booted onto `to` where its app differs from `from`'s and its job is there to

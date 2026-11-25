@@ -1,6 +1,7 @@
 //! The store rows and the wire records, each spelled as the other, and the plugin version check.
 
 use super::*;
+use crate::session_host::answers_kept::{answers_of, ANSWER};
 use crate::session_host::drafting::{pull_request_draft, PR_DRAFT};
 
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
@@ -149,7 +150,8 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
             }
         },
         // A draft's link to its pull request is served typed, in `pull_request_drafts`, and only while it waits.
-        attachments: held.iter().filter(|one| one.kind != PR_DRAFT).map(attachment_wire).collect(),
+        // His answers are served typed, in `answers`.
+        attachments: held.iter().filter(|one| one.kind != PR_DRAFT && one.kind != ANSWER).map(attachment_wire).collect(),
         hosted: None,
         terminal: None,
         mod_out_of_date: false,
@@ -183,6 +185,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         workflow_step: None,
         judge_readings: Vec::new(),
         closed: Vec::new(),
+        answers: answers_of(held),
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),

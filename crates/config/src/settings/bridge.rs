@@ -8,6 +8,8 @@ pub const THEME: Words = Words("bridge.theme");
 pub const LAYOUT: Json = Json("bridge.layout");
 pub const KEY_BINDINGS: Json = Json("bridge.keyBindings");
 pub const TIME_FORMAT: Json = Json("bridge.timeFormat");
+/// The Cockpit home's grid of blocks, as `ipc::HomeLayout` keeps it. Kept in Fleet so it follows him.
+pub const HOME_LAYOUT: Json = Json("bridge.homeLayout");
 pub const ROW_VIEW: Json = Json("bridge.rowView");
 pub const WHERE_THINGS_ARE_OPEN: Flag = Flag("bridge.whereThingsAreOpen");
 pub const OPEN_GROUP: Flag = Flag("bridge.openGroup");
@@ -108,6 +110,18 @@ pub(super) const BRIDGE: &[Entry] = &[
         section: Section::Bridge,
         title: "Time format",
         description: "How Bridge draws a time: 24-hour clock, seconds and date, as JSON Settings, Time wrote.",
+        kind: Kind::Json,
+        shipped: Shipped::Nothing,
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: HOME_LAYOUT.0,
+        section: Section::Bridge,
+        title: "Home layout",
+        description: "Which blocks the Cockpit home draws, and where, as JSON the home's own editor wrote.",
         kind: Kind::Json,
         shipped: Shipped::Nothing,
         applies: Applies::Live,

@@ -7,7 +7,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    FleetLimits, MacSetup, PhoneGateway, Preferences, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
+    FleetLimits, HomeLayout, MacSetup, PhoneGateway, Preferences, SaveHomeLayout, SaveLimits, SavePreference, SaveSettings, SetPhoneGateway,
     SettingsList,
 };
 
@@ -55,6 +55,13 @@ pub trait Settings: Send + Sync + 'static {
     ) -> impl Future<Output = ()> + Send {
         async {}
     }
+
+    /// `get_home_layout` — the Cockpit home's layout he keeps, **none where he saved none**.
+    fn get_home_layout(&self) -> impl Future<Output = Result<HomeLayout, Refusal>> + Send;
+
+    /// `save_home_layout` — the layout kept whole, or forgotten where absent. [`Refusal::Unacceptable`] for a
+    /// block with a blank kind or view, and nothing is written.
+    fn save_home_layout(&self, save: SaveHomeLayout) -> impl Future<Output = Result<HomeLayout, Refusal>> + Send;
 
     /// `get_phone` — whether this Mac serves the phone app, and whether it is listening.
     fn get_phone(&self) -> impl Future<Output = Result<PhoneGateway, Refusal>> + Send;

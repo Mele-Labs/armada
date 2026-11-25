@@ -1,0 +1,10 @@
+[operations.save_home_layout]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep the layout of the Cockpit home, or forget it"
+notes = """
+`POST /home/layout`, body `SaveHomeLayout { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it so Bridge draws the preset again. **Nothing else of settings.json changes.** It is written as `save_settings` writes a key, as `bridge.homeLayout`, so it publishes `settings.changed`. **It is stamped with the time of the save and sent to his other Macs**, as `home_layout.changed` tells their Gateways to read `share_home_layout`; the latest save on any Mac wins, and a Mac that was asleep takes it when its link opens. An absent `layout` is stamped too, so a forgetting crosses. Answers `HomeLayout` as `get_home_layout` does, `saved_at` among it. A block's `kind` and `view` are kept as written, known or not. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
+
+A 422 `fleet.unacceptable_home_layout` for a block with a blank `kind` or `view`, or for more than 64 blocks, and nothing is written. A 422 `fleet.unacceptable_settings` where settings.json itself would not be taken; a 500 where it could not be written.
+"""

@@ -41,6 +41,9 @@ mod first_run;
 mod fleet;
 mod frames;
 mod history;
+// Nothing draws the Cockpit's home grid yet; its blocks wait for it.
+#[allow(dead_code)]
+mod home;
 mod job_tokens;
 mod job_view;
 mod inspect;
@@ -106,7 +109,7 @@ mod walk;
 mod ways;
 mod whisper;
 
-/// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
+/// Written by `cargo xtask verify-vocabulary --write` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]
 mod generated {
     pub mod actions;

@@ -20,8 +20,6 @@
       "!packages/components/src/generated",
       // Generated from `crates/ipc` by `cargo xtask verify-wire`, and compared byte for byte.
       "!apps/pocket/src/wire",
-      // Read by its hand-written shape in `xtask/src/skill_regions.rs`.
-      "!packages/shell/layout-registry.json",
       // Compiled into Fleet, and a test pins the CSS text.
       "!packages/mods",
       // `crates/ipc/src/tests/sketch.rs` splits these on their line layout.

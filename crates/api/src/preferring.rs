@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::SavePreference;
+use ipc::{SaveHomeLayout, SavePreference};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Settings;
@@ -45,6 +45,26 @@ pub(crate) async fn save_preferences<D: Settings>(
             }
             answer(StatusCode::OK, &preferences, served.run_id())
         }
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Cockpit home's layout, absent where he saved none.
+pub(crate) async fn get_home_layout<D: Settings>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_home_layout().await {
+        Ok(layout) => answer(StatusCode::OK, &layout, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Keep the Cockpit home's layout whole, or forget it where the body carries none.
+pub(crate) async fn save_home_layout<D: Settings>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let save: SaveHomeLayout = match ipc::decode_body("the Cockpit home's layout", &body) {
+        Ok(save) => save,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().save_home_layout(save).await {
+        Ok(layout) => answer(StatusCode::OK, &layout, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

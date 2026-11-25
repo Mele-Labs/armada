@@ -29,9 +29,8 @@ const ASKED: &str = "Why hold Pocket and not the other Job? Is a 2 hour wait wor
 const COMES: &str = "Checkout's coupon fix has a walk for you";
 /// Fleet's why for a Snooze whose time has passed, as the scene `late` has it refuse.
 const LATE: &str = "That time has passed. Pick a later one.";
-/// The Job whose plan comes in front, and the Operator's report page its Review panel lists.
+/// The Job whose plan comes in front.
 const PLAN_JOB: &str = "Fix the merge line freshness chip";
-const REPORT: &str = "Backlog report for armada";
 /// His question to the Operator with no chip and no tag: a talk about no card.
 const QUESTION: &str = "Which Jobs are running now?";
 
@@ -92,7 +91,7 @@ pub static STEPS: [Step; 64] = [
     step("⌘Enter, as Show, brings the newest card in front, unfolded, and the strip goes", Verb::Key("cmd-enter"), "article", COMES),
     answer("A Job's plan comes in front. Its one row is Review, and My read says what the Operator found", "plan-comes", "button", "Review"),
     step("A press opens the Review panel over the page with the plan chosen. What the Operator read of it, and its pick, stand above the plan", Verb::Open("button", "Review"), "group", "Operator"),
-    step("The Operator's report page waits in the panel's list under Operator, apart from the Jobs", Verb::Look, "button", REPORT),
+    step("The panel's list heads the Operator apart from the Jobs. Its report page only informs, so the list does not hold it", Verb::Look, "heading", "Operator"),
     step("Esc shuts the panel and gives the keys back to the plan's card", Verb::Key("escape"), "article", PLAN_JOB),
     answer("A Job's build to try comes in front: the card its thread draws, with Looks good, Needs rework, Show me how and Remind me", "build-comes", "button", "Looks good"),
     step("A press puts the keys in the box. It holds no tag and no chip is picked", Verb::Press, "textbox", "Message"),

@@ -18,7 +18,7 @@
 # The certificate is trusted by nothing and needs no Apple account; it only has to stay the same.
 # Deleting it from Keychain Access puts builds back to ad hoc, and macOS asks once more for each grant.
 #
-# **`sign`** is what the build scripts call: `native-app`, `armada-electron`, `keep-build` and
+# **`sign`** is what the build scripts call: `native-app`, `keep-build` and
 # Armada Voice's `build.mjs`. It never asks anything: where the keychain is locked it signs ad hoc. It prints nothing on success, and fails where
 # `codesign` does, with its error. `<identifier>` is for a bare binary, which has no Info.plist to
 # take one from; a bundle's comes from its plist.

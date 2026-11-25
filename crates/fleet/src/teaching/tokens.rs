@@ -71,5 +71,5 @@ pub(crate) fn listed() -> String {
 
 /// The layout registry on one line a region, for the model to name ids from.
 pub(crate) fn layout_registry() -> String {
-    include_str!("../../../../packages/shell/layout-registry.json").split_whitespace().collect::<Vec<_>>().join(" ")
+    include_str!("../../../ipc/layout-registry.json").split_whitespace().collect::<Vec<_>>().join(" ")
 }

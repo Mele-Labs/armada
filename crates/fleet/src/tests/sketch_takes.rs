@@ -19,7 +19,7 @@ fn scene(nodes: &[String]) -> String {
 }
 
 fn drawn(id: &SessionId, scene: &str) -> ShowSketch {
-    ipc::decode("a sketch to show", format!(r#"{{"title":"Toolbar","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"Toolbar","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn refused<T: std::fmt::Debug>(said: Result<T, Refusal>) -> ipc::WireError {

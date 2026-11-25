@@ -162,6 +162,23 @@ fn a_run_of_calls_is_broken_by_a_message() {
 }
 
 #[test]
+fn the_message_that_told_the_job_his_answer_folds_away_and_his_own_words_stay() {
+    // He answered the sketch at 10:05; Fleet sent its message in his name a moment before keeping the answer.
+    let mut told = you("told", 4, "Approved sketch: Chip\nGo on from it as drawn.");
+    if let SessionRow::Message { at, .. } = &mut told {
+        *at = Instant::carried("2026-11-03T10:04:59.400Z");
+    }
+    let rows = vec![you("mine", 1, "Draw the chip"), agent("a1", 2, "Drawn"), told, agent("a2", 6, "Going on")];
+    let answers = r#""answers":[{"item":"sketch:Chip","question":"Chip","how":"approved","at":"2026-11-03T10:05:00.000Z"}]"#;
+    let found = folded(&SessionThread { session: record(answers), rows: rows.clone(), older: false }, &[], &Revisions::new()).1;
+    assert_eq!(ids(&found), ["mine", "a1", "a2"], "his card stands for the answer, with no instruction to the agent");
+    // An answer told to a terminal writes no row: his own message minutes before it stays.
+    let late = r#""answers":[{"item":"sketch:Chip","question":"Chip","how":"approved","at":"2026-11-03T10:03:00.000Z"}]"#;
+    let found = folded(&SessionThread { session: record(late), rows, older: false }, &[], &Revisions::new()).1;
+    assert_eq!(ids(&found), ["mine", "a1", "told", "a2"]);
+}
+
+#[test]
 fn a_check_run_of_one_name_then_another_makes_two_items() {
     let found = items(vec![
         check("c1", 1, "lint"),

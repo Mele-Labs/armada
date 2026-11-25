@@ -131,6 +131,7 @@ fn held_by_a_row(item: &ForYouItem, things: &[Thing]) -> bool {
         Thing::Row(row) => row.id == *id,
         Thing::Ask(_) => id.starts_with("ask:") || id.starts_with("perm:"),
         Thing::Lapsed(_) => false,
+        Thing::Sheet(item) => item.id == *id,
     })
 }
 
@@ -298,6 +299,8 @@ impl JobView {
                     ForYouOpens::Waiting { id } if super::ready_card::is_card(&id) => {
                         self.open_ready_review(job, &id, window, cx);
                     }
+                    // An ask the review sheet holds opens there, the one place it is answered.
+                    ForYouOpens::Waiting { id } if self.sheet_item(job, &id, cx).is_some() => self.open_ask(&id, window, cx),
                     ForYouOpens::Waiting { id } => self.set_needs(true, Some(format!("item:{id}")), window, cx),
                     ForYouOpens::Plan => self.add_tab("plan", window, cx),
                 }
@@ -780,6 +783,41 @@ mod tests {
     }
 
     #[gpui::test]
+    /// One ask, one place: a question Fleet also names for him is not listed twice; its one line opens the sheet on it.
+    fn a_question_needs_you_already_lists_has_no_second_row_and_its_line_opens_the_sheet(cx: &mut TestAppContext) {
+        use super::super::parts_fold::{redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", gpui::size(gpui::px(1440.), gpui::px(900.)), |_| {});
+        let question = "Where does the chip show how far behind it is?";
+        let row = ForYouItem {
+            id: "ask:call-1#1".into(),
+            kind: ipc::ForYouKind::Question,
+            title: question.into(),
+            line: None,
+            placed: false,
+            since: ipc::Instant::carried("2026-11-15T14:02:00Z"),
+            added_by: ipc::ForYouBy::Fleet,
+            opens: ForYouOpens::Waiting { id: "ask:call-1#1".into() },
+            approves: false,
+        };
+        let read = ForYou { job: SessionId::carried("mock-01".to_string()), waiting: vec![row], building: Vec::new(), landing: Vec::new() };
+        view.update(cx, |view, cx| {
+            view.for_you.read.insert("mock-01".into(), Some(read));
+            cx.notify();
+        });
+        redraw(cx);
+        let find = |name: String, cx: &mut gpui::VisualTestContext| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, &name).map(|one| one.bounds.center()));
+        assert!(find(format!("Review {question}"), cx).is_none(), "the question is not drawn a second time as a row of its own");
+        // With the panel folded, its line stands in the thread and the right column's band.
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let at = find(question.to_string(), cx).expect("the question is one line");
+        cx.simulate_click(at, gpui::Modifiers::none());
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("ask:call-1#1"), "the sheet opens on the question");
+    }
+
+    #[gpui::test]
     fn the_review_button_on_a_ready_to_try_row_opens_the_review_panel_with_the_newest_build_chosen(cx: &mut TestAppContext) {
         use super::super::parts_fold::{drawn, redraw};
         cx.update(|cx| {
@@ -821,7 +859,8 @@ mod tests {
         let chosen = chosen.expect("the review panel is open on an item");
         assert_eq!(chosen.kind, super::super::review::Kind::Build);
         assert_eq!(chosen.name, "The reviewer's brief names its files", "the newest open build is chosen");
-        assert!(drawn(cx, gpui::Role::Article, "Ready to try: The reviewer's brief names its files"), "drawn whole, with its answers");
+        assert!(drawn(cx, gpui::Role::Region, "The reviewer's brief names its files"), "drawn in the detail");
+        assert!(drawn(cx, gpui::Role::Button, "Looks good"), "with its answer in the bar");
     }
 
     #[test]
