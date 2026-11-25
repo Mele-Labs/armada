@@ -69,11 +69,16 @@ where
 
     /// Tell every Job with a running process `note`, as Fleet's word. **Only a Job running**: one
     /// that is not reads the note as it starts. News that asks nothing, so a Job's `all_done` stands.
+    /// The Operator is not a Job, so it is not told.
     pub(crate) async fn ways_told(self: &Arc<Self>, note: &str) {
         let live = self.store().lock().await.live_session_ids().unwrap_or_default();
         for id in live {
-            let running = self.hosts().of(&id).state().process.is_some();
-            if running {
+            let job_running = {
+                let host = self.hosts().of(&id);
+                let state = host.state();
+                state.process.is_some() && !state.operator
+            };
+            if job_running {
                 let _ = self.told_news_by_fleet(&id, note, ipc::Notice::Taught).await;
             }
         }

@@ -305,12 +305,16 @@ where
                         Some(_) => self.fork_cut_of(id).await,
                         None => None,
                     },
-                    // Read at each start, so an edit to the note reaches the next process.
-                    note: {
-                        let first = self.successor_note_of(id).await;
-                        let logbook = self.logbook_note_of(served.as_ref().map(|one| one.root())).await;
-                        let told: Vec<String> = first.into_iter().chain(logbook).chain(Some(self.ways_note())).collect();
-                        Some(told.join("\n\n"))
+                    // Read at each start, so an edit to the note reaches the next process. The
+                    // Logbook and how the owner works with Jobs are a Job's, and the Operator is not one.
+                    note: match hosting.operator {
+                        true => self.successor_note_of(id).await,
+                        false => {
+                            let first = self.successor_note_of(id).await;
+                            let logbook = self.logbook_note_of(served.as_ref().map(|one| one.root())).await;
+                            let told: Vec<String> = first.into_iter().chain(logbook).chain(Some(self.ways_note())).collect();
+                            Some(told.join("\n\n"))
+                        }
                     },
                     name: address_of(id),
                     // None chosen is the Session default at the time the process starts, not when it was made.

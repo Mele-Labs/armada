@@ -35,6 +35,12 @@ What it may do unasked is set for each project.
 A fresh copy takes over with the open cards, the saved level of each project, what it waits on and what you told it in the talk.
 Its `session_id` is on the page, so the page follows the copy in front.
 
+**It is not a Job.**
+It has no Needs you list, no plan, no preview and no end, so the door offers it none of a Job's own acts: `waiting_for`, `all_done`, `finish_up`, `record_plan`, `offer_preview`, the Later items, `write_feature_sections`, and the asks a Job sends it.
+A call to one is refused, whatever it was told.
+Its prompt carries its own rules and no Job's id, no Logbook and none of how you work with Jobs.
+The mod sends none of its replies back to a list, and it runs with the mod's `Operator` output style whatever style you picked.
+
 **Detection stays Fleet's.**
 The Operator is told what Fleet saw and is never asked whether something happened.
 

@@ -271,6 +271,26 @@ const OPERATOR_ALSO_OFFERED: &[&str] = &[
     "tell_session",
 ];
 
+/// The acts a Job has and the Operator does not: its Needs you list, the end of its work, its plan,
+/// its preview, its Later items and its feature sections, and the asks a Job sends the Operator.
+/// **Refused by leaving them out**, so the Operator is never told to call one and a call is not a
+/// tool this Fleet offers it.
+pub(crate) const JOB_ONLY: &[&str] = &[
+    "waiting_for",
+    "list_closed_waiting",
+    "all_done",
+    "finish_up",
+    "record_plan",
+    "offer_preview",
+    "withdraw_preview",
+    "defer_later",
+    "settle_later",
+    "raise_conflict",
+    "ask_held",
+    "withdraw_held",
+    "write_feature_sections",
+];
+
 /// The routes that read `?manifest_id=` and, absent it, answer about every
 /// repository or the first. The door always names its scope on these.
 const NAMES_ITS_SCOPE: &[&str] = &[
@@ -446,6 +466,7 @@ async fn without_a_manifest<D: Queries + Admitting>(
         true => shaped(
             crate::daemon::offerable()
                 .filter(|row| WITHOUT_A_MANIFEST_OFFERS.contains(&row.operation) || (operator && OPERATOR_ALSO_OFFERED.contains(&row.operation)))
+                .filter(|row| !(operator && JOB_ONLY.contains(&row.operation)))
                 .chain(crate::daemon::operator_rows().filter(|_| operator)),
         ),
         false => Vec::new(),
