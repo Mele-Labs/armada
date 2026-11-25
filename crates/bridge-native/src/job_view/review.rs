@@ -155,6 +155,17 @@ fn standing_for(groups: &[Group], job: &str, artifact: &str) -> Option<String> {
     groups.iter().filter(|group| group.job == job).flat_map(|group| group.items.iter()).find(|item| super::reader_sheet::artifact_in(item) == Some(artifact)).map(Item::key)
 }
 
+/// The hue a Job's head and chip on the sheet take: its state's, or muted where Fleet gave none.
+fn group_hue(group: &Group) -> Token {
+    group.state.map_or(token::FG_MUTED, crate::jobs::hue_of)
+}
+
+/// A Job's state glyph in `ink`, its words in its tooltip and its label.
+fn job_state_glyph(id: &str, state: JobState, ink: gpui::Hsla, look: &Look) -> AnyElement {
+    let (icon, said) = crate::jobs::glyph_of(state, None);
+    labelled(div().id(SharedString::from(id.to_string())).flex_none().tooltip(tip(said.clone())).child(glyph(look, icon, Size::Small, ink)), Role::Image, said).into_any_element()
+}
+
 /// The items of one Job, under its name and state.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Group {
@@ -320,6 +331,12 @@ gpui::actions!(review, [ItemMenu]);
 
 pub(super) fn bind(cx: &mut gpui::App) {
     cx.bind_keys([gpui::KeyBinding::new("shift-f10", ItemMenu, Some(CONTEXT)), gpui::KeyBinding::new("menu", ItemMenu, Some(CONTEXT))]);
+}
+
+/// Whether a card's answer settles its ask: it leaves the sheet and Needs you.
+fn settles(answer: &super::acts::Answer) -> bool {
+    use super::acts::Answer;
+    matches!(answer, Answer::Approved | Answer::Fixed(_) | Answer::SentBack(_) | Answer::Withdrawn | Answer::Dismissed | Answer::Going | Answer::SetAside)
 }
 
 fn instant(at: &str) -> i64 {
@@ -596,6 +613,14 @@ impl JobView {
         // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
         if let Some(dock) = self.dock_of(id) {
             items.retain(|item| !dock.hidden.contains(&item.id));
+        }
+        // So does one answered on its thread card, in the frame the card takes the answer.
+        if let Some(page) = self.pages.get(id).filter(|page| page.cards.answers.values().any(settles)) {
+            // A sketch drawn again since his answer asks again.
+            let drawn_since = |key: &str| {
+                page.cards.answered_on.get(key).is_some_and(|on| super::sketch_read::card_of(&held.head, &held.items, key.strip_prefix("pin:").unwrap_or(key)).map(super::cards::newest_of).is_some_and(|now| now != *on))
+            };
+            items.retain(|item| !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
         }
         items.sort_by_key(|item| instant(&item.since));
         items
@@ -1743,10 +1768,8 @@ impl JobView {
             if items.is_empty() {
                 continue;
             }
-            // From a Job the list is that Job's alone, and needs no head.
-            if review.scope == Scope::All {
-                rows.push(self.review_group_head(group, rows.is_empty(), look));
-            }
+            let chosen = current.as_ref().is_some_and(|item| item.job == group.job);
+            rows.push(self.review_group_head(group, chosen, items.len(), look));
             rows.extend(items.into_iter().map(|item| self.review_row(item, review, now, look, cx)));
         }
         let list = labelled(
@@ -1815,37 +1838,61 @@ impl JobView {
         )
     }
 
-    /// A Job's head in the list, where the list is every Job's: its state's glyph and its name.
-    fn review_group_head(&self, group: &Group, first: bool, look: &Look) -> AnyElement {
-        let state = group.state.map(|state| {
-            let (icon, said) = crate::jobs::glyph_of(state, None);
-            labelled(
-                div()
-                    .id(SharedString::from(format!("review-job-state:{}", group.job)))
-                    .flex_none()
-                    .tooltip(tip(said.clone()))
-                    .child(glyph(look, icon, Size::Small, look.color(crate::jobs::hue_of(state)))),
-                Role::Image,
-                said,
-            )
-        });
+    /// A Job's head in the list, in a band: its state's glyph, its name and how many of its asks are listed. The Job of the
+    /// chosen ask is tinted in its state's hue; every other sits plain.
+    fn review_group_head(&self, group: &Group, chosen: bool, asks: usize, look: &Look) -> AnyElement {
+        let hue = look.color(group_hue(group));
+        let state = group.state.map(|state| job_state_glyph(&format!("review-job-state:{}", group.job), state, if chosen { hue } else { look.color(token::FG_MUTED) }, look));
         labelled(
             div()
                 .id(SharedString::from(format!("review-job:{}", group.job)))
+                .flex_none()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
-                .pt(look.length(if first { token::SPACE_1 } else { token::SPACE_4 }))
-                .pb(look.length(token::SPACE_1))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_MUTED))
+                .p(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(if chosen { hue.opacity(0.1) } else { look.color(token::BG_RAISED) })
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
                 .children(state)
-                .child(div().flex_1().min_w_0().child(SharedString::from(group.title.clone()))),
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(if chosen { hue } else { look.color(token::FG_DEFAULT) })
+                        .child(SharedString::from(group.title.clone())),
+                )
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child(SharedString::from(asks.to_string()))),
             Role::Heading,
             group.title.clone(),
+        )
+        .into_any_element()
+    }
+
+    /// Whose ask the chosen one is: the Job's glyph and name in a chip tinted in its state's hue.
+    fn review_from(&self, group: &Group, look: &Look) -> AnyElement {
+        let hue = look.color(group_hue(group));
+        let state = group.state.map(|state| job_state_glyph("review-from-state", state, hue, look));
+        labelled(
+            div()
+                .id("review-from")
+                .min_w_0()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .p(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(hue.opacity(0.1))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(hue)
+                .children(state)
+                .child(div().min_w_0().truncate().child(SharedString::from(group.title.clone()))),
+            Role::Group,
+            format!("From {}", group.title),
         )
         .into_any_element()
     }
@@ -2030,7 +2077,12 @@ impl JobView {
                 .line_clamp(1)
                 .child(SharedString::from(line))
         });
-        // The Operator's read runs under the question and Close both, to the body's right edge.
+        let from = review.groups.iter().find(|group| group.job == item.job).map(|group| {
+            div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).child(self.review_from(group, look)).child(
+                div().flex_none().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child("asks you"),
+            )
+        });
+        // Whose ask it is leads the head, with Close at its end; the question, its background and the Operator's read follow.
         let head = labelled(
             div()
                 .id(SharedString::from(format!("review-head:{key}")))
@@ -2045,26 +2097,27 @@ impl JobView {
                 .child(
                     div()
                         .flex()
-                        .items_start()
-                        .gap(look.length(token::SPACE_3))
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .mb(look.length(token::SPACE_2))
+                        .child(from.unwrap_or_else(|| div().flex_1()))
+                        .child(close),
+                )
+                .child(
+                    div()
+                        .min_w_0()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
                         .child(
                             div()
-                                .flex_1()
-                                .min_w_0()
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_1))
-                                .child(
-                                    div()
-                                        .text_size(look.length(token::TEXT_XL))
-                                        .line_height(look.length(token::LEADING_XL))
-                                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                                        .text_color(look.color(token::FG_DEFAULT))
-                                        .child(SharedString::from(item.name.clone())),
-                                )
-                                .children(background),
+                                .text_size(look.length(token::TEXT_XL))
+                                .line_height(look.length(token::LEADING_XL))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::FG_DEFAULT))
+                                .child(SharedString::from(item.name.clone())),
                         )
-                        .child(close),
+                        .children(background),
                 )
                 .children(self.operator_reads.get(&key).map(|read| self.review_operator(read, look))),
             Role::Heading,

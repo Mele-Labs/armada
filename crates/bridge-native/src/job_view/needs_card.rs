@@ -3,8 +3,8 @@
 //! card's head brings the one before or after. A press on an option, or its number, answers at once as the band's
 //! buttons did (`answer_row`). Discuss stands where Answer in words stood: the panel folds and the caret goes in the
 //! Job's own box, which then answers the question (`dock.answering`) and sends nothing until he does.
-//! Since one ask, one place (19 Nov), a question the review sheet holds is one line in Needs you that opens the sheet
-//! on it (`ask_line`); the card draws only a question the sheet does not hold.
+//! A question the review sheet holds is one line in Needs you (`ask_line`): it brings the thread to the question's card
+//! where the thread has one, and opens the sheet on it where not. The card draws only a question the sheet does not hold.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::{NeedsYouAct, NeedsYouDismiss, NeedsYouRow, WaitingSource};

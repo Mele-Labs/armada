@@ -129,7 +129,7 @@ pub(super) enum Thing<'a> {
     Lapsed(&'a Lapsed),
     /// A row of Fleet's Needs you.
     Row(&'a NeedsYouRow),
-    /// An ask the review sheet holds: one line here, and a press opens the sheet on it. Nothing is answered in the panel.
+    /// An ask the review sheet holds: one line here. A press brings the thread to its card, or opens the sheet where it has none.
     Sheet(super::review::Item),
 }
 
@@ -334,7 +334,7 @@ impl JobView {
                 None => groups.insert(0, Group { kind: Kind::Questions, label: "Questions", things: head }),
             }
         }
-        // What the sheet holds is one line each that opens it there: the one place an ask is answered (19 Nov).
+        // What the sheet holds is one line each, which goes to its card in the thread or opens the sheet on it.
         // A card's questions come both as the head's ask and as Fleet's rows for each: each is listed once.
         let mut listed: HashSet<String> = HashSet::new();
         for group in &mut groups {
@@ -460,19 +460,26 @@ impl JobView {
                 page.bands.tools_away = None;
             }
         }
-        let key = {
+        // Every question there now is seen at once: one answered on its card leaves the next where it stood, with no panel over it.
+        let keys: Vec<String> = {
             let (things, _) = self.things(id, cx);
-            things.iter().find_map(|thing| match thing {
-                Thing::Ask(ask) => Some(ask.call.call.clone()),
-                Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
-                // An open card's question the sheet holds opens the panel once, as the card did, where its line points to the sheet.
-                Thing::Sheet(item) if item.kind == super::review::Kind::Question && item.id.starts_with("ask:") => Some(item.id.clone()),
-                Thing::Row(_) | Thing::Sheet(_) => None,
-            })
+            things
+                .iter()
+                .filter_map(|thing| match thing {
+                    Thing::Ask(ask) => Some(ask.call.call.clone()),
+                    Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
+                    // An open card's question the sheet holds opens the panel once, as the card did.
+                    Thing::Sheet(item) if item.kind == super::review::Kind::Question && item.id.starts_with("ask:") => Some(item.id.clone()),
+                    Thing::Row(_) | Thing::Sheet(_) => None,
+                })
+                .collect()
         };
-        let Some(key) = key else { return };
         if let Some(page) = self.pages.get_mut(id) {
-            if page.dock.seen.insert(key) {
+            let mut new = false;
+            for key in keys {
+                new |= page.dock.seen.insert(key);
+            }
+            if new {
                 page.dock.open = Some(true);
             }
         }
@@ -643,6 +650,30 @@ impl JobView {
         // box, so the key at the band's end takes the corner itself.
         let corner = look.length(token::RADIUS_LG);
         let last = restarts.len().checked_sub(1);
+        // One press puts every ask the sheet holds to him there; a line in the list brings the thread to its card.
+        let review_all = (self.review_applies(id, cx) || !self.artifact_items(id, None).is_empty()).then(|| {
+            labelled(
+                div()
+                    .id("needs-review-all")
+                    .flex_none()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .px(look.length(token::SPACE_3))
+                    .when(last.is_none(), |key| key.rounded_tr(corner - edge))
+                    .text_size(look.length(token::TEXT_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.2)))
+                    .child("Review all")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.review_all(window, cx);
+                    })),
+                Role::Button,
+                "Review all",
+            )
+        });
         let band = div()
             .flex_none()
             .h(high + edge)
@@ -679,6 +710,7 @@ impl JobView {
                     "Fold Needs you",
                 ))
             })
+            .children(review_all)
             .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
                 self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner - edge), look, cx)
             }));
@@ -710,6 +742,12 @@ impl JobView {
             }
             .into_any_element(),
         )
+    }
+
+    /// Review all: the panel folds and the sheet opens on every ask of the Job.
+    pub(super) fn review_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_needs(false, None, window, cx);
+        self.open_review(window, cx);
     }
 
     /// A press on the band: it folds or opens the panel, or with nothing else to answer opens the sheet.

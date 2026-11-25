@@ -340,8 +340,7 @@ impl JobView {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
-                // An asking card the sheet holds is one line pointing to it there.
-                _ => self.card_pointer(item, &held.items, page, look, cx).or_else(|| self.item(ix, item, last && working && !asking, after, page, look, now, window, cx)),
+                _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
             }
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
@@ -780,16 +779,13 @@ impl JobView {
     fn extra(&self, head: &ipc::ThreadHead, items: &[ThreadItem], page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
-            Extra::Sketch(_) => {
-                let card = head.sketch.as_ref()?;
-                return self.pin_pointer(card, page, look, cx).or_else(|| Some(self.sketch_pin(page.items + at, card, page, look, cx)));
-            }
+            Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Answer(key) => {
                 let job = self.shown.as_ref()?;
                 let answer = self.record(job, cx)?.answers.iter().find(|one| super::ask_line::answer_key(one) == *key)?;
                 return Some(self.answer_card(answer, look, cx));
             }
-            Extra::Asked(call) => return head.asked.as_ref().filter(|asked| asked.call.call == *call).and_then(|asked| self.asked_lines(&asked.call, look, cx)),
+            Extra::Asked(call) => return head.asked.as_ref().filter(|asked| asked.call.call == *call).and_then(|asked| self.asked_cards(page.items + at, &asked.call, page, look, cx)),
             Extra::Parts(artifact, revision) => return self.parts_card(page.items + at, artifact, *revision, false, false, page, look, cx),
             Extra::Judging(reading) => return Some(self.judging_card(reading, look, cx)),
             Extra::Pending(i) => {

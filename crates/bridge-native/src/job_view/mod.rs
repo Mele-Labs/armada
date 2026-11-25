@@ -13,6 +13,7 @@
 mod aa;
 mod acts;
 mod artifacts_tab;
+mod ask_card;
 mod ask_line;
 mod for_you_tab;
 mod questions;
@@ -250,7 +251,7 @@ pub(crate) enum Extra {
     Parts(String, u32),
     /// What he sent from the sheet on an ask no card of the thread stands for, by its key (`ask_line::answer_key`).
     Answer(String),
-    /// The open card of questions, by its call: a line for each question the sheet holds (`ask_line::asked_lines`).
+    /// The open card of questions, by its call: a card for each question that still waits, answered in place (`ask_card`).
     Asked(String),
 }
 
@@ -1090,7 +1091,7 @@ impl JobView {
             .unwrap_or_default();
         let (answered, loose_tail) = parts_fold::place(&held.items, &loose);
         cards.extend(loose_tail.into_iter().map(|(key, _)| Extra::Answer(key)));
-        // The open card of questions is answered in the sheet: the thread points to it.
+        // The open card of questions is answered in place, a card for each question.
         if let Some(asked) = held.head.asked.as_ref().filter(|asked| !asked.call.questions.is_empty()) {
             cards.push(Extra::Asked(asked.call.call.clone()));
         }
@@ -1157,7 +1158,7 @@ impl JobView {
         // A card kept under an item that is not new changes that item's element, so the list measures from there.
         let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from = parts_fold::first_difference(&page.answered, &answered).map_or(from, |at| from.min(at));
-        // What the sheet holds or he answered moved: the lines that point to it, at the thread's end, draw again.
+        // What the sheet holds or he answered moved: the cards that ask, at the thread's end, draw again.
         let from = if page.asks == asks { from } else { from.min(items) };
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
         // Items put in front, of this Job or the one above it, leave the person where they were reading. So
