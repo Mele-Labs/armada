@@ -3339,10 +3339,9 @@ impl JobsList {
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
         // A selected row wears an accent edge over a faint accent fill: the open row's fill is the stronger one.
         let selected = self.selected.contains(&row.id);
-        let amber = look.color(token::STATUS_AWAITING_REVIEW);
         let stalled = row.track.as_ref().is_some_and(|track| track.stalled.is_some());
         let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place && !selected, pad)
-            .when(stalled && !opened && !selected, |strip| strip.border_color(amber).bg(look.color(token::BG_SUNKEN).blend(amber.opacity(0.10))))
+            .when(stalled && !opened && !selected, |strip| stalled_wash(strip, look))
             .when(selected && !opened, |strip| strip.border_color(look.color(token::ACCENT)).bg(look.color(token::ACCENT_FAINT)))
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
@@ -4206,6 +4205,11 @@ pub(crate) fn row_card(look: &Look, id: SharedString, opened: bool, focused: boo
         .when(hover && !opened, |card| card.hover(move |style| style.bg(hovered)))
 }
 
+/// A stalled row's amber is a wash over its ground. Its edge stays the list's own, so the ring is the open row's alone.
+fn stalled_wash(card: gpui::Stateful<gpui::Div>, look: &Look) -> gpui::Stateful<gpui::Div> {
+    card.bg(look.color(token::BG_SUNKEN).blend(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.10)))
+}
+
 /// What the mark at the end of a moving row says, and its tooltip: where the Job goes. A Job held from the other Mac that
 /// is moving here names this Mac, by an id the list may not hold.
 fn moving_mark_said(macs: &[ipc::Mac], target: &str, held_away: bool) -> SharedString {
@@ -4855,6 +4859,19 @@ mod tests {
     }
 
     /// A row on a step that stands past its usual time carries Fleet's cause for the amber and its tooltip; a row inside its time carries none.
+    #[test]
+    fn a_stalled_row_that_is_not_open_keeps_the_lists_own_edge() {
+        let look = Look::dark();
+        let card = |stalled: bool| {
+            let card = row_card(&look, "job-x".into(), false, false, true, look.length(token::SPACE_2));
+            if stalled { stalled_wash(card, &look) } else { card }
+        };
+        let (mut plain, mut stalled) = (card(false), card(true));
+        assert_eq!(stalled.style().border_color, plain.style().border_color, "no amber ring beside the open row's");
+        assert_eq!(stalled.style().border_color, Some(look.color(token::BORDER_SUBTLE)), "the edge is the quiet one");
+        assert_ne!(stalled.style().background, plain.style().background, "the wash still marks it");
+    }
+
     #[test]
     fn a_row_on_a_step_that_is_not_moving_carries_fleets_cause() {
         let names = Names { flows: crate::mock::workflows(), ..Names::default() };
