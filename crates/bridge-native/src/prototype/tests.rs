@@ -365,3 +365,24 @@ fn a_scene_of_one_view_draws_no_tiles_and_no_hint(cx: &mut TestAppContext) {
     let found = names(cx);
     assert!(!found.iter().any(|(role, name)| *role == Role::Group && name == "Views"), "{found:?}");
 }
+
+#[gpui::test]
+fn past_five_views_one_view_menu_lists_them_and_picking_one_draws_it(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        gpui_component::init(cx);
+        crate::look::init(cx);
+    });
+    let states: String = ["One", "Two", "Three", "Four", "Five", "Six"].iter().map(|name| format!("<state id=\"{}\" title=\"{name}\" says=\"The {name} view\"><text>{name}</text></state>", name.to_lowercase())).collect();
+    let source = source(format!("<scene title=\"Leads\">{states}</scene>"), None);
+    let (host, cx) = cx.add_window_view(move |_, cx| Host(cx.new(|cx| PrototypeView::new(source, Home::Tab, cx))));
+    let found = names(cx);
+    assert!(found.contains(&(Role::Button, "View: One".to_string())), "{found:?}");
+    assert!(!found.iter().any(|(role, name)| *role == Role::Group && name == "Views"), "no tiles past five: {found:?}");
+    let view = host.read_with(cx, |host, _| host.0.clone());
+    cx.update(|window, cx| view.update(cx, |view, cx| view.open_views(window, cx)));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("down down enter");
+    cx.run_until_parked();
+    assert_eq!(view.read_with(cx, |view, _| view.state().map(str::to_string)).as_deref(), Some("three"), "the third row picked draws its view");
+    assert!(names(cx).contains(&(Role::Button, "View: Three".to_string())));
+}

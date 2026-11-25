@@ -23,12 +23,13 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, App, Bounds, Context, EventEmitter, FocusHandle, Focusable, Global, IntoElement, Pixels, Point, Render, Role,
-    SharedString, WeakEntity, Window, WindowId,
+    canvas, div, prelude::*, Anchor, App, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Global, IntoElement, Pixels,
+    Point, Render, Role, SharedString, Subscription, WeakEntity, Window, WindowId,
 };
 
 use self::fixtures::Fixtures;
 use self::markup::Scene;
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
 use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::parts::{self, button::Kind, chip::chip, text::TextStyle, Tone};
@@ -90,6 +91,10 @@ pub struct PrototypeView {
     job: Option<SharedString>,
     /// Where the scene was drawn last, in its window.
     drawn: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// The View menu while it is open, and where its button was drawn.
+    menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
+    menu_at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    menu_key: FocusHandle,
     pub(crate) focus: FocusHandle,
 }
 
@@ -98,6 +103,9 @@ const LABEL: &str = "Prototype";
 
 /// What the band says where the scene has views to press.
 const HINT: &str = "Views. Press one to see it below";
+
+/// The most views drawn as tiles: past this, one View menu in the band lists them (25 Nov: eleven tiles crushed every name).
+const MOST_TILES: usize = 5;
 
 /// Every scene drawn for a Job, so a note made over one goes to its Job.
 #[derive(Default)]
@@ -134,6 +142,9 @@ impl PrototypeView {
             home,
             job: None,
             drawn: Rc::default(),
+            menu: None,
+            menu_at: Rc::default(),
+            menu_key: cx.focus_handle(),
             focus: cx.focus_handle(),
         };
         view.read(source, cx);
@@ -234,8 +245,9 @@ impl PrototypeView {
         let look = cx.look();
         let accent = look.color(token::ACCENT);
         let views: Vec<markup::View> = self.scene.as_ref().map(|scene| scene.views.clone()).unwrap_or_default();
-        let several = views.len() > 1;
-        let tiles: Vec<_> = views.into_iter().map(|view| self.tile(view, cx)).collect();
+        let several = views.len() > 1 && views.len() <= MOST_TILES;
+        let menu = (views.len() > MOST_TILES).then(|| self.views_button(&views, cx));
+        let tiles: Vec<_> = if several { views.into_iter().map(|view| self.tile(view, cx)).collect() } else { Vec::new() };
         let open = (self.home == Home::Sheet).then(|| {
             labelled(
                 parts::button::button(look, "prototype-open-tab", Kind::Secondary, Some("app-window"), "Open tab", false)
@@ -266,6 +278,7 @@ impl PrototypeView {
             .child(labelled(chip(look, "prototype-chip", accent, Some("app-window"), LABEL), Role::Label, LABEL))
             .child(div().flex_1().min_w_0().truncate().child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title())))
             .children(hint)
+            .children(menu)
             .children(open)
             .children(pop);
         let row = several.then(|| {
@@ -285,6 +298,69 @@ impl PrototypeView {
             )
         });
         div().flex_none().flex().flex_col().child(band).children(row)
+    }
+
+    /// The View menu's button, naming the view drawn: a press, Enter or Space opens the list.
+    fn views_button(&self, views: &[markup::View], cx: &Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let shown = views.iter().find(|view| self.state.as_deref() == Some(view.id.as_str())).map_or_else(String::new, |view| view.title.clone());
+        let said = format!("View: {shown}");
+        let at = Rc::clone(&self.menu_at);
+        labelled(
+            parts::button::button(look, "prototype-views", Kind::Secondary, None, said.clone(), false)
+                .track_focus(&self.menu_key)
+                .child(parts::glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+                .relative()
+                .on_click(cx.listener(|this, _, window, cx| this.open_views(window, cx)))
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space" | "down") && !event.keystroke.modifiers.modified() {
+                        this.open_views(window, cx);
+                        cx.stop_propagation();
+                    }
+                })),
+            Role::Button,
+            said,
+        )
+    }
+
+    /// The View menu: each view by its title, what it shows under it, the one drawn ticked. Picking one draws it.
+    pub fn open_views(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.is_some() {
+            return;
+        }
+        let views: Vec<markup::View> = self.scene.as_ref().map(|scene| scene.views.clone()).unwrap_or_default();
+        let entries = views
+            .iter()
+            .map(|view| {
+                let row = Row::new(crate::titlebar::id_of(format!("view:{}", view.id)), view.title.clone()).ticked(self.state.as_deref() == Some(view.id.as_str()));
+                Entry::Row(match &view.says {
+                    Some(says) => row.under(says.clone()),
+                    None => row,
+                })
+            })
+            .collect();
+        let at = self.menu_at.get().map_or_else(|| window.mouse_position(), crate::dropdown::under);
+        let dropdown = cx.new(|cx| Dropdown::new("Views", entries, at, Anchor::TopRight, true, cx));
+        let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id, .. } = picked;
+            this.menu = None;
+            if let Some(state) = id.strip_prefix("view:") {
+                let state = state.to_string();
+                this.go(&state, cx);
+            }
+            window.focus(&this.menu_key, cx);
+            cx.notify();
+        });
+        let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
+            this.menu = None;
+            window.focus(&this.menu_key, cx);
+            cx.notify();
+        });
+        let keys = dropdown.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.menu = Some((dropdown, [picked, dismissed]));
+        cx.notify();
     }
 
     /// One view's tile: a press, Enter or Space draws it.
@@ -427,7 +503,8 @@ impl Render for PrototypeView {
             .children(head)
             .children(trouble)
             .child(div().id("prototype-scene").flex_1().min_h_0().overflow_y_scroll().child(body))
-            .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
+            .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .children(self.menu.as_ref().map(|(menu, _)| menu.clone()));
         if shot {
             return root.into_any_element();
         }

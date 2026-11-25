@@ -123,6 +123,7 @@ The tone words are neutral, accent, success, danger (or failed), running, waitin
 **Rule.** Each `<state>` carries a `title`, a plain name for the view such as `One need`, and a `says`, one line on what that view shows.
 The head draws a tile for each state, its `title` over its `says`, and a press, Enter or Space on a tile steps to it.
 A state with no `title` shows its `id`.
+Past five states, the band holds one View menu in place of the tiles, each state by its `title` over its `says`.
 Why: he could not tell what a chip named `1-do-this-first` changed, or how two states that overlap differ.
 
 **Rule.** A scene draws no tabs, buttons or links whose only job is to switch between its own states.
