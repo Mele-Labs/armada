@@ -123,17 +123,6 @@ pub struct OperatorPageView {
     pub(super) talk_long: Rc<Cell<bool>>,
     /// How tall the talk's rows are together, as last drawn.
     pub(super) talk_tall: Rc<Cell<gpui::Pixels>>,
-    /// How tall the open card's scrolling words are, and the room the front needs with them scrolled away, as last drawn.
-    pub(super) said_tall: Rc<Cell<gpui::Pixels>>,
-    pub(super) front_floor: Rc<Cell<gpui::Pixels>>,
-    /// How much of the open card's answers a short window scrolled away, as last drawn.
-    pub(super) answers_hidden: Rc<Cell<gpui::Pixels>>,
-    /// Where the open card's foot ends, the front's height and the room it needs, where the box ends and how tall the talk
-    /// is, as last drawn.
-    pub(super) foot_low: Rc<Cell<gpui::Pixels>>,
-    pub(super) front_need: Rc<Cell<(gpui::Pixels, gpui::Pixels)>>,
-    pub(super) box_low: Rc<Cell<gpui::Pixels>>,
-    pub(super) talk_room: Rc<Cell<gpui::Pixels>>,
     /// How much of the talk's top row its top edge cuts while it follows its tail, as last drawn.
     pub(super) talk_cut: Rc<Cell<gpui::Pixels>>,
     /// He opened the folded card. It folds again when the talk grows or he sends.
@@ -236,13 +225,6 @@ impl OperatorPageView {
             talk_said: Vec::new(),
             talk_long: Rc::new(Cell::new(false)),
             talk_tall: Rc::new(Cell::new(gpui::px(0.))),
-            said_tall: Rc::new(Cell::new(gpui::px(0.))),
-            front_floor: Rc::new(Cell::new(gpui::px(0.))),
-            answers_hidden: Rc::new(Cell::new(gpui::px(0.))),
-            foot_low: Rc::new(Cell::new(gpui::px(0.))),
-            front_need: Rc::new(Cell::new((gpui::px(0.), gpui::px(0.)))),
-            box_low: Rc::new(Cell::new(gpui::px(0.))),
-            talk_room: Rc::new(Cell::new(gpui::px(0.))),
             talk_cut: Rc::new(Cell::new(gpui::px(0.))),
             unfolded: false,
             fresh: Vec::new(),
@@ -705,6 +687,10 @@ impl OperatorPageView {
     /// The old name of a press on a card that is not the open one.
     pub fn open_id(&mut self, id: &str, cx: &mut Context<Self>) {
         self.bring(id, cx);
+        // Come from its toast or banner, the card stands open over the talk until he acts on it.
+        if self.open.as_deref() == Some(id) {
+            self.unfolded = true;
+        }
     }
 
     /// Next up opens, with the keys on its first row, or folds, with the keys back on its head.
@@ -875,6 +861,8 @@ impl OperatorPageView {
             let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
             self.open = queue.get(at).or(queue.last()).cloned();
             self.main_scroll.set_offset(gpui::Point::default());
+            // He answered the card he had open: the next folds again while the talk overflows.
+            self.unfolded = false;
         }
         let press = OperatorAnswerPress { id: id.to_string(), answer: OperatorAnswer::Yes, then, option, project: None };
         self.send(turn, press, cx);
@@ -1009,6 +997,7 @@ impl OperatorPageView {
         if self.open.as_deref() == Some(turn.id.as_str()) || self.open.is_none() {
             let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
             self.open = queue.get(at).or(queue.last()).cloned();
+            self.unfolded = false;
         }
         self.refused = None;
         cx.notify();
@@ -2309,7 +2298,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_card_folds_once_the_talk_overflows_and_a_press_opens_it_until_the_talk_grows(cx: &mut TestAppContext) {
+    fn the_card_folds_once_the_talk_overflows_and_a_press_opens_it_while_the_talk_grows(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         page.read_with(cx, |page, _| assert!(!page.is_folded(), "with no talk the card is open"));
         talk_overflows(&page, cx);
@@ -2318,7 +2307,46 @@ mod tests {
         press_on(cx, gpui::Role::Button, "Unfold Two Jobs are changing paging.rs");
         page.read_with(cx, |page, _| assert!(!page.is_folded(), "the press opens it"));
         page.update(cx, |page, cx| page.scene("replies", cx).expect("the Operator replies"));
-        page.read_with(cx, |page, _| assert!(page.is_folded(), "the talk grew, and the card folds again"));
+        page.read_with(cx, |page, _| assert!(!page.is_folded(), "the talk grew, and the card stays open: only his own act folds it"));
+    }
+
+    #[gpui::test]
+    fn a_card_opened_from_its_toast_stands_open_over_a_long_talk_until_he_snoozes_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        talk_overflows(&page, cx);
+        let came = page.read_with(cx, |page, _| page.waiting().first().map(|turn| turn.id.clone())).expect("a card waits behind the front");
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "the long talk folds the card in front"));
+        page.update(cx, |page, cx| page.open_id(&came, cx));
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.clone()), Some(came.clone()), "the toast's card is in front");
+            assert!(!page.is_folded(), "and open over the talk");
+        });
+        page.update(cx, |page, cx| page.scene("replies", cx).expect("the Operator replies"));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(!page.is_folded(), "the Operator talking leaves it open"));
+        page.update(cx, |page, cx| page.later(None, cx));
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "snoozed, the next card folds again under the long talk"));
+    }
+
+    #[gpui::test]
+    fn a_folded_card_says_its_own_ask_and_not_the_operators_last_act(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        talk_overflows(&page, cx);
+        let ask = page.read_with(cx, |page, _| page.open_item().and_then(face::ask_line)).expect("the card in front asks something");
+        page.read_with(cx, |page, _| assert!(page.is_folded()));
+        assert!(drawn(cx, gpui::Role::Status, &ask), "the folded line says {ask}");
+        let last_act = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().any(|one| one.name.starts_with("Last act")));
+        assert!(!last_act, "the Operator's last act is not the card's line");
+    }
+
+    #[gpui::test]
+    fn too_narrow_for_the_side_column_next_up_stands_under_the_card(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        cx.simulate_resize(gpui::size(gpui::px(640.), gpui::px(900.)));
+        settle(cx);
+        assert!(!side_drawn(cx), "a 640 window folds the side column away");
+        let next_up = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().any(|one| one.role == gpui::Role::Button && one.name.starts_with("Next up")));
+        assert!(next_up, "Next up is drawn in the main column");
     }
 
     #[gpui::test]
@@ -2404,6 +2432,16 @@ mod tests {
 
     fn bounds_named(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> Option<gpui::Bounds<gpui::Pixels>> {
         cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|drawn| drawn.bounds))
+    }
+
+    #[gpui::test]
+    fn the_cards_he_picked_stand_in_their_own_working_group_apart_from_since_you_last_looked(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        let group = bounds_named(cx, gpui::Role::Region, "Working").expect("Working is drawn");
+        let feed = bounds_named(cx, gpui::Role::Region, "Since you last looked").expect("the feed is drawn");
+        let row = bounds_named(cx, gpui::Role::Button, "Retry it once, Retry the flaky login test or skip it").expect("the working row is drawn");
+        assert!(row.top() >= group.top() && row.bottom() <= group.bottom(), "the row {row:?} is in Working {group:?}");
+        assert!(row.bottom() <= feed.top(), "and not in Since you last looked {feed:?}");
     }
 
     fn side_drawn(cx: &mut VisualTestContext) -> bool {
