@@ -58,6 +58,16 @@ impl MergeStrip {
                     cx.open_url(&address);
                 }
             }
+            Asked::QueueAgain { root, numbers } => {
+                let manifest = manifest_of(held.repositories.as_deref().unwrap_or_default(), &root);
+                for number in numbers {
+                    let key = format!("pull:{root}#{number}");
+                    match &manifest {
+                        Some(manifest) => self.ask(key, port, format!("/pull_requests/{}/{number}/auto_merge", crate::link::percent_encoded(manifest)), None, "The pull request was not queued again", cx),
+                        None => self.refuse(key, "This repository has no Manifest, so Fleet cannot queue its pull requests.".into(), cx),
+                    }
+                }
+            }
             Asked::OpenJob(id) => {
                 let list = source.list.clone();
                 list.update(cx, |list, cx| list.open(id, cx));

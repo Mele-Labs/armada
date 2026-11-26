@@ -16,6 +16,7 @@
 mod fix;
 mod live;
 mod scenes;
+mod stuck;
 pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
@@ -96,6 +97,8 @@ pub enum Asked {
     TakeOver { root: String, request: String },
     /// Fleet reads the pull request from the forge now (the chip menu's Refresh).
     RefreshPull { root: String, number: u64 },
+    /// Each of these pull requests back in the merge queue now (the stuck band's Queue again).
+    QueueAgain { root: String, numbers: Vec<u64> },
 }
 
 impl EventEmitter<Asked> for MergeStrip {}
@@ -1189,7 +1192,7 @@ impl MergeStrip {
             body.push(self.red_band(line, failed, also, merge.as_ref(), taken_by.as_ref(), elsewhere.as_ref(), !checking.is_empty(), checking, look, cx));
         }
         if let Some(stuck) = &one.view.queue_stuck {
-            body.push(stuck_band(stuck, look, cx));
+            body.push(stuck_band(line, stuck, &one.view.pulls, look, cx));
         }
         if let Some(checkout) = &one.view.checkout {
             body.push(checkout_section(checkout, look));
@@ -1393,7 +1396,7 @@ impl MergeStrip {
 
 /// The merge queue stuck: amber like the held checkout, since main itself is not failing. What stopped it, since
 /// when, the pull requests still waiting in their order, and the failed job's log where Fleet has its page.
-fn stuck_band(stuck: &QueueStuck, look: &Look, cx: &Context<MergeStrip>) -> AnyElement {
+fn stuck_band(line: usize, stuck: &QueueStuck, held: &[ipc::PullView], look: &Look, cx: &Context<MergeStrip>) -> AnyElement {
     let hue = look.color(token::STATUS_AWAITING_REVIEW);
     let title = "Merge queue stuck";
     let tooltip = "Fleet put these back in the queue as often as Settings › Limits allows. It waits for the queue to move.";
@@ -1413,10 +1416,42 @@ fn stuck_band(stuck: &QueueStuck, look: &Look, cx: &Context<MergeStrip>) -> AnyE
             "Open log",
         )
     });
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    let told = stuck::held_by_a_job(stuck, held);
+    let acts = div()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .child(labelled(
+            Btn::new("queue-again", "Queue again", Weight::Secondary)
+                .filled(hue)
+                .draw(look, cx)
+                .on_click(cx.listener(move |this, _, _, cx| this.stuck_requeued(line, cx))),
+            Role::Button,
+            "Queue again",
+        ))
+        .child(labelled(
+            Btn::new("tell-their-jobs", "Tell their Jobs", Weight::Secondary)
+                .disabled(!told)
+                .draw(look, cx)
+                .when(!told, |button| button.tooltip(tip("No Job holds these pull requests")))
+                .when(told, |button| button.on_click(cx.listener(move |this, _, _, cx| this.stuck_told(line, cx)))),
+            Role::Button,
+            "Tell their Jobs",
+        ))
+        .child(labelled(
+            Btn::new("start-repair-job", "Start a repair Job", Weight::Secondary)
+                .draw(look, cx)
+                .on_click(cx.listener(move |this, _, _, cx| this.stuck_repair(line, cx))),
+            Role::Button,
+            "Start a repair Job",
+        ));
     let pulls = (!stuck.pulls.is_empty()).then(|| {
         labelled(
             div().id("stuck-pulls").flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).font_family(mono(look)).children(stuck.pulls.iter().map(|number| {
                 let name = format!("#{number}");
+                let number = *number;
                 labelled(
                     small(look)
                         .id(SharedString::from(format!("stuck-pull-{number}")))
@@ -1426,8 +1461,14 @@ fn stuck_band(stuck: &QueueStuck, look: &Look, cx: &Context<MergeStrip>) -> AnyE
                         .border_color(look.color(token::BORDER_SUBTLE))
                         .rounded_full()
                         .bg(look.color(token::FG_DEFAULT).opacity(0.06))
-                        .child(name.clone()),
-                    Role::ListItem,
+                        .child(name.clone())
+                        .cursor_pointer()
+                        .focusable()
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.border_color(ring))
+                        .hover(move |style| style.bg(look.color(token::FG_DEFAULT).opacity(0.12)))
+                        .on_click(cx.listener(move |this, _, window, cx| this.chip_pressed(line, number, window, cx))),
+                    Role::Button,
                     name,
                 )
             })),
@@ -1474,7 +1515,8 @@ fn stuck_band(stuck: &QueueStuck, look: &Look, cx: &Context<MergeStrip>) -> AnyE
             )
             .child(small(look).child(cause))
             .children(since.map(|text| small(look).text_color(look.color(token::FG_MUTED)).child(text)))
-            .children(pulls),
+            .children(pulls)
+            .child(acts),
         Role::Status,
         title,
     )
@@ -1664,6 +1706,47 @@ mod tests {
                 assert!(this.card == Some(Card::Main(0)), "the scene comes with main's card open");
             })
             .unwrap();
+    }
+
+    #[gpui::test]
+    fn the_stuck_band_tells_each_holding_job_the_facts_and_briefs_a_repair_job(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        cx.update(|cx| scenes::apply("strip-queue-stuck", cx)).expect("the scene is named");
+        strip
+            .update(cx, |this, _, _| {
+                let view = &this.data.lines[0].view;
+                let stuck = view.queue_stuck.as_ref().expect("stuck");
+                assert!(stuck::held_by_a_job(stuck, &view.pulls));
+                let tells = stuck::tells_of(stuck, &view.pulls);
+                let sessions: Vec<&str> = tells.iter().map(|(session, _)| session.as_ref()).collect();
+                assert_eq!(sessions, ["mock-02", "mock-06"], "the Jobs that hold #3395 and #3392, each told once");
+                assert!(tells[0].1.starts_with("#3395 is stuck in the merge queue: native got no runner, since "), "{}", tells[0].1);
+                assert!(tells[0].1.ends_with("Fleet put it back as often as Settings › Limits allows. Log: https://github.com/Mele-Labs/armada/actions/runs/1"), "{}", tells[0].1);
+                let brief = stuck::brief_of(stuck);
+                assert!(brief.starts_with("The merge queue on main is stuck: native got no runner since "), "{brief}");
+                assert!(brief.contains("Pull requests held: #3395 #3392 #3390 #3376. Fleet put each back as often as Settings › Limits allows. Failed job: https://github.com/Mele-Labs/armada/actions/runs/1. Find why, and clear it."), "{brief}");
+            })
+            .unwrap();
+    }
+
+    #[gpui::test]
+    fn queue_again_asks_for_every_stuck_pull_request_and_a_chip_opens_its_pull_request(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        cx.update(|cx| scenes::apply("strip-queue-stuck", cx)).expect("the scene is named");
+        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let heard = asked.clone();
+        let _watch = cx.update(|cx| cx.subscribe(&strip.entity(cx).unwrap(), move |_, event: &Asked, _| heard.borrow_mut().push(event.clone())));
+        strip
+            .update(cx, |this, window, cx| {
+                this.stuck_requeued(0, cx);
+                this.chip_pressed(0, 3392, window, cx);
+            })
+            .unwrap();
+        let root = "/Users/user/Development/armada".to_string();
+        assert_eq!(
+            *asked.borrow(),
+            [Asked::QueueAgain { root: root.clone(), numbers: vec![3395, 3392, 3390, 3376] }, Asked::OpenPull { root, number: 3392 }]
+        );
     }
 
     #[test]
