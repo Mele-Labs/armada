@@ -756,7 +756,8 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::JobsInApp,
         scenario: "job-view",
         steps: &[
-            press_on("A Job asks two questions: Needs you lists each as one line, the question and its age", "row", "Fix the merge line freshness chip", "button", "Which colour does the stale chip take?"),
+            press_on("A Job asks two questions: the first is a card in the thread, and Needs you stays folded", "row", "Fix the merge line freshness chip", "region", "Thread"),
+            step("⌥⌘Y opens Needs you: each question is one line, the question and its age", Verb::Key("alt-cmd-y"), "button", "Which colour does the stale chip take?"),
             step("A press on a line folds Needs you and brings the thread to that question's card", Verb::PressWithin("region", "Questions", "Which colour does the stale chip take?"), "article", "Question: Which colour does the stale chip take?"),
             step("Only the first ask is a card: its bar names it now, the next and how many more", Verb::Look, "listitem", "Now: Pick one").id("1-do-this-first"),
             step("Under the question, why it is first", Verb::Look, "label", "The chip's colour waits on your pick"),
@@ -2846,8 +2847,8 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "review-palette",
         steps: &[
-            step("A press on a Job opens it; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
-            step("The Review row names the kinds it holds", Verb::Look, "button", "Review"),
+            step("A press on a Job opens it", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("⌥⌘Y opens what waits on you; the Review row names the kinds it holds", Verb::Key("alt-cmd-y"), "button", "Review"),
             step("Review opens the sheet", Verb::Open("button", "Review"), "dialog", "Review"),
             step("The asks stand oldest first in the list", Verb::Look, "list", "Asks"),
             step("A plan", Verb::Look, "img", "Plan"),
@@ -2977,7 +2978,8 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "review-grouped",
         steps: &[
-            step("A press on a Job opens it; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("A press on a Job opens it", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("⌥⌘Y opens what waits on you", Verb::Key("alt-cmd-y"), "button", "Review"),
             step("Review opens the sheet over the Job", Verb::Open("button", "Review"), "dialog", "Review"),
             step("The list holds this Job's asks", Verb::Look, "list", "Asks"),
             step("The Job heads them, tinted in its state's hue, with how many it asks", Verb::Look, "heading", "Fix the merge line freshness chip"),
