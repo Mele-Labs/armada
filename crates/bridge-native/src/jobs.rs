@@ -30,13 +30,15 @@ use crate::look::{token, ActiveLook, Look};
 
 pub(crate) mod judging;
 
-actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow]);
+actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow, StartSubProject]);
 
 /// The list's keys the registry does not carry yet: Shift+F10 for a row's menu, as Electron binds
 /// it in `Deck.tsx`, and `h` for the Job this one took over from, whose registry row waits on the look.
 /// ← and → fold and unfold a parent's sub-Jobs; Electron's list does not fold, so they have no registry row.
+/// ⇧S starts a sub project of the Jobs under the keys, whose registry row is owed.
 pub fn bind(cx: &mut App) {
     cx.bind_keys([
+        KeyBinding::new("shift-s", StartSubProject, Some("list")),
         KeyBinding::new("shift-f10", RowMenu, Some("list")),
         KeyBinding::new("h", Earlier, Some("list")),
         KeyBinding::new("left", FoldRow, Some("list")),
@@ -164,6 +166,7 @@ mod asleep_mac;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
+mod name_sheet;
 #[cfg(test)]
 mod prioritise_tests;
 #[cfg(test)]
@@ -861,6 +864,8 @@ fn lines_led(
         kept
     };
     let now = chrono::Utc::now();
+    // The Jobs a sub project's heading may hold: those listed, but for a starter drawn only for its place.
+    let shown: Vec<&SessionRecord> = picked.iter().copied().filter(|job| !places.contains(job.id.as_str())).collect();
     // Each group by its key, its words, the state it stands for where it has one, and its Jobs.
     let mut projects: Vec<(String, String, Option<Stand>, Vec<&SessionRecord>)> = Vec::new();
     // What each feature, area and No feature heading leads to, by its key.
@@ -970,7 +975,88 @@ fn lines_led(
         Group::List => false,
     };
     projects.extend(asleep_mac::groups(&sleeping, asleep, names).into_iter().map(|(key, name, held)| (key, name, None, held)));
+    let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
+        id: job.id.as_str().to_string().into(),
+        title: title_of(job),
+        project: group_of(job, names).1.into(),
+        paused: paused(job),
+        prioritised: job.prioritised && job.state != SessionState::Ended,
+        snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
+        slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
+        ended: job.state == SessionState::Ended,
+        handing_off: handing_off(job),
+        kids: None,
+        earlier: spent(job, "replaces").map(|id| id.to_string().into()),
+        depth,
+        through: through.to_vec(),
+        ends: last,
+        started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), group_of(one, names).1.into())),
+        slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
+        branch: attached(job, "branch").map(|branch| branch.to_string().into()),
+        pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
+        last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
+        // A Job that went to the other Mac is ended here, as Fleet's mark for it says.
+        mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { mark_of(job) },
+        issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
+            let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
+            let title = one.detail.get("title").cloned().unwrap_or_default();
+            (number.into(), title.into())
+        }),
+        flow: flow_of(job),
+        track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
+        now: now_of(job).map(Into::into),
+        queued: None,
+        place: places.contains(job.id.as_str()),
+        mac: job.mac.clone().map(Into::into),
+        moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
+        moved: crate::move_to_mac::moved(job),
+        answer: job.answer_unread,
+        asleep: asleep_on(job).is_some(),
+        ending: None,
+        aside: None,
+        again: false,
+    };
+    fn under<'a>(
+        parent: &str,
+        depth: usize,
+        through: &[bool],
+        held: &[&'a SessionRecord],
+        row_of: &dyn Fn(&SessionRecord, usize, &[bool], bool) -> Row,
+        lines: &mut Vec<Line>,
+    ) {
+        let children: Vec<&&SessionRecord> = held.iter().filter(|job| starter_of(job) == Some(parent)).collect();
+        for (at, child) in children.iter().enumerate() {
+            let last = at + 1 == children.len();
+            lines.push(Line::Job(row_of(child, depth, through, last)));
+            let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
+            under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
+        }
+    }
+    // Each sub project of the listed Jobs heads them on top, in every grouping: its Jobs nested under it, as sub-Jobs are, and
+    // each still in its own group below. One with no Job listed is not drawn.
     let mut lines = Vec::new();
+    for sub in &leads.subs {
+        let members = leads.members(sub, &shown);
+        if members.is_empty() {
+            continue;
+        }
+        lines.push(Line::Group(Head { name: sub.name.clone().into(), count: members.len(), stand: None, lead: Some(leads::Lead::SubProject { id: sub.id.clone() }) }));
+        let held: Vec<&SessionRecord> = members.iter().map(|(job, _)| *job).collect();
+        let roots: Vec<&SessionRecord> = held.iter().copied().filter(|job| !starter_of(job).is_some_and(|id| held.iter().any(|one| one.id.as_str() == id))).collect();
+        let from = lines.len();
+        for (at, root) in roots.iter().enumerate() {
+            let last = at + 1 == roots.len();
+            lines.push(Line::Job(row_of(root, 1, &[], last)));
+            under(root.id.as_str(), 2, &[!last], &held, &row_of, &mut lines);
+        }
+        for line in &mut lines[from..] {
+            if let Line::Job(row) = line {
+                row.aside = members.iter().find(|(job, _)| job.id.as_str() == row.id.as_ref()).and_then(|(_, title)| title.as_deref()).map(leads::joined);
+            }
+        }
+    }
+    // By project one project draws no heading, unless a sub project heads Jobs over it.
+    let headed = headed || (group == Group::Project && !lines.is_empty());
     for (key, name, stand, held) in projects {
         if !asleep_mac::open_line(&key, asleep, &mut lines) && headed {
             // Its Jobs but for a starter drawn only for its place, and its ideas.
@@ -1017,63 +1103,6 @@ fn lines_led(
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
-        let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
-            id: job.id.as_str().to_string().into(),
-            title: title_of(job),
-            project: group_of(job, names).1.into(),
-            paused: paused(job),
-            prioritised: job.prioritised && job.state != SessionState::Ended,
-            snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
-            slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
-            ended: job.state == SessionState::Ended,
-            handing_off: handing_off(job),
-            kids: None,
-            earlier: spent(job, "replaces").map(|id| id.to_string().into()),
-            depth,
-            through: through.to_vec(),
-            ends: last,
-            started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), group_of(one, names).1.into())),
-            slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
-            branch: attached(job, "branch").map(|branch| branch.to_string().into()),
-            pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
-            last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
-            // A Job that went to the other Mac is ended here, as Fleet's mark for it says.
-            mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { mark_of(job) },
-            issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
-                let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
-                let title = one.detail.get("title").cloned().unwrap_or_default();
-                (number.into(), title.into())
-            }),
-            flow: flow_of(job),
-            track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
-            now: now_of(job).map(Into::into),
-            queued: None,
-            place: places.contains(job.id.as_str()),
-            mac: job.mac.clone().map(Into::into),
-            moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
-            moved: crate::move_to_mac::moved(job),
-            answer: job.answer_unread,
-            asleep: asleep_on(job).is_some(),
-            ending: None,
-            aside: None,
-            again: false,
-        };
-        fn under<'a>(
-            parent: &str,
-            depth: usize,
-            through: &[bool],
-            held: &[&'a SessionRecord],
-            row_of: &dyn Fn(&SessionRecord, usize, &[bool], bool) -> Row,
-            lines: &mut Vec<Line>,
-        ) {
-            let children: Vec<&&SessionRecord> = held.iter().filter(|job| starter_of(job) == Some(parent)).collect();
-            for (at, child) in children.iter().enumerate() {
-                let last = at + 1 == children.len();
-                lines.push(Line::Job(row_of(child, depth, through, last)));
-                let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
-                under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
-            }
-        }
         for root in held.iter().filter(|job| !starter_of(job).is_some_and(listed)) {
             lines.push(Line::Job(row_of(root, 0, &[], true)));
             under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
@@ -1375,6 +1404,8 @@ pub struct JobsList {
     leads: leads::Leads,
     leads_at: Option<std::time::Instant>,
     leads_read: Option<Task<()>>,
+    /// The sheet that names a sub project, while it is open.
+    naming: Option<(Entity<name_sheet::NameSheet>, Subscription)>,
 }
 
 /// How the Jobs list on mock Jobs is grouped while a walk plays. A walk about the view button opens by state, as a first start does;
@@ -1579,6 +1610,7 @@ impl JobsList {
             leads: leads::Leads::default(),
             leads_at: None,
             leads_read: None,
+            naming: None,
         };
         if fleet_held {
             this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
@@ -2789,7 +2821,10 @@ impl JobsList {
         if let Some(job) = self.record(&id).filter(|job| crate::move_to_project::movable(job)) {
             let off = crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx).map(Into::into);
             entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: Some("\u{21e7}P".into()), off });
+            after += 1;
         }
+        // Start a sub project, after Move to project: it groups the whole selection where this row is in it.
+        entries.insert(after, Entry::Item { id: "sub_project", label: "Start a sub project".into(), icon: Some("folder-plus"), danger: false, key: Some("\u{21e7}S".into()), off: None });
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
         let row_folded = row.kids.as_ref().map(|kids| kids.folded);
@@ -2819,6 +2854,13 @@ impl JobsList {
                     cx.defer_in(window, move |this, window, cx| {
                         let ids = this.reached_by(&job);
                         this.open_project_picker(ids, Some(at), from_keys, None, window, cx);
+                    });
+                }
+                "sub_project" => {
+                    let job = job.clone();
+                    cx.defer_in(window, move |this, window, cx| {
+                        let ids = this.reached_by(&job);
+                        this.open_name_sheet(ids, Some(at), window, cx);
                     });
                 }
                 "judge" => this.judge_job(&job, window, cx),
@@ -3866,6 +3908,7 @@ impl Render for JobsList {
                     .on_action(cx.listener(Self::on_earlier))
                     .on_action(cx.listener(Self::on_fold_row))
                     .on_action(cx.listener(Self::on_unfold_row))
+                    .on_action(cx.listener(Self::on_start_sub_project))
                     .track_scroll(&self.scroll)
                     .overflow_y_scroll()
                     .size_full()
@@ -3890,6 +3933,7 @@ impl Render for JobsList {
             .children(card)
             .children(self.menu.as_ref().map(|open| open.menu.clone()))
             .children(self.filter.as_ref().map(|open| open.menu.clone()))
+            .children(self.naming.as_ref().map(|(sheet, _)| sheet.clone()))
     }
 }
 
