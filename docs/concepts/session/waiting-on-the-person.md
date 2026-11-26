@@ -380,7 +380,7 @@ The asks it leaves out follow in Fleet's order, and an id that is not an open as
 |---|---|---|
 | First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | The work waits on your answer |
 | Then | A page to read or approve | A page to read |
-| Then | A build to try | Try it once the asks above are answered |
+| Then | A build to try | The work is ready to try |
 | Last | The Job's done | The work is done |
 
 **A refresh comes before a prototype or a walk that needs it.**

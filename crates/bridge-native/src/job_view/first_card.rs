@@ -7,6 +7,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Hsla, Role, SharedS
 use ipc::{AnswerHow, AnsweredAsk, ItemHow};
 
 use super::ask_card::card_key;
+use super::judge::{plan_readings, Pinned};
 use super::reader_sheet::artifact_in;
 use super::review::{answer_batch, instant, page_of_item, Ask, Item, Kind, Verdict};
 use super::rows::{glyph, tip, Size};
@@ -52,6 +53,7 @@ pub(super) fn step_words(ask: Ask, read: bool) -> &'static str {
         Ask::Page => "Approve a page",
         Ask::Plan => "Approve the plan",
         Ask::Drawing => "Approve a drawing",
+        Ask::Prototype => "Approve a prototype",
         Ask::Draft => "Approve a draft",
     }
 }
@@ -76,14 +78,19 @@ pub(super) fn answered_words(answer: &AnsweredAsk) -> &'static str {
     }
 }
 
-/// The key the first card takes for `item`: the question's card key, the artifact's own, else `first:<item>`.
+/// The key the first card takes for `item`: the question's card key, the artifact's own, a build's `first-build:<item>`, else
+/// `first:<item>`.
 pub(super) fn first_key(item: &Item) -> String {
     match item.kind {
         Kind::Question => card_key(&item.id),
         Kind::Artifact => artifact_in(item).unwrap_or(&item.id).to_string(),
+        Kind::Build => format!("{FIRST_BUILD}{}", item.id),
         _ => format!("first:{}", item.id),
     }
 }
+
+/// How the first card's key starts while a build is the first ask: that card holds the builds to try, so no card of their own stands.
+pub(super) const FIRST_BUILD: &str = "first-build:";
 
 /// A button of the card: its glyph, then its words where `words`, else the glyph alone with its words for a tooltip.
 fn glyph_button(look: &Look, id: String, said: &'static str, icon: &'static str, kind: super::sketch_card::Kind, words: bool) -> Stateful<gpui::Div> {
@@ -194,6 +201,19 @@ impl JobView {
                 padded(self.question_body(ix, waiting, &first.name, page, look, cx))
             }
             Kind::Artifact => self.parts_inside(ix, artifact_in(&first)?, page, look, cx)?,
+            // The builds to try stand in this card, the Refresh keys and a row for each, and no card of their own beside it.
+            Kind::Build => self.ready_inside(ix, page, look, cx)?,
+            // The plan itself, as its own card draws it, above its answers; Read it still opens it whole in the sheet.
+            Kind::Plan => {
+                let card = self.thread(&job, cx).and_then(|held| held.head.plan.clone());
+                let plan = card.as_ref().and_then(|card| record.plan.as_ref().filter(|plan| plan.version == card.version));
+                let body = card.as_ref().zip(plan).map(|(card, plan)| {
+                    let (reading, earlier) = plan_readings(record, plan.version);
+                    let pinned = Pinned::on_card(ix, &card.id, reading, &earlier, plan);
+                    self.plan_body(ix, &card.id, plan, false, &pinned, page, look, cx)
+                });
+                padded(body.into_iter().chain([self.first_answers(&first, cx)]).collect())
+            }
             _ => padded(vec![self.first_answers(&first, cx)]),
         };
         let spot = page.keys.spot(&format!("card:{key}"), cx);
@@ -359,7 +379,7 @@ impl JobView {
                 said,
             )
         };
-        div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(approve).children(changes).child(read).into_any_element()
+        labelled(div().id(SharedString::from(format!("first-answers:{id}"))).flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(approve).children(changes).child(read), Role::Toolbar, "Answers").into_any_element()
     }
 
     /// Approve on the first card: answered as the sheet's Approve answers it, and the next ask takes the card.
@@ -403,6 +423,12 @@ mod tests {
         view.read_with(cx, |view, cx| view.job_asks("mock-01", None, cx).into_iter().map(|one| one.id).collect())
     }
 
+    #[test]
+    fn a_prototype_step_says_approve_a_prototype() {
+        assert_eq!(super::step_words(Ask::Prototype, false), "Approve a prototype");
+        assert_eq!(Ask::Prototype.wants(), "Approve");
+    }
+
     #[gpui::test]
     fn only_the_first_ask_has_a_card_and_answering_it_brings_the_next(cx: &mut gpui::TestAppContext) {
         let (_, cx) = thread_shown(cx);
@@ -442,6 +468,8 @@ mod tests {
         assert!(!drawn(cx, Role::Article, "Plan to approve"), "nothing else draws the plan as a card");
         assert_eq!(drawn_like(cx, Role::Article, "Plan: ").len(), 1, "the plan stands once, as the first card");
         assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "its bar names it now");
+        assert!(drawn(cx, Role::List, "What each group gives"), "the card shows the plan itself, as its own card did");
+        assert!(drawn(cx, Role::Button, "Read it"), "and Read it still opens it whole");
     }
 
     #[gpui::test]

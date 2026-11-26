@@ -321,7 +321,14 @@ impl TitleBar {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(button, Role::Button, label)).children(alone).children(skip))
-                .children((!restarting).then(|| said(story::refresh_said(offers, crate::pairing::macs(cx)).into())))
+                .children((!restarting).then(|| {
+                    // The line says it in a few words; hover names every Job it brings in.
+                    let macs = crate::pairing::macs(cx);
+                    let line: SharedString = story::refresh_said(offers, macs).into();
+                    let whole = story::refresh_whole(offers, macs);
+                    let shown = div().id("refresh-said").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).tooltip(tip(whole)).child(line.clone());
+                    labelled(shown, Role::Status, line).into_any_element()
+                }))
                 .children(refreshing.as_ref().and_then(|now| now.started_said(crate::pairing::macs(cx))).map(|started| {
                     let started: SharedString = started.into();
                     let line = div().id("refresh-started").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(started.clone());

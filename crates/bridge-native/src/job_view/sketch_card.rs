@@ -536,11 +536,13 @@ impl JobView {
     }
 
     /// The drawing's well: sunken, its edge a hairline, cut at 240 with a fade at its foot where the drawing runs on.
-    /// `edge_to_edge` fills the frame it stands in, whose own edge it keeps, as a sketch inside a plan does.
+    /// `edge_to_edge` fills the frame it stands in, whose own edge it keeps, as a sketch inside a plan does, and is drawn
+    /// whole: a plan's sketch is read where the plan is, not opened (his note of 26 Nov).
     fn well(&self, height: gpui::Pixels, replaced: bool, edge_to_edge: bool, drawn: AnyElement, look: &Look) -> AnyElement {
-        let most = look.length(token::SPACE_12) * 5.;
         let pad = look.length(token::SPACE_3);
-        let cut = height + pad * 2. + look.length(token::BORDER_WIDTH) * 2. > most;
+        let whole = height + pad * 2. + look.length(token::BORDER_WIDTH) * 2.;
+        let most = if edge_to_edge { whole } else { look.length(token::SPACE_12) * 5. };
+        let cut = whole > most;
         let sunken = look.color(token::BG_SUNKEN);
         div()
             .when(!edge_to_edge, |inset| inset.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)))

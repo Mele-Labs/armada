@@ -62,6 +62,7 @@ pub(super) enum Ask {
     Takes,
     Plan,
     Drawing,
+    Prototype,
     Page,
     Draft,
     Question,
@@ -75,6 +76,7 @@ impl Ask {
             Ask::Takes => ("scale", "Takes", token::KIND_STEP),
             Ask::Plan => ("list-todo", "Plan", token::KIND_DELIVERY),
             Ask::Drawing => ("shapes", "Drawing", token::ACCENT),
+            Ask::Prototype => ("app-window", "Prototype", token::ACCENT),
             Ask::Page => ("scroll-text", "Page", token::KIND_GATE),
             Ask::Draft => ("file-text", "Draft", token::KIND_SETUP),
             Ask::Question => ("message-circle-question-mark", "Question", token::STATUS_REJECTED),
@@ -88,7 +90,7 @@ impl Ask {
             Ask::Takes => "Pick one",
             Ask::Question => "Answer",
             Ask::Build => "Try it",
-            Ask::Plan | Ask::Drawing | Ask::Page | Ask::Draft => "Approve",
+            Ask::Plan | Ask::Drawing | Ask::Prototype | Ask::Page | Ask::Draft => "Approve",
         }
     }
 
