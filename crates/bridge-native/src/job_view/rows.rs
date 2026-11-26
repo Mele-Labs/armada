@@ -757,10 +757,6 @@ impl JobView {
         if let Some(line) = self.asking_line(item, page, look, cx) {
             return Some(line);
         }
-        // The Operator's talk is its words and the tools under them: what else it made, the page shows in its own places.
-        if self.beside_in() && !matches!(item, ThreadItem::Row { .. } | ThreadItem::Calls { .. }) {
-            return None;
-        }
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => {
@@ -834,7 +830,8 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .child(div().id("working-mark").child(self.working_mark(look, ink)).tooltip(tip("Working")))
                         .child(div().min_w_0().truncate().child(words))
-                        .child(self.stop_button(look, cx)),
+                        // The Operator's Stop stands in its box's bar.
+                        .when(!self.beside_in(), |line| line.child(self.stop_button(look, cx))),
                     Role::Status,
                     "Working",
                 );

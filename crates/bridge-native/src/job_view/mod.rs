@@ -164,7 +164,7 @@ pub use on_page::{ready_key_on_page, ready_on_page};
 pub use beside::{DrawRaised, Leave, OperatorPane, Say};
 pub use on_page::{operator_answered, operator_focus, operator_has_keys, operator_list, operator_tag, operator_thread_on_page, operator_to_last_reply, operator_untag, operator_words};
 #[cfg(test)]
-pub use on_page::{operator_tagged, operator_unechoed};
+pub use on_page::{operator_tagged, operator_unechoed, sent_to_job};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -1192,10 +1192,9 @@ impl JobView {
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
-        // The Operator's talk draws what its page does not: his words not echoed yet, the cards it raised, and what it is
-        // doing. Its asks are the page's cards.
+        // The Operator's asks and its waits are the page's own cards, so its talk does not draw them again.
         if self.is_beside(id) {
-            extras.retain(|extra| matches!(extra, Extra::Pending(_) | Extra::Raised(_) | Extra::Working | Extra::Refreshing));
+            extras.retain(|extra| !matches!(extra, Extra::First(_) | Extra::Answer(_) | Extra::Waiting | Extra::End | Extra::ClaimWaits | Extra::SlotWait | Extra::Moving | Extra::Ready));
         }
         // Where a build changed, its item measures again: it draws a line when settled and nothing while it is listed on the card.
         let ready = ready_compact::signature(&held.items);

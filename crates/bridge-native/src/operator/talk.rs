@@ -22,17 +22,18 @@ pub(crate) fn tag_of(text: &str) -> Option<(&str, &str, &str)> {
 }
 
 impl OperatorPageView {
-    /// The talk's list measured as it is drawn: once it overflows its space the card in front folds, and its whole height is
-    /// the room it is given under the card. A talk that fits its least room is never long, though a short window squeezes it
-    /// under a card drawn whole.
+    /// The talk's list measured as it is drawn: once it overflows the room it was given the card in front folds, and its whole
+    /// height is that room. A short window that squeezes the talk under a card drawn whole folds nothing.
     pub(super) fn talk_watch(&self) -> AnyElement {
         let (long, tall) = (self.talk_long.clone(), self.talk_tall.clone());
         canvas(
             move |_, window, cx| {
                 let Some(state) = crate::job_view::operator_list(cx) else { return };
-                let least = cx.look().length(token::SPACE_12) * 3.;
-                let whole = state.viewport_bounds().size.height + state.max_offset_for_scrollbar().y;
-                if !long.get() && state.max_offset_for_scrollbar().y > gpui::px(0.) && whole > least {
+                let line = cx.look().length(token::SPACE_12);
+                let seen = state.viewport_bounds().size.height;
+                let whole = seen + state.max_offset_for_scrollbar().y;
+                let room = whole.min(line * 3.).max(line);
+                if !long.get() && state.max_offset_for_scrollbar().y > gpui::px(0.) && seen + gpui::px(0.5) >= room {
                     long.set(true);
                     window.refresh();
                 }

@@ -136,6 +136,19 @@ pub fn operator_to_last_reply(cx: &mut App) -> bool {
     view.update(cx, |view, cx| view.to_last_reply(cx))
 }
 
+/// What he has sent Job `job`, in its thread and not echoed yet, for tests.
+#[cfg(test)]
+pub fn sent_to_job(job: &str, cx: &App) -> Vec<String> {
+    let Some(view) = view(cx) else { return Vec::new() };
+    let view = view.read(cx);
+    let thread = view.mock.get(job).into_iter().flat_map(|held| held.items.iter()).filter_map(|item| match item {
+        ThreadItem::Row { row: ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } } => Some(text.clone()),
+        _ => None,
+    });
+    let pending = view.pages.get(job).into_iter().flat_map(|page| page.pending.iter().map(|one| one.text.to_string()));
+    thread.chain(pending).collect()
+}
+
 /// The Operator's sends its thread has not echoed yet, for tests.
 #[cfg(test)]
 pub fn operator_unechoed(cx: &App) -> Vec<String> {

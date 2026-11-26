@@ -1449,14 +1449,9 @@ impl OperatorPageView {
     /// Move the mock Fleet to a named scene: the Operator answers the talk and raises a card in it (`said`), says more in
     /// it (`replies`), a new card joins the queue (`arrives`) or comes where nothing was in front (`front-arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
     /// reply lost (`lose`), the next change of what it does unasked is refused (`acts-refused`), or it is switched off
-    /// (`off`). Two scenes only scroll the page: `rest` to what is under the card, `top` back to it.
+    /// (`off`). One scene only scrolls the page: `top`, back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
         match name {
-            "rest" => {
-                self.main_scroll.scroll_to_bottom();
-                cx.notify();
-                return Ok(());
-            }
             "top" => {
                 self.main_scroll.set_offset(gpui::Point::default());
                 cx.notify();

@@ -486,6 +486,16 @@ impl JobView {
             .id("operator-talk")
             .track_focus(&root)
             .key_context("thread")
+            // An act dispatched after its key or press, as the palette's and the menus' are, reaches here with the Job's parts in
+            // place: the Operator's go in first, so a send never goes to the Job.
+            .capture_action(cx.listener(|this, _: &crate::keymap::Act, _, cx| {
+                if this.beside_enter() {
+                    let view = cx.entity().downgrade();
+                    cx.defer(move |cx| {
+                        view.update(cx, |view, _| view.beside_leave()).ok();
+                    });
+                }
+            }))
             .on_action(cx.listener(Self::on_act))
             .on_action(cx.listener(Self::on_search))
             .child(gpui_base::TextSelectionLayer)

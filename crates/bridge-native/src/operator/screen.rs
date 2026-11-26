@@ -1212,6 +1212,22 @@ mod tests {
         assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the box is on the page");
     }
 
+    #[gpui::test]
+    fn a_send_dispatched_from_the_window_goes_to_the_operator_and_never_to_the_job_open_behind_the_page(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        redraw(cx);
+        let lent = cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        cx.simulate_input("Which Jobs are running now?");
+        // As the palette and the menus send it: dispatched from the window after their own press.
+        cx.update(|window, cx| window.dispatch_action(Box::new(crate::keymap::Act { id: "send_message", slot: 0, digit: None }), cx));
+        redraw(cx);
+        page.update(cx, |page, _| assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)], "the words went to the Operator"));
+        assert_eq!(cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx)), lent, "nothing went to the Job open behind the page");
+    }
+
     // -- the Cockpit ---------------------------------------------------------------------------------------------
 
     fn cockpit_screen(cx: &mut TestAppContext) -> (Entity<OperatorScreen>, &mut VisualTestContext) {
