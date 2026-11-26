@@ -40,6 +40,10 @@ pub(crate) const RENEW_EVERY: Duration = Duration::from_secs(5 * 60);
 /// the store's 120 calls a minute for the device. The rest go in the next pass.
 pub(crate) const CALLS_A_PASS: usize = 40;
 
+/// The store calls one Job makes in an hour past which Fleet warns, once that hour. A Job asking again for
+/// a full pass at each renewal makes under 500; one asking for a full pass every minute makes 2,400.
+pub(crate) const CALLS_AN_HOUR: usize = 600;
+
 /// One thing a Job claims, by the name this Mac knows it by: an issue's reference, a path, or a
 /// pull request's number. The store sees only a hash of it.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -107,9 +111,25 @@ pub(crate) struct JobHeld {
     pub pulls_ended: BTreeSet<u64>,
     /// No store applies to its repository, as the last pass found.
     pub storeless: bool,
+    /// The store calls it made since `calls_since`, the epoch milliseconds its hour began.
+    pub calls: usize,
+    pub calls_since: Option<i64>,
 }
 
 impl JobHeld {
+    /// Counts `calls` more at `now`. Answers the hour's count the first time it passes [`CALLS_AN_HOUR`], so
+    /// the warning is said once an hour.
+    pub(crate) fn called(&mut self, calls: usize, now: i64) -> Option<usize> {
+        const HOUR: i64 = 60 * 60 * 1000;
+        if self.calls_since.is_none_or(|since| now.saturating_sub(since) >= HOUR) {
+            self.calls_since = Some(now);
+            self.calls = 0;
+        }
+        let before = self.calls;
+        self.calls += calls;
+        (before <= CALLS_AN_HOUR && self.calls > CALLS_AN_HOUR).then_some(self.calls)
+    }
+
     /// Whether its renewal is due at `now`.
     pub(crate) fn renewal_due(&self, now: i64) -> bool {
         self.renewed_at.is_none_or(|at| now.saturating_sub(at) >= RENEW_EVERY.as_millis() as i64)
@@ -221,6 +241,15 @@ mod tests {
         let assignees = vec!["work-mac/5aaa472e".to_string(), "nick".to_string()];
         assert_eq!(person_holding(&assignees, None).map(String::as_str), Some("nick"));
         assert_eq!(person_holding(&assignees, Some("nick")), None);
+    }
+
+    #[test]
+    fn a_job_past_the_hours_store_calls_is_warned_of_once_that_hour() {
+        let mut held = JobHeld::default();
+        assert_eq!(held.called(CALLS_AN_HOUR, 0), None);
+        assert_eq!(held.called(40, 60_000), Some(CALLS_AN_HOUR + 40));
+        assert_eq!(held.called(40, 120_000), None);
+        assert_eq!(held.called(CALLS_AN_HOUR + 1, 3_600_000), Some(CALLS_AN_HOUR + 1));
     }
 
     #[test]
