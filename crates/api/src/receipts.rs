@@ -78,6 +78,10 @@ enum Set<'a> {
         rules: Vec<&'a str>,
         changes: Vec<&'a str>,
     },
+    /// Every open ask in the order he is shown them, with why.
+    NeedsFirst {
+        needs_first: Vec<Placed<'a>>,
+    },
     Done {
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,6 +163,13 @@ struct Item<'a> {
     artifact: Option<&'a str>,
 }
 
+/// One open ask in its place, as `order_waiting` answers it: mine or Fleet's, and why it stands there.
+#[derive(Serialize)]
+struct Placed<'a> {
+    id: &'a str,
+    why: &'a str,
+}
+
 /// An item Fleet put on the list, as the agent reads it: what kind, and its one line. Never the agent's.
 #[derive(Serialize)]
 struct FleetItem<'a> {
@@ -192,6 +203,12 @@ impl<'a> Receipt<'a> {
             .map(|item| FleetItem { id: &item.id, kind: item.source, text: &item.text })
             .collect();
         Receipt::of(record, Set::WaitingFor { waiting_for, fleet })
+    }
+
+    /// The Job's open asks in their order, each with why: Fleet serves them in that order.
+    pub(crate) fn needs_first(record: &'a SessionRecord) -> Self {
+        let needs_first = record.waiting_for.iter().map(|item| Placed { id: &item.id, why: &item.why }).collect();
+        Receipt::of(record, Set::NeedsFirst { needs_first })
     }
 
     pub(crate) fn window(record: &'a SessionRecord, show: &'a ipc::ShowWindow) -> Self {

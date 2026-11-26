@@ -139,6 +139,8 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
 
 fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: id.to_string(),
         text: text.to_string(),

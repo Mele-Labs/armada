@@ -302,6 +302,8 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         kind: None,
     };
     let item = |card: &ipc::CallInFlight| ipc::WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: "perm:c1".into(),
         text: format!("{} {}", card.tool, card.detail),
@@ -449,6 +451,8 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         ipc::WaitingSource::RuleAct,
     ] {
         let one = ipc::WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id: "a".into(),
             text: "Which colour?".into(),
@@ -468,6 +472,8 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         assert_eq!(sorted(&one, None), None, "{source:?}");
     }
     let errand = ipc::WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: "a".into(),
         text: "Merge once ci is green".into(),

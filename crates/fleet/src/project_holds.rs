@@ -44,6 +44,8 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
         _ => format!("Mark the {} tasks done?", asked.project_name),
     };
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone(), on: None }),
         id,
