@@ -3,23 +3,33 @@
 // thread and the box are the ones Bridge's Job view draws. A command to run and a draft to settle are cards at the
 // thread's end too; the header carries the context figure, the Jobs this one is linked to, and the Job's other acts.
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import {
   AppWindow,
   Check,
+  ChevronRight,
   CirclePause,
   CornerDownRight,
+  FileText,
   Files,
+  FlaskConical,
   GitFork,
   Link as Linked,
+  ListTodo,
   LoaderCircle,
+  MessageCircleQuestion,
   Play,
   PowerOff,
   RefreshCw,
+  Scale,
+  ScrollText,
+  Shapes,
   Square,
   SquareTerminal,
+  type LucideIcon,
 } from "lucide-react";
 import { AskCards, SessionThread } from "./kit/components/compositions/SessionThread/SessionThread";
+import { Badge } from "./kit/components/primitives/Badge/Badge";
 import { Button } from "./kit/components/primitives/Button/Button";
 import { Card, CardFooter, CardHeader, CardTitle } from "./kit/components/primitives/Card/Card";
 import { Select } from "./kit/components/primitives/Select/Select";
@@ -53,7 +63,7 @@ import { ArtifactCard } from "./Artifact";
 import { BandCard, Well } from "./kit/components/compositions/BandCard/BandCard";
 import { DraftText } from "./kit/components/compositions/SessionThread/DraftRow";
 import { PageScreen } from "./PageBody";
-import { asks, ofParts, useArtifacts } from "./artifacts";
+import { asks, ofParts, opensAsk, partsOf, useArtifacts } from "./artifacts";
 import { TryLine, useTryCards } from "./ReadyToTry";
 import {
   artifactPath,
@@ -69,6 +79,7 @@ import {
   approvalOf,
   askedOf,
   asksOf,
+  inAskOrder,
   choicesOf,
   documentOf,
   draftsOf,
@@ -80,9 +91,11 @@ import {
   rowsOf,
   runsOf,
   sessionOfThread,
+  stepsOf,
   takesWords,
   withArtifacts,
   withEarlier,
+  type AskKind,
   type JobLink,
   type OpenDraft,
 } from "./thread";
@@ -116,28 +129,33 @@ function WaitingAsk({
   item,
   keep,
   answer,
+  titled = false,
 }: {
   item: WaitingItem;
   keep: string;
   answer: (given: { choice?: number; text?: string }) => Promise<boolean>;
+  /** The first card already holds the question as its title. */
+  titled?: boolean;
 }) {
   const [words, setWords] = useState("");
   const choices = choicesOf(item);
   return (
     <div className="pk-ask" role="group" aria-label={item.text}>
-      <p className="pk-question">
-        {item.text}
-        {item.creating_since === undefined ? null : (
-          <>
-            {" "}
-            <Tooltip label="Making a slot">
-              <span role="img" aria-label="Making a slot">
-                <LoaderCircle className="pk-spin" size={14} aria-hidden="true" />
-              </span>
-            </Tooltip>
-          </>
-        )}
-      </p>
+      {titled && item.creating_since === undefined ? null : (
+        <p className="pk-question">
+          {titled ? null : item.text}
+          {item.creating_since === undefined ? null : (
+            <>
+              {" "}
+              <Tooltip label="Making a slot">
+                <span role="img" aria-label="Making a slot">
+                  <LoaderCircle className="pk-spin" size={14} aria-hidden="true" />
+                </span>
+              </Tooltip>
+            </>
+          )}
+        </p>
+      )}
       <Trouble says={item.create_refused ?? ""} />
       {choices.length === 0 ? null : (
         <div className="pk-choices" role="group" aria-label="Options">
@@ -220,6 +238,7 @@ function RunCard({
   command,
   ran,
   run,
+  titled = false,
 }: {
   item: WaitingItem;
   command: string;
@@ -227,13 +246,17 @@ function RunCard({
     code?: number;
   };
   run: () => Promise<boolean>;
+  /** The first card already holds the question as its title. */
+  titled?: boolean;
 }) {
   const [going, setGoing] = useState(false);
   return (
     <Card className="pk-card" role="group" aria-label={item.text}>
-      <CardHeader>
-        <CardTitle>{item.text}</CardTitle>
-      </CardHeader>
+      {titled ? null : (
+        <CardHeader>
+          <CardTitle>{item.text}</CardTitle>
+        </CardHeader>
+      )}
       <code className="pk-card__command">{command}</code>
       <CardFooter className="pk-card__acts">
         {ran !== undefined ? (
@@ -301,6 +324,73 @@ function OnMac({ item }: { item: WaitingItem }) {
       <span className="pk-onmac__says">{item.text}</span>
       <span className="pk-onmac__where">{OPEN_ON_MAC}</span>
     </p>
+  );
+}
+
+/** An ask at the thread's foot: the item that stands for it on Fleet's list, its kind, and its card as Pocket draws it. */
+type AskAtFoot = {
+  item: WaitingItem;
+  kind: AskKind;
+  /** `titled` where the first card holds the question already. */
+  card: (titled: boolean) => ReactNode;
+};
+
+/** Each kind's glyph, Bridge's own. */
+const KIND_GLYPH: Record<AskKind, LucideIcon> = {
+  takes: Scale,
+  question: MessageCircleQuestion,
+  run: MessageCircleQuestion,
+  build: FlaskConical,
+  page: ScrollText,
+  plan: ListTodo,
+  drawing: Shapes,
+  draft: FileText,
+};
+
+/**
+ * The Job's first open ask as one card: the strip of steps, the question and why it is first, then the ask's own card.
+ * The rest wait under See all, in the same order, each drawn as it is on its own.
+ */
+function FirstAsk({ asks }: { asks: readonly AskAtFoot[] }) {
+  const [all, setAll] = useState(false);
+  const first = asks[0];
+  if (first === undefined) return null;
+  const { now, next, more } = stepsOf(asks);
+  const why = first.item.why?.trim() ?? "";
+  return (
+    <>
+      <Card className="pk-first" role="article" aria-label={first.item.text}>
+        <ol className="pk-first__steps" aria-label="Steps">
+          {now === undefined ? null : (
+            <li aria-label={`Now: ${now.words}`}>
+              <Badge status="awaiting-review" icon={KIND_GLYPH[now.kind]}>
+                {`1 ${now.words}`}
+              </Badge>
+            </li>
+          )}
+          {next === undefined ? null : (
+            <li className="pk-first__step" aria-label={`Next: ${next.words}`}>
+              <ChevronRight size={12} strokeWidth={2} aria-hidden="true" />
+              {`2 ${next.words}`}
+            </li>
+          )}
+          {more === 0 ? null : <li className="pk-first__step">{`· ${String(more)} more`}</li>}
+        </ol>
+        <div className="pk-first__head">
+          <h3 className="pk-question">{first.item.text}</h3>
+          {why === "" ? null : <p className="pk-first__why">{why}</p>}
+        </div>
+        {first.card(true)}
+      </Card>
+      {asks.length < 2 ? null : (
+        <Button variant="ghost" aria-expanded={all} onClick={() => setAll((was) => !was)}>
+          {all ? "Show only the first" : `See all ${String(asks.length)} asks`}
+        </Button>
+      )}
+      {all
+        ? asks.slice(1).map((one) => <Fragment key={one.item.id}>{one.card(false)}</Fragment>)
+        : null}
+    </>
   );
 }
 
@@ -811,39 +901,80 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     plan?.version !== undefined &&
     approval.groups[0] !== undefined;
   const openArtifact = (artifact: string) => go(artifactPath(machine.origin, id, artifact));
-  const trailing = (
-    <div className="pk-trailing">
-      {(tryCards ?? [])
-        .filter((card) => card.state === "open")
-        .map((card) => (
-          <TryLine key={card.id} machine={machine} id={id} card={card} />
-        ))}
-      {(artifacts.artifacts ?? [])
-        .filter((one) => ofParts(one) && asks(one))
-        .map((one) => (
-          <ArtifactCard key={one.id} machine={machine} id={id} artifact={one} />
-        ))}
-      {asked === undefined && lapsed === undefined ? null : (
-        <AskCards
-          {...(asked === undefined
-            ? {}
-            : {
-                asked,
-                keep: keep(call ?? asked.command),
-              })}
-          onAnswer={onAnswer}
-          {...(lapsed === undefined
-            ? {}
-            : {
-                lapsed,
-              })}
-        />
-      )}
-      {asksOf(session).map((item) => (
+  const waiting = session.dead === undefined ? (session.waitingFor ?? []) : [];
+  // Each card at the thread's foot that a waiting item stands for is one ask, in the Job's order. A card no item names yet
+  // (an older Mac's, or one read before Fleet's list) keeps its place above them.
+  const foot: AskAtFoot[] = [];
+  const loose: ReactNode[] = [];
+  const openTries = (tryCards ?? []).filter((card) => card.state === "open");
+  const tryItem = waiting.find((one) => one.source === "ready_to_try");
+  const tryLines = openTries.map((card) => (
+    <TryLine key={card.id} machine={machine} id={id} card={card} />
+  ));
+  if (tryItem === undefined) loose.push(...tryLines);
+  else
+    foot.push({
+      item: tryItem,
+      kind: "build",
+      card: () => tryLines,
+    });
+  for (const one of (artifacts.artifacts ?? []).filter((one) => ofParts(one) && asks(one))) {
+    const card = <ArtifactCard key={one.id} machine={machine} id={id} artifact={one} />;
+    const item = waiting.find(
+      (row) => row.id === one.item || row.artifact === one.id || row.id === one.id,
+    );
+    if (item === undefined) loose.push(card);
+    else
+      foot.push({
+        item,
+        kind: partsOf(one).some((part) => part.kind === "takes" && opensAsk(part))
+          ? "takes"
+          : item.source === "document"
+            ? "page"
+            : "drawing",
+        card: () => card,
+      });
+  }
+  if (asked !== undefined || lapsed !== undefined) {
+    const card = (
+      <AskCards
+        key="asked"
+        {...(asked === undefined
+          ? {}
+          : {
+              asked,
+              keep: keep(call ?? asked.command),
+            })}
+        onAnswer={onAnswer}
+        {...(lapsed === undefined
+          ? {}
+          : {
+              lapsed,
+            })}
+      />
+    );
+    const item =
+      call === undefined
+        ? undefined
+        : waiting.find((one) => one.id === `ask:${call}` || one.id === `perm:${call}`);
+    if (item === undefined) loose.push(card);
+    else
+      foot.push({
+        item,
+        kind: "question",
+        card: () => card,
+      });
+  }
+  for (const item of asksOf(session))
+    foot.push({
+      item,
+      kind: "question",
+      card: (titled) => (
         <WaitingAsk
           key={item.id}
           item={item}
           keep={keep(`waiting:${item.id}`)}
+          titled={titled}
           answer={(given) =>
             run(() =>
               acts.answerWaiting({
@@ -854,12 +985,18 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
             )
           }
         />
-      ))}
-      {runs.map(({ item, command, ran }) => (
+      ),
+    });
+  for (const { item, command, ran } of runs)
+    foot.push({
+      item,
+      kind: "run",
+      card: (titled) => (
         <RunCard
           key={item.id}
           item={item}
           command={command}
+          titled={titled}
           {...(ran === undefined
             ? {}
             : {
@@ -874,30 +1011,15 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
             )
           }
         />
-      ))}
-      {presses.map(({ item, opens, dismissible }) => (
-        <PressCard
-          key={item.id}
-          item={item}
-          {...(opens === undefined || opens === id
-            ? {}
-            : {
-                open: () => openJob(opens),
-              })}
-          {...(dismissible
-            ? {
-                dismiss: () =>
-                  run(() =>
-                    acts.dismissWaiting({
-                      session_id: id,
-                      item_id: item.id,
-                    }),
-                  ),
-              }
-            : {})}
-        />
-      ))}
-      {drafts.map((draft) => (
+      ),
+    });
+  for (const draft of drafts) {
+    const item = waiting.find((one) => one.id === `draft:${draft.id}`);
+    if (item === undefined) continue;
+    foot.push({
+      item,
+      kind: "draft",
+      card: () => (
         <DraftCard
           key={draft.id}
           draft={draft}
@@ -930,28 +1052,67 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
             )
           }
         />
-      ))}
-      {planPending ? (
-        <PlanChanges
-          keep={keep("plan")}
-          send={(text) =>
-            run(() =>
-              acts.planChanges({
-                session_id: id,
-                version: plan!.version!,
-                marks: [
-                  {
-                    kind: "note",
-                    id: `phone-${Date.now()}`,
-                    group: approval!.groups[0]!.id,
-                    text,
-                  },
-                ],
-              }),
-            )
-          }
+      ),
+    });
+  }
+  if (planPending) {
+    const card = (
+      <PlanChanges
+        key="plan"
+        keep={keep("plan")}
+        send={(text) =>
+          run(() =>
+            acts.planChanges({
+              session_id: id,
+              version: plan!.version!,
+              marks: [
+                {
+                  kind: "note",
+                  id: `phone-${Date.now()}`,
+                  group: approval!.groups[0]!.id,
+                  text,
+                },
+              ],
+            }),
+          )
+        }
+      />
+    );
+    const item = waiting.find((one) => one.source === "plan");
+    if (item === undefined) loose.push(card);
+    else
+      foot.push({
+        item,
+        kind: "plan",
+        card: () => card,
+      });
+  }
+  const trailing = (
+    <div className="pk-trailing">
+      {loose}
+      <FirstAsk asks={inAskOrder(foot)} />
+      {presses.map(({ item, opens, dismissible }) => (
+        <PressCard
+          key={item.id}
+          item={item}
+          {...(opens === undefined || opens === id
+            ? {}
+            : {
+                open: () => openJob(opens),
+              })}
+          {...(dismissible
+            ? {
+                dismiss: () =>
+                  run(() =>
+                    acts.dismissWaiting({
+                      session_id: id,
+                      item_id: item.id,
+                    }),
+                  ),
+              }
+            : {})}
         />
-      ) : null}
+      ))}
       {doneSince === undefined ? null : (
         <div className="pk-done" role="status">
           {doneSummary === undefined ? null : <p className="pk-done__says">{doneSummary}</p>}

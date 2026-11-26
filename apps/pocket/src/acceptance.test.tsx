@@ -257,6 +257,14 @@ const button = (name: string) =>
   Array.from(host.querySelectorAll("button")).find(
     (one) => one.textContent?.trim() === name || one.getAttribute("aria-label") === name,
   );
+/** A Job's asks after its first stand folded under See all: unfold them. */
+const seeAll = async () => {
+  await vi.waitFor(() => expect(host.querySelector(".pk-first")).toBeTruthy());
+  const all = Array.from(host.querySelectorAll("button")).find((one) =>
+    one.textContent?.startsWith("See all"),
+  );
+  if (all !== undefined) await press(all);
+};
 
 async function verifies(one: Sent, origin: string): Promise<boolean> {
   const message = new TextEncoder().encode(
@@ -1053,6 +1061,7 @@ describe("a draft Job, and the acts on a Job", {
       ],
     ])("answers %s's %s with its choice", async (job, name, item, label, choice) => {
       await open(`/jobs/${encodeURIComponent(STUDIO)}/${job}`);
+      await seeAll();
       await vi.waitFor(() => expect(ask(name)).toBeTruthy());
       await press(option(name, label));
       await vi.waitFor(() =>
@@ -1079,6 +1088,7 @@ describe("a draft Job, and the acts on a Job", {
 
     it("offers a words box only where Fleet takes words", async () => {
       await open(`/jobs/${encodeURIComponent(STUDIO)}/o1`);
+      await seeAll();
       await vi.waitFor(() => expect(ask("Mark the tracker tasks done?")).toBeTruthy());
       const box = (name: string) => ask(name)!.querySelector("textarea");
       expect(box("Mark the tracker tasks done?")).toBeNull();
@@ -1090,6 +1100,7 @@ describe("a draft Job, and the acts on a Job", {
     it("takes an address in words, with no Other to press", async () => {
       const name = "Where does tickets open in armada?";
       await open(`/jobs/${encodeURIComponent(STUDIO)}/o1`);
+      await seeAll();
       await vi.waitFor(() => expect(ask(name)).toBeTruthy());
       expect(option(name, "Other")).toBeUndefined();
       await typeInto(ask(name)!.querySelector("textarea"), "https://other.example/{match}");
@@ -1345,8 +1356,86 @@ describe("a draft Job, and the acts on a Job", {
       };
     });
 
+    const HELD = "Which colour marks a step that is held?";
+    const BUILD = "Try: Steps drawn as a bar under each Job's title";
+    const first = () => host.querySelector<HTMLElement>(".pk-first");
+    const steps = () =>
+      Array.from(first()?.querySelectorAll('[aria-label="Steps"] > li') ?? []).map((one) =>
+        one.textContent?.trim(),
+      );
+
+    it("stands only the Job's first ask as a card, its steps above the question and why it is first", async () => {
+      await open(F2);
+      await vi.waitFor(() => expect(first()?.getAttribute("aria-label")).toBe(HELD));
+      await vi.waitFor(() =>
+        expect(steps()).toEqual([
+          "1 Pick one",
+          "2 Try the build",
+          "· 1 more",
+        ]),
+      );
+      expect(host.querySelectorAll(".pk-first")).toHaveLength(1);
+      expect(first()!.querySelector('[aria-label="Now: Pick one"] .armada-badge')).toBeTruthy();
+      expect(first()!.querySelector("h3")?.textContent).toBe(HELD);
+      expect(first()!.querySelector(".pk-first__why")?.textContent).toBe(
+        "The work waits on your answer",
+      );
+      // The question is the card's title once: its own card draws only its options.
+      expect(first()!.querySelectorAll(".pk-question")).toHaveLength(1);
+      expect(host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]')).toBeNull();
+      expect(host.querySelector(`[aria-label="Ready to try: ${BUILD.slice(5)}"]`)).toBeNull();
+    });
+
+    it("unfolds the other asks in the Job's order under See all, and folds them again", async () => {
+      await open(F2);
+      await vi.waitFor(() => expect(button("See all 3 asks")).toBeTruthy());
+      await press(button("See all 3 asks"));
+      const build = host.querySelector(`[aria-label="Ready to try: ${BUILD.slice(5)}"]`);
+      const bar = host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]');
+      expect(build).toBeTruthy();
+      expect(bar).toBeTruthy();
+      expect(build!.compareDocumentPosition(bar!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(first()!.contains(build)).toBe(false);
+      await press(button("Show only the first"));
+      expect(host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]')).toBeNull();
+      expect(button("See all 3 asks")).toBeTruthy();
+    });
+
+    it("brings the next ask onto the card once the first is answered", async () => {
+      await open(F2);
+      await vi.waitFor(() => expect(first()?.getAttribute("aria-label")).toBe(HELD));
+      await press(
+        Array.from(first()!.querySelectorAll('[aria-label="Options"] button')).find((one) =>
+          one.textContent?.startsWith("Amber"),
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/answer")).toEqual([
+          {
+            session_id: PARTS_JOB,
+            item_id: "steps-held",
+            choice: 0,
+          },
+        ]),
+      );
+      await vi.waitFor(() => expect(first()?.getAttribute("aria-label")).toBe(BUILD));
+      await vi.waitFor(() =>
+        expect(steps()).toEqual([
+          "1 Try the build",
+          "2 Pick one",
+        ]),
+      );
+      expect(first()!.querySelector(".pk-first__why")?.textContent).toBe(
+        "The bar is built and waits on your try",
+      );
+      expect(first()!.querySelector(`[aria-label="Ready to try: ${BUILD.slice(5)}"]`)).toBeTruthy();
+      expect(button("See all 2 asks")).toBeTruthy();
+    });
+
     it("puts the asking artifact and the open build at the thread's foot, and folds the answered artifact to one line", async () => {
       await open(F2);
+      await vi.waitFor(() => expect(button("See all 3 asks")).toBeTruthy());
+      await press(button("See all 3 asks"));
       await vi.waitFor(() =>
         expect(host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]')).toBeTruthy(),
       );
@@ -1766,6 +1855,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is dropped with Dismiss, which answers its item with the second choice", async () => {
         await opened();
+        await seeAll();
         await press(inCard(`Draft: ${NAME}`, "Dismiss"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
@@ -1781,6 +1871,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is approved with the first choice", async () => {
         await opened();
+        await seeAll();
         await press(inCard(`Draft: ${NAME}`, "Approve"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
@@ -1795,6 +1886,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is sent back with the owner's note", async () => {
         await opened();
+        await seeAll();
         await press(inCard(`Draft: ${NAME}`, "Ask for changes"));
         await typeInto(field("What should change?"), "Run it after Check, not before.");
         await press(inCard(`Draft: ${NAME}`, "Send"));

@@ -260,6 +260,14 @@ A document also opens at its own page, read by the same reader Bridge uses, with
 A `held_child` is an ask that opens the Job it names, which opens as its start card, and a `fleet_call` is an ask that dismisses it.
 A `walk` and a `window_ask` are a line at the thread's end saying to open it on the Mac, with no answer box, since each points at a page the phone cannot show.
 
+**Only the Job's first ask stands as a card**, as on the Mac ([What he needs first](session/waiting-on-the-person.md#what-he-needs-first)).
+The asks are the cards at the thread's foot that an item stands for: a build to try, an artifact that asks, a question, a command to run, a draft and the plan's changes.
+They go in the item's `order`, and one with no place follows in the order Fleet listed it, so a Mac that sends none keeps its list's order.
+The card heads with its steps: the ask now as a chip in the waiting hue with its kind's glyph, the next, and how many more.
+Under them stand the question and, where the item has one, its `why`, then the ask's own card.
+See all draws the rest in the same order, each answerable as on its own, and answering the first brings the next onto the card.
+A `held_child`, a `fleet_call`, a walk and a `window_ask` keep their own places, and a sketch or document answered from its card in the thread is not one of them.
+
 **A 409 is read by its code.** Fleet's `fleet.sketch_redrawn` and `fleet.document_revised` say the page changed since he read it.
 The phone reads the Job again, shows the new drawing or revision and says the Job changed it, and an answer refused with any other code shows Fleet's own message.
 The Gateway's own 409 for a signature sent before carries no such code.
