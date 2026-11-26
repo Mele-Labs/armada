@@ -58,6 +58,8 @@ pub struct MockFleet {
     pub accounts: super::mock_account::MockAccounts,
     /// The review tools every repository defines, as `GET /review_tools/:repository` lists them.
     pub review_tools: Vec<crate::reviews::model::ReviewTool>,
+    /// Every judge type, wherever kept: Armada's five, and what Kit and the repository add to them.
+    pub judge_types: Vec<ipc::JudgeType>,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -143,6 +145,7 @@ impl MockFleet {
         };
         let tool = |id: &str, name: &str| crate::reviews::model::ReviewTool { id: id.into(), name: name.into(), said: name.to_lowercase(), first: false };
         let mut fleet = MockFleet {
+            judge_types: crate::mock::judge_types_kept(),
             review_tools: vec![tool("bugs", "Possible bugs"), tool("risks", "Risks"), tool("user-impact", "User impact")],
             kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), versions: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
@@ -568,6 +571,56 @@ impl MockFleet {
             autonomy: Vec::new(),
             workflows,
         }
+    }
+
+    /// `GET /judge_types/:repository?project=`: what the project sees, as Fleet resolves it.
+    pub fn judge_types(&self, project: Option<&str>) -> Result<Vec<ipc::JudgeType>, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        Ok(crate::mock::judge_types_seen(&self.judge_types, project))
+    }
+
+    /// `POST /judge_types/:repository`: a copy kept in Kit, for all projects or one, or in the repository. A name already
+    /// kept in that place is refused unless the save says to replace it.
+    pub fn save_judge_type(&mut self, save: ipc::SaveJudgeType) -> Result<(), Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let id = save.name.trim().to_lowercase().split_whitespace().collect::<Vec<_>>().join("-");
+        if id.is_empty() {
+            return Err(Refused::said("A judge needs a name"));
+        }
+        let (source, project) = match save.scope {
+            ipc::ReviewToolScope::Kit => (ipc::ReviewToolSource::Kit, save.project.clone()),
+            ipc::ReviewToolScope::Repository => (ipc::ReviewToolSource::Repository, None),
+        };
+        let replaces = self.judge_types.iter().find(|one| one.id == id && one.source == ipc::ReviewToolSource::Armada).map(|_| ipc::ReviewToolSource::Armada);
+        let held = self.judge_types.iter().position(|one| one.id == id && one.source == source && one.project == project);
+        match held {
+            Some(_) if !save.overwrite => return Err(Refused { key: None, said: format!("{} is already kept there", save.name.trim()), code: Some("fleet.judge_type_exists".into()) }),
+            Some(at) => {
+                self.judge_types[at].name = save.name.trim().to_string();
+                self.judge_types[at].prompt = save.prompt;
+            }
+            None => self.judge_types.push(ipc::JudgeType { id, name: save.name.trim().to_string(), prompt: save.prompt, source, project, replaces, hides: None }),
+        }
+        Ok(())
+    }
+
+    /// `POST /judge_types/:repository/delete`: Kit's copy goes, and what it replaced shows again.
+    pub fn delete_judge_type(&mut self, delete: ipc::DeleteJudgeType) -> Result<(), Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        let source = match delete.scope {
+            ipc::ReviewToolScope::Kit => ipc::ReviewToolSource::Kit,
+            ipc::ReviewToolScope::Repository => ipc::ReviewToolSource::Repository,
+        };
+        let project = if source == ipc::ReviewToolSource::Kit { delete.project } else { None };
+        let at = self.judge_types.iter().position(|one| one.id == delete.id && one.source == source && one.project == project).ok_or_else(|| Refused::said(format!("There is no {} to delete", delete.id)))?;
+        self.judge_types.remove(at);
+        Ok(())
     }
 
     /// `GET /review_tools/:repository`, the same for every repository.

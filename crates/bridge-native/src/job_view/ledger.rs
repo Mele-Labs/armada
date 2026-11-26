@@ -254,7 +254,7 @@ pub(super) fn commit_of(text: &str) -> Option<String> {
 }
 
 /// A web address as its row titles it: the host and the path, with no scheme, query or trailing slash (`linkTitle`).
-fn link_title(url: &str) -> String {
+pub(super) fn link_title(url: &str) -> String {
     let Some((scheme, rest)) = url.split_once("://").filter(|(scheme, _)| !scheme.is_empty() && scheme.chars().all(|one| one.is_ascii_alphanumeric() || matches!(one, '+' | '-' | '.'))) else { return url.to_string() };
     let (authority, tail) = rest.split_at(rest.find(['/', '?', '#']).unwrap_or(rest.len()));
     let host = authority.rsplit('@').next().unwrap_or(authority).to_lowercase();

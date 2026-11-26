@@ -4,6 +4,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, ListOffset, Role, SharedString};
 use ipc::PlanCardState;
 
+use super::review::Kind;
 use super::rows::{glyph, tip, Size};
 use super::{Extra, JobView};
 use crate::labels::labelled;
@@ -20,14 +21,19 @@ impl JobView {
     pub(super) fn render_callchip(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
         let tail = page.entry(page.items);
-        let waiting = page.extras.iter().any(|extra| matches!(extra, Extra::Plan(_) | Extra::Sketch(_)));
         // The tail is below what is drawn: it is past the foot of the list's view, or not reached yet.
         let (viewport, top) = (page.list.viewport_bounds(), page.list.logical_scroll_top());
         let below = top.item_ix < tail && page.list.bounds_for_item(tail).is_none_or(|bounds| bounds.top() >= viewport.bottom());
-        if !waiting || !below {
+        if !below {
             return None;
         }
-        let planned = page.extras.iter().any(|extra| matches!(extra, Extra::Plan(PlanCardState::Waiting)));
+        // A plan or a sketch that is the first ask waits on the first card, and has no card of its own.
+        let first = self.first_ask(id, cx).map(|first| first.kind);
+        let waiting = page.extras.iter().any(|extra| matches!(extra, Extra::Plan(_) | Extra::Sketch(_))) || matches!(first, Some(Kind::Plan | Kind::Sketch));
+        if !waiting {
+            return None;
+        }
+        let planned = page.extras.iter().any(|extra| matches!(extra, Extra::Plan(PlanCardState::Waiting))) || first == Some(Kind::Plan);
         let look = cx.look();
         let job = id.clone();
         let chip = labelled(

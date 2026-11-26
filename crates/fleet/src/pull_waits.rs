@@ -68,6 +68,8 @@ mod tests {
 
     fn item(source: WaitingSource, text: &str, act: Option<(WaitingActKind, &str)>) -> WaitingItem {
         WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id: "one".to_string(),
             text: text.to_string(),

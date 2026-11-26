@@ -163,26 +163,60 @@ pub struct Edge {
     pub label: Option<String>,
     pub step: Option<u32>,
     pub a: Pt,
-    pub c1: Pt,
-    pub c2: Pt,
     pub b: Pt,
-    /// Where its pill stands: the curve's middle.
+    /// The curve from `a` to `b` as cubic pieces end to end, each its start, two controls and its end: one piece between two lanes,
+    /// several where it runs out to its lane's gutter and back.
+    pub path: Vec<[Pt; 4]>,
+    /// Both ends stand in one lane of level two or three, so it runs by the lane's gutter and is drawn only as `shown` says.
+    pub lane: bool,
+    /// Where its pill stands: the curve's middle, or in the gutter for a link inside a lane.
     pub mid: Pt,
 }
 
 impl Edge {
-    /// A point of the curve, `t` from 0 at the source to 1 at the target.
+    /// A point of the curve, `t` from 0 at the source to 1 at the target, each piece taking an equal share of `t`.
     pub fn at(&self, t: f32) -> Pt {
+        let Some(last) = self.path.len().checked_sub(1) else { return self.a };
+        let along = t.clamp(0., 1.) * self.path.len() as f32;
+        let piece = (along.floor() as usize).min(last);
+        let [a, c1, c2, b] = self.path[piece];
+        let t = along - piece as f32;
         let u = 1. - t;
         let (w0, w1, w2, w3) = (u * u * u, 3. * u * u * t, 3. * u * t * t, t * t * t);
-        Pt { x: w0 * self.a.x + w1 * self.c1.x + w2 * self.c2.x + w3 * self.b.x, y: w0 * self.a.y + w1 * self.c1.y + w2 * self.c2.y + w3 * self.b.y }
+        Pt { x: w0 * a.x + w1 * c1.x + w2 * c2.x + w3 * b.x, y: w0 * a.y + w1 * c1.y + w2 * c2.y + w3 * b.y }
     }
 
     /// The way the curve runs where it meets its target, a unit vector.
     pub fn heading(&self) -> Pt {
-        let (dx, dy) = (self.b.x - self.c2.x, self.b.y - self.c2.y);
+        let [_, _, c2, b] = self.path.last().copied().unwrap_or([self.a, self.a, self.a, self.b]);
+        let (dx, dy) = (b.x - c2.x, b.y - c2.y);
         let long = dx.hypot(dy).max(0.001);
         Pt { x: dx / long, y: dy / long }
+    }
+}
+
+/// Where each lane's sub-columns stand on level two and three, so a link between two parts of one lane runs in the room beside
+/// them and never over a part.
+struct Gutters {
+    /// Each part's lane and sub-column.
+    place: Vec<(usize, usize)>,
+    /// Each lane's left and right edge, and its sub-columns' left and right edges, left to right.
+    lanes: Vec<(f32, f32, Vec<(f32, f32)>)>,
+    /// A level above every part and one below, clear across every lane, for a link that runs past a sub-column.
+    over: f32,
+    under: f32,
+}
+
+impl Gutters {
+    /// Where the run beside sub-column `col` of `lane` goes on `side`, and how far that is from the column's edge.
+    fn beside(&self, lane: usize, col: usize, side: Side) -> (f32, f32) {
+        let (left, right, cols) = &self.lanes[lane];
+        let (x0, x1) = cols[col];
+        let (near, far) = match side {
+            Side::Left => (x0, if col == 0 { *left } else { cols[col - 1].1 }),
+            _ => (x1, cols.get(col + 1).map_or(*right, |next| next.0)),
+        };
+        ((near + far) / 2., (far - near).abs() / 2.)
     }
 }
 
@@ -278,10 +312,25 @@ fn lane_order(keys: &[String], map: &SystemMap, key_of: &HashMap<&str, usize>) -
 /// Stand every part of `map` in `width` by at least `min_height`, and join them. `depth` is 1 for the project, 2 for a part and
 /// 3 for a feature; `title_of` names the part a lane of level two or three is for.
 pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&str) -> Option<String>, metrics: &Metrics, width: f32, min_height: f32) -> Arranged {
+    // Parts wrap into as many sub-columns as the room's height asks for; where those would take more than the room's width, the lane
+    // keeps fewer, one fewer at a time, and grows taller instead, which the block scrolls down.
+    let mut across = usize::MAX;
+    loop {
+        let (arranged, widest) = lay(map, depth, project, title_of, metrics, width, min_height, across);
+        if arranged.width <= width + 1. || width <= 0. || widest <= 1 {
+            return arranged;
+        }
+        across = widest - 1;
+    }
+}
+
+/// `arrange` with no lane wider than `across` sub-columns; also how many sub-columns the widest lane took.
+#[allow(clippy::too_many_arguments)]
+fn lay(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&str) -> Option<String>, metrics: &Metrics, width: f32, min_height: f32, across: usize) -> (Arranged, usize) {
     let deep = depth > 1;
     let parts = &map.parts;
     if parts.is_empty() {
-        return Arranged { width, height: min_height, scale: 1., ..Arranged::default() };
+        return (Arranged { width, height: min_height, scale: 1., ..Arranged::default() }, 1);
     }
     let files_of = |part: &SystemPart| -> Vec<String> { map.stops.iter().filter(|stop| stop.part == part.id).flat_map(|stop| stop.files.clone()).collect() };
     let nodes_files: Vec<Vec<String>> = parts.iter().map(|part| if depth == 3 { files_of(part) } else { Vec::new() }).collect();
@@ -344,6 +393,10 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             lane_of.push((at, col));
         }
     }
+
+    // A column that would run past the room's height wraps into sub-columns, a grid inside its lane.
+    let room_tall = min_height - (metrics.lane_head + metrics.gap / 2.) - metrics.bottom;
+    let widest = if min_height > 0. { wrap(&mut lane_of, &heights, room_tall, metrics.gap, across) } else { 1 };
 
     // ---- columns left to right, flattened ------------------------------------------------------------------------------
     let lane_count = lane_titles.len();
@@ -461,6 +514,10 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         stack[*col].push(at);
     }
     let top = metrics.lane_head + metrics.gap / 2.;
+    // What a column stands as tall as; where one is taller than the room the block scrolls, and the columns that fit stand from the
+    // top of their lane, in view, and not level with whatever part of the tall one they link to.
+    let tall_of = |col: &[usize]| col.iter().map(|&at| heights[at] + metrics.gap).sum::<f32>() - metrics.gap;
+    let scrolls = min_height > 0. && stack.iter().any(|col| tall_of(col) > room_tall);
     let mut centre_y = vec![f32::NAN; parts.len()];
     let mut ys = vec![0f32; parts.len()];
     for col in 0..total_cols {
@@ -484,12 +541,23 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             .collect();
         keyed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         // Each stands where it wants to, pushed down only as far as the one above it needs.
+        let stood = tall_of(&stack[col]);
+        let from_top = scrolls && stood <= room_tall;
         let mut floor = top;
-        for (key, at) in keyed {
-            let y = (key - heights[at] / 2.).max(floor);
+        for &(key, at) in &keyed {
+            let y = if from_top { floor } else { (key - heights[at] / 2.).max(floor) };
             ys[at] = y;
             centre_y[at] = y + heights[at] / 2.;
             floor = y + heights[at] + metrics.gap;
+        }
+        // Where the room's height is known, what was pushed down past its bottom is lifted back in, from the last one up.
+        if min_height > 0. && stood <= room_tall {
+            let mut ceiling = min_height - metrics.bottom;
+            for &(_, at) in keyed.iter().rev() {
+                ys[at] = ys[at].min(ceiling - heights[at]).max(top);
+                centre_y[at] = ys[at] + heights[at] / 2.;
+                ceiling = ys[at] - metrics.gap;
+            }
         }
     }
     let height = (0..parts.len()).map(|at| ys[at] + heights[at]).fold(top, f32::max) + metrics.bottom;
@@ -510,8 +578,64 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         })
         .collect();
     let lanes: Vec<Lane> = lane_rects.iter().zip(&lane_titles).map(|(&(x, w), (title, kind))| Lane { rect: Rect { x, y: 0., w, h: height }, title: title.clone(), kind: *kind }).collect();
-    let edges = join(map, &index, &nodes, metrics);
-    Arranged { lanes, nodes, edges, width: extent, height, scale: 1. }
+    let gutters = deep.then(|| Gutters {
+        place: lane_of.clone(),
+        lanes: (0..lane_count)
+            .map(|lane| {
+                let (x, w) = lane_rects[lane];
+                (x, x + w, (0..cols_in_lane[lane]).map(|col| first_col[lane] + col).map(|at| (col_x[at], col_x[at] + col_w[at])).collect())
+            })
+            .collect(),
+        over: top - metrics.gap / 4.,
+        under: height - metrics.bottom / 2.,
+    });
+    let edges = join(map, &index, &nodes, metrics, gutters.as_ref());
+    (Arranged { lanes, nodes, edges, width: extent, height, scale: 1. }, widest)
+}
+
+/// Splits each column of each lane into sub-columns, filling one down to `cap` before the next, so a lane of many parts is a grid
+/// as tall as the room and not a column as tall as the parts. A column that fits is left as it is. No column takes more than
+/// `across` sub-columns, which makes them taller than `cap`; returns the most any column took.
+fn wrap(lane_of: &mut [(usize, usize)], heights: &[f32], cap: f32, gap: f32, across: usize) -> usize {
+    let lanes = lane_of.iter().map(|(lane, _)| *lane).max().map_or(0, |last| last + 1);
+    let was = lane_of.to_vec();
+    let mut most = 1;
+    for lane in 0..lanes {
+        let mut cols: Vec<usize> = was.iter().filter(|(one, _)| *one == lane).map(|(_, col)| *col).collect();
+        cols.sort_unstable();
+        cols.dedup();
+        let mut offset = 0;
+        for col in cols {
+            let members: Vec<usize> = (0..was.len()).filter(|&at| was[at] == (lane, col)).collect();
+            let fill = |limit: f32| -> Vec<usize> {
+                let (mut used, mut sub) = (0., 0);
+                members
+                    .iter()
+                    .map(|&at| {
+                        if used > 0. && used + gap + heights[at] > limit {
+                            sub += 1;
+                            used = 0.;
+                        }
+                        used += if used > 0. { gap } else { 0. } + heights[at];
+                        sub
+                    })
+                    .collect()
+            };
+            let mut subs = fill(cap);
+            if subs.last().is_some_and(|last| last + 1 > across) {
+                let total: f32 = members.iter().map(|&at| heights[at] + gap).sum();
+                let tallest = members.iter().map(|&at| heights[at]).fold(0., f32::max);
+                subs = fill(total / across as f32 + tallest);
+            }
+            let made = subs.last().map_or(0, |last| last + 1);
+            for (&at, sub) in members.iter().zip(subs) {
+                lane_of[at].1 = offset + sub;
+            }
+            offset += made;
+            most = most.max(made);
+        }
+    }
+    most
 }
 
 /// `arrange`, made smaller where the parts need more room than there is: every size shrinks together, to a floor of `FLOOR`, and
@@ -532,8 +656,9 @@ pub fn arrange_fitted(map: &SystemMap, depth: usize, project: &str, title_of: &d
     smaller
 }
 
-/// Each link as a curve between a port on one part's side and a port on the other's.
-fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: &Metrics) -> Vec<Edge> {
+/// Each link as a curve between a port on one part's side and a port on the other's. A link between two parts of one lane leaves
+/// its part sideways into the gutter beside its sub-column, runs along it, and comes back in, so it never crosses a part.
+fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: &Metrics, gutters: Option<&Gutters>) -> Vec<Edge> {
     let links: Vec<(usize, usize, usize)> = map
         .links
         .iter()
@@ -543,7 +668,8 @@ fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: 
             (from != to).then_some((at, from, to))
         })
         .collect();
-    let sides: Vec<(Side, Side)> = links
+    let inside = |from: usize, to: usize| gutters.filter(|gutters| gutters.place[from].0 == gutters.place[to].0);
+    let mut sides: Vec<(Side, Side)> = links
         .iter()
         .map(|&(_, from, to)| {
             let (a, b) = (nodes[from].rect, nodes[to].rect);
@@ -558,6 +684,35 @@ fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: 
             }
         })
         .collect();
+    // A link inside one sub-column goes out by a side its label does not spill off the block from, then the side its two parts'
+    // links to other lanes leave free, so it does not tangle with the links drawn at rest, then the roomier gutter, then the right.
+    let mut taken: HashMap<(usize, Side), usize> = HashMap::new();
+    for (at, &(_, from, to)) in links.iter().enumerate() {
+        if inside(from, to).is_none() {
+            *taken.entry((from, sides[at].0)).or_default() += 1;
+            *taken.entry((to, sides[at].1)).or_default() += 1;
+        }
+    }
+    for (at, &(wire, from, to)) in links.iter().enumerate() {
+        let Some(gutters) = inside(from, to) else { continue };
+        let ((lane, here), (_, there)) = (gutters.place[from], gutters.place[to]);
+        sides[at] = match here.cmp(&there) {
+            std::cmp::Ordering::Less => (Side::Right, Side::Left),
+            std::cmp::Ordering::Greater => (Side::Left, Side::Right),
+            std::cmp::Ordering::Equal => {
+                let busy = |side: Side| taken.get(&(from, side)).copied().unwrap_or(0) + taken.get(&(to, side)).copied().unwrap_or(0);
+                let room = |side: Side| gutters.beside(lane, here, side).1;
+                let link = &map.links[wire];
+                let chars = link.label.as_deref().map_or(0, |label| label.chars().count()) + if link.step.is_some() { 2 } else { 0 };
+                let wide = if chars == 0 { 0. } else { chars as f32 * metrics.char + metrics.gap * 2.25 };
+                let (column, first, last) = (nodes[from].rect, gutters.lanes.first().map_or(0., |lane| lane.0), gutters.lanes.last().map_or(0., |lane| lane.1));
+                let spills = |side: Side| if side == Side::Left { column.x - wide < first } else { column.right() + wide > last };
+                let key = |side: Side| (spills(side), busy(side), -room(side));
+                let left = key(Side::Left) < key(Side::Right);
+                if left { (Side::Left, Side::Left) } else { (Side::Right, Side::Right) }
+            }
+        };
+    }
     // Every end on a side of a part, with the place of the far end, so the ends can be sorted by it.
     let mut ends: HashMap<(usize, Side), Vec<(usize, bool, f32)>> = HashMap::new();
     for (at, &(_, from, to)) in links.iter().enumerate() {
@@ -581,29 +736,102 @@ fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: 
             ports.insert((link, source), at);
         }
     }
+    // A link inside a lane keeps the run its pill stands on: its x, which way is away from the part, the room to the part's edge, and
+    // where it starts and ends down the block.
+    let mut runs: Vec<Option<(f32, f32, f32, f32, f32)>> = Vec::new();
     let mut edges = links
         .iter()
         .enumerate()
         .map(|(at, &(wire, from, to))| {
             let (a, b) = (ports[&(at, true)], ports[&(at, false)]);
             let (out, into) = (sides[at].0.normal(), sides[at].1.normal());
+            let label = map.links[wire].label.clone().filter(|label| !label.is_empty());
+            if let Some(gutters) = inside(from, to) {
+                let ((lane, here), (_, there)) = (gutters.place[from], gutters.place[to]);
+                let (xa, room) = gutters.beside(lane, here, sides[at].0);
+                let xb = gutters.beside(lane, there, sides[at].1).0;
+                // Sub-columns side by side, or one, share the gutter; further apart it runs above or below every part to the other's.
+                let mut points = vec![a, Pt { x: xa, y: a.y }];
+                if (xa - xb).abs() > 0.5 {
+                    let level = |y: f32| (a.y - y).abs() + (b.y - y).abs();
+                    let y = if level(gutters.over) <= level(gutters.under) { gutters.over } else { gutters.under };
+                    points.extend([Pt { x: xa, y }, Pt { x: xb, y }]);
+                }
+                points.extend([Pt { x: xb, y: b.y }, b]);
+                runs.push(Some((xa, out.x, room, a.y, points[2].y)));
+                return Edge { from, to, label, step: map.links[wire].step, a, b, path: rounded(&points, metrics.gap * 0.75), lane: true, mid: a };
+            }
+            runs.push(None);
             let reach = if sides[at].0.vertical() { (b.y - a.y).abs() } else { (b.x - a.x).abs() };
             let pull = (reach * 0.5).max(PULL_LEAST);
             let c1 = Pt { x: a.x + out.x * pull, y: a.y + out.y * pull };
             let c2 = Pt { x: b.x + into.x * pull, y: b.y + into.y * pull };
-            let mut edge = Edge { from, to, label: map.links[wire].label.clone().filter(|label| !label.is_empty()), step: map.links[wire].step, a, c1, c2, b, mid: a };
-            edge
+            Edge { from, to, label, step: map.links[wire].step, a, b, path: vec![[a, c1, c2, b]], lane: false, mid: a }
         })
         .collect::<Vec<Edge>>();
-    // Each pill takes the first place along its curve that is clear of every part and of the pills already set.
+    // Each pill takes the first place along its curve that is clear of every part and of the pills already set; a link inside a lane's
+    // pill stands in its gutter.
     let mut placed: Vec<(Pt, f32)> = Vec::new();
-    for edge in &mut edges {
-        edge.mid = label_spot(edge, nodes, &placed, metrics);
+    for (edge, run) in edges.iter_mut().zip(&runs) {
+        edge.mid = match run {
+            Some(run) => gutter_spot(edge, *run, nodes, &placed, metrics),
+            None => label_spot(edge, nodes, &placed, metrics),
+        };
         if edge.label.is_some() || edge.step.is_some() {
             placed.push((edge.mid, label_width(edge, metrics)));
         }
     }
     edges
+}
+
+/// An orthogonal run through `points` as cubic pieces, each corner turned on a quarter circle of at most `radius`.
+fn rounded(points: &[Pt], radius: f32) -> Vec<[Pt; 4]> {
+    // A control a quarter circle's cubic keeps from its ends, as a share of the radius.
+    const KAPPA: f32 = 0.552;
+    let mut points: Vec<Pt> = points.to_vec();
+    points.dedup_by(|b, a| (a.x - b.x).abs() < 0.01 && (a.y - b.y).abs() < 0.01);
+    let toward = |from: Pt, to: Pt| {
+        let long = (to.x - from.x).hypot(to.y - from.y).max(0.001);
+        (Pt { x: (to.x - from.x) / long, y: (to.y - from.y) / long }, long)
+    };
+    let straight = |from: Pt, to: Pt| [from, Pt { x: from.x + (to.x - from.x) / 3., y: from.y + (to.y - from.y) / 3. }, Pt { x: from.x + (to.x - from.x) * 2. / 3., y: from.y + (to.y - from.y) * 2. / 3. }, to];
+    let mut path = Vec::new();
+    let mut at = points[0];
+    for corner in 1..points.len().saturating_sub(1) {
+        let (before, here, after) = (points[corner - 1], points[corner], points[corner + 1]);
+        let ((din, lin), (dout, lout)) = (toward(before, here), toward(here, after));
+        let r = radius.min(lin / 2.).min(lout / 2.);
+        let (enter, leave) = (Pt { x: here.x - din.x * r, y: here.y - din.y * r }, Pt { x: here.x + dout.x * r, y: here.y + dout.y * r });
+        if (enter.x - at.x).abs() + (enter.y - at.y).abs() > 0.01 {
+            path.push(straight(at, enter));
+        }
+        if r > 0.01 {
+            path.push([enter, Pt { x: enter.x + din.x * r * KAPPA, y: enter.y + din.y * r * KAPPA }, Pt { x: leave.x - dout.x * r * KAPPA, y: leave.y - dout.y * r * KAPPA }, leave]);
+        }
+        at = leave;
+    }
+    if let Some(&end) = points.last() {
+        if (end.x - at.x).abs() + (end.y - at.y).abs() > 0.01 || path.is_empty() {
+            path.push(straight(at, end));
+        }
+    }
+    path
+}
+
+/// Where a pill of a link inside a lane stands: on the run along its gutter, nearest the run's middle that is clear, and pushed
+/// away from the parts as far as it is too wide for the gutter. `run` is the run's x, which way is away, the room to the part, and
+/// where the run starts and ends down the block.
+fn gutter_spot(edge: &Edge, run: (f32, f32, f32, f32, f32), nodes: &[Node], placed: &[(Pt, f32)], metrics: &Metrics) -> Pt {
+    let (x, away, room, from, to) = run;
+    let (wide, high) = (label_width(edge, metrics), metrics.node_plain / 2.);
+    let x = x + away * (wide / 2. + metrics.gap / 4. - room).max(0.);
+    let (top, bottom) = (from.min(to), from.max(to));
+    let clear = |at: Pt| {
+        nodes.iter().all(|node| at.x + wide / 2. <= node.rect.x || at.x - wide / 2. >= node.rect.right() || at.y + high / 2. <= node.rect.y || at.y - high / 2. >= node.rect.bottom())
+            && placed.iter().all(|(other, other_wide)| (at.x - other.x).abs() >= (wide + other_wide) / 2. || (at.y - other.y).abs() >= high)
+    };
+    let middle = Pt { x, y: (top + bottom) / 2. };
+    (0..=22).flat_map(|step| [0.5 + step as f32 * 0.02, 0.5 - step as f32 * 0.02]).map(|t| Pt { x, y: top + (bottom - top) * t }).find(|at| clear(*at)).unwrap_or(middle)
 }
 
 fn label_width(edge: &Edge, metrics: &Metrics) -> f32 {
@@ -674,6 +902,19 @@ pub fn lit(arranged: &Arranged, map: &SystemMap, hover: &Hover, depth: usize) ->
         }
     }
     Some(lit)
+}
+
+/// Which links are drawn, by place in `arranged.edges`. A link between two lanes always is. One inside a lane is drawn only while a
+/// part at one of its ends is hovered or selected, or the hovered feature holds one, since at rest a lane full of them is noise; a
+/// numbered step of level three's path always is, the path being the point of that level.
+pub fn shown(arranged: &Arranged, map: &SystemMap, hover: &Hover, selected: Option<&str>) -> Vec<bool> {
+    let mut near: HashSet<usize> = selected.and_then(|id| arranged.index_of(id)).into_iter().collect();
+    match hover {
+        Hover::None => {}
+        Hover::Part(id) => near.extend(arranged.index_of(id)),
+        Hover::Feature(slug) => near.extend(map.features.iter().filter(|feature| feature.slug == *slug).flat_map(|feature| &feature.parts).filter_map(|id| arranged.index_of(id))),
+    }
+    arranged.edges.iter().map(|edge| !edge.lane || edge.step.is_some() || near.contains(&edge.from) || near.contains(&edge.to)).collect()
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -787,6 +1028,38 @@ mod tests {
     }
 
     #[test]
+    fn a_level_of_many_pieces_wraps_its_lane_and_keeps_the_linked_lanes_in_view() {
+        let map: SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).unwrap();
+        let out = arrange_fitted(&map, 2, "Armada", &|id| Some(id.to_string()), &Metrics::default(), 1400., 820.);
+        for (at, a) in out.nodes.iter().enumerate() {
+            assert!(a.rect.x >= 0. && a.rect.right() <= out.width + 0.5 && a.rect.y >= 0. && a.rect.bottom() <= out.height, "{} is inside the room", a.id);
+            for b in &out.nodes[at + 1..] {
+                let apart = a.rect.right() <= b.rect.x || b.rect.right() <= a.rect.x || a.rect.bottom() <= b.rect.y || b.rect.bottom() <= a.rect.y;
+                assert!(apart, "{} and {} overlap", a.id, b.id);
+            }
+        }
+        let first = |id: &str| out.nodes[out.index_of(id).unwrap()].rect;
+        assert!(first("store-armada-db").bottom() <= 820. && first("api/routes").bottom() <= 820. && first("outside-github").bottom() <= 820.);
+    }
+
+    #[test]
+    fn beside_the_panel_the_pieces_take_fewer_columns_and_the_linked_lanes_still_stand_in_the_first_screen() {
+        let map: SystemMap = serde_json::from_str(include_str!("fixtures/fleet-level-two.json")).unwrap();
+        let out = arrange_fitted(&map, 2, "Armada", &|id| Some(id.to_string()), &Metrics::default(), 960., 600.);
+        assert!(out.width <= 961., "it is no wider than its room: {}", out.width);
+        for (at, a) in out.nodes.iter().enumerate() {
+            for b in &out.nodes[at + 1..] {
+                let apart = a.rect.right() <= b.rect.x || b.rect.right() <= a.rect.x || a.rect.bottom() <= b.rect.y || b.rect.bottom() <= a.rect.y;
+                assert!(apart, "{} and {} overlap", a.id, b.id);
+            }
+        }
+        for id in ["store-armada-db", "api/routes", "outside-github", "outside-cloudflare", "outside-claude-code", "outside-api-buildkite-com"] {
+            let rect = out.nodes[out.index_of(id).unwrap()].rect;
+            assert!(rect.bottom() <= 600., "{id} stands in the first screen: {}", rect.bottom());
+        }
+    }
+
+    #[test]
     fn ports_on_a_side_are_sorted_by_where_the_far_end_stands() {
         let out = arranged(&level_one(), 1);
         let daemon = out.index_of("daemon").unwrap();
@@ -844,6 +1117,92 @@ mod tests {
         let ids: HashSet<&str> = lit.nodes.iter().map(|at| out.nodes[*at].id.as_str()).collect();
         assert_eq!(ids, HashSet::from(["app", "daemon"]));
         assert_eq!(lit.edges.len(), 1);
+    }
+
+    fn piece(id: &str, within: &str) -> SystemPart {
+        SystemPart { within: Some(within.into()), ..part(id, SystemPartKind::Piece) }
+    }
+
+    /// A lane of `count` pieces of `a` and one piece of `b`.
+    fn lanes(count: usize, links: Vec<SystemLink>) -> SystemMap {
+        let mut parts: Vec<SystemPart> = (0..count).map(|at| piece(&format!("a{at}"), "a")).collect();
+        parts.push(piece("b0", "b"));
+        map(parts, links)
+    }
+
+    /// No point of `edge`'s curve between its ends stands inside a part.
+    fn crosses_no_part(out: &Arranged, edge: &Edge) -> bool {
+        (1..400).map(|at| edge.at(at as f32 / 400.)).all(|pt| out.nodes.iter().all(|node| !(pt.x > node.rect.x + 0.5 && pt.x < node.rect.right() - 0.5 && pt.y > node.rect.y + 0.5 && pt.y < node.rect.bottom() - 0.5)))
+    }
+
+    fn edge_of<'a>(out: &'a Arranged, from: &str, to: &str) -> (usize, &'a Edge) {
+        let (from, to) = (out.index_of(from).unwrap(), out.index_of(to).unwrap());
+        out.edges.iter().enumerate().find(|(_, edge)| edge.from == from && edge.to == to).unwrap()
+    }
+
+    #[test]
+    fn a_link_inside_a_lane_is_drawn_only_while_a_part_at_one_of_its_ends_is_hovered_or_selected() {
+        let map = lanes(3, vec![link("a0", "a2", Some("reads")), link("a0", "b0", None)]);
+        let out = arranged(&map, 2);
+        let (inside, edge) = edge_of(&out, "a0", "a2");
+        assert!(edge.lane);
+        let (between, edge) = edge_of(&out, "a0", "b0");
+        assert!(!edge.lane);
+        let shown_for = |hover: Hover, selected: Option<&str>| shown(&out, &map, &hover, selected);
+        let rest = shown_for(Hover::None, None);
+        assert!(!rest[inside] && rest[between], "at rest the link between lanes is drawn and the one inside a lane is not");
+        assert!(!shown_for(Hover::Part("a1".into()), None)[inside], "a part it would run past does not draw it");
+        assert!(shown_for(Hover::Part("a2".into()), None)[inside], "the part at its far end does");
+        assert!(shown_for(Hover::None, Some("a0"))[inside], "and so does the selected part at its near end");
+    }
+
+    #[test]
+    fn a_link_inside_a_lane_runs_out_to_the_gutter_and_back_and_crosses_no_part_and_its_label_stands_clear() {
+        let map = lanes(4, vec![link("a0", "a3", Some("reads")), link("a3", "a1", None), link("a0", "b0", Some("calls"))]);
+        let out = arranged(&map, 2);
+        for edge in out.edges.iter().filter(|edge| edge.lane) {
+            assert!(crosses_no_part(&out, edge), "{} to {} crosses no part", out.nodes[edge.from].id, out.nodes[edge.to].id);
+            assert!(edge.path.len() > 1, "it turns out of the part and back in");
+        }
+        let (_, edge) = edge_of(&out, "a0", "a3");
+        let wide = label_width(edge, &Metrics::default());
+        let column = out.nodes[edge.from].rect;
+        assert!(edge.mid.x - wide / 2. >= column.right() || edge.mid.x + wide / 2. <= column.x, "its label stands in the gutter, off the column: {:?}", edge.mid);
+        let (_, between) = edge_of(&out, "a0", "b0");
+        assert_eq!(between.path.len(), 1, "a link between lanes is the one curve it was");
+    }
+
+    #[test]
+    fn pieces_in_neighbouring_sub_columns_of_a_wrapped_lane_are_still_one_lane() {
+        let map = lanes(12, vec![link("a0", "a11", None), link("a0", "a6", None), link("a11", "a0", None), link("a0", "b0", None)]);
+        let out = arrange(&map, 2, "p", &|id| Some(id.to_string()), &Metrics::default(), 1600., 400.);
+        let x = |id: &str| out.nodes[out.index_of(id).unwrap()].rect.x;
+        assert!(x("a0") < x("a6") && x("a6") < x("a11"), "the lane wrapped into three sub-columns");
+        let rest = shown(&out, &map, &Hover::None, None);
+        for (at, edge) in out.edges.iter().enumerate() {
+            let one_lane = out.nodes[edge.to].id != "b0";
+            assert_eq!(edge.lane, one_lane, "{} is inside the lane", out.nodes[edge.to].id);
+            assert_eq!(rest[at], !one_lane);
+            assert!(crosses_no_part(&out, edge) || !one_lane, "{} to {} crosses no part", out.nodes[edge.from].id, out.nodes[edge.to].id);
+        }
+    }
+
+    #[test]
+    fn level_three_draws_its_numbered_steps_at_rest_even_inside_a_lane_and_by_its_gutter() {
+        let mut map = lanes(3, vec![SystemLink { step: Some(1), ..link("a0", "a2", Some("asks")) }, SystemLink { step: Some(2), ..link("a2", "b0", None) }]);
+        map.feature = Some("f".into());
+        let out = arranged(&map, 3);
+        let (inside, edge) = edge_of(&out, "a0", "a2");
+        assert!(edge.lane && crosses_no_part(&out, edge));
+        let rest = shown(&out, &map, &Hover::None, None);
+        assert!(rest.iter().all(|one| *one), "every step of the path is drawn at rest");
+        assert!(rest[inside]);
+    }
+
+    #[test]
+    fn level_one_keeps_its_links_inside_the_boundary_as_they_were() {
+        let out = arranged(&level_one(), 1);
+        assert!(out.edges.iter().all(|edge| !edge.lane && edge.path.len() == 1));
     }
 
     #[test]

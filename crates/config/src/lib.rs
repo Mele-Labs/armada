@@ -42,6 +42,8 @@ mod piece;
 mod resolve;
 mod resolving;
 mod rule;
+/// The judge types a press of Judge reads as, from Armada, the repository and Kit.
+pub mod judge_types;
 /// The review tools a pull request is asked with, from Armada, Kit and the repository.
 pub mod review_tools;
 mod roster;

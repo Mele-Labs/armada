@@ -176,6 +176,8 @@ pub(crate) struct WaitingReads {
     ready: Vec<store::KeptBuildNote>,
     /// The branches it has on the preview list.
     offered: Vec<String>,
+    /// The order it set on its asks with `order_waiting`.
+    order: Vec<store::KeptWaitingPlace>,
 }
 
 impl WaitingReads {
@@ -249,6 +251,7 @@ pub(crate) fn waiting_reads(
         job_asks: store.raised_job_asks_of(&session.id)?,
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
+        order: store.waiting_order(&session.id)?,
     })
 }
 
@@ -278,6 +281,8 @@ impl WaitingReads {
 /// so dismissing either settles both.
 pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("replied:{ended}"),
         text: format!("{step}: {}", crate::rail_ends::End::Replied.for_person()),
@@ -357,6 +362,8 @@ pub(crate) fn merged(
     }
     let mut derived: Vec<WaitingItem> = asked.map(|(card, picked)| super::ask_cards::card_items(card, picked)).unwrap_or_default();
     derived.extend(windows.iter().map(|one| WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("walk:{}", one.url),
         text: one.title.clone(),
@@ -391,6 +398,8 @@ pub(crate) fn merged(
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
         })
         .map(|one| WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: one.approves,
             id: one.item_id,
             text: one.text,
@@ -451,6 +460,8 @@ where
                 let source = source_of(&one.source)?;
                 let ended = !(live && (source == WaitingSource::Agent || again.contains(&one.item_id)));
                 let item = WaitingItem {
+                    order: 0,
+                    why: String::new(),
                     approves: one.approves,
                     id: one.item_id,
                     text: one.text,
@@ -479,7 +490,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered, order } = reads;
         let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -558,6 +569,8 @@ where
             let id = format!("perm:{}", open.since);
             if !dismissed.contains(&id) {
                 items.push(WaitingItem {
+                    order: 0,
+                    why: String::new(),
                     approves: false,
                     id,
                     text: format!("{} {}", open.tool, open.detail).trim().to_string(),
@@ -650,6 +663,8 @@ where
             let id = format!("{FIRST_MESSAGE_ITEM}{}", session.id);
             if start_held && !dismissed.contains(&id) {
                 items.push(WaitingItem {
+                    order: 0,
+                    why: String::new(),
                     approves: false,
                     id,
                     text: String::from("First message"),
@@ -729,6 +744,8 @@ where
                 } => {
                     let id = format!("{WINDOW_ASK_PREFIX}{id}");
                     (!dismissed.contains(&id)).then_some(WaitingItem {
+                        order: 0,
+                        why: String::new(),
                         approves: false,
                         id,
                         text: question,
@@ -760,6 +777,8 @@ where
                         options.push(WaitingOption { label: String::from("Dismiss"), description: None, picture: None });
                     }
                     (open && !dismissed.contains(&id)).then(|| WaitingItem {
+                        order: 0,
+                        why: String::new(),
                         approves: false,
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
@@ -785,6 +804,8 @@ where
                 SessionRow::Handoff { id, at, remind_at, answer: None, .. } => {
                     let id = format!("{HANDOFF_PREFIX}{id}");
                     (!ended && !dismissed.contains(&id)).then(|| WaitingItem {
+                        order: 0,
+                        why: String::new(),
                         approves: false,
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
@@ -845,6 +866,7 @@ where
         }
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
+        let items = super::needs_first::placed(items, &order, &|one| super::needs_first::needs_build_of(one, attachments));
         Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open, held }
     }
 
@@ -1085,15 +1107,18 @@ where
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
         let owed = crate::feature_library::sections_owed_text(store, id).map_err(|why| self.ledger_fault(why))?;
         let tasks = if gated { crate::gate_holding::tasks_open_text(store, id) } else { None };
-        let code = match (&later, &unshown, &flying, &owed, &tasks) {
-            (None, None, None, None, None) => return Ok(()),
-            (_, _, Some(_), _, _) => crate::lifecycles::ending::IN_FLIGHT,
-            (Some(_), _, None, _, _) => super::later::LATER_OPEN,
-            (None, Some(_), None, _, _) => super::ways_checking::PICTURE_OWED,
-            (None, None, None, Some(_), _) => crate::feature_library::OWED,
-            (None, None, None, None, Some(_)) => crate::gate_holding::TASKS_OPEN,
+        // A task still open is the reason a merge has not closed the gate, so it is said alone.
+        let unopened = if gated && tasks.is_none() { crate::gate_holding::merge_unopened_text(store, id) } else { None };
+        let code = match (&later, &unshown, &flying, &owed, &tasks, &unopened) {
+            (None, None, None, None, None, None) => return Ok(()),
+            (_, _, Some(_), _, _, _) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None, _, _, _) => super::later::LATER_OPEN,
+            (None, Some(_), None, _, _, _) => super::ways_checking::PICTURE_OWED,
+            (None, None, None, Some(_), _, _) => crate::feature_library::OWED,
+            (None, None, None, None, Some(_), _) => crate::gate_holding::TASKS_OPEN,
+            (None, None, None, None, None, Some(_)) => crate::gate_holding::MERGE_UNOPENED,
         };
-        let reasons: Vec<String> = [later, unshown, flying, owed, tasks].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying, owed, tasks, unopened].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }

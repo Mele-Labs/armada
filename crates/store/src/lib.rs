@@ -119,6 +119,8 @@ mod margin_threads;
 mod page_moves;
 /// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
 mod for_you;
+/// The order a Job set on its open asks, and why each stands there.
+mod waiting_order;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -321,6 +323,7 @@ pub use page_votes::KeptVote;
 pub use artifact_seen::KeptArtifactSeen;
 pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, KeptMarginSuggestion, KeptMarginThread};
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
+pub use waiting_order::KeptWaitingPlace;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

@@ -50,6 +50,7 @@ The move reaches only a process that is still up, since the quiet spell has alre
 **The mod ships an output style, `Armada`** (`plugins/armada/output-styles/armada.md`), found from the folder with no entry in `plugin.json`, and picked with `/output-style` as `armada:Armada`.
 It keeps the coding instructions (`keep-coding-instructions: true`), states the job rules and sets plain, concise replies.
 A hosted job needs it no more than it needs the rules in its prompt; it is for a terminal job of a person who has no style of their own.
+It ships a second, `Operator` (`plugins/armada/output-styles/operator.md`), which Fleet pins in the [Operator](../operator.md)'s launch settings as `armada:Operator`, so no Job's rules reach it through a style.
 
 **The mod ships a fleet of subagents** (`plugins/armada/agents/`), named `armada:` and the type, so a job in any repository can hand a decided change to `armada:mechanic` on `sonnet` or a test run to `armada:test-runner` on `haiku`.
 The job rules say to prefer the repository's own types first.

@@ -1751,7 +1751,7 @@ Bridge's half is `gate_closed` and `gate_hold` in `classic-final:packages/protoc
 | --- | --- | --- |
 | Notice `gate_closed` (thread rows, `set_notice_mute`) | Fleet writes, Bridge reads | One line, `Gate closed on "<group title>": <fact>.`, once for each row written |
 | Notice `gate_hold` | Fleet writes, Bridge reads | A red run of a gate's Checks, `Checks failed at <sha>: <tests>.` with `Already red on main: <tests>.` where any were, or `all_done could not finish: <reason>.` |
-| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>` (for a merge, `"<group title>" has no open pull request to merge`), an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1), each with a description of what it does. Never kept, and not dismissed |
+| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>` an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1), each with a description of what it does. Never kept, and not dismissed |
 | `SessionPlan.held` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `group`, the first group in plan order whose gate is open, and `since`, when the agent first said it was done. Absent when no call is held or no gate is open |
 | `all_done` receipt | Fleet writes, the agent reads | `held`, one line saying which group's gate the call waits on. Absent when the call was taken |
 

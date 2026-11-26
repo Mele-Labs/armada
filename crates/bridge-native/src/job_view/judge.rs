@@ -10,8 +10,8 @@
 use std::collections::HashSet;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, Anchor, AnchoredPositionMode, Animation, AnimationExt, AnyElement, Context, Entity, FontWeight, KeyDownEvent,
-    MouseButton, MouseDownEvent, Role, SharedString, Subscription, Window,
+    anchored, canvas, deferred, div, point, prelude::*, Anchor, AnchoredPositionMode, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, FontWeight, KeyDownEvent,
+    MouseButton, MouseDownEvent, Role, SharedString, Subscription, Toggled, Window,
 };
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 use ipc::{
@@ -26,7 +26,7 @@ use super::{JobView, Page};
 use crate::generated::actions::ACTIONS;
 use crate::keymap::Act;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, ActiveLook, Look};
 
 fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
     ipc::encode(body).map_err(|why| format!("{why:?}"))
@@ -119,7 +119,25 @@ pub(super) struct Open {
     area: Entity<TextareaState>,
     /// The box's two buttons, which Tab goes round with the box.
     stops: [gpui::FocusHandle; 2],
+    /// The row of judge types, one stop for Tab where ← and → move the choice.
+    chips: FocusHandle,
+    /// The id of the judge type chosen. It opens on Adversarial.
+    chosen: String,
+    /// The box stands over the thread, not under a press: the list of what a Job holds chose what it judges.
+    sheet: bool,
     _enter: Subscription,
+}
+
+/// Where a row of judge types keeps its choice: the box over a press or sheet, or the Judge tab's composer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Chips {
+    Box,
+    Tab,
+}
+
+/// The type a choice means in a list read: the one chosen, else Adversarial, else the first.
+pub(super) fn chosen_in<'a>(list: &'a [ipc::JudgeType], chosen: &str) -> Option<&'a ipc::JudgeType> {
+    list.iter().find(|one| one.id == chosen).or_else(|| list.iter().find(|one| one.id == crate::judge_types::DEFAULT)).or_else(|| list.first())
 }
 
 /// Where the notes of a plan stand: only a reading that finished has any.
@@ -229,12 +247,16 @@ impl JobView {
         let earlier_waiting = earlier.iter().any(|one| open_earlier(one));
         let earlier_unread = earlier.iter().any(|one| !one.read && open_earlier(one));
         let state = with_earlier(press_of(reading, judging, waiting), earlier_waiting.then_some(earlier_unread));
-        let said = match state {
-            Press::Reading => "Judge reading".to_string(),
-            Press::Unread => "Notes to read".to_string(),
-            Press::Clean => "Nothing missed".to_string(),
-            Press::Failed => reading.and_then(|one| one.failed.clone()).unwrap_or_else(|| "Send a judge to read it".to_string()),
-            Press::Idle => "Send a judge to read it".to_string(),
+        let judged_as = reading.map(crate::judge_types::name_of);
+        let said = match (state, &judged_as) {
+            (Press::Reading, _) => "Judge reading".to_string(),
+            (Press::Unread, Some(name)) => format!("Judged as {name}: notes waiting"),
+            (Press::Unread, None) => "Notes waiting".to_string(),
+            (Press::Clean, Some(name)) => format!("Judged as {name}: nothing missed"),
+            (Press::Clean, None) => "Nothing missed".to_string(),
+            (Press::Failed, _) => reading.and_then(|one| one.failed.clone()).unwrap_or_else(|| "Send a judge to read it".to_string()),
+            (Press::Idle, Some(name)) => format!("Judged as {name}"),
+            (Press::Idle, None) => "Send a judge to read it".to_string(),
         };
         let spot = page.keys.spot(&format!("judge-press:{key}"), cx);
         let edges = spot.bounds.clone();
@@ -298,13 +320,46 @@ impl JobView {
         div().relative().flex_none().child(press).children(pop).into_any_element()
     }
 
-    /// The box under the press: what to verify, and Judge.
-    #[allow(clippy::too_many_arguments)]
+    /// The box under the press: what is judged, the judge types, what to look at in particular, and Judge.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn judge_pop(&self, ix: usize, key: &str, plan: bool, side: gpui::Pixels, noted: bool, anchor: &std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let panel = self.judge_panel(ix, key, plan, noted, Some(anchor.clone()), look, cx);
+        deferred(
+            anchored()
+                .anchor(Anchor::TopRight)
+                .position_mode(AnchoredPositionMode::Local)
+                .position(point(side, side + look.length(token::SPACE_1)))
+                .snap_to_window_with_margin(look.length(token::SPACE_2))
+                .child(panel),
+        )
+        .with_priority(1)
+        .into_any_element()
+    }
+
+    /// The box over the thread a list of what a Job holds opened: the same panel, drawn at the top of the thread's middle.
+    pub(super) fn render_judge_sheet(&self, job: &SharedString, _window: &mut Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let open = self.judge.as_ref().filter(|open| open.sheet && open.job == *job)?;
+        let page = self.pages.get(job)?;
+        let look = cx.look();
+        let view = page.list.viewport_bounds();
+        let wide = look.length(token::SIDEBAR_DEFAULT) * 1.6;
+        let at = point(view.origin.x + (view.size.width - wide) / 2., view.origin.y + gpui::px(96.));
+        let panel = self.judge_panel(super::acts::SHEET, &open.key, false, false, None, &look, cx);
+        Some(deferred(anchored().anchor(Anchor::TopLeft).position(at).snap_to_window_with_margin(look.length(token::SPACE_2)).child(panel)).with_priority(1).into_any_element())
+    }
+
+    /// The panel itself. `anchor` is the press it hangs from, whose own press is not an outside one.
+    #[allow(clippy::too_many_arguments)]
+    fn judge_panel(&self, ix: usize, key: &str, plan: bool, noted: bool, anchor: Option<std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(open) = self.judge.as_ref() else { return div().into_any_element() };
         let (close_key, notes_key, out_key) = (key.to_string(), key.to_string(), key.to_string());
-        let anchor = anchor.clone();
+        let chips = self.judge_chips(key, Chips::Box, look, cx);
+        let shown = chips.is_some();
+        let title = match open.artifact.kind {
+            JudgeKind::Excerpt => "Judge the selected words".to_string(),
+            JudgeKind::Job => "Judge the Job".to_string(),
+            _ => format!("Judge {}", open.artifact.title),
+        };
         let field = labelled(
             div()
                 .id(SharedString::from(format!("judge-box:{key}")))
@@ -318,11 +373,11 @@ impl JobView {
                 .bg(look.color(token::BG_SUNKEN))
                 .text_size(look.length(token::TEXT_SM))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(Textarea::new(&open.area).appearance(false).aria_label("Verify that")),
+                .child(Textarea::new(&open.area).appearance(false).aria_label("Anything in particular?")),
             Role::TextInput,
-            "Verify that",
+            "Anything in particular?",
         );
-        let panel = labelled(
+        labelled(
             div()
                 .id(SharedString::from(format!("judge-pop:{key}")))
                 .occlude()
@@ -351,9 +406,10 @@ impl JobView {
                     if event.keystroke.key == "escape" {
                         this.close_judge(ix, &close_key, true, window, cx);
                     } else if event.keystroke.key == "tab" {
-                        // Tab goes round the box: its field, Read the notes where it is drawn, then Judge.
+                        // Tab goes round the box: its field, the judge types, Read the notes where it is drawn, then Judge.
                         if let Some(open) = this.judge.as_ref() {
                             let mut order = vec![gpui::Focusable::focus_handle(open.area.read(cx), cx)];
+                            order.extend(shown.then(|| open.chips.clone()));
                             order.extend(noted.then(|| open.stops[0].clone()));
                             order.push(open.stops[1].clone());
                             super::pop::trap_tab(&order, event.keystroke.modifiers.shift, window, cx);
@@ -362,13 +418,14 @@ impl JobView {
                 }))
                 .on_mouse_down_out(cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     // A press on the act itself is its own toggle, not an outside press.
-                    if !anchor.get().contains(&event.position) {
+                    if !anchor.as_ref().is_some_and(|anchor| anchor.get().contains(&event.position)) {
                         this.close_judge(ix, &out_key, false, window, cx);
                     }
                 }))
-                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Verify that"))
+                .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title)))
+                .children(chips)
+                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Anything in particular?"))
                 .child(field)
-                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Empty: what did we miss?"))
                 .child(
                     div()
                         .flex()
@@ -399,17 +456,174 @@ impl JobView {
                 ),
             Role::Dialog,
             "Judge",
-        );
-        deferred(
-            anchored()
-                .anchor(Anchor::TopRight)
-                .position_mode(AnchoredPositionMode::Local)
-                .position(point(side, side + look.length(token::SPACE_1)))
-                .snap_to_window_with_margin(look.length(token::SPACE_2))
-                .child(panel),
         )
-        .with_priority(1)
         .into_any_element()
+    }
+
+    // ---- The judge types -------------------------------------------------------------------
+
+    /// The repository a Job's types are read for, and the project that sees them.
+    fn judge_place(&self, job: &str, cx: &gpui::App) -> Option<(String, Option<String>)> {
+        let record = self.record(job, cx)?;
+        let repository = record.manifest_id.as_ref()?.as_str().to_string();
+        Some((repository, record.hosted.as_ref().and_then(|hosted| hosted.project.clone()).filter(|project| !project.trim().is_empty())))
+    }
+
+    /// The types read for the Job shown: none yet, or what Fleet said.
+    pub(super) fn judge_list(&self, cx: &gpui::App) -> Option<&Result<crate::judge_types::Listed, String>> {
+        let (repository, project) = self.judge_place(self.shown.as_ref()?, cx)?;
+        self.judge_types.read.get(&crate::judge_types::key(&repository, project.as_deref()))
+    }
+
+    /// Read the types the Job's repository and project see, for the boxes that ask. Any list read before stays drawn
+    /// until the new one comes.
+    pub(super) fn read_judge_types(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some((repository, project)) = self.judge_place(&job, cx) else { return };
+        let key = crate::judge_types::key(&repository, project.as_deref());
+        let Some(fleet) = self.fleet.clone() else {
+            self.judge_types.read.insert(key, Ok(crate::mock::judge_types(project.as_deref())));
+            return;
+        };
+        let Some(port) = fleet.read(cx).held().port() else {
+            self.judge_types.read.insert(key, Err("Fleet is not connected".to_string()));
+            return;
+        };
+        let read = crate::judge_types::list(port, &repository, project.as_deref(), cx);
+        let held = key.clone();
+        self.judge_types.reading.insert(
+            key,
+            cx.spawn_in(window, async move |this, cx| {
+                let got = read.await.map_err(|why| why.said);
+                this.update(cx, |this, cx| {
+                    this.judge_types.read.insert(held, got);
+                    cx.notify();
+                })
+                .ok();
+            }),
+        );
+    }
+
+    /// The id chosen where `which` keeps it.
+    fn chosen_where(&self, which: Chips) -> Option<(String, FocusHandle)> {
+        match which {
+            Chips::Box => self.judge.as_ref().map(|open| (open.chosen.clone(), open.chips.clone())),
+            Chips::Tab => self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.judge.as_ref()).map(|pane| (pane.chosen.clone(), pane.chips.clone())),
+        }
+    }
+
+    /// The type the box or the tab asks as: its id, where a list was read.
+    pub(super) fn judge_asked_as(&self, which: Chips, cx: &gpui::App) -> Option<String> {
+        let (chosen, _) = self.chosen_where(which)?;
+        let Ok(list) = self.judge_list(cx)? else { return None };
+        chosen_in(list, &chosen).map(|one| one.id.clone())
+    }
+
+    /// Choose a type for the box or the tab.
+    pub(super) fn choose_judge_type(&mut self, which: Chips, id: String, cx: &mut Context<Self>) {
+        match which {
+            Chips::Box => {
+                if let Some(open) = self.judge.as_mut() {
+                    open.chosen = id;
+                }
+            }
+            Chips::Tab => {
+                if let Some(pane) = self.shown.as_ref().and_then(|job| self.pages.get_mut(job)).and_then(|page| page.judge.as_mut()) {
+                    pane.chosen = id;
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    /// ← and → move the choice one type along the row; the ends hold.
+    fn step_judge_type(&mut self, which: Chips, delta: isize, cx: &mut Context<Self>) {
+        let Some((chosen, _)) = self.chosen_where(which) else { return };
+        let Some(Ok(list)) = self.judge_list(cx) else { return };
+        let at = chosen_in(list, &chosen).and_then(|one| list.iter().position(|other| other.id == one.id)).unwrap_or(0);
+        let to = at.saturating_add_signed(delta).min(list.len().saturating_sub(1));
+        if to != at {
+            let id = list[to].id.clone();
+            crate::ui_sounds::moved();
+            self.choose_judge_type(which, id, cx);
+        }
+    }
+
+    /// The row of judge types: a chip for each, the chosen one in the Judge's hue. Bones while the list is read, Fleet's
+    /// reason where it could not be, and nothing where the Job has no repository to read types in.
+    pub(super) fn judge_chips(&self, key: &str, which: Chips, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let (chosen, focus) = self.chosen_where(which)?;
+        let job = self.shown.as_ref()?;
+        self.judge_place(job, cx)?;
+        let hue = look.color(token::STATUS_AWAITING_REVIEW);
+        let tall = look.length(token::H_CONTROL_SM);
+        let list = match self.judge_list(cx) {
+            None => {
+                let bones = [0.8, 1.1, 0.7].into_iter().enumerate().map(|(at, wide)| {
+                    div().flex_none().h(tall).w(look.length(token::SPACE_12) * wide).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::FG_DEFAULT).opacity(0.07)).with_animation(
+                        SharedString::from(format!("judge-types-{key}-{at}")),
+                        Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.5, 1.)),
+                        |shape, at| shape.opacity(at),
+                    )
+                });
+                return Some(labelled(div().id(SharedString::from(format!("judge-types:{key}"))).flex().gap(look.length(token::SPACE_2)).children(bones), Role::Status, "Judge types").into_any_element());
+            }
+            Some(Err(why)) => return Some(super::acts::refusal(look, key, why.clone().into())),
+            Some(Ok(list)) => list,
+        };
+        let on = chosen_in(list, &chosen).map(|one| one.id.clone())?;
+        let chip = |one: &ipc::JudgeType| {
+            let (id, selected) = (one.id.clone(), one.id == on);
+            let tip_text = crate::judge_types::first_sentence(&one.prompt);
+            let chip = div()
+                .id(SharedString::from(format!("judge-type:{key}:{}", one.id)))
+                .flex_none()
+                .flex()
+                .items_center()
+                .h(tall)
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if selected { hue } else { look.color(token::BORDER_DEFAULT) })
+                .when(selected, |chip| chip.bg(hue.opacity(0.14)).text_color(hue).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                .when(!selected, |chip| chip.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_HOVER))))
+                .cursor_pointer()
+                .text_size(look.length(token::TEXT_SM))
+                .aria_toggled(if selected { Toggled::True } else { Toggled::False })
+                .when(!tip_text.is_empty(), |chip| chip.tooltip(tip(tip_text.clone())))
+                .child(SharedString::from(one.name.clone()))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.choose_judge_type(which, id.clone(), cx);
+                    if let Some((_, focus)) = this.chosen_where(which) {
+                        window.focus(&focus, cx);
+                    }
+                }));
+            labelled(chip, Role::RadioButton, one.name.clone()).into_any_element()
+        };
+        let row = div()
+            .id(SharedString::from(format!("judge-types:{key}")))
+            .track_focus(&focus)
+            .flex()
+            .flex_wrap()
+            .gap(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(gpui::transparent_black())
+            .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                let delta = match event.keystroke.key.as_str() {
+                    "left" => -1,
+                    "right" => 1,
+                    _ => return,
+                };
+                if !event.keystroke.modifiers.modified() {
+                    cx.stop_propagation();
+                    this.step_judge_type(which, delta, cx);
+                }
+            }))
+            .children(list.iter().map(chip));
+        Some(labelled(row, Role::RadioGroup, "Judge type").into_any_element())
     }
 
     /// Whether the Judge's box is open under the press `key` of the Job shown.
@@ -437,13 +651,22 @@ impl JobView {
         }
     }
 
+    /// Open the box over the thread for what a list of the Job's parts chose, which has no press to hang from.
+    pub(super) fn open_judge_sheet(&mut self, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
+        let key = format!("choice:{:?}:{}", artifact.kind, artifact.id);
+        self.open_judge(super::acts::SHEET, &key, artifact, window, cx);
+        if let Some(open) = self.judge.as_mut() {
+            open.sheet = true;
+        }
+    }
+
     /// Open the Judge's box, with what was typed in it before, and put the caret there.
     pub(super) fn open_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.judge_job() else { return };
         let box_key = format!("judge:{key}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
         let area = held.unwrap_or_else(|| {
-            cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8).submit_on_enter(true).placeholder("existing sign-ins survive the switch"))
+            cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8).submit_on_enter(true))
         });
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.insert(box_key, area.clone());
@@ -454,13 +677,25 @@ impl JobView {
                 this.run_judge(window, cx);
             }
         });
-        self.judge = Some(Open { job, key: key.to_string(), artifact, area: area.clone(), stops: [cx.focus_handle(), cx.focus_handle()], _enter: enter });
+        self.judge = Some(Open {
+            job,
+            key: key.to_string(),
+            artifact,
+            area: area.clone(),
+            stops: [cx.focus_handle(), cx.focus_handle()],
+            chips: cx.focus_handle().tab_stop(true),
+            chosen: crate::judge_types::DEFAULT.to_string(),
+            sheet: false,
+            _enter: enter,
+        });
+        self.read_judge_types(window, cx);
         area.update(cx, |area, cx| area.focus(window, cx));
         self.card_changed(ix, cx);
     }
 
     /// Shut the box. What was typed stays for the next opening; a press that ran the Judge clears it.
     pub(super) fn close_judge(&mut self, ix: usize, key: &str, refocus: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let sheet = self.judge.as_ref().is_some_and(|open| open.key == key && open.sheet);
         if self.judge.as_ref().is_some_and(|open| open.key == key) {
             self.judge = None;
         }
@@ -468,6 +703,8 @@ impl JobView {
             let spot = self.judge_job().and_then(|job| self.pages.get(&job)).and_then(|page| page.keys.spot_of(&format!("judge-press:{key}")));
             if let Some(spot) = spot {
                 window.focus(&spot.focus, cx);
+            } else if sheet {
+                window.focus(&self.focus, cx);
             }
         }
         self.card_changed(ix, cx);
@@ -476,7 +713,8 @@ impl JobView {
     /// Ask the Judge. The press reads as reading in this frame; Fleet's reading replaces it.
     fn run_judge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.judge.take() else { return };
-        let Open { job, key, artifact, area, .. } = open;
+        let judge = self.judge_asked_as_of(&open, cx);
+        let Open { job, key, artifact, area, sheet, .. } = open;
         let words = artifact.kind == JudgeKind::Excerpt;
         let prompt = area.read(cx).value().trim().to_string();
         let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
@@ -488,8 +726,10 @@ impl JobView {
             page.cards.answers.insert(mark.clone(), Answer::Judging(held));
             page.cards.said.remove(&key);
             // The selection's bar goes with the press: there is nothing left to give focus back to.
-            if let Some(spot) = page.keys.spot_of(&format!("judge-press:{key}")).filter(|_| !words) {
-                window.focus(&spot.focus, cx);
+            match page.keys.spot_of(&format!("judge-press:{key}")).filter(|_| !words) {
+                Some(spot) => window.focus(&spot.focus, cx),
+                None if sheet => window.focus(&self.focus, cx),
+                None => {}
             }
         }
         if words {
@@ -498,7 +738,7 @@ impl JobView {
         if let Some(ix) = ix {
             self.card_changed(ix, cx);
         }
-        let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt });
+        let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt, judge });
         let back = job.clone();
         self.post_with(
             job,
@@ -516,39 +756,21 @@ impl JobView {
         );
     }
 
-    /// Ask the Judge to read what the command palette's list chose, with no box: it asks what was missed.
-    pub(super) fn ask_chosen(&mut self, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(job) = self.shown.clone() else { return };
-        let key = format!("choice:{:?}:{}", artifact.kind, artifact.id);
-        let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
-        let mark = format!("judge:{key}");
-        if let Some(page) = self.pages.get_mut(&job) {
-            page.cards.answers.insert(mark.clone(), Answer::Judging(held));
-            page.cards.said.remove(&key);
-        }
-        cx.notify();
-        let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt: String::new() });
-        let back = job.clone();
-        self.post_with(
-            job,
-            "/sessions/judge",
-            body,
-            move |this, why, cx| {
-                if let Some(page) = this.pages.get_mut(&back) {
-                    page.cards.answers.remove(&mark);
-                    page.cards.said.insert(key, why);
-                }
-                cx.notify();
-            },
-            window,
-            cx,
-        );
+    /// The judge type an open box asks as, where a list was read for its Job.
+    fn judge_asked_as_of(&self, open: &Open, cx: &gpui::App) -> Option<String> {
+        let (repository, project) = self.judge_place(&open.job, cx)?;
+        let Ok(list) = self.judge_types.read.get(&crate::judge_types::key(&repository, project.as_deref()))? else { return None };
+        chosen_in(list, &open.chosen).map(|one| one.id.clone())
     }
 
     /// The list place of the plan that waits: after the thread's items, where the head's plan stands.
     fn plan_ix(&self, job: &SharedString, cx: &gpui::App) -> Option<usize> {
         let page = self.pages.get(job)?;
         let held = self.thread(job, cx)?;
+        // A plan that still asks is the first card or a line, and neither holds its notes.
+        if self.open_ask_of(job, "plan:", cx).is_some() {
+            return None;
+        }
         let at = page.extras.iter().position(|extra| matches!(extra, super::Extra::Plan(_)))?;
         Some(held.items.len() + at)
     }
@@ -558,9 +780,17 @@ impl JobView {
     pub(super) fn show_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.judge_job() else { return };
         if !self.review_open() {
-            let Some(ix) = self.plan_ix(&job, cx) else { return };
-            if let Some(page) = self.pages.get(&job) {
-                page.list.scroll_to_reveal_item(page.entry(ix));
+            match self.plan_ix(&job, cx) {
+                Some(ix) => {
+                    if let Some(page) = self.pages.get(&job) {
+                        page.list.scroll_to_reveal_item(page.entry(ix));
+                    }
+                }
+                // While it asks, the plan has no card of its own in the thread: it is read whole in the sheet.
+                None => {
+                    let Some(version) = self.record(&job, cx).and_then(|record| record.plan.as_ref()).map(|plan| plan.version) else { return };
+                    self.open_review_on(&format!("plan:{version}"), window, cx);
+                }
             }
         }
         cx.notify();

@@ -237,16 +237,16 @@ mod tests {
     fn the_tools_are_listed_in_their_order_under_one_heading() {
         let rows = rows();
         let names: Vec<&str> = rows.iter().map(|row| row.name.as_str()).collect();
-        assert_eq!(names, ["Sketch", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features", "API Client"]);
-        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None, None]);
-        assert_eq!(rows[2].says, "options side by side; you pick one");
-        assert_eq!(rows[2].pick, Pick::Tag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
+        assert_eq!(names, ["Sketch", "Prototype", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features", "API Client"]);
+        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None, None, None]);
+        assert_eq!(rows[3].says, "options side by side; you pick one");
+        assert_eq!(rows[3].pick, Pick::Tag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
     }
 
     #[test]
     fn each_tool_has_a_hue_and_a_glyph_no_other_tool_has() {
         let glyphs: Vec<&str> = ask_tools().iter().map(|tool| tool.glyph).collect();
-        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks", "arrow-right-left"]);
+        assert_eq!(glyphs, ["layout-template", "app-window", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks", "arrow-right-left"]);
         let hues: std::collections::BTreeSet<&str> = ask_tools().iter().map(|tool| tool.hue).collect();
         assert_eq!(hues.len(), ask_tools().len(), "no two tools share a hue");
         assert!(hues.iter().all(|hue| hue.starts_with("--ask-")), "every hue is an ask tool's own, none a status's");
@@ -331,7 +331,7 @@ mod tests {
             mark(&view, at, cx);
             assert!(!key(&view, "right", cx), "row {at} is not API Client's");
             let (label, within, query, names) = level(&view, cx);
-            assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8), "→ left the tools list where it was");
+            assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", rows().len()), "→ left the tools list where it was");
         }
         mark(&view, api_client_at(), cx);
         assert!(key(&view, "right", cx));
@@ -349,7 +349,7 @@ mod tests {
         view.update(cx, |view, _| view.composer.offer.as_mut().expect("a list").current = 2);
         assert!(key(&view, "left", cx));
         let (label, within, query, names) = level(&view, cx);
-        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8));
+        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", rows().len()));
         assert_eq!(view.read_with(cx, |view, _| view.composer.offer.as_ref().map(|offer| offer.current)), Some(api_client_at()), "the row he came in by is marked");
     }
 

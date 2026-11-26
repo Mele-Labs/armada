@@ -1,5 +1,5 @@
 /* Ask tools — which of Armada's own tools a message asks the agent for, in
-   eight hues. docs/contracts/design-system.md, Ask tools.
+   nine hues. docs/contracts/design-system.md, Ask tools.
 
    Their own file under the owner's ruling of 9 Nov 2026: colour says what a
    thing is, and a surface's kinds declare a file of their own rather than
@@ -8,7 +8,7 @@
    row on the thread: a tint with a hairline of its hue all the way round, and
    its glyph in the hue. Never a solid band, which is a status's.
 
-   Eight distinct hues, soft as the kinds are, each told apart from the status
+   Nine distinct hues, soft as the kinds are, each told apart from the status
    it sits nearest by being lighter and less saturated. Measured 19 Nov 2026:
    as a glyph on --bg-overlay, --bg-hover and --bg-sunken, the lowest is 6.08:1
    (Sketch on --bg-overlay); as a glyph on its own 16% tint, 4.54:1; and
@@ -16,6 +16,8 @@
 :root {
   /* A screen drawn as a mock (show_sketch). Violet, between --operator and --status-rejected. */
   --ask-sketch: #AD9BF5;
+  /* A screen he clicks through (show_prototype). Lime, between --ask-takes's sand and --ask-terminal's leaf. */
+  --ask-prototype: #C9CC70;
   /* Boxes and arrows: a flow or a map. Blue, below --status-running's cyan. */
   --ask-diagram: #86A8F0;
   /* Options side by side, one picked. Sand, softer than --status-awaiting-review. */

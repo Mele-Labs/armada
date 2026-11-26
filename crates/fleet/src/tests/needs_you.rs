@@ -21,6 +21,8 @@ const JOB: &str = "job-1";
 
 fn item(id: &str, source: Source, act: Option<(WaitingActKind, &str)>, choices: &[&str], steps: &[&str]) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         id: id.into(),
         text: format!("text of {id}"),
         since: Instant::carried("2026-11-10T10:00:00Z"),

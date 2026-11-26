@@ -25,8 +25,9 @@ The kept revision, `r<n>.html`, changed in these places only:
 
 | What | Becomes |
 | --- | --- |
-| The `<head>` | Its first child is `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-<n>'; connect-src 'none'; form-action 'none'; base-uri 'none'">`, then a `<style>` of every design token at its shipped value and the kit's own look. A page with no `<head>` gets one |
+| The `<head>` | Its first child is `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-<n>'; connect-src 'none'; form-action 'none'; base-uri 'none'">`, then a `<style>` of every design token at its shipped value and the kit's own look. A page with no `<head>` gets one |
 | `<link rel="stylesheet" href="armada-kit.css">` | A `<style>` holding the kit's rules, where the link was, so the page's own style after it still wins |
+| The first `<link rel="stylesheet">` whose `href` is a repository path, and Fleet kept a style set for the page | A `<style>` holding the kept sheets' rules, after the kit's, each kept font an `@font-face` with its bytes in a `data:` address. Only the newest revision, since the row's `kept_styles` is the newest's |
 | Any other `<link>`, any `<base>`, any `<meta http-equiv>` | Dropped |
 | A relative `src`, `href`, `srcset`, `poster`, `action`, `formaction`, `data`, `xlink:href`, `background` or `ping` | Taken off its tag. Relative is no scheme and not a `#` fragment. An `http`, `https`, `mailto` or `data:` address stays, and the policy refuses any fetch of it but a `data:` image |
 | A `nonce` the page wrote | Taken off its tag |
@@ -34,6 +35,10 @@ The kept revision, `r<n>.html`, changed in these places only:
 | The end of the `<body>` | Two scripts with the nonce: the record, then the kit's script. With `host_kit`, the record alone, with no nonce |
 
 `<n>` is 16 random bytes in base64, fresh for each answer.
+**The repository's stylesheets** are checked and kept when the page is kept, as a `mock`'s `styles` are: each `href` that is not `armada-kit.css`, has no scheme and does not start `//` is a path from the repository's root.
+Their hash is `detail.kept_styles["page"]`, a key no sketch's `<title>#<node id>` can be.
+A sheet Fleet cannot keep leaves the page kept and no set, and the Job is told in the `document_sketch` notice: `the page's stylesheets will not draw: …`.
+The policy's `font-src data:` is what lets those fonts load, and every fetch stays refused.
 The tokens are the base theme's, the dark one Bridge ships, and a mod's theme is not applied.
 Without `host_kit` a page's own scripts never run, and a sketch's `<script type="application/json">` scene is data and is kept as written.
 

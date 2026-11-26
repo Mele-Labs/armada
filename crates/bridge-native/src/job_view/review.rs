@@ -155,6 +155,17 @@ fn standing_for(groups: &[Group], job: &str, artifact: &str) -> Option<String> {
     groups.iter().filter(|group| group.job == job).flat_map(|group| group.items.iter()).find(|item| super::reader_sheet::artifact_in(item) == Some(artifact)).map(Item::key)
 }
 
+/// The hue a Job's head and chip on the sheet take: its state's, or muted where Fleet gave none.
+fn group_hue(group: &Group) -> Token {
+    group.state.map_or(token::FG_MUTED, crate::jobs::hue_of)
+}
+
+/// A Job's state glyph in `ink`, its words in its tooltip and its label.
+fn job_state_glyph(id: &str, state: JobState, ink: gpui::Hsla, look: &Look) -> AnyElement {
+    let (icon, said) = crate::jobs::glyph_of(state, None);
+    labelled(div().id(SharedString::from(id.to_string())).flex_none().tooltip(tip(said.clone())).child(glyph(look, icon, Size::Small, ink)), Role::Image, said).into_any_element()
+}
+
 /// The items of one Job, under its name and state.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Group {
@@ -328,7 +339,7 @@ fn settles(answer: &super::acts::Answer) -> bool {
     matches!(answer, Answer::Approved | Answer::Fixed(_) | Answer::SentBack(_) | Answer::Withdrawn | Answer::Dismissed | Answer::Going | Answer::SetAside)
 }
 
-fn instant(at: &str) -> i64 {
+pub(super) fn instant(at: &str) -> i64 {
     chrono::DateTime::parse_from_rfc3339(at).map_or(0, |then| then.timestamp_millis())
 }
 
@@ -469,6 +480,14 @@ pub(super) fn grouped(first: &str, mut groups: Vec<Group>) -> Vec<Group> {
     groups.retain(|group| !group.items.is_empty());
     groups.sort_by_key(|group| (group.job != first, group.items.iter().map(|item| instant(&item.since)).min().unwrap_or(i64::MAX)));
     groups
+}
+
+/// `items` in Fleet's order, by `places` (each item's place and why, in the order of `items`): placed ones by their place,
+/// then any no row stands for, oldest first.
+pub(super) fn in_fleet_order(items: &mut Vec<Item>, places: &[(u32, String)]) {
+    let mut keyed: Vec<((bool, u32, i64), Item)> = items.drain(..).zip(places.iter().map(|(place, _)| *place).chain(std::iter::repeat(0))).map(|(item, place)| ((place == 0, place, instant(&item.since)), item)).collect();
+    keyed.sort_by_key(|(key, _)| *key);
+    items.extend(keyed.into_iter().map(|(_, item)| item));
 }
 
 /// The keys of every item, in the order the list stands them.
@@ -635,41 +654,75 @@ impl JobView {
             })
             .map(|record| {
                 let job = record.id.as_str();
-                let mut items = self.review_items(job, cx);
                 if operator == Some(job) {
+                    let mut items = self.review_items(job, cx);
                     items.retain(|item| page_of_item(&item.id).is_some());
+                    let places = self.fleet_places(job, &items, &record.waiting_for);
+                    in_fleet_order(&mut items, &places);
                     return Group { job: job.to_string(), title: "Operator".into(), state: None, items };
                 }
-                // Each Job's artifacts of parts that still ask stand with what else waits on him, and the shown Job's one he
-                // opened: a vote of another Job is picked from the every-Job sheet as from its own.
-                items.extend(self.artifact_items(job, opened.filter(|_| job == first)));
-                if job == first {
-                    // A document he opened is read in the panel, with the item that waits on him for it, else one of its own.
-                    if let Some(page) = opened.filter(|page| !items.iter().any(|item| page_of_item(&item.id) == Some(*page))) {
-                        items.extend(self.document_item(job, page, cx));
-                    }
-                }
-                // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
-                let mut seen = std::collections::HashSet::new();
-                items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
-                // A sketch, page or draft card and the artifact of parts it is are one entry too, and the artifact stands:
-                // the card holds only its drawing, the artifact every part, a pick among them.
-                let twins: Vec<String> = items
-                    .iter()
-                    .filter_map(|item| {
-                        let artifact = super::reader_sheet::artifact_in(item)?;
-                        let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.as_deref());
-                        let card = items.iter().find(|other| other.kind != Kind::Artifact && (other.id == artifact || Some(other.id.as_str()) == answered_by))?;
-                        Some(card.id.clone())
-                    })
-                    .collect();
-                items.retain(|item| !twins.contains(&item.id));
-                self.ask_titles(job, &mut items, &record.waiting_for);
-                items.sort_by_key(|item| instant(&item.since));
+                let items = self.job_asks(job, opened.filter(|_| job == first), cx);
                 Group { job: job.to_string(), title: record.title.clone().unwrap_or_else(|| "New Job".into()), state: record.mark.map(|mark| mark.state), items }
             })
             .collect();
         grouped(first, groups)
+    }
+
+    /// Job `job`'s open asks in the order Fleet gave them, each titled by its question: what the sheet lists under the Job, and
+    /// what the thread's first card steps through. `opened` is the artifact or page he opened, read with them.
+    pub(super) fn job_asks(&self, job: &str, opened: Option<&str>, cx: &gpui::App) -> Vec<Item> {
+        let Some(record) = self.record(job, cx) else { return Vec::new() };
+        let mut items = self.review_items(job, cx);
+        // Each Job's artifacts of parts that still ask stand with what else waits on him, and the shown Job's one he
+        // opened: a vote of another Job is picked from the every-Job sheet as from its own.
+        items.extend(self.artifact_items(job, opened));
+        // A document he opened is read in the panel, with the item that waits on him for it, else one of its own.
+        if let Some(page) = opened.filter(|page| !items.iter().any(|item| page_of_item(&item.id) == Some(*page))) {
+            items.extend(self.document_item(job, page, cx));
+        }
+        // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
+        let mut seen = std::collections::HashSet::new();
+        items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
+        // A sketch, page or draft card and the artifact of parts it is are one entry too, and the artifact stands:
+        // the card holds only its drawing, the artifact every part, a pick among them.
+        let twins: Vec<String> = items
+            .iter()
+            .filter_map(|item| {
+                let artifact = super::reader_sheet::artifact_in(item)?;
+                let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.as_deref());
+                let card = items.iter().find(|other| other.kind != Kind::Artifact && (other.id == artifact || Some(other.id.as_str()) == answered_by))?;
+                Some(card.id.clone())
+            })
+            .collect();
+        items.retain(|item| !twins.contains(&item.id));
+        self.ask_titles(job, &mut items, &record.waiting_for);
+        let places = self.fleet_places(job, &items, &record.waiting_for);
+        in_fleet_order(&mut items, &places);
+        items
+    }
+
+    /// The waiting row that stands for `item` on Fleet's list: its own, the row naming its artifact, or the Job's one Ready to
+    /// try row for a build.
+    fn standing_row<'a>(&self, job: &str, item: &Item, waiting: &'a [WaitingItem]) -> Option<&'a WaitingItem> {
+        match item.kind {
+            Kind::Build => waiting.iter().find(|one| one.source == WaitingSource::ReadyToTry),
+            Kind::Artifact => {
+                let artifact = item.artifact.as_deref().unwrap_or_default();
+                let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.clone());
+                waiting.iter().find(|one| one.artifact.as_deref() == Some(artifact) || Some(&one.id) == answered_by.as_ref() || one.id == item.id)
+            }
+            _ => waiting.iter().find(|one| super::ask_line::same_item(&one.id, &item.id)),
+        }
+    }
+
+    /// Each item's place on Fleet's list and why it stands there, in the order of `items`: 0 and no why where no row stands for it.
+    fn fleet_places(&self, job: &str, items: &[Item], waiting: &[WaitingItem]) -> Vec<(u32, String)> {
+        items.iter().map(|item| self.standing_row(job, item, waiting).map_or((0, String::new()), |row| (row.order, row.why.clone()))).collect()
+    }
+
+    /// Where `item` stands among Job `job`'s open asks, and why, as Fleet put it.
+    pub(super) fn fleet_place(&self, job: &str, item: &Item, cx: &gpui::App) -> (u32, String) {
+        self.record(job, cx).and_then(|record| self.standing_row(job, item, &record.waiting_for)).map_or((0, String::new()), |row| (row.order, row.why.clone()))
     }
 
     /// Each ask titled by its question, as the Job put it on his list: the waiting row's words, where one stands for the item.
@@ -679,13 +732,8 @@ impl JobView {
         let builds = items.iter().filter(|item| item.kind == Kind::Build).count();
         for item in items.iter_mut() {
             let row = match item.kind {
-                Kind::Build if builds == 1 => waiting.iter().find(|one| one.source == WaitingSource::ReadyToTry),
-                Kind::Build => None,
-                Kind::Artifact => {
-                    let artifact = item.artifact.as_deref().unwrap_or_default();
-                    let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.clone());
-                    waiting.iter().find(|one| one.artifact.as_deref() == Some(artifact) || Some(&one.id) == answered_by.as_ref() || one.id == item.id)
-                }
+                Kind::Build if builds != 1 => None,
+                Kind::Build | Kind::Artifact => self.standing_row(job, item, waiting),
                 _ => waiting.iter().find(|one| one.id == item.id),
             };
             let Some(row) = row else { continue };
@@ -1166,7 +1214,7 @@ impl JobView {
     }
 
     /// `C` and the bar's second button: the box opens in the bar, holding what was typed in it before.
-    fn review_open_changes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn review_open_changes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(item) = self.review_open_ask(cx) else { return };
         if !self.review_offers_second(&item, self.ask_of(&item), cx) {
             return;
@@ -1383,7 +1431,7 @@ impl JobView {
     }
 
     /// The rows take the verdict in the frame of the press, the next ask comes up, and Fleet's outcomes put right any it refused.
-    fn review_send(&mut self, items: Vec<Item>, verdict: Verdict, route: &'static str, body: Result<String, ipc::Unencodable>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn review_send(&mut self, items: Vec<Item>, verdict: Verdict, route: &'static str, body: Result<String, ipc::Unencodable>, window: &mut Window, cx: &mut Context<Self>) {
         let keys: Vec<String> = items.iter().map(Item::key).collect();
         let from = self.review().and_then(|review| review.at.clone());
         if let Some(review) = self.review_mut() {
@@ -1753,10 +1801,8 @@ impl JobView {
             if items.is_empty() {
                 continue;
             }
-            // From a Job the list is that Job's alone, and needs no head.
-            if review.scope == Scope::All {
-                rows.push(self.review_group_head(group, rows.is_empty(), look));
-            }
+            let chosen = current.as_ref().is_some_and(|item| item.job == group.job);
+            rows.push(self.review_group_head(group, chosen, items.len(), look));
             rows.extend(items.into_iter().map(|item| self.review_row(item, review, now, look, cx)));
         }
         let list = labelled(
@@ -1825,37 +1871,61 @@ impl JobView {
         )
     }
 
-    /// A Job's head in the list, where the list is every Job's: its state's glyph and its name.
-    fn review_group_head(&self, group: &Group, first: bool, look: &Look) -> AnyElement {
-        let state = group.state.map(|state| {
-            let (icon, said) = crate::jobs::glyph_of(state, None);
-            labelled(
-                div()
-                    .id(SharedString::from(format!("review-job-state:{}", group.job)))
-                    .flex_none()
-                    .tooltip(tip(said.clone()))
-                    .child(glyph(look, icon, Size::Small, look.color(crate::jobs::hue_of(state)))),
-                Role::Image,
-                said,
-            )
-        });
+    /// A Job's head in the list, in a band: its state's glyph, its name and how many of its asks are listed. The Job of the
+    /// chosen ask is tinted in its state's hue; every other sits plain.
+    fn review_group_head(&self, group: &Group, chosen: bool, asks: usize, look: &Look) -> AnyElement {
+        let hue = look.color(group_hue(group));
+        let state = group.state.map(|state| job_state_glyph(&format!("review-job-state:{}", group.job), state, if chosen { hue } else { look.color(token::FG_MUTED) }, look));
         labelled(
             div()
                 .id(SharedString::from(format!("review-job:{}", group.job)))
+                .flex_none()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
-                .pt(look.length(if first { token::SPACE_1 } else { token::SPACE_4 }))
-                .pb(look.length(token::SPACE_1))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_MUTED))
+                .p(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(if chosen { hue.opacity(0.1) } else { look.color(token::BG_RAISED) })
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
                 .children(state)
-                .child(div().flex_1().min_w_0().child(SharedString::from(group.title.clone()))),
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(if chosen { hue } else { look.color(token::FG_DEFAULT) })
+                        .child(SharedString::from(group.title.clone())),
+                )
+                .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child(SharedString::from(asks.to_string()))),
             Role::Heading,
             group.title.clone(),
+        )
+        .into_any_element()
+    }
+
+    /// Whose ask the chosen one is: the Job's glyph and name in a chip tinted in its state's hue.
+    fn review_from(&self, group: &Group, look: &Look) -> AnyElement {
+        let hue = look.color(group_hue(group));
+        let state = group.state.map(|state| job_state_glyph("review-from-state", state, hue, look));
+        labelled(
+            div()
+                .id("review-from")
+                .min_w_0()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .p(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(hue.opacity(0.1))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(hue)
+                .children(state)
+                .child(div().min_w_0().truncate().child(SharedString::from(group.title.clone()))),
+            Role::Group,
+            format!("From {}", group.title),
         )
         .into_any_element()
     }
@@ -1890,9 +1960,13 @@ impl JobView {
         let on = review.at.as_deref() == Some(key.as_str());
         let (pick, menu_item, kept) = (key.clone(), key.clone(), key.clone());
         let rows = Rc::clone(&self.review_rows);
-        let wants = match super::rows::age(&item.since, now) {
-            Some(age) => format!("{} \u{b7} {age}", ask.wants()),
-            None => ask.wants().to_string(),
+        // Its place in the Job's order leads the question, and why it stands there is the second line.
+        let (place, why) = self.fleet_place(&item.job, item, cx);
+        let title = if place > 0 { format!("{place} \u{b7} {}", item.name) } else { item.name.clone() };
+        let wants = match (why.trim(), super::rows::age(&item.since, now)) {
+            (why, _) if !why.is_empty() => why.to_string(),
+            (_, Some(age)) => format!("{} \u{b7} {age}", ask.wants()),
+            (_, None) => ask.wants().to_string(),
         };
         let body = div()
             .id(SharedString::from(format!("review-item:{key}")))
@@ -1922,15 +1996,18 @@ impl JobView {
                             .line_height(look.length(token::LEADING_SM))
                             .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
                             .text_color(look.color(token::FG_DEFAULT))
-                            .child(SharedString::from(item.name.clone())),
+                            .child(SharedString::from(title)),
                     )
-                    .child(
+                    .child(labelled(
                         div()
+                            .id(SharedString::from(format!("review-why:{key}")))
                             .text_size(look.length(token::TEXT_XS))
                             .line_height(look.length(token::LEADING_XS))
                             .text_color(look.color(token::FG_MUTED))
-                            .child(SharedString::from(wants)),
-                    )
+                            .child(SharedString::from(wants.clone())),
+                        Role::Label,
+                        wants,
+                    ))
                     .children(row.refused.clone().map(|why| {
                         labelled(
                             div()
@@ -2040,7 +2117,12 @@ impl JobView {
                 .line_clamp(1)
                 .child(SharedString::from(line))
         });
-        // The Operator's read runs under the question and Close both, to the body's right edge.
+        let from = review.groups.iter().find(|group| group.job == item.job).map(|group| {
+            div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).child(self.review_from(group, look)).child(
+                div().flex_none().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child("asks you"),
+            )
+        });
+        // Whose ask it is leads the head, with Close at its end; the question, its background and the Operator's read follow.
         let head = labelled(
             div()
                 .id(SharedString::from(format!("review-head:{key}")))
@@ -2055,26 +2137,27 @@ impl JobView {
                 .child(
                     div()
                         .flex()
-                        .items_start()
-                        .gap(look.length(token::SPACE_3))
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .mb(look.length(token::SPACE_2))
+                        .child(from.unwrap_or_else(|| div().flex_1()))
+                        .child(close),
+                )
+                .child(
+                    div()
+                        .min_w_0()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
                         .child(
                             div()
-                                .flex_1()
-                                .min_w_0()
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_1))
-                                .child(
-                                    div()
-                                        .text_size(look.length(token::TEXT_XL))
-                                        .line_height(look.length(token::LEADING_XL))
-                                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                                        .text_color(look.color(token::FG_DEFAULT))
-                                        .child(SharedString::from(item.name.clone())),
-                                )
-                                .children(background),
+                                .text_size(look.length(token::TEXT_XL))
+                                .line_height(look.length(token::LEADING_XL))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::FG_DEFAULT))
+                                .child(SharedString::from(item.name.clone())),
                         )
-                        .child(close),
+                        .children(background),
                 )
                 .children(self.operator_reads.get(&key).map(|read| self.review_operator(read, look))),
             Role::Heading,
@@ -2119,7 +2202,7 @@ impl JobView {
 
     /// Whether the item puts a question to him. A sketch the Job showed with `asks: false` arrives with `asked` false and has no
     /// answer bar, here as on its card (`sketch_card.rs`) and in its reading (`sketch_read.rs`).
-    fn item_asks(&self, item: &Item, cx: &gpui::App) -> bool {
+    pub(super) fn item_asks(&self, item: &Item, cx: &gpui::App) -> bool {
         if item.kind != Kind::Sketch {
             return true;
         }

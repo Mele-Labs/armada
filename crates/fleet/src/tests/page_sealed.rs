@@ -87,7 +87,7 @@ async fn the_policy_is_the_first_child_of_head_and_sent_again_whole() {
     let nonce = nonce_of(&served.policy);
     assert!(nonce.len() >= 16, "{nonce}");
     let policy = format!(
-        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-{nonce}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'nonce-{nonce}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
     );
     assert_eq!(served.policy, policy);
     let head = served.html.find("<head>").expect("the head") + "<head>".len();
@@ -138,7 +138,7 @@ async fn with_the_host_drawing_the_kit_the_pages_inline_scripts_run_and_nothing_
 
     let hash = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(b"window.ran = true;"));
     let policy = format!(
-        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'sha256-{hash}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'sha256-{hash}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
     );
     assert_eq!(served.policy, policy, "the page's one inline script, by its hash, and every other wall as today");
     let script_src = policy.split(';').find(|one| one.trim().starts_with("script-src")).unwrap();

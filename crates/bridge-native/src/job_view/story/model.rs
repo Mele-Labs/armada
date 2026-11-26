@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use ipc::{ArtifactForm, ArtifactState, AskKind, AskState, AskWords, JobFeature, JobStory, MessageKind, SessionId, StoryAsk, StoryShown, VoteResult};
+use ipc::{ArtifactForm, ArtifactState, AskKind, AskState, AskWords, JobFeature, JobStory, MessageKind, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteResult};
 
 use crate::features::page_model::{day, has_job, instant, job_title, Hue, Titles};
 
@@ -62,14 +62,25 @@ pub struct Row {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Card {
     pub ask_id: String,
-    /// `1.`: its place, open ones first and each group oldest first, as Fleet gave them.
+    /// `1.`: its place as drawn: grouped by feature, open ones first in a group.
     pub number: String,
     pub title: String,
     pub kind: &'static str,
-    /// `Last: ...` and a short date, empty where nothing was said, shown, built or handed.
-    pub last: String,
+    /// What came of it, in one line: merged, handed, decided or answered, open or not.
+    pub outcome: String,
     pub stand: Stand,
     pub rows: Vec<Row>,
+    /// The feature this card opens a group of, where it is the first of its group. The last group has none.
+    pub heading: Option<Heading>,
+}
+
+/// The feature a group of asks is filed under.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Heading {
+    pub slug: String,
+    pub title: String,
+    /// The slug of its area, which gives its hue.
+    pub area: String,
 }
 
 /// A feature the Job is on, as the section above the asks lists it.
@@ -210,46 +221,84 @@ fn said_row(words: &AskWords) -> Row {
     }
 }
 
-/// One thing that happened to an ask, with when, for the rows and the Last line.
+/// One thing that happened to an ask, with when, for its rows.
 struct Happened {
     at: DateTime<Utc>,
     row: Row,
-    /// The words of the head's Last line.
-    last: String,
+}
+
+fn handed_text(handed: &StoryHanded, mine: &SessionId, titles: &Titles) -> String {
+    let taken = handed.to == *mine;
+    let other = if taken { job_title(titles, &handed.from) } else { handed.to_title.clone().filter(|title| !title.is_empty()).or_else(|| job_title(titles, &handed.to)) };
+    match (taken, other) {
+        (true, Some(title)) => format!("Taken from {title}"),
+        (true, None) => "Taken".into(),
+        (false, Some(title)) => format!("Handed to {title}"),
+        (false, None) => "Handed".into(),
+    }
+}
+
+fn pull_number(built: &StoryBuilt) -> &str {
+    built.pull_request.trim().trim_start_matches('#')
+}
+
+/// What came of an ask, in one line: what was merged, where it was handed, or the last thing he decided or answered, and
+/// whether it is still open. An ask with nothing yet says where it stands.
+pub fn outcome(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> String {
+    if !story.built.is_empty() {
+        let merged = story.built.iter().map(|built| format!("#{}", pull_number(built))).collect::<Vec<_>>().join(", ");
+        return if story.open { format!("Merged {merged}, still open") } else { format!("Merged {merged}") };
+    }
+    if let Some(handed) = story.handed.last() {
+        return handed_text(handed, mine, titles);
+    }
+    let decisions = story.shown.iter().map(|shown| (instant(&shown.shown_at), decided(shown))).chain(story.ask.said.iter().map(|words| {
+        let line = first_line(&words.words);
+        (instant(&words.at), if words.kind == MessageKind::Answer { format!("Answered: {line}") } else { line })
+    }));
+    let latest = decisions.max_by_key(|(at, _)| *at).map(|(_, said)| said);
+    match (story.open, latest) {
+        (true, Some(said)) => format!("Open: {said}"),
+        (true, None) => "Open".into(),
+        (false, Some(said)) => said,
+        (false, None) => stand(story.ask.state).word.into(),
+    }
+}
+
+/// The group an ask is filed under: the place in the Job's features, most touched first, of the first of them it touches.
+pub fn group_of(story: &StoryAsk, features: &[JobFeature]) -> Option<usize> {
+    features.iter().position(|one| story.ask.features.contains(&one.slug))
+}
+
+/// The asks in the order they are drawn: grouped by feature as the Job's features stand, those under none last, open ones
+/// first in a group and Fleet's order kept otherwise.
+pub fn arranged(story: &JobStory) -> Vec<(Option<usize>, &StoryAsk)> {
+    let mut asks: Vec<(Option<usize>, &StoryAsk)> = story.asks.iter().map(|one| (group_of(one, &story.features), one)).collect();
+    asks.sort_by_key(|(group, one)| (group.unwrap_or(usize::MAX), !one.open));
+    asks
 }
 
 fn happenings(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> Vec<Happened> {
     let mut out: Vec<Happened> = Vec::new();
     for words in &story.ask.said {
-        let line = first_line(&words.words);
-        out.push(Happened { at: instant(&words.at), row: said_row(words), last: line });
+        out.push(Happened { at: instant(&words.at), row: said_row(words) });
     }
     for shown in &story.shown {
-        let decision = decided(shown);
-        out.push(Happened { at: instant(&shown.shown_at), row: shown_row(shown), last: format!("{decision}, {}", shown.title) });
+        out.push(Happened { at: instant(&shown.shown_at), row: shown_row(shown) });
     }
     for built in &story.built {
-        let number = built.pull_request.trim().trim_start_matches('#');
+        let number = pull_number(built);
         let text = format!("Merged #{number}");
         out.push(Happened {
             at: instant(&built.merged_at),
             row: Row { key: format!("built-{number}"), glyph: "git-merge", hue: Hue::Done, said: "Merged".into(), text: text.clone(), tinted: true, meta: day(instant(&built.merged_at)), also: String::new(), feature: None, words: None },
-            last: text,
         });
     }
     for handed in &story.handed {
-        let taken = handed.to == *mine;
-        let other = if taken { job_title(titles, &handed.from) } else { handed.to_title.clone().filter(|title| !title.is_empty()).or_else(|| job_title(titles, &handed.to)) };
-        let text = match (taken, other) {
-            (true, Some(title)) => format!("Taken from {title}"),
-            (true, None) => "Taken".into(),
-            (false, Some(title)) => format!("Handed to {title}"),
-            (false, None) => "Handed".into(),
-        };
+        let text = handed_text(handed, mine, titles);
         out.push(Happened {
             at: instant(&handed.at),
             row: Row { key: format!("handed-{}", handed.at.as_str()), glyph: "arrow-right-left", hue: Hue::Handed, said: "Handed".into(), text: text.clone(), tinted: true, meta: day(instant(&handed.at)), also: String::new(), feature: None, words: None },
-            last: text,
         });
     }
     // What happened first stands first; the order Fleet gave breaks a tie.
@@ -257,7 +306,7 @@ fn happenings(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> Vec<Happen
     out
 }
 
-fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features: &Features) -> Card {
+fn card(at: usize, heading: Option<Heading>, story: &StoryAsk, mine: &SessionId, titles: &Titles, features: &Features) -> Card {
     let ask = &story.ask;
     let started = format!("You, {}{}", day(instant(&ask.opened_at)), if has_job(&ask.said_in) { ", how it started" } else { ", to the Operator, how it started" });
     let mut rows = vec![Row {
@@ -273,7 +322,6 @@ fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features
         words: Some(ask.first_words.trim().to_string()),
     }];
     let happened = happenings(story, mine, titles);
-    let last = happened.last().map(|one| format!("Last: {}, {}", one.last, day(one.at))).unwrap_or_default();
     rows.extend(happened.into_iter().map(|one| one.row));
     if story.open {
         rows.push(Row { key: "open".into(), glyph: "circle-dot", hue: Hue::Running, said: "Open".into(), text: "Open".into(), tinted: true, meta: String::new(), also: String::new(), feature: None, words: None });
@@ -293,7 +341,7 @@ fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features
             words: None,
         });
     }
-    Card { ask_id: ask.ask_id.clone(), number: format!("{}.", at + 1), title: ask.title.clone(), kind: kind_word(ask.kind), last, stand: stand(ask.state), rows }
+    Card { ask_id: ask.ask_id.clone(), number: format!("{}.", at + 1), title: ask.title.clone(), kind: kind_word(ask.kind), outcome: outcome(story, mine, titles), stand: stand(ask.state), rows, heading }
 }
 
 fn counted(count: u32, one: &str, many: &str) -> String {
@@ -308,11 +356,22 @@ pub fn how_touched(feature: &JobFeature) -> String {
     [wrote, named, filed].into_iter().flatten().collect::<Vec<_>>().join(" · ")
 }
 
-/// The tab's cards, in the order Fleet gave the asks, numbered in it.
+/// The tab's cards, grouped by feature and numbered as drawn.
 pub fn build(story: &JobStory, titles: &Titles, features: &Features) -> Built {
     Built {
         features: story.features.iter().map(|one| FeatureLine { slug: one.slug.clone(), title: one.title.clone(), area: one.area.clone(), how: how_touched(one) }).collect(),
-        cards: story.asks.iter().enumerate().map(|(at, ask)| card(at, ask, &story.session_id, titles, features)).collect(),
+        cards: {
+            let mut seen = None;
+            arranged(story)
+                .into_iter()
+                .enumerate()
+                .map(|(at, (group, ask))| {
+                    let heading = if group != seen { group.and_then(|group| story.features.get(group)).map(|one| Heading { slug: one.slug.clone(), title: one.title.clone(), area: one.area.clone() }) } else { None };
+                    seen = group;
+                    card(at, heading, ask, &story.session_id, titles, features)
+                })
+                .collect()
+        },
         before: story.shown_otherwise.iter().map(shown_row).collect(),
     }
 }

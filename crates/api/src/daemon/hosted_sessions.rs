@@ -616,6 +616,9 @@ pub trait HostedSessions: Send + Sync + 'static {
     fn get_for_you(self: Arc<Self>, session_id: Option<SessionId>) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
     /// `withdraw_for_you`: a row taken off for good. An id that names no row is kept, not refused.
     fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;
+    /// `order_waiting`: the Job's open asks it placed first, each with why, replacing the order before.
+    /// [`Refusal::Unacceptable`] naming each id that is not an open ask now, or for a blank id or why.
+    fn order_waiting(self: Arc<Self>, order: ipc::OrderWaiting) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
     /// `order_for_you`: the rows placed first, replacing the order before. [`Refusal::Unacceptable`] naming each
     /// id that is not a row now.
     fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> impl Future<Output = Result<ipc::ForYou, Refusal>> + Send;

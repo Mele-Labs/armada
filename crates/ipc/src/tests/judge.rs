@@ -15,6 +15,8 @@ fn a_reading() -> JudgeReading {
         id: "r1".into(),
         artifact: artifact(),
         prompt: String::new(),
+        judge: None,
+        judge_name: None,
         state: JudgeState::Reading,
         asked_at: Instant::carried("2026-10-31T09:00:00.000Z"),
         finished_at: None,

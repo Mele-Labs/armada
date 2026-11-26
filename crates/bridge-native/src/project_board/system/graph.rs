@@ -8,7 +8,6 @@ use gpui::{canvas, div, point, prelude::*, px, Animation, AnimationExt as _, Any
 use ipc::{PartOrigin, SystemMap, SystemPart, SystemPartKind};
 
 use super::arrange::{self, Arranged, Edge, Hover, Lane, LaneKind, Lit, Metrics, Node, Pt};
-use super::trail::Level;
 use super::{panel, Read, SystemBlock};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
@@ -153,7 +152,6 @@ pub(super) fn draw(this: &mut SystemBlock, window: &mut Window, cx: &mut Context
     // A block narrower than two columns of room has its panel under the graph, and the whole block scrolls.
     let stacked = f32::from(window.viewport_size().width) < f32::from(look.length(token::SPACE_12)) * 20.;
     let room = room(this, &look, stacked, window, cx);
-    let strip = features_strip(this, &look, cx);
     let panel = panel::draw(this, &look, stacked, window, cx);
     let body = div()
         .id("system-body")
@@ -164,9 +162,9 @@ pub(super) fn draw(this: &mut SystemBlock, window: &mut Window, cx: &mut Context
         .text_color(look.color(token::FG_DEFAULT))
         .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| this.on_key(event, window, cx)));
     if stacked {
-        return body.flex_col().overflow_y_scroll().child(crumbs).child(room).children(strip).child(panel).into_any_element();
+        return body.flex_col().overflow_y_scroll().child(crumbs).child(room).child(panel).into_any_element();
     }
-    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room).children(strip);
+    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room);
     body.child(left).child(panel).into_any_element()
 }
 
@@ -263,10 +261,10 @@ fn room(this: &mut SystemBlock, look: &Look, natural: bool, window: &mut Window,
                 View::List => Some(list(this, &map, top.as_ref(), look, cx)),
                 _ => {
                     let inner = (width - f32::from(look.length(token::SPACE_4)) * 2.).max(0.);
-                    // The arrangement is as tall as its parts need, whatever room there is.
-                    let arranged = this.arranged(look, (inner, 0.)).cloned();
+                    // Beside the panel a lane too tall for the room wraps into columns; stacked over it the block scrolls instead, and the
+                    // arrangement is as tall as its parts need.
+                    let arranged = this.arranged(look, (inner, if natural { 0. } else { height })).cloned();
                     tall = arranged.as_ref().map(|arranged| arranged.height);
-                    let _ = height;
                     arranged.map(|arranged| stage(this, &arranged, &map, top.as_ref(), look, window, cx))
                 }
             }
@@ -281,6 +279,7 @@ fn room(this: &mut SystemBlock, look: &Look, natural: bool, window: &mut Window,
                 .id("system-graph")
                 .size_full()
                 .overflow_scroll()
+                .track_scroll(&this.graph_scroll)
                 .px(look.length(token::SPACE_4))
                 .track_focus(&this.focus)
                 .focus_visible(|style| style)
@@ -321,10 +320,11 @@ fn stage(this: &SystemBlock, arranged: &Arranged, map: &SystemMap, top: Option<&
         other => other.clone(),
     };
     let lit = arrange::lit(arranged, map, &target, this.trail.depth());
+    let shown = arrange::shown(arranged, map, &target, this.selected.as_deref());
     let dimming = lit.is_some();
     let lanes = arranged.lanes.iter().map(|lane| lane_box(lane, arranged.scale, look));
-    let drawn = curves(arranged, lit.as_ref(), look);
-    let pills = arranged.edges.iter().enumerate().filter(|(_, edge)| edge.label.is_some() || edge.step.is_some()).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, arranged.scale, look));
+    let drawn = curves(arranged, &shown, lit.as_ref(), look);
+    let pills = arranged.edges.iter().enumerate().filter(|(at, edge)| shown[*at] && (edge.label.is_some() || edge.step.is_some())).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, arranged.scale, look));
     let nodes = arranged.nodes.iter().enumerate().map(|(at, node)| part_box(this, node, lit.as_ref().map(|lit| lit.nodes.contains(&at)), top, arranged.scale, look, cx));
     div()
         .relative()
@@ -360,15 +360,15 @@ fn lane_box(lane: &Lane, k: f32, look: &Look) -> AnyElement {
         .into_any_element()
 }
 
-/// The curves, painted in one canvas: every link, bright where it is lit and faint where something else is.
-fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
+/// The curves, painted in one canvas: every link `shown`, bright where it is lit and faint where something else is.
+fn curves(arranged: &Arranged, shown: &[bool], lit: Option<&Lit>, look: &Look) -> AnyElement {
     let len = |token| look.length(token) * arranged.scale;
     struct Drawn {
         edge: Edge,
         lit: bool,
         dim: bool,
     }
-    let edges: Vec<Drawn> = arranged.edges.iter().enumerate().map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
+    let edges: Vec<Drawn> = arranged.edges.iter().enumerate().filter(|(at, _)| shown[*at]).map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
     let (base, bright) = (look.color(token::BORDER_STRONG), look.color(token::ACCENT));
     let (plain, bold) = (f32::from(len(token::BORDER_WIDTH)) * 1.5, f32::from(len(token::BORDER_WIDTH)) * 2.);
     let faint = tint::DIM_CURVE;
@@ -388,7 +388,9 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
                     }
                 } else {
                     line.move_to(at(edge.a));
-                    line.cubic_bezier_to(at(edge.b), at(edge.c1), at(edge.c2));
+                    for [_, c1, c2, b] in &edge.path {
+                        line.cubic_bezier_to(at(*b), at(*c1), at(*c2));
+                    }
                 }
                 if let Ok(path) = line.build() {
                     window.paint_path(path, ink);
@@ -410,8 +412,10 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
 
 /// The curve cut into dashes `on` long with `off` between, as pairs of end points along it.
 fn dashes(edge: &Edge, on: f32, off: f32) -> Vec<(Pt, Pt)> {
+    // Points along each cubic piece; a curve round a gutter has several.
     const STEPS: usize = 48;
-    let points: Vec<Pt> = (0..=STEPS).map(|at| edge.at(at as f32 / STEPS as f32)).collect();
+    let steps = STEPS * edge.path.len().max(1);
+    let points: Vec<Pt> = (0..=steps).map(|at| edge.at(at as f32 / steps as f32)).collect();
     let mut out = Vec::new();
     let (mut run, mut drawing) = (0., true);
     for pair in points.windows(2) {
@@ -610,69 +614,4 @@ fn list(this: &SystemBlock, map: &SystemMap, top: Option<&SystemMap>, look: &Loo
         )
     });
     labelled(div().id("system-list").flex().flex_col().gap(look.length(token::SPACE_1)).py(look.length(token::SPACE_2)).children(rows), Role::List, "Parts of the system").into_any_element()
-}
-
-// ---- the features of level two --------------------------------------------------------------------------
-
-/// The features that own files in the parts on screen: rows with a chevron, lit parts under the pointer.
-fn features_strip(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>) -> Option<AnyElement> {
-    if this.trail.depth() != 2 || !matches!(this.here(), Level::Part { .. }) {
-        return None;
-    }
-    let map = this.level()?;
-    if map.features.is_empty() {
-        return None;
-    }
-    let ring = ring_colour(look);
-    let hue = look.color(token::SKETCH_GREEN);
-    let items = map.features.iter().map(|feature| {
-        let (slug, hover_slug, leave_slug) = (feature.slug.clone(), feature.slug.clone(), feature.slug.clone());
-        labelled(
-            div()
-                .id(SharedString::from(format!("system-feature-{}", feature.slug)))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_1))
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(gpui::transparent_black())
-                .text_size(look.length(token::TEXT_XS))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .focusable()
-                .tab_stop(true)
-                .focus_visible(move |style| style.border_color(ring))
-                .tooltip(tip(format!("Draw the path of {}", feature.title)))
-                .on_hover(cx.listener(move |this, on: &bool, _, cx| {
-                    if *on {
-                        this.set_hover(Hover::Feature(hover_slug.clone()), cx);
-                    } else if this.hover == Hover::Feature(leave_slug.clone()) {
-                        this.set_hover(Hover::None, cx);
-                    }
-                }))
-                .on_click(cx.listener(move |this, _, window, cx| this.follow_feature(&slug, window, cx)))
-                .child(div().flex_none().size(look.length(token::SPACE_2)).rounded(look.length(token::RADIUS_SM)).bg(hue))
-                .child(SharedString::from(feature.title.clone()))
-                .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::FG_SUBTLE))),
-            Role::Button,
-            format!("{}, draw its path", feature.title),
-        )
-    });
-    Some(
-        div()
-            .flex_none()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_2))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(div().pr(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("FEATURES"))
-            .children(items)
-            .into_any_element(),
-    )
 }

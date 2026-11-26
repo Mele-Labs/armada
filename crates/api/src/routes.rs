@@ -398,6 +398,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
         .route("/sessions/judge/read", post(crate::judge::mark_judge_read::<D>))
+        .route("/judge_types", get(crate::judge::list_judge_types_unplaced::<D>))
+        .route(
+            "/judge_types/:repository",
+            get(crate::judge::list_judge_types::<D>).post(crate::judge::save_judge_type::<D>),
+        )
+        .route("/judge_types/:repository/delete", post(crate::judge::delete_judge_type::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -810,6 +816,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/for_you", get(crate::hosted_sessions::get_for_you::<D>))
         .route("/sessions/for_you/withdraw", post(crate::hosted_sessions::withdraw_for_you::<D>))
         .route("/sessions/for_you/order", post(crate::hosted_sessions::order_for_you::<D>))
+        .route("/sessions/waiting/order", post(crate::hosted_sessions::order_waiting::<D>))
         .route("/sessions/for_you/line", post(crate::hosted_sessions::line_for_you::<D>))
         .route("/sessions/for_you/add", post(crate::hosted_sessions::add_for_you::<D>))
         .route(

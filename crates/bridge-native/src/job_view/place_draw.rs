@@ -376,6 +376,7 @@ impl JobView {
             "browser" => "Browser".into(),
             "loadout" => "Loadout".into(),
             "tokens" => "Tokens".into(),
+            super::feature_tab::KIND => tab.label.clone().unwrap_or_default().into(),
             crate::api_client::KIND => crate::api_client::NAME.into(),
             super::loadout_tab::ITEM_KIND => Self::loadout_item_look(tab).1,
             "terminal" => self.view_title(job, tab).unwrap_or_else(|| "Terminal".into()),
@@ -420,6 +421,7 @@ impl JobView {
             }
             "loadout" | super::loadout_tab::ITEM_KIND => self.loadout_body(&id, tab, cx),
             "tokens" => self.tokens_body(&id, tab, cx),
+            super::feature_tab::KIND => self.feature_body(&id, tab, window, cx),
             crate::api_client::KIND => self.api_client_body(&id, tab, window, cx),
             "terminal" => {
                 let view = self.view_id_of(&id, tab).and_then(|view| self.view_tabs.by_job.get(&id)?.iter().find(|one| one.id == view).map(|one| one.view.clone()))?;
@@ -570,6 +572,7 @@ impl JobView {
             "browser" => ("globe", format!("Job column: {word}")),
             "loadout" => ("layers", format!("Job column: {word}")),
             "tokens" => ("chart-column", format!("Job column: {word}")),
+            super::feature_tab::KIND => ("puzzle", format!("Job tab: {word}")),
             crate::api_client::KIND => ("arrow-right-left", format!("Job column: {word}")),
             super::loadout_tab::ITEM_KIND => (Self::loadout_item_look(tab_of).0, format!("Job tab: {word}")),
             "terminal" => (self.view_glyph(job, tab_of), format!("Job column: {word}")),
@@ -644,6 +647,8 @@ impl JobView {
             window.focus(&self.row_focus, cx);
         } else if held.kind == "for_you" {
             self.focus_for_you(window, cx);
+        } else if held.kind == super::feature_tab::KIND {
+            self.focus_feature(&held.id, window, cx);
         } else if held.kind == "story" {
             self.focus_story(window, cx);
         } else if held.kind == "qa" {
@@ -685,6 +690,7 @@ fn name_of(tab: &str, view: &JobView) -> String {
     let Some(job) = view.shown.as_ref() else { return String::new() };
     view.tab_of(tab).map(|held| match held.kind.as_str() {
         "now" => "Job column: Now".to_string(),
+        super::feature_tab::KIND => format!("Job tab: {}", view.tab_word(job, &held)),
         kind if row_kind_of(kind).is_some() => format!("Job tab: {}", view.tab_word(job, &held)),
         _ => format!("Job column: {}", view.tab_word(job, &held)),
     }).unwrap_or_default()
