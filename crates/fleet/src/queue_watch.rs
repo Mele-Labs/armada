@@ -238,10 +238,18 @@ where
         for id in orphans(runs, queue) {
             let root = served.root().to_string();
             let stopped = self.forge_asked(&root, move |vcs: &V, root: &str| vcs.cancel_run(root, id)).await;
-            match stopped {
-                Ok(()) => eprintln!("queue: stopped run {id}, which no merge queue entry stands behind"),
-                Err(said) => eprintln!("queue: run {id} was not stopped: {said}"),
+            use core_model::{Component, Envelope, FieldValue, Level};
+            let (level, msg, why) = match stopped {
+                Ok(()) => (Level::Info, "stopped a queue run no merge queue entry stands behind", None),
+                Err(said) => (Level::Warn, "a queue run no entry stands behind was not stopped", Some(said.to_string())),
+            };
+            let mut envelope = Envelope::new(self.now(), level, Component::Fleet, self.run().clone(), msg)
+                .with_field("repository", FieldValue::Str(root))
+                .with_field("run", FieldValue::Str(id.to_string()));
+            if let Some(why) = why {
+                envelope = envelope.with_field("why", FieldValue::Str(why));
             }
+            crate::transcript::note_aloud(&envelope);
         }
     }
 
