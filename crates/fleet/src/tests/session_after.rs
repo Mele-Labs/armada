@@ -656,9 +656,7 @@ async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_conditio
 
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
     rig.eventually(&waiting.id, "the brief read", |one| one.workflow.as_deref() == Some("rail")).await;
-    // A Job that waits has not begun its step, so the rail enters none and there is no step to wait for.
-    rig.fleet.timeline().settled().await;
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    rig.rail_has_looked().await;
 
     assert_eq!(rig.processes(), processes, "no process starts for a Session that waits");
     assert!(rig.rows(&waiting.id).await.is_empty(), "and nothing is sent to it");
