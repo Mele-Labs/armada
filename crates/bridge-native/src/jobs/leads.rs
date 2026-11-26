@@ -206,12 +206,23 @@ impl JobsList {
             Some(Lead::SubProject { .. }) => glyph("folder-tree", token::ACCENT),
             _ => div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::STATUS_NOT_STARTED)).into_any_element(),
         };
-        labelled(
-            group_line(look, at == 0).id(("lead", at)).gap(look.length(token::SPACE_2)).when(sub, |line| line.text_color(look.color(token::ACCENT))).child(mark).child(div().min_w_0().truncate().child(name.clone())),
-            Role::Heading,
-            name,
-        )
-        .into_any_element()
+        let lead = head.lead.clone().filter(|lead| lead.stop().is_some());
+        let focused = lead.as_ref().and_then(Lead::stop).is_some_and(|stop| self.focused.as_ref() == Some(&stop));
+        let hovered = look.color(token::BG_HOVER);
+        let line = group_line(look, at == 0)
+            .id(("lead", at))
+            .gap(look.length(token::SPACE_2))
+            .rounded_t(look.length(token::RADIUS_MD))
+            .when(sub, |line| line.text_color(look.color(token::ACCENT)))
+            .when(focused, |line| line.bg(hovered))
+            .child(mark)
+            .child(div().min_w_0().truncate().child(name.clone()));
+        // A feature's or a sub project's heading opens its board.
+        let line = match lead {
+            Some(lead) => line.cursor_pointer().hover(move |style| style.bg(hovered)).on_click(cx.listener(move |this, _, window, cx| this.open_board(lead.clone(), window, cx))),
+            None => line,
+        };
+        labelled(line, Role::Heading, name).into_any_element()
     }
 }
 
@@ -310,3 +321,100 @@ impl JobsList {
         self.hold_subs(subs, cx);
     }
 }
+
+/// What a Job waits on now, as its record says it: what it asks of him first, else what keeps it open (a watch, a Job it
+/// started, its pull request), else a held item, a slot, a pause, or the state it stands in.
+pub(super) fn holds(job: &SessionRecord) -> String {
+    if let Some(item) = job.waiting_for.iter().find(|item| item.source != WaitingSource::Done) {
+        return match item.source {
+            WaitingSource::ReadyToTry => "Ready to try: waits on your Looks good".into(),
+            _ => format!("Waits on you: {}", crate::job_view::plain_of(&item.text)),
+        };
+    }
+    if let Some(held) = job.held_open_by.first() {
+        return match held {
+            ipc::HeldOpenBy::Watch { name } => format!("Waits on its watch {name}"),
+            ipc::HeldOpenBy::Job { name } => format!("Waits on its Job {name}"),
+            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::Queue } => format!("Pull request #{number} in the merge queue"),
+            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::AutoMerge } => format!("Pull request #{number} merges once its Checks pass"),
+            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::Checks { .. } } => format!("Pull request #{number} waits on its Checks"),
+        };
+    }
+    if let Some(wait) = job.claim_waits.first() {
+        return if wait.holder.is_empty() { format!("Waits on {}", wait.item) } else { format!("Waits on {}, held by {}", wait.item, wait.holder) };
+    }
+    if let Some(wait) = &job.slot_wait {
+        return crate::slot_wait::said(wait).to_string();
+    }
+    if job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()) {
+        return "Paused".into();
+    }
+    mark_of(job).map(|mark| glyph_of(mark.state, None).1.to_string()).unwrap_or_default()
+}
+
+impl JobsList {
+    /// The heading under the keys, where they are on a feature's or a sub project's.
+    pub(super) fn focused_lead(&self) -> Option<Lead> {
+        let focused = self.focused.as_ref()?;
+        self.lines.iter().find_map(|line| match line {
+            Line::Group(head) => head.lead.clone().filter(|lead| lead.stop().as_ref() == Some(focused)),
+            _ => None,
+        })
+    }
+
+    /// The board standing in the right column, where no Job was opened since it opened.
+    pub(crate) fn board(&self) -> Option<Entity<board::LeadBoard>> {
+        self.board.as_ref().filter(|(_, at)| *at == self.picks).map(|(board, _)| board.clone())
+    }
+
+    /// Open a feature's or a sub project's board where a Job opens, with the keys on it and its heading under the list's keys.
+    pub(super) fn open_board(&mut self, lead: Lead, window: &mut Window, cx: &mut Context<Self>) {
+        self.focused = lead.stop();
+        self.card = None;
+        let me = cx.entity();
+        let board = cx.new(|cx| board::LeadBoard::new(&me, lead, cx));
+        let keys = board.read(cx).focus().clone();
+        self.board = Some((board, self.picks));
+        window.focus(&keys, cx);
+        cx.notify();
+    }
+
+    /// Esc on a board, or its sub project ungrouped: the board goes and the keys go back to the list.
+    pub(super) fn close_board(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.board = None;
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    /// Ungroup: Fleet drops the sub project and its heading leaves; its Jobs are untouched. A refusal comes back in Fleet's
+    /// words. On mock data the list drops it itself.
+    pub(super) fn ungroup_sub_project(&mut self, id: &str, cx: &mut Context<Self>) -> Task<Result<(), String>> {
+        if self.fleet.is_none() {
+            let subs = self.leads.subs.iter().filter(|sub| sub.id != id).cloned().collect();
+            self.hold_subs(subs, cx);
+            return Task::ready(Ok(()));
+        }
+        let Some(port) = self.port(cx) else { return Task::ready(Err("Fleet is not connected".into())) };
+        let body = crate::settings::wire::body(&ipc::UngroupSubProject { id: id.to_string() });
+        let sent = cx.background_executor().spawn(async move {
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+            runtime.block_on(crate::transport::post(port, UNGROUP, body))
+        });
+        let id = id.to_string();
+        cx.spawn(async move |this, cx| {
+            match sent.await {
+                Ok((status, _)) if (200..300).contains(&status) => {}
+                Ok((status, bytes)) => return Err(crate::refusal::Refusal::read("POST", UNGROUP, status, &bytes).to_string()),
+                Err(why) => return Err(why),
+            }
+            let _ = this.update(cx, |this, cx| {
+                let subs = this.leads.subs.iter().filter(|sub| sub.id != id).cloned().collect();
+                this.hold_subs(subs, cx);
+            });
+            Ok(())
+        })
+    }
+}
+
+/// `ungroup_sub_project`'s route.
+const UNGROUP: &str = "/sub_projects/ungroup";

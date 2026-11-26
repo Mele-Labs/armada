@@ -163,6 +163,7 @@ fn view_label(scope: Scope, group: Group) -> String {
 }
 
 mod asleep_mac;
+mod board;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
@@ -1406,6 +1407,8 @@ pub struct JobsList {
     leads_read: Option<Task<()>>,
     /// The sheet that names a sub project, while it is open.
     naming: Option<(Entity<name_sheet::NameSheet>, Subscription)>,
+    /// A feature's or a sub project's board, with the picks as they stood when it opened: a Job opened since stands in its place.
+    board: Option<(Entity<board::LeadBoard>, u64)>,
 }
 
 /// How the Jobs list on mock Jobs is grouped while a walk plays. A walk about the view button opens by state, as a first start does;
@@ -1611,6 +1614,7 @@ impl JobsList {
             leads_at: None,
             leads_read: None,
             naming: None,
+            board: None,
         };
         if fleet_held {
             this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
@@ -2253,7 +2257,8 @@ impl JobsList {
             Line::Job(row) if row.again => None,
             Line::Job(row) => Some(row.id.clone()),
             Line::Asleep(shelf) => Some(shelf.id()),
-            Line::Group(_) => None,
+            // A feature's or a sub project's heading, whose board Enter opens.
+            Line::Group(head) => head.lead.as_ref().and_then(leads::Lead::stop),
         }
     }
 
@@ -2461,6 +2466,8 @@ impl JobsList {
             // An idea's row starts it: ↵ is the press with no pointer (`QueuedRow`).
             if let Some(idea) = self.focused_idea() {
                 crate::dispatch::start_queued(idea, cx);
+            } else if let Some(lead) = self.focused_lead() {
+                self.open_board(lead, window, cx);
             } else if let Some((mac, open)) = self.focused_shelf() {
                 self.set_shelf(&mac, !open, cx);
             } else if self.focused.is_some() {
@@ -4545,9 +4552,11 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(match self.home.clone().filter(|_| self.list.read(cx).at_home()) {
-                                    Some(page) => self.home_area(page, cx),
-                                    None => self.job_area(window, cx),
+                                .child(match (self.list.read(cx).board(), self.home.clone().filter(|_| self.list.read(cx).at_home())) {
+                                    // A feature's or a sub project's board stands where a Job opens.
+                                    (Some(board), _) => board.into_any_element(),
+                                    (None, Some(page)) => self.home_area(page, cx),
+                                    (None, None) => self.job_area(window, cx),
                                 }),
                         ),
                 )

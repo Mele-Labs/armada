@@ -149,3 +149,86 @@ fn start_a_sub_project_sends_the_picked_ids_in_his_order_and_heads_them_on_top(c
         assert!(matches!(&list.lines[0], Line::Group(head) if head.name == "Librarian rollout"));
     });
 }
+
+/// The Jobs screen on the three Jobs, drawn once.
+fn screen(cx: &mut gpui::TestAppContext) -> (Entity<JobsList>, &mut gpui::VisualTestContext) {
+    cx.update(crate::init_app);
+    let list = cx.new(|cx| JobsList::mock(&three(), cx));
+    let held = list.clone();
+    let (_, cx) = cx.add_window_view(move |window, cx| JobsScreen::new(held, None, window, cx));
+    cx.run_until_parked();
+    (list, cx)
+}
+
+fn drawn_named(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        window.draw(cx).clear(cx);
+        cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).is_some()
+    })
+}
+
+fn enter_on(list: &Entity<JobsList>, stop: &str, cx: &mut gpui::VisualTestContext) {
+    let act = Act { id: "open_focused", slot: 0, digit: None };
+    let stop: SharedString = stop.to_string().into();
+    cx.update(|window, cx| {
+        list.update(cx, |list, cx| {
+            assert!(list.at_of(&stop).is_some(), "the keys can land on the heading");
+            list.focused = Some(stop);
+            list.on_act(&act, window, cx);
+        })
+    });
+    cx.run_until_parked();
+}
+
+#[gpui::test]
+fn enter_on_a_feature_heading_opens_its_board_where_a_job_opens_and_open_opens_the_job(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = screen(cx);
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    enter_on(&list, "lead:feature:armada/job-list-and-live-status", cx);
+    let board = list.read_with(cx, |list, _| list.board()).expect("the board stands in the right column");
+    assert!(matches!(board.read_with(cx, |board, _| board.lead().clone()), leads::Lead::Feature { slug, .. } if slug == "job-list-and-live-status"));
+    assert!(drawn_named(cx, Role::Region, "Job list and live status"));
+    assert!(drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"), "a row for each Job in it, with Open");
+    assert!(drawn_named(cx, Role::Button, "Open Native Bridge foundation"));
+    assert!(!drawn_named(cx, Role::Button, "Ungroup"), "a feature's board has no Ungroup");
+    // The keys are on the board: Enter presses the first row's Open.
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    list.read_with(cx, |list, _| {
+        assert_eq!(list.opened_id().as_deref(), Some("mock-01"));
+        assert!(list.board().is_none(), "the Job stands in the board's place");
+    });
+}
+
+#[gpui::test]
+fn ungroup_on_a_sub_projects_board_takes_its_heading_away(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = screen(cx);
+    list.update(cx, |list, cx| {
+        list.hold_libraries(leads().libraries, cx);
+        list.hold_subs(vec![sub("s1", "Librarian rollout", &["mock-01"], &["job-list-and-live-status"])], cx);
+    });
+    enter_on(&list, "lead:sub:s1", cx);
+    assert!(drawn_named(cx, Role::Region, "Librarian rollout"));
+    assert!(drawn_named(cx, Role::Button, "Ungroup"));
+    // Two rows, mock-01 he picked and mock-02 joined, then Ungroup.
+    cx.simulate_keystrokes("down down enter");
+    cx.run_until_parked();
+    list.read_with(cx, |list, _| {
+        assert!(list.leads.subs.is_empty() && list.board().is_none());
+        assert!(!list.lines.iter().any(|line| matches!(line, Line::Group(head) if head.name == "Librarian rollout")));
+    });
+}
+
+#[test]
+fn a_boards_row_says_what_its_job_waits_on_from_its_record() {
+    let mut job = three().remove(0);
+    job.waiting_for.clear();
+    job.held_open_by = vec![ipc::HeldOpenBy::PullRequest { number: 812, on: ipc::PullRequestWait::Queue }];
+    assert_eq!(leads::holds(&job), "Pull request #812 in the merge queue");
+    job.held_open_by = vec![ipc::HeldOpenBy::Watch { name: "the ask box reaching main".into() }];
+    assert_eq!(leads::holds(&job), "Waits on its watch the ask box reaching main");
+}
