@@ -2,7 +2,8 @@
 
 use ipc::{BoardBlock, BoardLayout};
 
-use super::{GridKind, Layout, Placed, View, COLUMNS, LEAST_H, LEAST_W, MOST_H};
+use super::layout::{LEAST_H, LEAST_W, MOST_H};
+use super::{GridKind, Layout, Placed, View, COLUMNS};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Bay {
@@ -135,4 +136,35 @@ fn blocks_appended_below_stand_under_everything_side_by_side() {
     layout.append_below(&[Bay::Console, Bay::Needs]);
     assert_eq!(layout.blocks.len(), 3, "a block already on the grid is not added twice");
     assert_eq!(layout.block(Bay::Console).map(|one| (one.x, one.y)), Some((0, 2)));
+}
+
+#[test]
+fn the_cells_of_a_box_are_six_columns_with_a_gap_between() {
+    use gpui::px;
+    let cells = super::chrome::Cells::across(px(650.), px(10.), px(40.));
+    assert_eq!(cells.col, px(100.));
+    assert_eq!((cells.left(2), cells.wide(3), cells.tall(2), cells.height(3)), (px(220.), px(320.), px(90.), px(140.)));
+    assert_eq!(cells.height(0), px(0.), "no rows is no height, not a negative one");
+}
+
+#[test]
+fn a_drag_moves_by_the_cell_it_was_lifted_by_and_resizes_to_the_cell_under_the_pointer() {
+    use gpui::{point, px};
+    let pitch = (px(100.), px(50.));
+    let now = Placed::new(Bay::Needs, 1, 1, 2, 2, View::List);
+    let mut grab = None;
+    let lifted = super::chrome::drag_step(&now, false, point(px(150.), px(60.)), pitch, &mut grab);
+    assert_eq!(lifted, super::chrome::Step::Move { x: 1, y: 1 }, "lifted where it stands, it has not moved");
+    let dragged = super::chrome::drag_step(&now, false, point(px(350.), px(160.)), pitch, &mut grab);
+    assert_eq!(dragged, super::chrome::Step::Move { x: 3, y: 3 });
+    let resized = super::chrome::drag_step(&now, true, point(px(450.), px(160.)), pitch, &mut grab);
+    assert_eq!(resized, super::chrome::Step::Resize { w: 4, h: 3 });
+    let mut layout = two_up();
+    dragged.apply(&mut layout, Bay::Needs);
+    assert_eq!(layout.block(Bay::Needs).map(|one| (one.x, one.y)), Some((3, 3)), "the step reaches the layout, held inside the grid");
+}
+
+#[test]
+fn the_arrows_of_a_slot_step_left_right_up_down() {
+    assert_eq!([0, 1, 2, 3, 4].map(super::chrome::arrow), [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, 0)]);
 }

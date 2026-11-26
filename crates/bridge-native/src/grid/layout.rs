@@ -37,7 +37,8 @@ pub trait GridKind: Copy + Eq + Hash + 'static {
     /// The views its data fits, the first being the one it starts in.
     fn views(self) -> &'static [View];
 
-    /// The words on the block's header and the name VoiceOver reads.
+    /// The words on the block's header and the name VoiceOver reads. Nothing in the grid reads it: the screen draws its headers.
+    #[allow(dead_code)]
     fn title(self) -> &'static str;
 }
 
