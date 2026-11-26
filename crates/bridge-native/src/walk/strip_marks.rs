@@ -91,8 +91,8 @@ pub static QUEUE_STUCK: [Step; 5] = [
     marks("A merge queue stuck on a job with no runner: an amber band on main's card, since when, and the pull requests in their order", "strip-queue-stuck", "status", "Merge queue stuck"),
     step("Open log goes to the failed job's page", Verb::Look, "button", "Open log"),
     step("Queue again puts each pull request back in the merge queue now", Verb::Look, "button", "Queue again"),
-    step("Tell their Jobs sends each Job that holds one what stopped the queue", Verb::Look, "button", "Tell their Jobs"),
-    step("Start a repair Job opens the dispatch sheet with the facts written in", Verb::Look, "button", "Start a repair Job"),
+    step("Tell Jobs sends each Job that holds one what stopped the queue", Verb::Look, "button", "Tell Jobs"),
+    step("Repair Job opens the dispatch sheet with the facts written in", Verb::Look, "button", "Repair Job"),
 ];
 
 pub static STEPS: [Step; 42] = [

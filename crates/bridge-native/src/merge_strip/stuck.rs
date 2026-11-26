@@ -1,5 +1,5 @@
 //! What the stuck band's three acts ask: **Queue again** puts each pull request back in the merge queue,
-//! **Tell their Jobs** sends the Job that holds one the facts, and **Start a repair Job** opens the dispatch
+//! **Tell Jobs** sends the Job that holds one the facts, and **Repair Job** opens the dispatch
 //! sheet drafted from them. The strip emits; the wiring in `live.rs` does it.
 
 use gpui::{Context, SharedString};

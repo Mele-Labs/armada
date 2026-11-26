@@ -1418,34 +1418,39 @@ fn stuck_band(line: usize, stuck: &QueueStuck, held: &[ipc::PullView], look: &Lo
     });
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let told = stuck::held_by_a_job(stuck, held);
+    // Stacked full width: three side by side do not fit main's card, and a wrapped third reads as an afterthought.
     let acts = div()
         .flex()
-        .flex_wrap()
-        .items_center()
+        .flex_col()
         .gap(look.length(token::SPACE_2))
         .child(labelled(
             Btn::new("queue-again", "Queue again", Weight::Secondary)
+                .full()
                 .filled(hue)
                 .draw(look, cx)
+                .tooltip(tip("Puts each pull request back in the merge queue now"))
                 .on_click(cx.listener(move |this, _, _, cx| this.stuck_requeued(line, cx))),
             Role::Button,
             "Queue again",
         ))
         .child(labelled(
-            Btn::new("tell-their-jobs", "Tell their Jobs", Weight::Secondary)
+            Btn::new("tell-their-jobs", "Tell Jobs", Weight::Secondary)
+                .full()
                 .disabled(!told)
                 .draw(look, cx)
-                .when(!told, |button| button.tooltip(tip("No Job holds these pull requests")))
+                .tooltip(tip(if told { "Sends each Job that holds one of these the cause, since when and the log" } else { "No Job holds these pull requests" }))
                 .when(told, |button| button.on_click(cx.listener(move |this, _, _, cx| this.stuck_told(line, cx)))),
             Role::Button,
-            "Tell their Jobs",
+            "Tell Jobs",
         ))
         .child(labelled(
-            Btn::new("start-repair-job", "Start a repair Job", Weight::Secondary)
+            Btn::new("start-repair-job", "Repair Job", Weight::Secondary)
+                .full()
                 .draw(look, cx)
+                .tooltip(tip("Starts a Job with the cause, the pull requests and the log written in"))
                 .on_click(cx.listener(move |this, _, _, cx| this.stuck_repair(line, cx))),
             Role::Button,
-            "Start a repair Job",
+            "Repair Job",
         ));
     let pulls = (!stuck.pulls.is_empty()).then(|| {
         labelled(
