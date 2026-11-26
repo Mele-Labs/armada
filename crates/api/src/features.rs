@@ -6,7 +6,7 @@
 use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Features;
@@ -208,6 +208,36 @@ pub(crate) async fn draft_module_features<D: Features>(State(served): State<Serv
     };
     match served.daemon().draft_module_features(crate::acting::asking(), draft).await {
         Ok(drafted) => answer(StatusCode::OK, &drafted, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner groups the Jobs he picked in the Jobs list.
+pub(crate) async fn start_sub_project<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let start: ipc::StartSubProject = match ipc::decode_body("a name and the Jobs to group under it", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().start_sub_project(start).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_sub_projects<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().list_sub_projects(asked.project).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn ungroup_sub_project<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let ungroup: ipc::UngroupSubProject = match ipc::decode_body("a sub project to ungroup", &body) {
+        Ok(ungroup) => ungroup,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ungroup_sub_project(ungroup).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(refusal) => refused(refusal),
     }
 }
