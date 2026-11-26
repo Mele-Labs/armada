@@ -3,6 +3,8 @@
 //! `limits.queueRequeuesPerCommit` and then called stuck, and a failure in a pull request's own
 //! code is told to its Job as ever. The forge's sentences are `adapters`' to assert.
 
+use std::sync::Arc;
+
 use adapter_traits::{
     CiState, FromOutside, InfraCause, InfraFailure, Oid, OpenPull, PullQueue, PullRequestStanding, QueueEntry, QueueRun,
     QueueState, RecentlyMerged,
@@ -261,6 +263,22 @@ async fn a_drop_for_want_of_a_runner_is_queued_again_without_a_word_up_to_the_se
     assert_eq!((stuck.cause, stuck.job.as_deref(), stuck.pulls.as_slice()), (QueueStuckCause::NoRunner, Some("native"), [13].as_slice()));
     assert_eq!(stuck.log_url.as_deref(), Some("https://forge.invalid/job/native"));
     assert_eq!(dropping.the_line().await, ["The merge queue is stuck: native got no runner."], "one line, on the Job that holds #13");
+}
+
+#[tokio::test]
+async fn a_person_queueing_a_stuck_pull_request_again_lets_fleet_put_it_back_after_a_later_drop() {
+    use api::PullRequests;
+    let dropping = Dropping::with(vec![failed("native", InfraCause::NoRunner)]).await;
+    for _ in 0..3 {
+        dropping.drops().await;
+    }
+    assert_eq!(dropping.queued_again(), 2, "the setting is spent");
+
+    Arc::clone(&dropping.rig.fleet).enable_auto_merge(ipc::ManifestId::carried(dropping.rig.manifest()), 13).await.expect("queued");
+    assert_eq!(dropping.queued_again(), 3, "the person's own ask");
+    dropping.drops().await;
+
+    assert_eq!(dropping.queued_again(), 4, "Fleet put it back again, its count forgotten");
 }
 
 #[tokio::test]
