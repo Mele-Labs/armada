@@ -27,6 +27,8 @@ where
 {
     /// **A paused Job is told nothing**: `Ok(false)`, so the caller asks again, and a notice reaches
     /// it after the person resumes it. Only a person's Resume lifts a pause, and a word is a wake.
+    /// **Nor is a Job that still waits on another**: the word would start it with no brief, ahead of
+    /// the first message it waits for. A Job handed on to is told before it has run, so this reads the wait.
     pub(super) async fn fleet_word(
         self: &Arc<Self>,
         session: &str,
@@ -56,6 +58,10 @@ where
         }
         let (held, hosting) = self.session_and_hosting(session).await?;
         if held.state == store::SessionState::Ended || hosting.paused_at.is_some() {
+            return Ok(false);
+        }
+        let waits = self.store().lock().await.wait_of(session).ok().flatten().is_some_and(|wait| wait.started_at.is_none());
+        if waits {
             return Ok(false);
         }
         let sent = SendSessionMessage {

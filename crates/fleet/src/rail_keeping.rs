@@ -48,6 +48,8 @@ pub(crate) struct RailReads {
     pub usual: std::sync::Arc<std::collections::HashMap<String, u64>>,
     /// When the person last wrote in the thread, for a Job that follows a workflow: a step he is writing on is not stalled.
     pub you_wrote_last: Option<String>,
+    /// A hosted Job whose process has never started, such as one waiting on another: no step of it is stalled.
+    pub unstarted: bool,
 }
 
 impl RailReads {
@@ -133,7 +135,8 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
         ),
         false => Default::default(),
     };
-    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own, usual: Default::default(), you_wrote_last })
+    let unstarted = store.hosting(&session.id)?.is_some_and(|hosting| !hosting.ran);
+    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own, usual: Default::default(), you_wrote_last, unstarted })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -367,7 +370,7 @@ where
             strip.usual_secs = reads.usual.get(&step.id).copied();
             strip.ends_when = rail_ends::ends_any(steps, at);
             let since = record.workflow_visits.iter().rev().find(|visit| visit.step as usize == at).map(|visit| visit.since.as_str());
-            if let (Some(usual), Some(since)) = (strip.usual_secs, since) {
+            if let (Some(usual), Some(since), false) = (strip.usual_secs, since, reads.unstarted) {
                 let turn_over = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
                 strip.stalled = crate::step_stalls::stalled_since(since, usual, reads.you_wrote_last.as_deref(), &self.now()).map(|since| {
                     ipc::StepStalled { since: Instant::carried(since), cause: crate::step_stalls::cause_of(steps, at, facts, turn_over) }

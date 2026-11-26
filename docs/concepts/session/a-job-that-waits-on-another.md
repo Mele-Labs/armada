@@ -6,7 +6,7 @@ A Job can be dispatched to **start when another Job reaches a point**, with that
 
 | | |
 |---|---|
-| What waits | A Job with no message sent: it holds its brief, takes **no slot and runs no process**. The wait is a fact on its record (`waits`), kept in `session_waits` and absent once it has started. It stands in Work under the Job it waits on, in the state `after` |
+| What waits | A Job with no message sent: it holds its brief, takes **no slot and runs no process**. The wait is a fact on its record (`waits`), kept in `session_waits` and absent once it has started. It stands in Work under the Job it waits on, in the state `after`. **Fleet tells it nothing while it waits**, since any word would start it with no brief, and its step begins with its first turn ([the rail](the-rail.md)) |
 | The condition | `ends` (the default), `group_done` (a group of the plan of the Job waited on), `task_done` (one task), `pr_pushed`, `pr_lands`. Fleet **reads it from what it observes**: the Job's state, its plan's progress and its pull request events, never from an agent's call. The first pull request seen is the one `pr_pushed` and `pr_lands` mean, and it is kept |
 | Where it starts from | `main` (the default) or `branch`, the branch of that pull request. Dispatch defaults `pr_pushed` to `branch` |
 | The start | Once, when the condition is met: the Job is held (*A held Job*), its first message the **handoff of the Job waited on** (the builder `hand_to_session` uses) followed by the brief. A restart cannot start it twice |
