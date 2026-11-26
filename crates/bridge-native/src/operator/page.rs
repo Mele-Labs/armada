@@ -8,10 +8,11 @@ use std::rc::Rc;
 
 use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, FollowMode, ListAlignment, ListState, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
+use ipc::operator_talk::TalkToOperator;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{OperatorActs, ParkedIdea, SessionId, WaitingAct};
 
-use super::composer::{Composed, OperatorComposer, Outgoing};
+use super::composer::{Composed, OperatorComposer};
 use super::face;
 use super::parked::{ParkedAsked, ParkedIdeas};
 use super::scenes::{self, MockFleet};
@@ -119,6 +120,8 @@ pub struct OperatorPageView {
     /// The talk under the card, a list that follows its tail, and the rows it draws.
     pub(super) talk_list: ListState,
     pub(super) talk_said: Vec<super::talk::Said>,
+    /// The pictures under his words in the talk, by the file's id.
+    pub(super) talk_pictures: HashMap<String, super::talk::TalkPicture>,
     /// The talk has overflowed its space: the card in front folds to one line from then on.
     pub(super) talk_long: Rc<Cell<bool>>,
     /// How tall the talk's rows are together, as last drawn.
@@ -223,6 +226,7 @@ impl OperatorPageView {
                 list
             },
             talk_said: Vec::new(),
+            talk_pictures: HashMap::new(),
             talk_long: Rc::new(Cell::new(false)),
             talk_tall: Rc::new(Cell::new(gpui::px(0.))),
             talk_cut: Rc::new(Cell::new(gpui::px(0.))),
@@ -1037,7 +1041,8 @@ impl OperatorPageView {
     }
 
     /// The talk about a card, as he sent words with its tag: the card folds and the Operator's thread runs under it.
-    fn talk_about(&mut self, words: String, about: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn talk_about(&mut self, talk: TalkToOperator, about: String, window: &mut Window, cx: &mut Context<Self>) {
+        let words = talk.words.clone();
         let title = self.items().iter().find(|turn| turn.id == about).map(face::card_title).unwrap_or_else(|| about.clone().into());
         // He is talking about the front card, or one the Operator raised in the talk.
         if self.talk.as_ref().map(|talk| talk.about.as_str()) != Some(about.as_str()) && self.is_front(&about) {
@@ -1054,7 +1059,7 @@ impl OperatorPageView {
         self.sync_talk(cx);
         self.talk_list.set_follow_mode(FollowMode::Tail);
         cx.notify();
-        let task = self.wire.say(words, Some(about), cx);
+        let task = self.wire.say(talk, cx);
         let Some(task) = task else {
             // The mock holds the Operator's answer until a scene gives one.
             self.composer.update(cx, |composer, cx| composer.sent(window, cx));
@@ -1077,9 +1082,10 @@ impl OperatorPageView {
         .detach();
     }
 
-    /// A talk to the Operator about no card, as he sent words with no tag and no kind chip: they go in the talk under the
-    /// card with no About row, and no card folds or settles for them.
-    fn talk_loose(&mut self, words: String, window: &mut Window, cx: &mut Context<Self>) {
+    /// A talk to the Operator about no card, as he sent words with no tag: they go in the talk under the card with no
+    /// About row, and no card folds or settles for them.
+    fn talk_loose(&mut self, talk: TalkToOperator, window: &mut Window, cx: &mut Context<Self>) {
+        let words = talk.words.clone();
         self.loose = Some(words.clone().into());
         if let Some(talk) = self.talk.as_mut() {
             talk.sent = None;
@@ -1090,7 +1096,7 @@ impl OperatorPageView {
         self.unfolded = unfolded;
         self.talk_list.set_follow_mode(FollowMode::Tail);
         cx.notify();
-        let task = self.wire.say(words, None, cx);
+        let task = self.wire.say(talk, cx);
         let Some(task) = task else {
             self.composer.update(cx, |composer, cx| composer.sent(window, cx));
             return;
@@ -1405,33 +1411,18 @@ impl OperatorPageView {
         }
     }
 
-    /// What the box asks: its dispatch goes to Fleet, its talk to the Operator, or the keys come back to the page.
+    /// What the box asks: its talk goes to the Operator, or the keys come back to the page.
     fn composed(&mut self, event: &Composed, window: &mut Window, cx: &mut Context<Self>) {
         match event {
             Composed::Leave => window.focus(&self.focus, cx),
-            Composed::Send(out) => self.dispatch(out.clone(), window, cx),
-            Composed::Talk { words, about: Some(about) } => self.talk_about(words.clone(), about.clone(), window, cx),
-            Composed::Talk { words, about: None } => self.talk_loose(words.clone(), window, cx),
-        }
-    }
-
-    /// The box's send, as `dispatch_job`. The box empties on the answer, and keeps what it held on a refusal.
-    fn dispatch(&mut self, out: Outgoing, window: &mut Window, cx: &mut Context<Self>) {
-        let task = self.wire.dispatch(out.dispatch, cx);
-        let words = out.words;
-        cx.spawn_in(window, async move |this, cx| {
-            let sent = task.await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                match sent {
-                    Ok((done, events)) => {
-                        this.composer.update(cx, |composer, cx| composer.answered(Ok(&done), window, cx));
-                        this.told(&done, events, &words, cx);
-                    }
-                    Err(why) => this.composer.update(cx, |composer, cx| composer.answered(Err(why), window, cx)),
+            Composed::Talk { words, about, attachments, mentions } => {
+                let talk = TalkToOperator { words: words.clone(), about: about.clone(), attachments: attachments.clone(), mentions: mentions.clone() };
+                match about {
+                    Some(about) => self.talk_about(talk.clone(), about.clone(), window, cx),
+                    None => self.talk_loose(talk, window, cx),
                 }
-            });
-        })
-        .detach();
+            }
+        }
     }
 
     /// Fleet took a dispatch. With the Operator holding it, or keeping it as an idea, he stays where he is and the toast
@@ -1670,6 +1661,11 @@ mod tests {
     use super::*;
     use gpui::{IntoElement, ParentElement, Render, Styled, TestAppContext, VisualTestContext};
 
+    /// His words as a talk, with nothing sent beside them.
+    fn said(words: &str, about: Option<&str>) -> TalkToOperator {
+        TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
+    }
+
     fn open(cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
@@ -1784,7 +1780,7 @@ mod tests {
     #[gpui::test]
     fn a_talk_about_a_card_goes_to_the_operator_with_its_id_and_folds_the_card(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), window, cx));
         page.update(cx, |page, _| {
             assert_eq!(page.talk.as_ref().map(|talk| talk.about.as_str()), Some("turn:31"));
             assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))]);
@@ -1794,7 +1790,7 @@ mod tests {
     #[gpui::test]
     fn a_talk_about_no_card_goes_with_no_id_settles_nothing_and_its_answer_follows_in_the_talk(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_loose("Which Jobs are running now?".into(), window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_loose(said("Which Jobs are running now?", None), window, cx));
         page.update(cx, |page, _| {
             assert!(page.talk.is_none(), "no card is talked about");
             assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)]);
@@ -1812,9 +1808,26 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_picture_he_sends_the_operator_is_drawn_under_his_words_in_the_talk(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let mut talk = said("This toast is wrong", None);
+        talk.attachments = vec![ipc::SessionUpload { name: "Pasted file.png".into(), media_type: "image/png".into(), data: String::new() }];
+        page.update_in(cx, |page, window, cx| page.talk_loose(talk, window, cx));
+        page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            use super::super::talk::Said;
+            assert!(matches!(&page.talk_said[..], [Said::You { files, .. }, ..] if files.len() == 1), "the thread echoes his picture on his row: {:?}", page.talk_said);
+        });
+        assert!(drawn(cx, gpui::Role::Image, "Pasted file.png"), "the picture is drawn under his words");
+    }
+
+    #[gpui::test]
     fn a_card_the_operator_raises_in_the_talk_is_drawn_in_it_and_settling_it_ends_the_talk(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), window, cx));
         page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
         page.read_with(cx, |page, _| {
             assert_eq!(page.talk_cards().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:36"]);

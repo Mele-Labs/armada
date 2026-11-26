@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The person says one message to the Operator, in the box at the foot of its panel"
 notes = """
-`POST /operator/talk`, body `TalkToOperator`: `words`, and `about` where the person is talking about one card (`turn:<n>`'s own id, which is how Ask on the Operator's page opens the chat about that card). **It delivers his words to the Operator's own session** as a message in its thread, as the person's own, and answers with `OperatorSaid` with every field empty: the answer is the session's thread. Where `about` names a card the message carries a tag naming it, `[About card <id> "<title>"]`.
+`POST /operator/talk`, body `TalkToOperator`: `words`, `about` where the person is talking about one card (`turn:<n>`'s own id, which is how Ask on the Operator's page opens the chat about that card), and `attachments` and `mentions`, the files and tags he sent with the words, each absent when empty. **It delivers his words to the Operator's own session** as a message in its thread, as the person's own, with the files kept and named to the session as a Job's message's are, and answers with `OperatorSaid` with every field empty: the answer is the session's thread. Where `about` names a card the message carries a tag naming it, `[About card <id> "<title>"]`.
 
 **Refused**, 422 `fleet.operator_session_not_running`, with nothing kept, **while the session is not running**, whether the Operator is on or off, since nothing would hear the words. No fresh call is made and nothing is ruled: the one-shot call that read his words, offered to start a Job, read an order or forgot a rule went with the Policy.
 
