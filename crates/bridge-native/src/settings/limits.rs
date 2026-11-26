@@ -33,11 +33,12 @@ pub const GROUPS: &[Group] = &[
         glyph: "bot",
         keys: &["limits.standingRulesKib", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
     },
+    Group { name: "Merge queue", glyph: "git-merge", keys: &["limits.queueRequeuesPerCommit"] },
     Group { name: "Ports", glyph: "network", keys: &["limits.portRangeBase", "limits.portBlockGranule"] },
 ];
 
 /// The counts, stepped by one a press.
-const COUNTS: &[&str] = &["limits.dronesAtOnce", "limits.checksAtOnce", "limits.watchesAtOnce", "limits.watchesPerJob", "limits.portBlockGranule"];
+const COUNTS: &[&str] = &["limits.dronesAtOnce", "limits.checksAtOnce", "limits.watchesAtOnce", "limits.watchesPerJob", "limits.queueRequeuesPerCommit", "limits.portBlockGranule"];
 
 /// The narrowest a tile is drawn: a page too narrow for another column of this keeps fewer, never squeezed ones.
 const TILE_MIN: f32 = 240.;
@@ -605,7 +606,7 @@ mod tests {
     #[test]
     fn every_key_of_the_map_is_in_one_group_and_the_counts_are_in_the_map() {
         let all: Vec<&str> = GROUPS.iter().flat_map(|group| group.keys.iter().copied()).collect();
-        assert_eq!(all.len(), 15);
+        assert_eq!(all.len(), 16);
         let mut once = all.clone();
         once.sort_unstable();
         once.dedup();

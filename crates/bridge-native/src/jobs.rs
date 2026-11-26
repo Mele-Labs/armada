@@ -20,7 +20,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState, WaitingSource};
 
 use crate::assets::icon_path;
-use crate::dropdown::{under, Dropdown, Entry, Picked};
+use crate::dropdown::{under, Dropdown, Entry, Picked, Row as MenuRow};
 use crate::fleet::{BuildAct, FleetConnection};
 use crate::job_view::JobView;
 use crate::keymap::Act;
@@ -354,11 +354,10 @@ impl View {
         }
     }
 
-    /// The menu's View group: a label and a switch for each field.
+    /// The menu's Job Card row: the switches for each field open beside it, and stay open as they are flipped.
     fn entries(self) -> Vec<Entry> {
-        std::iter::once(Entry::Label("View"))
-            .chain(VIEW_FIELDS.iter().zip(self.0).map(|((id, label), on)| Entry::Toggle { id, label: (*label).into(), on }))
-            .collect()
+        let switches = VIEW_FIELDS.iter().zip(self.0).map(|((id, label), on)| Entry::Row(MenuRow::new(id, *label).ticked(on).keeps_open())).collect();
+        vec![Entry::Row(MenuRow::new("job_card", "Job Card").icon("sliders-horizontal").keeps_open().acts_on_arrival(switches))]
     }
 }
 
@@ -2653,7 +2652,7 @@ impl JobsList {
             },
             act("name", "Name it for me", Some("wand-sparkles"), false),
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
-            act("try", "Try it in your app", None, false),
+            act("try", "Try it in your app", Some("flask-conical"), false),
             act("judge", "Judge", Some("scale"), false),
             // Fleet carries Close to the Mac that holds the Job, so it stays on.
             match self.record(&id).and_then(|job| crate::pairing::refusal_to(job, "/sessions/close", cx)) {
@@ -2669,13 +2668,13 @@ impl JobsList {
         // Move to the other Mac, or bring the Job here, under Snooze: the Job's own state acts stand together.
         let mut after = if row.snoozed.is_some() { 2 } else { 3 };
         if let Some(offer) = self.record(&id).and_then(|job| crate::move_to_mac::offer(job, crate::pairing::macs(cx))) {
-            entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
+            entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: Some("arrow-right-left"), danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
             after += 1;
         }
         // Move to a project, after Move to Mac: it reaches the whole selection where this row is in it.
         if let Some(job) = self.record(&id).filter(|job| crate::move_to_project::movable(job)) {
             let off = crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx).map(Into::into);
-            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: Some("\u{21e7}P".into()), off });
+            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: Some("folder-input"), danger: false, key: Some("\u{21e7}P".into()), off });
         }
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
@@ -2749,10 +2748,12 @@ impl JobsList {
         let mut entries = Vec::new();
         if let Some(folded) = row_folded {
             let label = if folded { "Unfold sub-Jobs" } else { "Fold sub-Jobs" };
-            entries.push(Entry::Act { id: "fold", label: label.into(), icon: None, danger: false });
+            let icon = if folded { "unfold-vertical" } else { "fold-vertical" };
+            entries.push(Entry::Act { id: "fold", label: label.into(), icon: Some(icon), danger: false });
         }
         let label = if all_unfold { "Unfold all sub-Jobs" } else { "Fold all sub-Jobs" };
-        entries.push(Entry::Act { id: "fold_all", label: label.into(), icon: None, danger: false });
+        let icon = if all_unfold { "chevrons-up-down" } else { "chevrons-down-up" };
+        entries.push(Entry::Act { id: "fold_all", label: label.into(), icon: Some(icon), danger: false });
         entries.push(Entry::Rule);
         entries
     }
@@ -4936,8 +4937,12 @@ mod tests {
         view.flip("view:now");
         assert!(view.on("view:now"));
         let entries = view.entries();
-        assert!(matches!(entries[0], Entry::Label("View")));
-        assert_eq!(entries.len(), VIEW_FIELDS.len() + 1);
+        let [Entry::Row(card)] = entries.as_slice() else { panic!("the main menu holds one Job Card row") };
+        assert_eq!(card.label.as_ref(), "Job Card");
+        assert!(card.icon.is_some());
+        let ticks: Vec<_> = card.acts().iter().map(|entry| match entry { Entry::Row(row) => (row.id, row.ticked), _ => panic!("a switch is a row") }).collect();
+        assert_eq!(ticks.len(), VIEW_FIELDS.len());
+        assert_eq!(ticks.iter().find(|(id, _)| *id == "view:now"), Some(&("view:now", Some(true))));
     }
 
     fn tree() -> Vec<SessionRecord> {

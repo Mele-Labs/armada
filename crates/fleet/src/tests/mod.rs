@@ -264,6 +264,7 @@ mod workflow_migrating;
 mod workflow_proposal_waits;
 mod auto_land;
 mod auto_land_queue;
+mod queue_watch;
 mod lifecycle_handing;
 mod lifecycle_keeping;
 mod lifecycle_serving;

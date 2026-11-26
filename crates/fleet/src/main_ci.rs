@@ -82,8 +82,12 @@ where
         let root = served.root().to_string();
         // Every call of the visit is made even after one fails; a failed one only makes the visit quiet.
         let mut answered = self.notice_pulls(served).await;
-        answered &= self.notice_queue(served).await;
+        let queue_answered = self.notice_queue(served).await;
+        answered &= queue_answered;
         answered &= self.notice_merged(served).await;
+        if queue_answered {
+            self.queue_watched(served).await;
+        }
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
