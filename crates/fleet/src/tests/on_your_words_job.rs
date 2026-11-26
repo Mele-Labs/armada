@@ -53,6 +53,7 @@ fn start_of(manifest: ManifestId, on_your_words: bool) -> StartSession {
         held: false,
         project_rows: Vec::new(),
         on_your_words: on_your_words.then_some(true),
+        workflow: None,
     }
 }
 

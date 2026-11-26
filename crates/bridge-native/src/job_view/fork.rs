@@ -275,6 +275,7 @@ impl JobView {
             project_rows: Vec::new(),
             project: None,
             on_your_words: None,
+            workflow: None,
         };
         let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
         let Some(fleet) = self.fleet.clone() else { return };

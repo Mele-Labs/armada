@@ -350,6 +350,7 @@ async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .expect("started")
@@ -596,6 +597,7 @@ async fn dont_ask_again_is_kept_and_the_next_trip_tells_nothing() {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .expect("started")
@@ -809,6 +811,7 @@ async fn a_linked_job_handed_on_passes_its_link_and_the_parent_follows_the_succe
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .expect("started")

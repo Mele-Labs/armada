@@ -518,6 +518,7 @@ impl OperatorComposer {
             project_rows: Vec::new(),
             on_your_words: None,
             project: crate::dispatch::screen::scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
+            workflow: None,
         };
         // His words are the brief and the first message, so nothing is lost whoever starts the Job.
         let then = vec![DispatchThen::Message(DispatchMessage { text: text.clone(), attachments: files, mentions, sketches: Vec::new() })];

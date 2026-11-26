@@ -27,6 +27,7 @@ async fn started_in(rig: &Rig, project: Option<String>) -> Option<String> {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     let id = rig.fleet.start_session(start).await.expect("started").id;
     rig.fleet.project_of_job(id.as_str()).await

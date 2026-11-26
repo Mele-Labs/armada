@@ -64,6 +64,7 @@ impl Rig {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         self.fleet.start_session(start).await.expect("started")
     }

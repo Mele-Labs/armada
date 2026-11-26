@@ -724,6 +724,58 @@ async fn a_workflow_the_repository_does_not_hold_is_refused() {
 }
 
 #[tokio::test]
+async fn a_workflow_on_the_start_stands_over_the_proposers_answer() {
+    let rig = proposing(FakeJudge::saying("workflow: feature\ntitle: Log reader drops a line"));
+    let id = rig.start_requesting(REQUEST, |start| start.workflow = Some("bug".to_string())).await.id;
+    rig.send(&id, REQUEST).await;
+
+    let landed = landed(&rig, &id).await;
+    assert_eq!(landed.workflow.as_deref(), Some("bug"), "the answer did not move it");
+    assert_eq!(landed.title.as_deref(), Some("Log reader drops a line"), "what he did not set is still filled");
+    assert_eq!(picked(&landed), [ProposedField::Title], "and the workflow is not marked as the proposer's");
+    eventually(|| async { !sent(&rig, 0).is_empty() }).await;
+    assert!(sent(&rig, 0).remove(0).contains("follows the bug workflow"));
+}
+
+#[tokio::test]
+async fn a_blank_workflow_on_the_start_is_a_custom_job_whatever_the_proposer_answers() {
+    let rig = proposing(FakeJudge::saying(ANSWER));
+    let id = rig.start_requesting(REQUEST, |start| start.workflow = Some(String::new())).await.id;
+    rig.send(&id, REQUEST).await;
+
+    let landed = landed(&rig, &id).await;
+    assert_eq!(landed.workflow, None, "no workflow, though the answer named one");
+    assert_eq!(landed.title.as_deref(), Some("Log reader drops a line"));
+    assert_eq!(picked(&landed), [ProposedField::Title, ProposedField::Model, ProposedField::Effort]);
+}
+
+#[tokio::test]
+async fn a_start_naming_a_workflow_the_repository_does_not_hold_is_refused_and_makes_no_job() {
+    let rig = proposing(FakeJudge::that_fails("not asked"));
+    let mut start = ipc::StartSession {
+        manifest_id: rig.manifest.clone(),
+        title: None,
+        model: None,
+        effort: None,
+        mode: None,
+        fork: None,
+        root: None,
+        request: Some(REQUEST.to_string()),
+        after: None,
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+        project: None,
+        workflow: Some("epic".to_string()),
+    };
+    let refused = Arc::clone(&rig.fleet).start_session_reading(start.clone()).await.expect_err("refused");
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.session_workflow_not_held"));
+    start.request = None;
+    assert!(rig.fleet.start_session(start).await.is_err(), "a plain start is refused the same");
+    assert!(rig.fleet.list_sessions(None, None, None).await.unwrap().sessions.is_empty(), "and nothing was made");
+}
+
+#[tokio::test]
 async fn a_model_change_tells_the_turn_that_starts_on_it_and_enters_its_event() {
     let rig = proposing(FakeJudge::that_fails("not asked"));
     crate::timeline::keep_timeline(Arc::clone(&rig.fleet));
