@@ -34,6 +34,28 @@ impl Store {
         Ok(KeptCall { id: format!("call:{n}"), session_id: session_id.into(), notice: notice.into(), text: text.into(), raised_at: at.into() })
     }
 
+    /// Take back every call of `notice`, for whichever Sessions hold one: **a call whose cause
+    /// has gone**. The Sessions that held one, each once, so their lists are read again.
+    pub fn drop_calls(&mut self, notice: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "taking back the calls of a notice";
+        let mut statement = self
+            .conn
+            .prepare("SELECT DISTINCT session_id FROM fleet_calls WHERE notice = ?1")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let held = statement
+            .query_map([notice], |row| row.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        drop(statement);
+        self.conn
+            .execute("DELETE FROM fleet_calls WHERE notice = ?1", [notice])
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        Ok(held)
+    }
+
     /// The calls raised for `session_id`, oldest first.
     pub fn calls_of(&self, session_id: &str) -> Result<Vec<KeptCall>, WriteError> {
         let doing = "reading the calls a Fleet rule raised";

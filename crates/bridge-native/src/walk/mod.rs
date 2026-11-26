@@ -2397,6 +2397,13 @@ pub static WALKS: &[Walk] = &[
         steps: &strip_marks::STEPS,
     },
     Walk {
+        name: "queue-stuck",
+        title: "A stuck merge queue on main's card",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::QUEUE_STUCK,
+    },
+    Walk {
         name: "merge-strip-live",
         title: "Merge strip on Fleet's live view",
         screen: Screen::Marks,

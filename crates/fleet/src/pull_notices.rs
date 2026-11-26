@@ -373,7 +373,8 @@ where
         if pull.queue == PullQueue::Unmergeable {
             causes.push(Cause::Unmergeable);
         }
-        if dropped {
+        // A drop for want of a runner is put right, or called stuck, and told to nobody.
+        if dropped && self.drop_judged(served, pull, head).await == crate::queue_watch::DropSaid::Tell {
             causes.push(Cause::Dropped);
         }
         let mut everyone = true;

@@ -496,6 +496,14 @@ fn what_landed_and_when_the_forge_was_read_pass_through() {
     assert_eq!(view.quiet_reason, Some(ipc::QuietReason::RateLimited { until: Some(at(9)) }), "why it is quiet is the hub's own");
 }
 
+#[test]
+fn a_stuck_queue_is_the_hubs_own() {
+    let stuck = ipc::QueueStuck { since: at(3), cause: ipc::QueueStuckCause::NoRunner, job: Some("native".into()), pulls: vec![4039, 4041], log_url: None };
+    let view = only(MergeLineHub { queue_stuck: Some(stuck.clone()), ..Default::default() });
+    assert_eq!(view.queue_stuck, Some(stuck));
+    assert_eq!(only(MergeLineHub::default()).queue_stuck, None, "a queue that moves has no field");
+}
+
 // -- the ledger's holders, read for the line
 
 /// The Job that holds an open pull request is the one whose ledger names its number, read from the

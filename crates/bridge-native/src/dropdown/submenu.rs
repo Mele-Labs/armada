@@ -140,9 +140,23 @@ impl Dropdown {
         }
     }
 
-    /// A pick in the submenu shuts the whole menu, as a pick in the menu does.
+    /// A pick in the submenu shuts the whole menu, as a pick in the menu does. A switch that keeps the menu open flips its
+    /// tick and leaves it.
     fn pick_sub(&mut self, at: usize, cx: &mut Context<Self>) {
-        let id = match self.opened().and_then(|(_, entries)| entries.get(at)) {
+        let Some(sub) = self.entries.iter_mut().find_map(|entry| match entry {
+            Entry::Row(Row { beside, .. }) if beside.keys.shown && !beside.entries.is_empty() => Some(&mut beside.entries),
+            _ => None,
+        }) else {
+            return;
+        };
+        let id = match sub.get_mut(at) {
+            Some(Entry::Row(Row { id, off: None, keep: true, ticked, .. })) => {
+                *ticked = ticked.map(|on| !on);
+                let id = *id;
+                cx.emit(Picked::Entry { id, keep: true });
+                cx.notify();
+                return;
+            }
             Some(Entry::Act { id, .. }) | Some(Entry::Item { id, off: None, .. }) | Some(Entry::Row(Row { id, off: None, .. })) => *id,
             _ => return,
         };
@@ -277,10 +291,11 @@ impl Dropdown {
         let width = self.width(look);
         let glyph = look.length(token::SPACE_4);
         let first = entries.iter().position(|entry| entry.pickable());
+        let has_checks = entries.iter().any(|entry| matches!(entry, Entry::Row(Row { ticked: Some(_), .. })));
         let items = entries.iter().enumerate().map(|(n, entry)| {
-            let (id, label, icon, danger, accent) = match entry {
-                Entry::Act { id, label, icon, danger } => (*id, label.clone(), *icon, *danger, false),
-                Entry::Row(row) => (row.id, row.label.clone(), row.icon, false, row.beside.accent),
+            let (id, label, icon, danger, accent, ticked) = match entry {
+                Entry::Act { id, label, icon, danger } => (*id, label.clone(), *icon, *danger, false, None),
+                Entry::Row(row) => (row.id, row.label.clone(), row.icon, false, row.beside.accent, row.ticked),
                 Entry::Rule => return div().h(edge).mx(look.length(token::SPACE_2)).my(pad).bg(look.color(token::BORDER_SUBTLE)).into_any_element(),
                 _ => return div().into_any_element(),
             };
@@ -314,6 +329,11 @@ impl Dropdown {
                     .cursor_pointer()
                     .child(div().flex_none().size(glyph).children(icon.map(|icon| svg().path(icon_path(icon)).size(glyph).text_color(ink))))
                     .child(div().flex_1().min_w_0().truncate().child(label.clone()))
+                    .when(has_checks, |item| {
+                        item.child(div().flex_none().size(glyph).when(ticked == Some(true), |mark| {
+                            mark.child(svg().path(icon_path("check")).size(glyph).text_color(look.color(token::ACCENT)))
+                        }))
+                    })
                     .tooltip({
                         let said = label.clone();
                         move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
@@ -461,5 +481,32 @@ mod tests {
             menu.sub_key(&pressed("enter"), cx);
         });
         assert_eq!(*picked.borrow(), ["delete"]);
+    }
+
+    #[gpui::test]
+    fn a_switch_in_a_submenu_flips_its_tick_and_leaves_the_menu_open(cx: &mut TestAppContext) {
+        let switches = vec![Entry::Row(Row::new("view:now", "Now").ticked(false).keeps_open())];
+        let entries = vec![Entry::Row(Row::new("job_card", "Job Card").keeps_open().acts_on_arrival(switches))];
+        let menu = cx.new(|cx| Dropdown::new("Job", entries, Point::default(), Anchor::TopLeft, false, cx));
+        let picked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let seen = picked.clone();
+        let dismissed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let shut = dismissed.clone();
+        cx.update(|cx| {
+            cx.subscribe(&menu, move |_, event: &Picked, _| {
+                let Picked::Entry { id, keep } = event;
+                seen.borrow_mut().push((*id, *keep));
+            })
+            .detach();
+            cx.subscribe(&menu, move |_, _: &DismissEvent, _| shut.set(true)).detach();
+        });
+        menu.update(cx, |menu, cx| {
+            menu.follow(0);
+            menu.pick_sub(0, cx);
+            let Some((_, sub)) = menu.opened() else { panic!("the Job Card row's switches are open") };
+            assert!(matches!(&sub[0], Entry::Row(Row { ticked: Some(true), .. })), "the switch is on after one press");
+        });
+        assert_eq!(*picked.borrow(), vec![("view:now", true)]);
+        assert!(!dismissed.get(), "a switch leaves the menu open");
     }
 }

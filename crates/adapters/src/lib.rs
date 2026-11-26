@@ -138,6 +138,7 @@ mod reclaim;
 mod repairing;
 mod remembering;
 mod recorded_laps;
+mod queue_runs;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;

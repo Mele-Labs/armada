@@ -48,6 +48,18 @@ impl Forge for GhForge {
         crate::main_ci::queue_commit_of(in_repo, base, number)
     }
 
+    fn queue_runs(&self, in_repo: &str, base: &str) -> Option<adapter_traits::QueueRuns> {
+        crate::queue_runs::read(in_repo, base)
+    }
+
+    fn infra_failures(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::InfraFailure>> {
+        crate::queue_runs::failures(in_repo, commit)
+    }
+
+    fn cancel_run(&self, in_repo: &str, run_id: u64) -> Result<(), String> {
+        crate::queue_runs::cancel(in_repo, run_id)
+    }
+
     fn ci_log(
         &self,
         in_repo: &str,

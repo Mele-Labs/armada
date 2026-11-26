@@ -50,6 +50,39 @@ pub struct MergeLineHub {
     /// Why, as of the latest call that failed. Absent while it answers, and from an older Fleet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_reason: Option<QuietReason>,
+    /// The base branch's merge queue, where it is stuck. Absent while it moves, and from an older Fleet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_stuck: Option<QueueStuck>,
+}
+
+/// The base branch's merge queue, stuck: Fleet put its pull requests back as often as
+/// `limits.queueRequeuesPerCommit` allows, or an entry waited twice the forge's estimate. Absent while it moves.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueueStuck {
+    /// When Fleet first saw it stuck.
+    pub since: Instant,
+    pub cause: QueueStuckCause,
+    /// The failing job as the forge names it, such as `native`. Absent for a plain wait.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// The pull requests still in the queue, in queue order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pulls: Vec<u64>,
+    /// The failed job's page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log_url: Option<String>,
+}
+
+/// Why the queue is stuck.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum QueueStuckCause {
+    /// The job got no runner.
+    NoRunner,
+    /// The job ran past its time limit.
+    TimedOut,
+    /// An entry waited twice the forge's estimate, with no job named.
+    PastEstimate,
 }
 
 /// Why the forge stopped answering.

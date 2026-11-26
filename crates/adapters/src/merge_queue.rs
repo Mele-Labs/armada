@@ -8,12 +8,13 @@ use crate::main_ci::asked;
 pub(crate) const QUERY: &str =
     "query($owner:String!,$name:String!,$branch:String!){repository(owner:$owner,name:$name){\
     mergeQueue(branch:$branch){entries(first:50){nodes{position state enqueuedAt \
-    pullRequest{number} headCommit{oid}}}}}}";
+    estimatedTimeToMerge pullRequest{number} headCommit{oid}}}}}}";
 
 const ENTRIES: &str = "\
     .data.repository.mergeQueue.entries.nodes[]? | \
     [(.pullRequest.number | tostring), (.position | tostring), (.state // \"\"), \
-    (.headCommit.oid // \"\"), (.enqueuedAt // \"\")] | @tsv";
+    (.headCommit.oid // \"\"), (.enqueuedAt // \"\"), \
+    (.estimatedTimeToMerge // \"\" | tostring)] | @tsv";
 
 /// The queue in position order. `None` where the forge would not answer; a
 /// repository with no queue answers with none waiting.
@@ -57,6 +58,7 @@ pub(crate) fn entry_of_line(line: &str) -> Option<QueueEntry> {
         enqueued_at: Some(field.next().unwrap_or_default())
             .filter(|at| !at.is_empty())
             .map(FromOutside::verbatim),
+        estimated_seconds: field.next().and_then(|seconds| seconds.parse().ok()),
     })
 }
 
@@ -113,6 +115,19 @@ mod tests {
         assert_eq!(named.enqueued_at.as_ref().map(|it| it.as_written()), Some(at));
         assert_eq!(entry_of_line("20\t1\tQUEUED\t\t").expect("an entry").enqueued_at, None);
         assert_eq!(entry_of_line("20\t1\tQUEUED").expect("an entry").enqueued_at, None);
+    }
+
+    #[test]
+    fn an_entry_carries_the_seconds_the_forge_estimates_it_will_take_to_merge() {
+        let named = entry_of_line("20\t1\tQUEUED\t\t2026-11-25T10:00:00Z\t1800").expect("an entry");
+        assert_eq!(named.estimated_seconds, Some(1800));
+        assert_eq!(entry_of_line("20\t1\tQUEUED\t\t2026-11-25T10:00:00Z\t").expect("an entry").estimated_seconds, None);
+        assert_eq!(entry_of_line("20\t1\tQUEUED").expect("an entry").estimated_seconds, None);
+    }
+
+    #[test]
+    fn the_read_asks_for_as_many_entries_as_the_cap_callers_trust_says() {
+        assert!(QUERY.contains(&format!("entries(first:{})", adapter_traits::MOST_QUEUE_ENTRIES)));
     }
 
     #[test]

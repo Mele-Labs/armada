@@ -2125,6 +2125,25 @@ Electron reads none of it. The native strip says GitHub is rate-limiting us, unt
 An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
 **The event stream.** Both events carry their type whole, so they carry the field; no new event.
 
+## When the merge queue is stuck: `MergeLineHub.queue_stuck`, `MergeLineView.queue_stuck`
+
+Since 25 Nov 2026. `docs/practices/protocol/the-merge-line-fleet-reads.md`.
+**Additive only**: one optional field on two existing types, and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, and there is no number to take.
+It has no TypeScript half: Classic was deleted before it landed, and the native strip is its only reader.
+The native strip draws an amber band under the red one.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, absent while the queue moves: `QueueStuck` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, the hub's as it is |
+| `QueueStuck` | Fleet writes, Bridge reads | `since`, an instant: when Fleet first saw it stuck. `cause`. `job?`: the failing job as the forge names it, absent for a plain wait. `pulls`: the pull requests still in the queue, in queue order. `log_url?`: the failed job's page |
+| `QueueStuckCause` | Fleet writes, Bridge reads | Tagged by `kind`: `no_runner`, `timed_out`, `past_estimate` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as a queue that moves.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.
+
 ## When he was asked to review: `PullReviewRow.asked_at`
 
 Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
