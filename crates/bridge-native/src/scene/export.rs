@@ -25,7 +25,7 @@ use super::glyph;
 use super::route::{self, Seg};
 use super::start;
 use super::tile;
-use super::{body_face, body_lines, glyph_hue, ground, hue, laid, lang_width, lead_width, part_label, shortened, sheet_top, trees, Facts, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, LEAD, PAD_X, PAD_Y, RADIUS};
+use super::{body_face, body_lines, card_hue, chip_tint, glyph_hue, ground, hue, laid, lifted, lightened, lang_width, lead_width, part_label, shortened, sheet_top, trees, Facts, Laid, Measure, Way, BORDER, DASH, DOT, DOT_PERIOD, HEAD, LEAD, PAD_X, PAD_Y, RADIUS};
 use crate::look::{token, Look, Token};
 
 /// What the toast names after a copy (`MERMAID_COPIED`).
@@ -493,13 +493,11 @@ struct Kit<'a> {
     baselines: RefCell<HashMap<(u32, u32, bool), f32>>,
     fg: String,
     muted: String,
-    inverse: String,
     sunken: String,
     strong: String,
     focus: String,
     raised: String,
     subtle: String,
-    accent: String,
     on_accent: String,
     /// The card shadow's layers, each drawn as a blurred rectangle behind a tile.
     shadows: Vec<gpui::BoxShadow>,
@@ -519,13 +517,11 @@ impl<'a> Kit<'a> {
             baselines: RefCell::default(),
             fg: css(look.color(token::FG_DEFAULT)),
             muted: css(look.color(token::FG_MUTED)),
-            inverse: css(look.color(token::FG_INVERSE)),
             sunken: css(look.color(token::BG_SUNKEN)),
             strong: css(look.color(token::BORDER_STRONG)),
             focus: css(look.color(token::EDGE_FOCUS)),
             raised: css(look.color(token::BG_RAISED)),
             subtle: css(look.color(token::BORDER_SUBTLE)),
-            accent: css(look.color(token::ACCENT)),
             on_accent: css(look.color(token::TEXT_ON_ACCENT)),
             shadows: look.shadows(token::SHADOW_CARD).into_iter().filter(|layer| !layer.inset).collect(),
         }
@@ -695,6 +691,20 @@ fn line_dashes(pattern: Pattern) -> String {
     }
 }
 
+/// A gradient across the box it fills, running `angle` degrees clockwise from the top as CSS and gpui read one.
+fn gradient_svg(id: &str, angle: f32, from: Hsla, to: Hsla) -> String {
+    let (dx, dy) = (angle.to_radians().sin() / 2., -angle.to_radians().cos() / 2.);
+    format!(
+        r#"<linearGradient id="{id}" x1="{}" y1="{}" x2="{}" y2="{}"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient>"#,
+        n(0.5 - dx),
+        n(0.5 - dy),
+        n(0.5 + dx),
+        n(0.5 + dy),
+        css(from),
+        css(to)
+    )
+}
+
 /// An arrowhead as a polygon with its tip at `at`, pointing away from `from`.
 fn head_svg(at: Pt, from: Pt, fill: &str) -> String {
     let Some([tip, left, right]) = route::head_triangle(at, from, HEAD, HEAD / 2.) else { return String::new() };
@@ -845,53 +855,72 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
     format!("<g {attrs}>{out}</g>")
 }
 
-/// The Start pill: the accent with its word on it, above the top left of the node the sketch starts at.
+/// The Start pill: its word on a blue to teal chip, above the top left of the node the sketch starts at.
 fn pill_svg(kit: &Kit, pill: Rect) -> String {
     let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(pill.x), n(pill.y));
-    let _ = write!(out, r#"<rect width="{}" height="{}" rx="{}" fill="{}"/>"#, n(pill.w), n(pill.h), n(tile::PILL_H / 2.), kit.accent);
-    let spacing = format!(r#" letter-spacing="{}""#, n(tile::PILL_AT * tile::TRACKING));
-    kit.say(&mut out, tile::PILL_PAD, (tile::PILL_H - LEAD) / 2., tile::PILL_AT, tile::KIND_WEIGHT, false, &kit.on_accent, "start", &start::TAB_WORD.to_uppercase(), &spacing);
+    let _ = write!(out, r#"<rect width="{}" height="{}" rx="{}" fill="url(#sk-pill)"/>"#, n(pill.w), n(pill.h), n(tile::PILL_H / 2.));
+    kit.say(&mut out, tile::PILL_PAD, (tile::PILL_H - LEAD) / 2., tile::PILL_AT, tile::NAME_WEIGHT, false, &kit.on_accent, "start", start::TAB_WORD, "");
     out.push_str("</g>");
     out
 }
 
-/// A box or a code block: a raised card in a hairline, the outline of what it is at its left, its title and its body as a muted
+/// A box or a code block: a raised card, lighter at its top, in a hairline (a faint glow round it and the hairline in its hue
+/// where it has one), the outline of what it is in a tinted chip at its left, its title and its body as a muted
 /// line of sans (a code block's as mono, with its language at the top right), and the step's badge on its top right corner.
 fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut String) {
     let look = kit.look;
     let (w, h) = (rect.w, rect.h);
     shadow_svg(kit, 0., 0., w, h, out);
-    let (edge, width) = if face.started { (&kit.accent, tile::FRAME) } else { (&kit.subtle, tile::HAIRLINE) };
+    let card = card_hue(look, node, face.started);
+    if let Some(glow) = card {
+        let _ = write!(
+            out,
+            r#"<rect class="sk-glow" width="{}" height="{}" rx="{}" fill="{}" filter="url(#sk-glow)"/>"#,
+            n(w),
+            n(h),
+            n(tile::RADIUS),
+            css(glow.opacity(tile::GLOW_ALPHA))
+        );
+    }
+    let edge = card.map_or_else(|| kit.subtle.clone(), |color| css(color.opacity(tile::FRAME_ALPHA)));
+    let width = tile::HAIRLINE;
     let _ = write!(
         out,
-        r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" stroke="{edge}" stroke-width="{}"/>"#,
+        r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="url(#sk-card)" stroke="{edge}" stroke-width="{}"/>"#,
         n(width / 2.),
         n(width / 2.),
         n(w - width),
         n(h - width),
         n(tile::RADIUS - width / 2.),
-        kit.raised,
         n(width)
     );
     let measure = kit.measure();
     let (lead_w, lang_w) = (lead_width(node, Facts { mark: face.glyph }), lang_width(node, &measure));
     let mut x = tile::PAD_X;
-    let up = (tile::TITLE_LEAD - glyph::SIZE) / 2.;
+    let chip_y = tile::PAD_Y + (tile::TITLE_LEAD - tile::CHIP) / 2.;
+    let inset = (tile::CHIP - glyph::SIZE) / 2.;
+    let tint = css(chip_tint(look, node, face.glyph, face.started));
+    let chip = |out: &mut String, x: f32| {
+        let _ = write!(out, r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{tint}"/>"#, n(x), n(chip_y), n(tile::CHIP), n(tile::CHIP), n(tile::CHIP_RADIUS));
+    };
     if let Some(mark) = face.glyph {
-        let said = css(glyph_hue(look, node, Some(mark), face.started));
+        chip(out, x);
+        let said = css(lightened(glyph_hue(look, node, Some(mark), face.started), tile::LIGHTEN));
         let _ = write!(
             out,
             r#"<path class="sk-glyph" aria-hidden="true" d="{}" transform="translate({} {})" fill="none" stroke="{said}" stroke-width="{}" stroke-linecap="round" stroke-linejoin="round"/>"#,
             glyph::path_text(mark),
-            n(x),
-            n(tile::PAD_Y + up),
+            n(x + inset),
+            n(chip_y + inset),
             n(glyph::STROKE)
         );
-        x += glyph::SIZE + tile::GLYPH_GAP;
+        x += tile::CHIP + tile::GLYPH_GAP;
     }
     if let Some(icon) = node.icon.as_deref() {
-        kit.icon(out, icon, x, tile::PAD_Y + up, glyph::SIZE, &kit.muted);
-        x += glyph::SIZE + tile::GLYPH_GAP;
+        chip(out, x);
+        let color = css(lightened(card.unwrap_or_else(|| look.color(token::FG_MUTED)), tile::LIGHTEN));
+        kit.icon(out, icon, x + inset, chip_y + inset, glyph::SIZE, &color);
+        x += tile::CHIP + tile::GLYPH_GAP;
     }
     if let Some(lang) = node.lang.as_deref() {
         let lang_text_w = kit.width(lang, tile::LANG_AT, tile::KIND_WEIGHT, true);
@@ -915,13 +944,22 @@ fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut Str
     }
     if let Some((at, number)) = face.badge {
         let (cx, cy) = (at.x - rect.x + at.w / 2., at.y - rect.y + at.h / 2.);
-        let _ = write!(out, r#"<circle class="sk-badge" cx="{}" cy="{}" r="{}" fill="{}"/>"#, n(cx), n(cy), n(tile::BADGE / 2.), kit.fg);
-        kit.say(out, cx, cy - LEAD / 2., tile::BADGE_AT, tile::BADGE_WEIGHT, false, &kit.inverse, "middle", number, "");
+        let ring = css(look.color(token::FG_DEFAULT).opacity(tile::BADGE_RING));
+        let _ = write!(
+            out,
+            r#"<circle class="sk-badge" cx="{}" cy="{}" r="{}" fill="{}" stroke="{ring}" stroke-width="{}"/>"#,
+            n(cx),
+            n(cy),
+            n((tile::BADGE - tile::HAIRLINE) / 2.),
+            kit.sunken,
+            n(tile::HAIRLINE)
+        );
+        kit.say(out, cx, cy - LEAD / 2., tile::BADGE_AT, tile::BADGE_WEIGHT, false, &kit.fg, "middle", number, "");
     }
 }
 
-/// A group or a lane: a group is a hairline frame round its children and a lane a row of the canvas under a hairline, each
-/// named at its top left in small capitals. Neither has a fill.
+/// A group or a lane: a group is a hairline frame round its children on a faint fill and a lane a row of the canvas under a
+/// hairline, each named at its top left.
 fn draw_ground(kit: &Kit, node: &SceneNode, rect: Rect, canvas: Rect, out: &mut String) {
     let (w, h) = (rect.w, rect.h);
     if node.kind == SceneKind::Lane {
@@ -929,11 +967,11 @@ fn draw_ground(kit: &Kit, node: &SceneNode, rect: Rect, canvas: Rect, out: &mut 
             let _ = write!(out, r#"<path d="M0 0.5H{}" fill="none" stroke="{}" stroke-width="1"/>"#, n(w), kit.subtle);
         }
     } else {
-        let _ = write!(out, r#"<rect x="0.5" y="0.5" width="{}" height="{}" rx="{}" fill="none" stroke="{}" stroke-width="1"/>"#, n(w - 1.), n(h - 1.), n(tile::RADIUS - 0.5), kit.subtle);
+        let fill = css(kit.look.color(token::FG_DEFAULT).opacity(tile::GROUP_FILL));
+        let _ = write!(out, r#"<rect x="0.5" y="0.5" width="{}" height="{}" rx="{}" fill="{fill}" stroke="{}" stroke-width="1"/>"#, n(w - 1.), n(h - 1.), n(tile::RADIUS - 0.5), kit.subtle);
     }
     let Some(title) = node.title.as_deref() else { return };
-    let spacing = format!(r#" letter-spacing="{}""#, n(tile::KIND_AT * tile::TRACKING));
-    kit.say(out, tile::GROUND_PAD, tile::GROUND_PAD - 2. + (tile::KIND_AT + 4. - LEAD) / 2., tile::KIND_AT, tile::KIND_WEIGHT, false, &kit.muted, "start", &title.to_uppercase(), &spacing);
+    kit.say(out, tile::GROUND_PAD, tile::GROUND_PAD - 2. + (tile::KIND_AT + 4. - LEAD) / 2., tile::KIND_AT, tile::NAME_WEIGHT, false, &kit.muted, "start", title, "");
 }
 
 /// A wireframe block: what a part of a screen is, drawn as grey bars and never as a control.
@@ -1009,7 +1047,7 @@ fn edge_line_svg(edge: &SceneEdge, path: &[Seg], stroke: &str) -> String {
     out
 }
 
-/// One arrow: its way in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its words in the same hue on a backing the colour of the canvas.
+/// One arrow: its way in its hue, solid, dashed or dotted, a filled head at the ends that carry one, and its words in the same hue on a chip the colour of the canvas.
 fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     let look = kit.look;
     let color = tile::arrow_color(scene, edge);
@@ -1027,9 +1065,23 @@ fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
     let mut out = edge_line_svg(edge, &way.path, &stroke);
     if let (Some((rect, lines)), Some(label)) = (&way.words, edge.label.as_deref()) {
         let _ = write!(out, r#"<g class="sk-edge__words" role="img" aria-label="{}">"#, xml(label));
-        let _ = write!(out, r#"<rect x="{}" y="{}" width="{}" height="{}" rx="4" fill="{}"/>"#, n(rect.x), n(rect.y), n(rect.w), n(rect.h), kit.sunken);
+        let widest = lines.iter().map(|line| kit.width(line, tile::LABEL_AT, tile::LABEL_WEIGHT, false)).fold(0., f32::max);
+        let chip = tile::label_chip(*rect, widest, lines.len());
+        let backing = css(look.color(token::BG_SUNKEN).opacity(tile::LABEL_FILL));
+        let _ = write!(
+            out,
+            r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{backing}" stroke="{}" stroke-width="{}"/>"#,
+            n(chip.x + 0.5),
+            n(chip.y + 0.5),
+            n(chip.w - 1.),
+            n(chip.h - 1.),
+            n((chip.h - 1.) / 2.),
+            kit.subtle,
+            n(tile::HAIRLINE)
+        );
         for (index, line) in lines.iter().enumerate() {
-            kit.say(&mut out, rect.x + rect.w / 2., rect.y + 4. + index as f32 * tile::LABEL_LEAD + (tile::LABEL_LEAD - LEAD) / 2., tile::LABEL_AT, tile::LABEL_WEIGHT, false, &stroke, "middle", line, "");
+            let top = chip.y + tile::LABEL_PAD_Y + index as f32 * tile::LABEL_LEAD + (tile::LABEL_LEAD - LEAD) / 2.;
+            kit.say(&mut out, chip.x + chip.w / 2., top, tile::LABEL_AT, tile::LABEL_WEIGHT, false, &stroke, "middle", line, "");
         }
         out.push_str("</g>");
     }
@@ -1096,16 +1148,20 @@ fn drawing(key: &SharedString, scene: &Scene, title: &str, mode: Mode, window: &
     for (at, layer) in kit.shadows.iter().enumerate() {
         let _ = write!(out, r#"<filter id="sk-shadow-{at}" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="{}"/></filter>"#, n(f32::from(layer.blur_radius) / 2.));
     }
+    let _ = write!(out, r#"<filter id="sk-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="{}"/></filter>"#, n(tile::GLOW_BLUR / 2.));
+    let (raised, sunken) = (look.color(token::BG_RAISED), look.color(token::BG_SUNKEN));
+    out.push_str(&gradient_svg("sk-card", tile::CARD_ANGLE, lifted(&look, raised, tile::CARD_LIFT), raised));
+    out.push_str(&gradient_svg("sk-canvas", tile::CANVAS_ANGLE, lifted(&look, sunken, tile::CANVAS_LIFT), sunken));
+    out.push_str(&gradient_svg("sk-pill", tile::PILL_ANGLE, look.color(token::SKETCH_BLUE), look.color(token::SKETCH_TEAL)));
     out.push_str("</defs>");
     let _ = write!(
         out,
-        r#"<rect class="sk-ground" x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" stroke="{}" stroke-width="1"/>"#,
+        r#"<rect class="sk-ground" x="{}" y="{}" width="{}" height="{}" rx="{}" fill="url(#sk-canvas)" stroke="{}" stroke-width="1"/>"#,
         n(x + 0.5),
         n(y + 0.5),
         n(w - 1.),
         n(h - 1.),
         n(tile::CANVAS_RADIUS - 0.5),
-        kit.sunken,
         kit.subtle
     );
     for (index, node) in scene.nodes.iter().enumerate().filter(|(_, node)| ground(node)) {
@@ -1823,10 +1879,10 @@ mod tests {
     fn the_svg_draws_each_line_word_as_its_dash_pattern() {
         let line = |line| drawn(&arrow(Some(line), None, None, None), across());
         assert!(!line(SceneLine::Solid).contains("stroke-dasharray"));
-        assert!(line(SceneLine::Dashed).contains(r#"stroke-dasharray="8 8""#));
+        assert!(line(SceneLine::Dashed).contains(r#"stroke-dasharray="4 4""#));
         let dotted = line(SceneLine::Dotted);
-        assert!(dotted.contains(r#"stroke-dasharray="0.5 7.5""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
-        assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="8 8""#), "a flow reads as dashed");
+        assert!(dotted.contains(r#"stroke-dasharray="1 4""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
+        assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="4 4""#), "a flow reads as dashed");
         assert!(!drawn(&arrow(None, None, None, None), across()).contains("stroke-dasharray"), "an arrow that says nothing is solid");
     }
 
@@ -1888,7 +1944,7 @@ mod tests {
             let edge = SceneEdge { line: Some(line), ..arrow(None, None, None, None) };
             mermaid(&scene(vec![node("a", "A"), node("b", "B")], vec![edge]), &Look::dark())
         };
-        assert!(text(SceneLine::Dashed).contains("linkStyle 0 stroke-dasharray:8 8"));
+        assert!(text(SceneLine::Dashed).contains("linkStyle 0 stroke-dasharray:4 4"));
         assert!(!text(SceneLine::Dotted).contains("stroke-dasharray"));
     }
 
@@ -1937,5 +1993,34 @@ mod tests {
             assert!(!svg.contains(&format!(">{word}<")), "{word} is not written in the picture");
         }
         assert!(svg.contains(">rs<"), "a block of code names its language");
+    }
+}
+
+#[cfg(test)]
+mod look_probe {
+    use super::*;
+    #[gpui::test]
+    fn look_probe_writes_a_picture(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let text = r#"{"nodes":[
+            {"id":"g","kind":"group","x":-30,"y":-50,"w":980,"h":200,"title":"Fleet"},
+            {"id":"a","kind":"box","shape":"pill","x":0,"y":0,"title":"Drone","body":"Calls show_sketch","color":"blue","step":1},
+            {"id":"b","kind":"box","x":320,"y":0,"title":"Sketching","body":"Checks the scene and keeps it","color":"teal","step":2},
+            {"id":"c","kind":"box","shape":"cylinder","x":640,"y":0,"title":"Store","body":"Artifacts table","step":3},
+            {"id":"d","kind":"box","shape":"diamond","x":320,"y":230,"title":"Asks?","body":"A question set"},
+            {"id":"e","kind":"box","x":0,"y":230,"title":"Bridge","body":"Draws the card","color":"amber","state":"running"},
+            {"id":"f","kind":"code","x":640,"y":230,"lang":"rs","title":"scene.rs","body":"fn paint_tile(..)"}],
+            "edges":[{"id":"e1","from":"a","to":"b","label":"scene"},{"id":"e2","from":"b","to":"c","flow":true},{"id":"e3","from":"b","to":"d"},{"id":"e4","from":"d","to":"e","label":"yes","line":"dotted"},{"id":"e5","from":"c","to":"f","color":"red"}]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
+        let drawn = raw.scene().expect("it reads");
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let svg = cx.update(|window, cx| svg(&SharedString::from("probe"), &drawn, window, cx));
+        let dir = std::env::var("PROBE_OUT").unwrap_or_else(|_| "/tmp/armada-red/sketch-look".into());
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(format!("{dir}/probe.svg"), &svg).unwrap();
+        std::fs::write(format!("{dir}/probe.png"), png(&svg).unwrap()).unwrap();
     }
 }
