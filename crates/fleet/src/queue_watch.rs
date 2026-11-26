@@ -323,6 +323,17 @@ where
         }
     }
 
+    /// A person asked for the pull request to be queued: the put-backs Fleet kept for each of its commits
+    /// are forgotten, so a later runner drop is put back again up to the setting.
+    pub(crate) async fn requeues_forgotten(&self, manifest_id: &ipc::ManifestId, number: u64) {
+        let Ok(served) = self.served_named(Some(manifest_id)) else { return };
+        let limit = usize::try_from(self.machine_settings().now().get(keys::QUEUE_REQUEUES_PER_COMMIT)).unwrap_or(0);
+        let mut store = self.store().lock().await;
+        for time in 1..=limit {
+            let _ = store.forget_pull_notices(served.root(), number, &format!("requeue-{time}"));
+        }
+    }
+
     /// A pull request left the queue: **put it back, quietly, where the forge says it was a runner
     /// or the time that failed it**, at most `limits.queueRequeuesPerCommit` times a commit. A
     /// drop past that is stuck. Anything else is the owners' to hear, as ever.
