@@ -103,8 +103,8 @@ where
     }
 
     /// Enter the move on the timeline and keep where the rail stands. Answers whether the Job has run:
-    /// **one that has not is told nothing**, since a word sent now would start it ahead of the message
-    /// it waits for.
+    /// **one that has not is told nothing and keeps no step**, since a word sent now would start it ahead
+    /// of the message it waits for, and its first step begins with its first turn (`first_step_kept`).
     async fn rail_acted_on(
         self: &Arc<Self>,
         id: &str,
@@ -118,6 +118,9 @@ where
             let ran = store.hosting(id).ok().flatten().is_some_and(|hosting| hosting.ran);
             (session, kept, ran)
         };
+        if !ran {
+            return Some(false);
+        }
         if record.workflow_step == kept.step {
             return Some(ran);
         }
@@ -202,13 +205,17 @@ where
             steps.get(to as usize)?;
             let mut kept = store.session_rail(id, &rail::step_ids(&steps)).ok()?;
             let from = kept.step;
-            if from != Some(to) {
-                kept.step = Some(to);
-                kept.visits.push((to, self.now().as_str().to_string()));
-                if let Err(why) = store.keep_session_rail(id, &kept, &rail::step_ids(&steps)) {
-                    self.session_warned(id, "the rail was not kept", why);
-                    return None;
-                }
+            // The step begins now, at its first turn: a visit kept while it waited, before this was so, starts again.
+            let now = self.now().as_str().to_string();
+            match kept.visits.last_mut() {
+                Some((step, since)) if from == Some(to) && *step == to => *since = now,
+                _ => kept.visits.push((to, now)),
+            }
+            kept.step = Some(to);
+            kept.stalled.retain(|stalled| *stalled != to);
+            if let Err(why) = store.keep_session_rail(id, &kept, &rail::step_ids(&steps)) {
+                self.session_warned(id, "the rail was not kept", why);
+                return None;
             }
             (session, from, to)
         };
