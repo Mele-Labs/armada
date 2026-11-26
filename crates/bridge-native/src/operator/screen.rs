@@ -60,8 +60,8 @@ pub struct OperatorScreen {
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
     features: Option<Entity<crate::project_board::ProjectScreen>>,
-    /// The Cockpit's floor plan, in the page's place while the Operator is off.
-    floor: Option<Entity<crate::features::floor_home::Floor>>,
+    /// The Cockpit's home of blocks, in the page's place while the Operator is off.
+    home_blocks: Option<Entity<crate::home::HomeScreen>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
@@ -136,6 +136,7 @@ impl OperatorScreen {
         this.usage = Some(usage);
         this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
+        this.make_home(Some(fleet), window, cx);
         // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
         this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
         cx.defer(crate::deep_link::settle);
@@ -195,6 +196,7 @@ impl OperatorScreen {
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
+        this.make_home(None, window, cx);
         this
     }
 
@@ -322,13 +324,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let floor = features.clone().filter(|_| cockpit).map(|project| {
-            let library = project.read(cx).library_screen();
-            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), library, list.clone(), cx));
-            jobs.update(cx, |jobs, cx| jobs.set_floor(floor.clone(), cx));
-            floor
-        });
-        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, floor, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, home_blocks: None, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if matches!(front, Front::Operator | Front::Cockpit) {
@@ -336,6 +332,31 @@ impl OperatorScreen {
             window.focus(&keys, cx);
         }
         this
+    }
+
+    /// The Cockpit's home of blocks takes the page's place on the right while the Operator is off. `fleet` is the Fleet it keeps its
+    /// layout on, none on the walks'.
+    fn make_home(&mut self, fleet: Option<&Entity<FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.features.clone().filter(|_| self.cockpit) else { return };
+        let library = project.read(cx).library_screen();
+        let list = self.jobs.read(cx).list.clone();
+        let page = self.page.clone();
+        let blocks = match fleet {
+            Some(fleet) => cx.new(|cx| crate::home::HomeScreen::live(fleet, page, library, list, cx)),
+            None => cx.new(|cx| crate::home::HomeScreen::mock(page, library, list, cx)),
+        };
+        // A feature pressed in the System overview opens in the Features place.
+        let opened = cx.subscribe_in(&blocks, window, |this, _, event: &crate::home::HomeEvent, window, cx| {
+            if let crate::home::HomeEvent::Feature(slug) = event {
+                this.bring(Some(Front::Features), window, cx);
+                if let Some(project) = this.features.clone() {
+                    project.update(cx, |project, cx| project.show_feature(slug, window, cx));
+                }
+            }
+        });
+        self._subs.push(opened);
+        self.jobs.update(cx, |jobs, cx| jobs.set_home_blocks(blocks.clone(), cx));
+        self.home_blocks = Some(blocks);
     }
 
     /// The page's box offers the Jobs the list holds, but those that have ended.
@@ -435,9 +456,9 @@ impl OperatorScreen {
                 let keys = if self.jobs.read(cx).list.read(cx).at_home() { self.page.read(cx).focus.clone() } else { self.jobs.read(cx).list.read(cx).focus_handle().clone() };
                 window.focus(&keys, cx);
                 self.page.update(cx, |page, cx| page.in_front(cx));
-                // Features may have been in front and left: the floor reads the library again where it stands in the page's place.
-                if let Some(floor) = &self.floor {
-                    floor.update(cx, |floor, cx| floor.follow(cx));
+                // Features may have been in front and left: the home reads the library and its layout again where it stands.
+                if let Some(blocks) = &self.home_blocks {
+                    blocks.update(cx, |blocks, cx| blocks.follow(cx));
                 }
             }
             Front::Jobs => {
