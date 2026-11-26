@@ -45,6 +45,9 @@ pub enum Asked {
     ReadRepository(String),
     /// A sentence needs the feature catalog of this project, by Fleet's id. The answer is [`DispatchSheet::set_features`].
     ReadFeatures(String),
+    /// Words rested in a feature blank of this project: which of its features are they about, by meaning. The answer is
+    /// [`DispatchSheet::set_meaning`].
+    ReadMeaning { project: String, words: String },
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
     /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
@@ -625,6 +628,27 @@ impl DispatchSheet {
         self.drafting = self.drafting && self.waiting;
         self.tools_open = None;
         self.reread(&words, cx);
+        self.want_meaning(cx);
+        cx.notify();
+    }
+
+    /// Ask what the words typed in a feature blank are about, once there are two letters of them and a project is chosen.
+    fn want_meaning(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project() else { return };
+        let words = self.story.as_ref().and_then(|story| story.feature_typed()).filter(|words| words.chars().filter(|c| c.is_alphanumeric()).count() >= 2);
+        if let Some(words) = words {
+            cx.emit(Asked::ReadMeaning { project, words: words.to_string() });
+        }
+    }
+
+    /// The app's answer to [`Asked::ReadMeaning`]: the slugs of the features the words are about. An answer for words
+    /// no longer in the blank, or for another project, is let go.
+    pub fn set_meaning(&mut self, project: &str, words: &str, slugs: Vec<String>, cx: &mut Context<Self>) {
+        if self.project().as_deref() != Some(project) {
+            return;
+        }
+        let Some(story) = self.story.as_mut().filter(|story| story.feature_typed() == Some(words)) else { return };
+        story.mean(words, slugs.into_iter().map(Into::into).collect());
         cx.notify();
     }
 
@@ -2099,5 +2123,47 @@ mod tests {
         let heard = heard.borrow();
         assert_eq!(heard[0].0, "When I click Pay in Checkout\nFeature: checkout-flow");
         assert_eq!(heard[1].0, "When I click Pay in the pay button", "words typed into the blank name no feature");
+    }
+
+    #[gpui::test]
+    fn a_meaning_answer_adds_its_rows_after_the_word_matches_without_repeating_any_and_a_stale_answer_is_dropped(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let heard = std::rc::Rc::clone(&asked);
+        let _sub = cx.update(|_, cx| {
+            cx.subscribe(&sheet, move |_, asked: &Asked, _| {
+                if let Asked::ReadMeaning { project, words } = asked {
+                    heard.borrow_mut().push((project.clone(), words.clone()));
+                }
+            })
+        });
+        let titles = |sheet: &DispatchSheet| sheet.story.as_ref().expect("a sentence").list(&sheet.features()).expect("a feature blank").into_iter().map(|row| row.title.to_string()).collect::<Vec<_>>();
+        let project = sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            let row = sheet.face.chips.iter().find(|chip| chip.key == Some(3)).expect("a keyed row").id();
+            sheet.face.pick(&row);
+            let project = sheet.project().expect("the row's project is chosen");
+            let one = |title: &str, summary: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Hosting".into(), summary: summary.to_string().into(), slug: slug.to_string().into(), kind: Kind::Feature };
+            sheet.catalog = Some((project.clone(), vec![one("Cloudflare cache", "Clearing the edge", "cache"), one("Store deploy", "Putting the store on Cloudflare", "store-deploy"), one("Login", "Letting a person in", "login")]));
+            press(sheet, "tab", window, cx);
+            write(sheet, "c", window, cx);
+            assert!(asked.borrow().is_empty(), "one letter is too few to read");
+            write(sheet, "loudflare", window, cx);
+            project
+        });
+        assert_eq!(asked.borrow().last(), Some(&(project.clone(), "cloudflare".to_string())), "typing in the feature blank asks what the words are about");
+
+        sheet.update_in(cx, |sheet, _, cx| {
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy"], "the word match alone");
+            sheet.set_meaning("elsewhere", "cloudflare", vec!["login".to_string()], cx);
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy"], "an answer for another project is dropped");
+            sheet.set_meaning(&project, "cloudflare", vec!["login".to_string(), "store-deploy".to_string(), "gone".to_string()], cx);
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy", "Login"], "the meaning's rows follow the word matches, none twice");
+        });
+        sheet.update_in(cx, |sheet, window, cx| {
+            write(sheet, "s", window, cx);
+            sheet.set_meaning(&project, "cloudflare", vec!["login".to_string()], cx);
+            assert!(titles(sheet).is_empty(), "an answer for words no longer in the blank is dropped");
+        });
     }
 }

@@ -40,6 +40,15 @@ pub(crate) struct OfProject {
     project: Option<String>,
 }
 
+/// `?project=&words=` on `get_features_by_meaning`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfWords {
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    words: String,
+}
+
 /// `?project=&since=` on `get_since_you_looked`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfSince {
@@ -68,6 +77,13 @@ pub(crate) struct Weeks {
 pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
     match served.daemon().list_features(crate::acting::asking(), asked.project).await {
         Ok(library) => answer(StatusCode::OK, &library, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_features_by_meaning<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfWords>) -> Response {
+    match served.daemon().get_features_by_meaning(crate::acting::asking(), asked.project, asked.words).await {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

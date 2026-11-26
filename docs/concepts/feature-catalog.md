@@ -670,6 +670,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them or in the order the librarian holds |
 | `get_features_of_path` | The features a file belongs to |
+| `get_features_by_meaning` | The features of a project that some typed words are about, read by meaning with the local language model, for the dispatch sentence's feature blank |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature, the glossary terms it introduced and its gists of the docs it read |

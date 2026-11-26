@@ -214,6 +214,11 @@ impl Story {
         self.kind().pieces.iter().zip(&self.values).find_map(|(piece, value)| (matches!(piece, Piece::Feature(_)) && !value.trim().is_empty()).then_some(value.trim()))
     }
 
+    /// The words typed into the feature blank that has the keys, trimmed. None where the keys are on no feature blank.
+    pub fn feature_typed(&self) -> Option<&str> {
+        matches!(self.piece(), Piece::Feature(_)).then(|| self.values[self.at].trim())
+    }
+
     /// Fleet's meaning match answered `slugs` for `words`, as typed into the blank that has the keys.
     pub fn mean(&mut self, words: &str, slugs: Vec<SharedString>) {
         self.meant = Some((words.trim().to_lowercase(), slugs));

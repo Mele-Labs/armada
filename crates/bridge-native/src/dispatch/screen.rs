@@ -46,6 +46,7 @@ pub struct DispatchScreen {
     /// What Fleet last read of the words that tag a Job, and the reads out for the repository and for the wait.
     wait_read: Option<WaitRead>,
     read_task: Option<Task<()>>,
+    meaning_task: Option<Task<()>>,
     wait_task: Option<Task<()>>,
     pub within: FocusHandle,
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -87,6 +88,8 @@ struct WaitRead {
 
 /// How long the words stay still before the repository is read, and before the wait is.
 const READ_REPOSITORY_AFTER: Duration = Duration::from_millis(250);
+/// How long typing in a feature blank rests before Fleet is asked what the words are about.
+const READ_MEANING_AFTER: Duration = Duration::from_millis(250);
 const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
@@ -391,7 +394,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, build_notes, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, build_notes, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, meaning_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
@@ -425,6 +428,11 @@ impl DispatchScreen {
             self.read_features(project.clone(), cx);
             return;
         }
+        // The words in a feature blank, read by meaning once they rest.
+        if let Asked::ReadMeaning { project, words } = asked {
+            self.read_meaning(project.clone(), words.clone(), cx);
+            return;
+        }
         // Queue for later is kept here, on a live Fleet or not.
         if let Asked::Queue { words, repository, project, model, effort } = asked {
             self.queue_idea(words, repository, project.clone(), model.clone(), effort.clone(), window, cx);
@@ -439,7 +447,7 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), project: project.clone(), workflow: workflow.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::Queue { .. } | Asked::JobHere(_) | Asked::ReadFeatures(_) | Asked::Closed => {}
+                Asked::Queue { .. } | Asked::JobHere(_) | Asked::ReadFeatures(_) | Asked::ReadMeaning { .. } | Asked::Closed => {}
             }
         }
         cx.notify();
@@ -567,6 +575,19 @@ impl DispatchScreen {
             let _ = this.update(cx, |this, cx| this.sheet.update(cx, |sheet, cx| sheet.set_features(project, features, cx)));
         })
         .detach();
+    }
+
+    /// Words rested in a feature blank: Fleet reads which features of the project they are about. Each rest replaces the read
+    /// before it, which is let go, and a failed read adds nothing: the word match stands. A walk's mock has no model to ask.
+    fn read_meaning(&mut self, project: String, words: String, cx: &mut Context<Self>) {
+        let Some(port) = self.fleet_port(cx) else { return };
+        let path = format!("/features/match?project={}&words={}", crate::link::percent_encoded(&project), crate::link::percent_encoded(&words));
+        self.meaning_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(READ_MEANING_AFTER).await;
+            let answer = cx.background_executor().spawn(async move { live::call(port, path, None) }).await;
+            let Some(found) = answer.ok().and_then(|bytes| ipc::decode::<ipc::FeaturesByMeaning>("FeaturesByMeaning", &bytes).ok()) else { return };
+            let _ = this.update(cx, |this, cx| this.sheet.update(cx, |sheet, cx| sheet.set_meaning(&project, &words, found.slugs, cx)));
+        }));
     }
 
     /// The words rested: Fleet reads which repository they name, and the chip it names is chosen. Where it names
