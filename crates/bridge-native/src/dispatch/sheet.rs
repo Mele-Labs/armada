@@ -1539,7 +1539,7 @@ fn choices<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, face: &Face, proj
         let mut rows: Vec<FeatureChoice> = Vec::new();
         for one in face.chips.iter().chain(&face.more).filter_map(|chip| chip.project.as_ref()) {
             if !rows.iter().any(|row| row.slug == one.id) {
-                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), slug: one.id.clone(), kind: Kind::Project });
+                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), summary: SharedString::default(), slug: one.id.clone(), kind: Kind::Project });
             }
         }
         return Cow::Owned(rows);
@@ -2088,7 +2088,7 @@ mod tests {
         let (heard, _sub) = starts_heard(&sheet, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             start_sentence(sheet, "When", "click Pay", window, cx);
-            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), slug: slug.to_string().into(), kind: Kind::Feature };
+            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), summary: SharedString::default(), slug: slug.to_string().into(), kind: Kind::Feature };
             sheet.catalog = Some(("storefront".to_string(), vec![one("Checkout", "checkout-flow"), one("Billing", "billing")]));
             sheet.story.as_mut().expect("a sentence").values[2] = "Checkout".into();
             sheet.act(window, cx);
