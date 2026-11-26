@@ -680,6 +680,7 @@ impl JobView {
             project_rows: Vec::new(),
             project: None,
             on_your_words: None,
+            workflow: None,
         };
         self.head.said.remove(id);
         let job = id.clone();
@@ -1287,6 +1288,7 @@ impl JobView {
             project_rows: Vec::new(),
             on_your_words: None,
             project: None,
+            workflow: None,
         };
         let done: Done = Box::new(move |this, answer, window, cx| {
             let Ok(bytes) = answer else { return };

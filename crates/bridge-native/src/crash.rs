@@ -557,6 +557,7 @@ pub(crate) fn fix_dispatch(crash: &Crash, files: Vec<(String, Vec<u8>)>, reposit
         project_rows: Vec::new(),
         on_your_words: None,
         project: None,
+        workflow: None,
     };
     let attachments = files.iter().map(|(name, bytes)| upload(name, bytes)).collect();
     let then = vec![DispatchThen::Message(DispatchMessage { text, attachments, mentions: Vec::new(), sketches: Vec::new() })];

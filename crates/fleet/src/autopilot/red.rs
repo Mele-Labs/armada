@@ -76,6 +76,7 @@ where
                 held,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await;
         let job = started.ok()?.id.as_str().to_string();

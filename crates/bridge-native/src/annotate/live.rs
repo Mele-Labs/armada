@@ -209,6 +209,7 @@ pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgo
         project_rows: Vec::new(),
         project: None,
         on_your_words: None,
+        workflow: None,
     };
     let bytes = post(port, "/sessions/dispatch", ipc::encode(&DispatchJob { start, kind: None, then }), pictures)?;
     let done = ipc::decode::<JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())?;

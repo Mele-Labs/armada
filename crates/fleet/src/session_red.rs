@@ -153,6 +153,7 @@ where
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
         };
         let made: Result<SessionRecord, _> = match fork(None).await {
