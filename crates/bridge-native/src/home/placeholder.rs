@@ -9,11 +9,18 @@ use crate::titlebar::parts::{glyph, sans};
 
 pub struct PlaceholderBlock {
     kind: HomeBlockKind,
+    /// The grid draws the block's header, so the block is its one line.
+    headless: bool,
 }
 
 impl PlaceholderBlock {
     pub fn new(kind: HomeBlockKind) -> Self {
-        PlaceholderBlock { kind }
+        PlaceholderBlock { kind, headless: false }
+    }
+
+    /// The block as the home draws it: under the header the grid gives it, so with no title of its own.
+    pub fn headless(kind: HomeBlockKind) -> Self {
+        PlaceholderBlock { kind, headless: true }
     }
 
     /// What the card says under its title.
@@ -61,7 +68,7 @@ impl Render for PlaceholderBlock {
             .overflow_hidden()
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(title)
+            .children((!self.headless).then_some(title))
             .child(said)
     }
 }

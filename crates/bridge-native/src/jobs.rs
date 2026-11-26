@@ -3810,8 +3810,8 @@ pub struct JobsScreen {
     drawn: Rc<std::cell::Cell<u64>>,
     /// The Cockpit's home: the Operator's page, drawn on the right while no Job is open.
     home: Option<Entity<crate::operator::page::OperatorPageView>>,
-    /// The floor plan that stands in the page's place while the Operator is off, and the redraw it asks for when that changes.
-    floor: Option<(Entity<crate::features::floor_home::Floor>, Subscription)>,
+    /// The home that stands in the page's place while the Operator is off, and the redraw it asks for when that changes.
+    home_blocks: Option<(Entity<crate::home::HomeScreen>, Subscription)>,
     _drawn_with: Subscription,
 }
 
@@ -3950,7 +3950,7 @@ impl JobsScreen {
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, floor: None, _drawn_with: drawn_with }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, home_blocks: None, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -3974,10 +3974,14 @@ impl JobsScreen {
         cx.notify();
     }
 
-    /// The floor plan stands where the page does while the Operator is off.
-    pub(crate) fn set_floor(&mut self, floor: Entity<crate::features::floor_home::Floor>, cx: &mut Context<Self>) {
-        let sub = cx.subscribe(&floor, |_, _, _: &crate::features::floor_home::Moved, cx| cx.notify());
-        self.floor = Some((floor, sub));
+    /// The home of blocks stands where the page does while the Operator is off.
+    pub(crate) fn set_home_blocks(&mut self, blocks: Entity<crate::home::HomeScreen>, cx: &mut Context<Self>) {
+        let sub = cx.subscribe(&blocks, |_, _, event: &crate::home::HomeEvent, cx| {
+            if matches!(event, crate::home::HomeEvent::Moved) {
+                cx.notify();
+            }
+        });
+        self.home_blocks = Some((blocks, sub));
         cx.notify();
     }
 
@@ -4025,8 +4029,8 @@ impl JobsScreen {
             .flex()
             .flex_col()
             .children(hosts.then(|| div().absolute().size_full().invisible().child(self.view.clone())))
-            .child(match self.floor.as_ref().filter(|(floor, _)| floor.read(cx).is_up(cx)) {
-                Some((floor, _)) => div().flex_1().min_h_0().child(floor.clone()),
+            .child(match self.home_blocks.as_ref().filter(|(blocks, _)| blocks.read(cx).is_up(cx)) {
+                Some((blocks, _)) => div().flex_1().min_h_0().child(blocks.clone()),
                 None => div().flex_1().min_h_0().child(page),
             })
             .into_any_element()
