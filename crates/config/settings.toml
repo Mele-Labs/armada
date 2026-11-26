@@ -450,7 +450,7 @@ Live: read when a dispute is settled, when a notice is sent and at each pass of 
 [settings.librarian]
 name = "Librarian"
 scope = "Machine"
-default = "on press, every part, 20 model calls a night"
+default = "on press, every part, 20 model calls a night, 40 for asks"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
@@ -461,13 +461,15 @@ DECIDED 18 Nov 2026 (owner): "I want the librarian to be on demand. It should ne
 
 The librarian is the Fleet work that keeps a project's feature catalog current, `docs/concepts/feature-catalog.md`, *Librarian*. This is the setting that says when it runs and what it does.
 
-**Three keys in settings.json, drawn on the Features page, `runs` first.** `features.librarianRuns` is `on_press`, `after_merges` or `nightly`. `features.librarianParts` lists the parts a run does, by name, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`; all nine as it ships, and a name that is no part is left out. `features.librarianModelShare` is how many model calls the model-written parts (`since_you_looked`, `gists` and model drift) may make in one night.
+**Four keys in settings.json, drawn on the Features page, `runs` first.** `features.librarianRuns` is `on_press`, `after_merges` or `nightly`. `features.librarianParts` lists the parts a run does, by name, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`; all nine as it ships, and a name that is no part is left out. `features.librarianModelShare` is how many model calls the model-written parts (`since_you_looked`, `gists` and model drift) may make in one night.
+
+**Asks have their own night: `features.librarianAskShare`, forty calls for each project.** An ask from the Ask box (`ask_librarian`) and a press of Rank with the librarian (`rank_with_librarian`) each spend one call from it, an ask the librarian answers by ranking spends a second, and a call that failed is still spent. Spent, an ask is refused until local midnight. It is apart from `features.librarianModelShare` so that asking does not starve Catch up. Forty is chosen and not measured. The count is kept in the store, so a restart does not reset it.
 
 **On press is the shipped value, and it means Fleet starts no run itself.** The run is `run_librarian`, on a person's press of Catch up. `after_merges` and `nightly` are read only when the owner has set them: a run starts after a merge Fleet has not yet read through, or once in twenty-four hours, and under no other word.
 
 **Twenty calls a night, chosen and not measured.** A call is a unit Fleet can count before it spends anything, which tokens are not: Fleet knows a call was made and cannot know what it will cost until it has. Twenty is a night's worth of gists and a Since you looked for a catalog of a few dozen features. Nothing measured a night of the librarian, because no part that calls a model is built yet; the number moves when one is.
 
-**The value lives in settings.json under `features.librarianRuns`, `features.librarianParts` and `features.librarianModelShare`** (live), `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `features.librarianRuns`, `features.librarianParts`, `features.librarianModelShare` and `features.librarianAskShare`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
 [settings.session-model]

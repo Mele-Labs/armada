@@ -6,7 +6,7 @@
 use gpui::{div, prelude::*, px, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Pixels, Role, SharedString, Toggled, Window};
 use ipc::MetricState;
 
-use super::board::Board;
+use super::board::{Board, Ranking};
 use super::layout::{BlockKind, Placed, View, COLUMNS};
 use super::metric;
 use super::model::{self, Button, Fill, Item, Project, Shown, Tile};
@@ -250,6 +250,7 @@ impl Board {
                 format!("Hide {}", title),
             )
         });
+        let rank = (kind == BlockKind::Issues).then(|| self.rank_controls(look, cx));
         let header = div()
             .id(SharedString::from(format!("{slug}-head")))
             .flex_none()
@@ -268,6 +269,7 @@ impl Board {
             .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title.clone())))
             .children(metric.map(|reading| self.metric_state(reading, look)))
             .child(div().flex_1())
+            .children(rank)
             .children(switch)
             .children(hide);
         let header = if editing { labelled(header, Role::Group, format!("Move {}", title)).into_any_element() } else { header.into_any_element() };
@@ -345,6 +347,103 @@ impl Board {
                 cx.stop_propagation();
             }
         })
+    }
+
+    /// Rank with the librarian in the Issues block's head: a press has the librarian order the lists, and once they are in its
+    /// order a Ranked chip in the ask's hue stands in its place, with Reset beside it. A refusal is a glyph with Fleet's line.
+    fn rank_controls(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let ring = ring_colour(look);
+        let purple = look.color(token::ASK_FEATURES);
+        let ranked = self.ranked_by_librarian();
+        let waiting = self.ranking == Ranking::Waiting;
+        let size = look.length(token::SPACE_3);
+        let shape = |id: &'static str| {
+            div()
+                .id(id)
+                .flex_none()
+                .h(look.length(token::H_BADGE))
+                .px(look.length(token::SPACE_2))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .border(look.length(token::BORDER_WIDTH))
+                .text_size(look.length(token::TEXT_2XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .whitespace_nowrap()
+        };
+        let compact = |id: &'static str| {
+            shape(id)
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(move |style| style.border_color(ring))
+                // A press on it is not the start of a drag of the block.
+                .on_mouse_down(MouseButton::Left, |_, window, cx| {
+                    cx.stop_propagation();
+                    window.prevent_default();
+                })
+        };
+        // Ranked is a state, not a press: a chip in the ask's hue that says when, with Reset the one button beside it.
+        let state = match self.ranked_at() {
+            Some(at) => {
+                let said = format!("Ranked by the librarian at {}", crate::settings::time::stamp_at(at.as_str()).unwrap_or_else(|| at.as_str().to_string()));
+                labelled(
+                    shape("issues-ranked").border_color(purple).bg(purple.opacity(0.16)).text_color(purple).tooltip(tip(said)).child(glyph("sparkles", size, purple)).child("Ranked"),
+                    Role::Status,
+                    "Ranked",
+                )
+            }
+            None => {
+                let mark = if waiting { spinner("issues-rank-spin", size, purple, cx).into_any_element() } else { glyph("sparkles", size, purple).into_any_element() };
+                labelled(
+                    compact("issues-rank")
+                        .border_color(gpui::transparent_black())
+                        .text_color(look.color(token::FG_MUTED))
+                        .when(!waiting, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, _, cx| this.rank(false, cx))))
+                        .tooltip(tip("The librarian orders these and says why under each"))
+                        .child(mark)
+                        .child("Rank with the librarian"),
+                    Role::Button,
+                    "Rank with the librarian",
+                )
+            }
+        };
+        let reset = ranked.then(|| {
+            let mark = if waiting { spinner("issues-reset-spin", size, look.color(token::FG_MUTED), cx).into_any_element() } else { glyph("rotate-ccw", size, look.color(token::FG_MUTED)).into_any_element() };
+            labelled(
+                compact("issues-rank-reset")
+                    .border_color(gpui::transparent_black())
+                    .text_color(look.color(token::FG_MUTED))
+                    .when(!waiting, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, _, cx| this.rank(true, cx))))
+                    .tooltip(tip("Back to the order by features"))
+                    .child(mark)
+                    .child("Reset"),
+                Role::Button,
+                "Reset",
+            )
+        });
+        let refused = match &self.ranking {
+            Ranking::Refused(why) => Some(labelled(
+                div().id("issues-rank-refused").flex_none().tooltip(tip(why.clone())).child(glyph("triangle-alert", look.length(token::SPACE_4), look.color(token::DEGRADED))),
+                Role::Image,
+                why.clone(),
+            )),
+            _ => None,
+        };
+        div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(refused).child(state).children(reset).into_any_element()
+    }
+
+    /// The librarian's reason for a row's place, small, under its title.
+    fn why_line(&self, item: &Item, look: &Look) -> Option<AnyElement> {
+        let why = item.why.as_ref()?;
+        Some(
+            labelled(
+                div().id(SharedString::from(format!("{}-why", item.key))).min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::ASK_FEATURES).opacity(0.8)).child(SharedString::from(why.clone())),
+                Role::Label,
+                why.clone(),
+            )
+            .into_any_element(),
+        )
     }
 
     /// What a block holds under its header: bones while it reads, why it could not, or its rows in the view it is in.
@@ -468,7 +567,7 @@ impl Board {
     /// A row as a line of a List, or of a Table, where it stands in columns and is parted from the one above by a hairline.
     fn line(&self, item: &Item, table: bool, parted: bool, columns: usize, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ring = ring_colour(look);
-        let two = item.under.is_some();
+        let two = item.under.is_some() || item.why.is_some();
         let buttons: Vec<AnyElement> = (0..columns).map(|at| self.button(item, at, item.buttons.get(at).and_then(Option::as_ref), look, cx)).collect();
         let meta_w = look.length(token::SPACE_12) * 2.0;
         let chip_w = look.length(token::SPACE_12) * 2.5;
@@ -485,19 +584,23 @@ impl Board {
             .text_size(look.length(token::TEXT_XS))
             .when(table && parted, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).rounded_none())
             .child(self.mark(item, look, cx))
-            .child(match &item.under {
-                Some(under) => div()
+            .child(match two {
+                true => div()
                     .flex_1()
                     .min_w_0()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
-                    .child(div().line_clamp(2).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(item.title.clone())))
-                    .child(self.under_line(under, look))
+                    .child(match item.under {
+                        Some(_) => div().line_clamp(2).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(item.title.clone())),
+                        None => div().min_w_0().truncate().child(SharedString::from(item.title.clone())),
+                    })
+                    .children(self.why_line(item, look))
+                    .children(item.under.as_ref().map(|under| self.under_line(under, look)))
                     .into_any_element(),
-                None => div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())).into_any_element(),
+                false => div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())).into_any_element(),
             })
-            .when(table && !two, |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
+            .when(table && item.under.is_none(), |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
             .children(item.meta.as_ref().map(|meta| {
                 div().flex_none().when(table, |meta| meta.w(meta_w)).max_w(meta_w).truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))
             }))
@@ -542,6 +645,7 @@ impl Board {
                     .child(self.mark(item, look, cx))
                     .child(div().flex_1().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(item.title.clone()))),
             )
+            .children(self.why_line(item, look))
             .children(item.meta.as_ref().map(|meta| div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))))
             .children(item.tag.as_ref().map(|(words, hue)| div().flex().child(chip(look, *hue, words.clone()))))
             .children(item.under.as_ref().map(|under| self.under_line(under, look)))

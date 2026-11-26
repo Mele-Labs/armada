@@ -289,6 +289,7 @@ No two blocks overlap and none has room above it: a move or a resize pins the bl
 | System | What the project is made of: the people who use it, its entry points, what they reach, its stores and what it reaches outside. A part zooms into its pieces, and a feature into its path through them |
 
 The might-pick-up and might-be-interested rows are Fleet's ranking, which [Feature catalog](feature-catalog.md), *Ranking the issues he might pick up*, owns.
+The Issues block's head offers Rank with the librarian, and the Ask box asks it, which [Feature catalog](feature-catalog.md), *Asking the librarian*, owns.
 
 **Each block has a view switch, and it offers only the views the block's data fits.**
 Needs you is a List or Cards, Run a List, Table or Cards, Reviews Cards, List or Table, Issues a Table, List or Cards, Features Cards, List or Picture, Checks and commands a List or Table, and System a Graph or List.
@@ -350,7 +351,7 @@ The header is the same on every tab.
 | Part | What it does |
 |---|---|
 | Project chips | A press shows that project |
-| Ask the librarian | A box that keeps what is typed. While it has the keys it offers example asks, and a press on one fills the box. Sending is not built |
+| Ask the librarian | A box that keeps what is typed. While it has the keys it offers example asks, and a press on one fills the box. Enter sends the words and any files to the project's librarian, and its answer is a card under the box |
 | Edit | Turns editing the board on and off, and with it Add block, on the Dashboard tab |
 | Members and Settings | Open the Settings tab. Members puts the keys in the list of members |
 | Start | Starts the project's run on the checkout beside it |
@@ -392,5 +393,4 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | A Job on one Mac linked to a task on the other | Acts across Macs, a later stage of two Macs as one Armada |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |
 | The System, Docs and Errors blocks | Each is a later Job. Block kinds are plain text, so they add without a wire break |
-| Sending the Ask the librarian box | A later Job. The box keeps what is typed and offers examples, and sends nothing |
 | The librarian choosing the preset | A later Job. The preset follows the manifest kinds alone |

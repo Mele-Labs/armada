@@ -1,0 +1,11 @@
+[operations.forget_librarian_ranking]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Put a project's might-lists back in feature order, forgetting the librarian's ranking. Give the project's id"
+notes = """
+`POST /features/librarian/rank/forget`, body `RankWithLibrarian`: `project`. Answered with `RankedIssues` as `list_ranked_issues` answers, ranked by features: no `by_librarian`, no `why`. **No model call.** Reset on the dashboard presses it. Forgetting where no ranking is held is no refusal.
+
+**Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. Refused as `list_ranked_issues` is where the lists do not read. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
+"""

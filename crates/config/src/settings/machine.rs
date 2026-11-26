@@ -22,6 +22,8 @@ pub const LIBRARIAN_RUNS: Words = Words("features.librarianRuns");
 pub const LIBRARIAN_PARTS: List = List("features.librarianParts");
 /// How many model calls the librarian may make in a night.
 pub const LIBRARIAN_MODEL_SHARE: Integer = Integer("features.librarianModelShare");
+/// How many model calls his asks of the librarian may make in a night, apart from Catch up's share.
+pub const LIBRARIAN_ASK_SHARE: Integer = Integer("features.librarianAskShare");
 /// Whether Fleet reads the close of an agent's reply for something it asks, and raises a Needs you item for it.
 pub const READ_REPLIES_FOR_NEEDS: Flag = Flag("features.readRepliesForNeeds");
 /// The Operator as a whole: off, nothing is handed to it, no call runs and nothing waits on it.
@@ -323,6 +325,18 @@ pub(super) const FEATURES: &[Entry] = &[
         description: "How many model calls the librarian's model-written parts may make in one night. Zero leaves those parts to a press.",
         kind: Kind::Integer { min: 0, max: 500, unit: "calls a night" },
         shipped: Shipped::Integer(20),
+        applies: Applies::Live,
+        row: Some("librarian"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LIBRARIAN_ASK_SHARE.0,
+        section: Section::Features,
+        title: "Librarian asks",
+        description: "How many model calls your asks of the librarian may make in one night, for each project. Rank with the librarian spends from it too. Zero turns asking off.",
+        kind: Kind::Integer { min: 0, max: 500, unit: "calls a night" },
+        shipped: Shipped::Integer(40),
         applies: Applies::Live,
         row: Some("librarian"),
         env: None,
