@@ -144,10 +144,10 @@ fn a_card_says_what_its_job_waits_for_in_a_few_lines_and_says_there_is_more() {
     let bare = all.remove(1);
     let one = all.remove(0);
     assert_eq!(one.title, "Fix the merge line freshness chip");
-    assert_eq!(one.lines, ["Plan to approve", "Tail layout", "Which colour does the stale chip take?"], "the first three open items");
+    assert_eq!(one.lines, ["Which colour does the stale chip take?", "Plan to approve", "Tail layout"], "the first three open items, in the order the Job set");
     assert!(one.more, "it owes more than the card says");
     assert_eq!(one.since.as_deref(), Some("2026-11-09T13:41:00Z"), "the oldest item says how long it has waited");
-    assert_eq!(one.name(), "Fix the merge line freshness chip, Plan to approve");
+    assert_eq!(one.name(), "Fix the merge line freshness chip, Which colour does the stale chip take?");
     assert!(bare.lines.is_empty() && !bare.more && bare.since.is_none(), "a Job marked Needs you with no item owed still has its card");
 }
 
@@ -163,7 +163,7 @@ fn the_same_jobs_give_equal_cards_which_is_what_keeps_a_redraw_away() {
 fn the_block_draws_a_card_for_each_job_that_needs_him_and_a_press_opens_it(cx: &mut TestAppContext) {
     let (block, list, cx) = needs_in(900., 400., NeedsScope::All, jobs(), cx);
     assert!(find(cx, Role::List, "Jobs that need you").is_some(), "the cards stand in a list");
-    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").is_some(), "a card names its Job and what it waits for");
+    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").is_some(), "a card names its Job and what it waits for");
     assert!(find(cx, Role::Button, "Flaky login test").is_some());
     assert!(find(cx, Role::Button, "Checkout page loads twice").is_none(), "a Job that failed is not one that needs him");
     assert!(find(cx, Role::Status, "Nothing needs you").is_none());
@@ -179,7 +179,7 @@ fn the_scope_control_narrows_to_the_selected_project_and_back_and_says_so_to_its
     block.update(cx, |block, cx| block.select_project(Some("storefront".into()), cx));
     redraw(cx);
     assert!(find(cx, Role::Button, "Flaky login test").is_some(), "the selected project's Job");
-    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").is_none(), "and not Armada's");
+    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").is_none(), "and not Armada's");
     assert!(find(cx, Role::Button, "Needs you in the selected project").is_some() && find(cx, Role::Button, "Needs you in all projects").is_some(), "both segments are named");
 
     let told = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
@@ -188,14 +188,14 @@ fn the_scope_control_narrows_to_the_selected_project_and_back_and_says_so_to_its
     press(cx, Role::Button, "Needs you in all projects");
     assert_eq!(block.read_with(cx, |block, _| block.scope()), NeedsScope::All);
     assert_eq!(*told.borrow(), [NeedsScope::All], "the host is told once, to keep it with the layout");
-    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").is_some(), "every project's Jobs");
+    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").is_some(), "every project's Jobs");
     assert!(find(cx, Role::Button, "Flaky login test").is_some());
 
     press(cx, Role::Button, "Needs you in all projects");
     assert_eq!(told.borrow().len(), 1, "a press on the scope already held says nothing");
     press(cx, Role::Button, "Needs you in the selected project");
     assert_eq!(*told.borrow(), [NeedsScope::All, NeedsScope::Selected]);
-    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").is_none());
+    assert!(find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").is_none());
 }
 
 #[gpui::test]
@@ -220,13 +220,13 @@ fn with_nobody_waiting_the_block_says_so_and_keeps_its_scope_control(cx: &mut Te
 #[gpui::test]
 fn the_cards_wrap_to_the_width_of_the_box_and_never_leave_it(cx: &mut TestAppContext) {
     let (_block, _list, cx) = needs_in(900., 400., NeedsScope::All, jobs(), cx);
-    let first = find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").expect("first card");
+    let first = find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").expect("first card");
     let second = find(cx, Role::Button, "Flaky login test").expect("second card");
     assert_eq!(first.origin.y, second.origin.y, "a wide box holds the cards side by side");
     assert!(second.right() <= px(900.) + px(0.5), "inside the box");
 
     let (_block, _list, cx) = needs_in(220., 400., NeedsScope::All, jobs(), cx);
-    let first = find(cx, Role::Button, "Fix the merge line freshness chip, Plan to approve").expect("first card");
+    let first = find(cx, Role::Button, "Fix the merge line freshness chip, Which colour does the stale chip take?").expect("first card");
     let second = find(cx, Role::Button, "Flaky login test").expect("second card");
     assert!(second.origin.y > first.origin.y, "a narrow box stacks them");
     assert!(first.right() <= px(220.) + px(0.5) && second.right() <= px(220.) + px(0.5), "and neither is wider than the box");

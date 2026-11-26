@@ -472,6 +472,10 @@ impl HostedSessions for FakeDaemon {
         self.get_for_you(withdraw.session_id).await
     }
 
+    async fn order_waiting(self: Arc<Self>, _order: ipc::OrderWaiting) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
         self.get_for_you(order.session_id).await
     }

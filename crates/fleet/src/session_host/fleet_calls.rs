@@ -12,6 +12,8 @@ use crate::daemon::Fleet;
 /// The item a call is on the Needs you list: the words the Session was told, and the Job to open.
 pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: call.id.clone(),
         text: call.text.clone(),

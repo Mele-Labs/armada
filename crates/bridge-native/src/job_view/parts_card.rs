@@ -418,6 +418,10 @@ impl JobView {
     pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
         let job = self.shown.as_ref()?;
         let page = self.pages.get(job)?;
+        // The Job's first ask is answered on the first card, so its parts stand there.
+        if let Some(at) = page.extras.iter().position(|extra| matches!(extra, Extra::First(key) if key == artifact)) {
+            return Some(page.items + at);
+        }
         let newest = self.artifact_of(job, artifact)?.revisions.last()?.number;
         if let Some(held) = page.anchors.iter().find(|one| one.artifact == artifact && one.revision == newest) {
             return Some(held.item);
@@ -826,6 +830,10 @@ impl JobView {
             let fold = super::parts_fold::Fold { ix, artifact: id, title: &artifact.title, form: artifact.form, revision: last.map_or(1, |last| last.number), numbered: artifact.revisions.len() > 1, verdict, said };
             return Some(self.folded_parts(fold, page, look, cx));
         }
+        // Only the Job's first open ask stands as a card, the thread's first card (`first_card`): while this one asks it is one line.
+        if !tab && !sheet && asking && self.asking_item(&job, id, cx).is_some() {
+            return self.parts_pointer("thread", id, look, cx);
+        }
         // In its own tab it is read only, under the same line: no pick, verdict or Dismiss is drawn there.
         let pointer = if tab && !sheet && self.reads_only(id, cx) { self.parts_pointer("reader", id, look, cx) } else { None };
         let read_only = pointer.is_some();
@@ -911,6 +919,44 @@ impl JobView {
             Some(pointer) => div().w_full().flex().flex_col().gap(look.length(token::SPACE_2)).child(pointer).child(card).into_any_element(),
             None => card,
         })
+    }
+
+    /// The parts of artifact `id` and its footer as its card draws them under its head, for the thread's first card at list
+    /// place `ix` while the artifact is the Job's first ask. None once it no longer asks.
+    pub(super) fn parts_inside(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.shown.clone()?;
+        let artifact = self.artifact_of(&job, id)?;
+        let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
+        let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
+        if dismissed || stand_of(&parts, artifact.state) != Stand::Asking {
+            return None;
+        }
+        let ctx = Ctx {
+            ix,
+            id,
+            job,
+            page,
+            look,
+            tab: false,
+            sheet: false,
+            words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
+            takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
+        };
+        let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
+        let footer = held_press(self.parts_footer(ix, id, &parts, true, None, page, look, cx));
+        let artifact_id = id.to_string();
+        Some(
+            div()
+                .id(SharedString::from(format!("first-parts:{id}")))
+                .flex()
+                .flex_col()
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+                .children(blocks)
+                .child(footer)
+                .into_any_element(),
+        )
     }
 
     /// The footer of the artifact in the review panel, pinned under its parts and read as the card would read it.
@@ -2406,7 +2452,10 @@ mod tests {
         view.update_in(cx, |view, window, cx| view.answer_part("draft:Page title", &part, PartHow::SentBack, None, Some("Name it for the question.".into()), window, cx));
         redraw(cx);
         assert!(drawn(cx, gpui::Role::Status, "Page title: Sent back"), "revision 1 stands as one line");
-        assert!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), "the Job's next drawing asks again, in a card of its own");
+        assert!(view.read_with(cx, |view, cx| view.asking_item(JOB, "draft:Page title", cx).is_some()), "the Job's next drawing asks again");
+        // Only the Job's first ask stands whole; a later one is a line in the thread until its turn.
+        let first = view.read_with(cx, |view, cx| view.first_ask(JOB, cx).map(|item| super::super::first_card::first_key(&item)));
+        assert_eq!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), first.as_deref() == Some("draft:Page title"), "revision 2 is a card of its own only where it is first: {first:?}");
         view.read_with(cx, |view, cx| {
             let verdict = view.verdict_kept(JOB, "draft:Page title", 1, cx).expect("his words were kept under revision 1");
             assert_eq!(verdict.note.as_deref(), Some("Name it for the question."));
@@ -2427,7 +2476,12 @@ mod tests {
 
     #[gpui::test]
     fn a_vote_is_picked_on_its_thread_card_and_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |_| {});
+        // The Job put the vote first, so the first card holds it.
+        let (view, cx) = folds_job(cx, |jobs| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == JOB).expect("the Job");
+            let wire = br#"{"id":"agent-rollout","text":"Pick the rollout order","since":"2026-11-14T10:05:00Z","source":"agent","artifact":"sketch:Rollout order","order":1,"why":"The rollout waits on your pick"}"#;
+            job.waiting_for.insert(0, ipc::decode::<ipc::WaitingItem>("vote item", wire).expect("the vote item decodes"));
+        });
         let held = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.artifact_items(JOB, None).iter().any(|one| one.artifact.as_deref() == Some("sketch:Rollout order")));
         assert!(held(&view, cx), "the sheet holds the vote while it waits");
         let card = labelled_bounds(cx, gpui::Role::Article, "Artifact: Rollout order");

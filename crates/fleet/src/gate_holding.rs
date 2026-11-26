@@ -112,6 +112,8 @@ pub(crate) fn item_of(plan: &KeptPlan, session: &str, nothing_runs: bool) -> Opt
     let waits_on = phrase(gate).filter(|_| yours)?;
     let option = |label: &str, does: &str| WaitingOption { label: label.to_string(), description: Some(does.to_string()), picture: None };
     Some(WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("{ITEM}{}", group.id),
         text: format!("\"{}\" {waits_on}", group.title),

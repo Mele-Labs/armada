@@ -90,6 +90,8 @@ pub(crate) fn document_items<'a>(
         // A page that joined an artifact is asked for by the artifact.
         .filter(|one| super::artifact_parts::joined_of(attachments, one).is_none())
         .map(move |one| WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),
             text: super::artifact_parts::fleet_question(one.detail.get("title").unwrap_or(&one.target)),

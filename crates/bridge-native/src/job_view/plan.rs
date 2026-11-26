@@ -85,6 +85,12 @@ impl JobView {
         let going = matches!(answer, Some(Answer::Going));
         let aside = !approved && (card.state == PlanCardState::SetAside || matches!(answer, Some(Answer::SetAside)));
         let item = format!("plan:{}", card.version);
+        // While it asks, the first card is the one place it is answered: here it is a line that opens the sheet on it.
+        if !approved && !aside {
+            if let Some(ask) = self.open_ask_of(&job, &item, cx) {
+                return self.ask_pointer(&format!("thread:{item}"), &ask, super::ask_line::Stands::Thread, look, cx);
+            }
+        }
         // Once he answered it, his answer card stands where he gave it, and the plan folds.
         let answered = self.record(&job, cx).is_some_and(|held| held.answers.iter().any(|one| one.item == item));
         let folded = self.folded(&key, aside || (approved && (record.is_none() || answered)));
