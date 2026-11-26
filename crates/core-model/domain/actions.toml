@@ -876,6 +876,17 @@ destructive = false
 confirms = false
 notes = "Opens the sheet of places Armada remembers a change runs, by repository and area, from anywhere on the Reviews tab outside a text box. Each can be edited or forgotten there. `W` is the capital: `w` is `call_recall`, in the dashboard scope."
 
+[actions.review_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "J"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Opens the box of judge types under Judge in the head of the open pull request, where a Job holds it; a pull request no Job holds has no Judge, since Reviews' own review tools read it. Nothing is read until Judge is pressed in the box. The reading is the holding Job's, of kind `pull_request` and id the number. The button and the inbox row show it going, then a dot where notes wait or a check where it found nothing, and its notes stand under Review comments with Send to job and Dismiss. `POST /sessions/judge`."
+
 [actions.issues_panel]
 kind = "Action"
 tier = "Contextual"
