@@ -20,6 +20,7 @@ mod open_pulls;
 mod page;
 mod opening;
 mod patches;
+mod queue_runs;
 mod readiness;
 mod reading;
 mod review_lists;
@@ -220,6 +221,31 @@ impl Forge for ApiForge {
             in_repo,
             |api, repository| ci::queue_commit_of(api, repository, base, number),
             |gh| gh.queue_commit_of(in_repo, base, number),
+        )
+    }
+
+    fn queue_runs(&self, in_repo: &str, base: &str) -> Option<adapter_traits::QueueRuns> {
+        self.read(
+            in_repo,
+            |api, repository| queue_runs::queue_runs(api, repository, base),
+            |gh| gh.queue_runs(in_repo, base),
+        )
+    }
+
+    fn infra_failures(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::InfraFailure>> {
+        self.read(
+            in_repo,
+            |api, repository| queue_runs::infra_failures(api, repository, commit),
+            |gh| gh.infra_failures(in_repo, commit),
+        )
+    }
+
+    fn cancel_run(&self, in_repo: &str, run_id: u64) -> Result<(), String> {
+        self.written(
+            in_repo,
+            |api, repository| queue_runs::cancel(api, repository, run_id),
+            |gh| gh.cancel_run(in_repo, run_id),
+            identity,
         )
     }
 
