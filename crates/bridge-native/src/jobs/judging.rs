@@ -106,3 +106,33 @@ impl JobsList {
         self.open_job(id, cx);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reading(state: &str, read: bool, notes: &str) -> ipc::JudgeReading {
+        let wire = format!(
+            r#"{{"id":"r1","artifact":{{"kind":"pull_request","id":"2231","title":"Pull 2231"}},"prompt":"","state":"{state}","asked_at":"2026-11-09T10:00:00Z","read":{read},"notes":[{notes}]}}"#
+        );
+        ipc::decode::<ipc::JudgeReading>("a reading", wire.as_bytes()).expect("a reading")
+    }
+
+    const WAITING: &str = r#"{"id":"n1","claim":"No rollback"}"#;
+    const SETTLED: &str = r#"{"id":"n2","claim":"Slow","settled":{"how":"dismissed","at":"2026-11-09T11:00:00Z"}}"#;
+
+    #[test]
+    fn a_reading_leaves_the_mark_of_where_it_stands() {
+        assert_eq!(mark_of_reading(&reading("reading", false, "")), Some(Mark::Reading), "going");
+        assert_eq!(mark_of_reading(&reading("done", false, WAITING)), Some(Mark::Notes), "done, unread, a note waiting");
+        assert_eq!(mark_of_reading(&reading("done", false, &format!("{SETTLED},{WAITING}"))), Some(Mark::Notes), "one note waiting is enough");
+        assert_eq!(mark_of_reading(&reading("done", false, "")), Some(Mark::Clean), "done, nothing found");
+        assert_eq!(mark_of_reading(&reading("failed", false, "")), None, "a failed reading is never a result");
+    }
+
+    #[test]
+    fn notes_already_read_or_all_settled_leave_no_mark() {
+        assert_eq!(mark_of_reading(&reading("done", true, WAITING)), None, "opened");
+        assert_eq!(mark_of_reading(&reading("done", false, SETTLED)), None, "nothing waiting");
+    }
+}

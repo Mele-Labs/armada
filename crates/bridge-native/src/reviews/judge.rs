@@ -660,7 +660,105 @@ fn trap_tab(order: &[FocusHandle], back: bool, window: &mut Window, cx: &mut App
 
 #[cfg(test)]
 mod tests {
-    use super::path_of;
+    use gpui::{AppContext as _, TestAppContext, VisualTestContext};
+
+    use super::super::live::{map, Pull, Row};
+    use super::*;
+
+    /// A reading of `artifact` of `kind`, asked at `asked_at`, as Fleet's record would carry it.
+    fn reading(id: &str, kind: &str, artifact: &str, asked_at: &str) -> JudgeReading {
+        let wire = format!(r#"{{"id":"{id}","artifact":{{"kind":"{kind}","id":"{artifact}","title":"T"}},"prompt":"","state":"done","asked_at":"{asked_at}","read":false,"notes":[]}}"#);
+        ipc::decode::<JudgeReading>("a reading", wire.as_bytes()).expect("a reading")
+    }
+
+    fn pull(holder: Option<&str>) -> Pull {
+        Pull {
+            row: Row {
+                manifest: "ledger-api".into(),
+                repository: "harbor/ledger-api".into(),
+                title: "Say which stage of an invoice failed".into(),
+                branch: "mira/fix".into(),
+                author: "mira".into(),
+                holder: holder.map(|id| ipc::PullReviewHolder { id: id.to_string(), title: "The holder".into() }),
+                address: String::new(),
+                draft: false,
+                head: String::new(),
+            },
+            facts: map::Facts::default(),
+            notes: Vec::new(),
+            finds: map::Finds::default(),
+        }
+    }
+
+    /// A live page of pull requests 2231, held by a Job whose record carries `readings`, and 2232, held by none.
+    fn page_of_a_holder(readings: Vec<JudgeReading>, cx: &mut TestAppContext) -> (Entity<ReviewsScreen>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let mut record = crate::mock::jobs("jobs-screens").expect("the fixture decodes").into_iter().next().expect("a Job");
+        record.judge_readings = readings;
+        let job = record.id.as_str().to_string();
+        let list = cx.new(|cx| JobsList::mock(&[record], cx));
+        let fleet = cx.update(|cx| cx.new(crate::fleet::FleetConnection::idle));
+        let (reviews, cx) = cx.add_window_view(|window, cx| ReviewsScreen::live(&fleet, window, cx));
+        reviews.update(cx, |reviews, cx| {
+            reviews.watch_jobs(list, cx);
+            reviews.pages.insert(2231, crate::reviews::mock::page(2231).expect("a mock page"));
+            let live = reviews.live.as_mut().expect("a live page");
+            live.pulls.insert(2231, pull(Some(&job)));
+            live.pulls.insert(2232, pull(None));
+        });
+        (reviews, cx)
+    }
+
+    fn reading_of(reviews: &Entity<ReviewsScreen>, number: u64, cx: &mut VisualTestContext) -> Option<String> {
+        reviews.read_with(cx, |reviews, cx| reviews.judge_reading(number, cx).map(|one| one.id.clone()))
+    }
+
+    #[gpui::test]
+    fn only_a_reading_of_this_pull_request_is_its_reading_and_the_newer_one_wins(cx: &mut TestAppContext) {
+        let (reviews, cx) = page_of_a_holder(
+            vec![
+                reading("job-kind", "job", "2231", "2026-11-09T12:00:00Z"),
+                reading("other-number", "pull_request", "2198", "2026-11-09T12:00:00Z"),
+                reading("older", "pull_request", "2231", "2026-11-09T10:00:00Z"),
+                reading("newer", "pull_request", "2231", "2026-11-09T11:00:00Z"),
+                reading("oldest", "pull_request", "2231", "2026-11-08T09:00:00Z"),
+            ],
+            cx,
+        );
+        assert_eq!(reading_of(&reviews, 2231, cx).as_deref(), Some("newer"), "of the readings of this pull request, the newer is the one; another kind or number is not, however new");
+    }
+
+    #[gpui::test]
+    fn a_job_holding_only_other_readings_has_none_for_this_pull_request(cx: &mut TestAppContext) {
+        let (reviews, cx) = page_of_a_holder(vec![reading("job-kind", "job", "2231", "2026-11-09T12:00:00Z"), reading("other-number", "pull_request", "2198", "2026-11-09T12:00:00Z")], cx);
+        assert_eq!(reading_of(&reviews, 2231, cx), None, "a Job's own reading and another pull request's are not this one's");
+    }
+
+    #[gpui::test]
+    fn a_pull_request_no_job_holds_has_no_judge_and_the_press_does_nothing(cx: &mut TestAppContext) {
+        let (reviews, cx) = page_of_a_holder(vec![reading("held", "pull_request", "2231", "2026-11-09T10:00:00Z")], cx);
+        let press = Act { id: JUDGE, slot: 0, digit: None };
+        reviews.read_with(cx, |reviews, _| {
+            assert!(reviews.holder_of(2231).is_some(), "the held one has its Judge");
+            assert!(reviews.holder_of(2232).is_none(), "the unheld one has none");
+        });
+        assert_eq!(reading_of(&reviews, 2232, cx), None);
+
+        reviews.update_in(cx, |reviews, window, cx| {
+            reviews.open = Some(2232);
+            reviews.on_review_act(&press, window, cx);
+        });
+        assert!(reviews.read_with(cx, |reviews, _| reviews.judging.open.is_none()), "no box opens over a pull request nobody holds");
+
+        reviews.update_in(cx, |reviews, window, cx| {
+            reviews.open = Some(2231);
+            reviews.on_review_act(&press, window, cx);
+        });
+        assert!(reviews.read_with(cx, |reviews, _| reviews.judging.open.as_ref().is_some_and(|open| open.number == 2231)), "the same press over a held one opens it");
+    }
 
     #[test]
     fn a_place_names_its_file_with_or_without_its_line() {
