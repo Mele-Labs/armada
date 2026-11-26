@@ -60,12 +60,14 @@ pub(crate) struct Librarian {
     pub(crate) parts: Vec<LibrarianPart>,
     /// How many model calls a night may spend: `features.librarianModelShare`.
     pub(crate) model_share: u32,
+    /// How many model calls his asks may spend in a night, apart: `features.librarianAskShare`.
+    pub(crate) ask_share: u32,
 }
 
 impl Librarian {
-    /// As it ships: on press, every part, twenty calls a night.
+    /// As it ships: on press, every part, twenty calls a night and forty for asks.
     pub(crate) fn shipped() -> Librarian {
-        Librarian { runs: Runs::OnPress, parts: LibrarianPart::ALL.to_vec(), model_share: 20 }
+        Librarian { runs: Runs::OnPress, parts: LibrarianPart::ALL.to_vec(), model_share: 20, ask_share: 40 }
     }
 
     pub(crate) fn overlaid_by(&self, settings: &Resolved) -> Librarian {
@@ -75,6 +77,7 @@ impl Librarian {
                 .chosen(keys::LIBRARIAN_PARTS)
                 .map_or_else(|| self.parts.clone(), |names| LibrarianPart::ALL.into_iter().filter(|part| names.iter().any(|name| name == part.name())).collect()),
             model_share: settings.chosen(keys::LIBRARIAN_MODEL_SHARE).map_or(self.model_share, |n| u32::try_from(n).unwrap_or(0)),
+            ask_share: settings.chosen(keys::LIBRARIAN_ASK_SHARE).map_or(self.ask_share, |n| u32::try_from(n).unwrap_or(0)),
         }
     }
 }
@@ -302,7 +305,7 @@ where
     }
 
     /// The night it is now, which a night's share of model calls is counted by.
-    pub(super) async fn librarian_night(&self) -> String {
+    pub(crate) async fn librarian_night(&self) -> String {
         self.night_of(self.now().as_str()).await
     }
 
@@ -317,7 +320,7 @@ where
     }
 
     /// The night `at` falls in, as this machine's local date: `2026-11-18`. A night is local midnight to midnight.
-    async fn night_of(&self, at: &str) -> String {
+    pub(super) async fn night_of(&self, at: &str) -> String {
         let reading = crate::clock::local_reading(core_model::Timestamp::from_rfc3339(at.to_string()).epoch_millis().unwrap_or(0)).await;
         format!("{:04}-{:02}-{:02}", reading.year, reading.month, reading.day)
     }

@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::SessionId;
+use crate::{SessionId, SessionTag, SessionUpload};
 
 /// What lifts a hold on paths.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,6 +74,12 @@ pub struct TalkToOperator {
     /// A board item's id or a Needs you item's id: the person is talking about that one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    /// The files and pictures he sent with the words, kept as a Job's message keeps them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<SessionUpload>,
+    /// The `@` and `#` tags in the words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentions: Vec<SessionTag>,
 }
 
 /// The Log row an answer rests on.

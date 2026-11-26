@@ -269,7 +269,7 @@ where
     }
 
     async fn talk_to_operator(self: Arc<Self>, talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
-        self.operator_talked(&talk.words, talk.about.as_deref()).await
+        self.operator_talked(talk).await
     }
 
     async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {

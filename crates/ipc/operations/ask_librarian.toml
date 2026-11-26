@@ -1,0 +1,27 @@
+[operations.ask_librarian]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Ask a project's librarian, in the owner's words, from the screen he asked on: it answers in one line and does at most one thing, which Undo takes back. Give the project's id, the screen and the words"
+notes = """
+`POST /features/librarian/ask`, body `AskLibrarian`: `project`, `context`, `words`, `files` and, on the dashboard, `board` (`AskedBoard`: the `layout` as drawn, `preset` where it is the preset, the `kinds` this Bridge draws with their views, and the grid's `columns`). Answered with `LibrarianAnswered`: `project`, `asked_at` (the ask, by the instant Fleet took it), `reply` (one line), `act` where it did something, and `calls` and `limit`, the night's ask calls spent for the project, this one included, and the night's limit.
+
+**One model call, two where it ranks, and at most one act, already done when the answer comes.** The small model that sorts his messages (`models.dispute`) reads the rules, the screen, his words, the files he gave, the project's features (slug, title, area) and, on the dashboard, the board, its columns and the kinds and views it may use. It answers in lines, read by Fleet, never as JSON. The act is one of these.
+
+- `board`: the board is kept as `layout`, as `save_project_board` keeps it, and `projects.changed` is published. Fleet checks the model's layout first: only a kind and a view in `board.kinds`, inside `columns`, no two blocks over each other, no width or height under one. A layout that fails is not kept, there is no act, and the reply says the board was not changed.
+- `filed_doc`: a path or link is kept as a read of one feature, `target`, `title`, `feature` and `feature_title`, and shows on its page at once. `refile_librarian_ask` moves it.
+- `drafted`: each feature the docs he gave describe is kept as its own pending feature, as `draft_module_features` keeps a module: `drafted` names the slugs kept and `held` the slugs passed over because the library holds them. Only from `features_empty`, and Fleet reads the text of each of his `files` that is a doc at the top of the project's repositories (a docs folder's Markdown files one level down) into the question. A project holding a confirmed or seeded feature keeps nothing, and the reply says so. Undo takes out each draft still pending.
+- `ranked`: both might-lists are ranked by the librarian, as `rank_with_librarian` ranks them. **The ranking is a second call**, since the lists are read only once the librarian asks for them, and it spends from the same night: where none is left, or the lists do not read, there is no act and the reply says the lists were not ranked.
+- No act: the reply is the answer, at most 200 characters on one line.
+
+A filed doc must be one of his `files` or named in his `words`, and its feature one the library holds; otherwise nothing is filed and the reply says so.
+
+**The screen is `context`**: `dashboard`, `features_empty`, `feature:<slug>` or `metric:<id>`, and any other word reads as `dashboard`. On `feature:<slug>` that feature is where a filed doc goes unless his words say another. On `features_empty` it may draft, and on `metric:<id>` it answers and does nothing yet.
+
+**Only on his press.** Fleet never asks the librarian by itself, and nothing here waits on the Operator. **Asks have their own night**: `features.librarianAskShare`, 40 model calls a project as it ships, apart from Catch up's `features.librarianModelShare`. A call that failed is still spent, and its reply says the librarian did not answer. A night is local midnight to midnight, and the count is kept in the store.
+
+**Undo** is `undo_librarian_ask`, by `asked_at`. Fleet holds what Undo needs for the last 20 asks of each project, in memory: a restart forgets it, and the act stays as it was done.
+
+**Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. Blank words and no files, 422 `fleet.librarian_ask_blank`. The night's limit spent, 409 `fleet.librarian_asks_spent`, saying the limit and that it resets at local midnight; nothing is asked. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
+"""

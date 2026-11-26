@@ -227,7 +227,6 @@ impl JobView {
             refused: self.dock_of(id).and_then(|dock| dock.said.get(&format!("item:{}", row.id)).cloned()),
             foot: self.question_foot(row, look, cx),
             inset: false,
-            pinned: None,
         }
         .draw(look, cx);
         match self.row_box_under(id, &row.id, look, cx) {

@@ -137,6 +137,8 @@ impl FeatureOverlay {
         let sub = cx.subscribe_in(&story, window, |this, _, event: &StoryEvent, window, cx| match event {
             StoryEvent::Escape => this.back(window, cx),
             StoryEvent::Feature { slug, title } => this.push_page(slug.clone(), title.clone(), window, cx),
+            // A Job's pull requests and Jobs open from its own view, which this overlay is not in.
+            StoryEvent::ReadPull { .. } | StoryEvent::OpenPull { .. } | StoryEvent::OpenJob(_) => {}
         });
         let focus = story.read(cx).focus_handle(cx);
         self.stack.push(Layer { title, from, content: Content::Story(story), _sub: sub });

@@ -676,6 +676,16 @@ pub fn open_call(key: String, cx: &mut App) {
     }
 }
 
+/// A press on the banner of an Operator card, tagged with its `turn:<n>`: the Operator's page in front with that card open.
+pub fn open_card(id: &str, cx: &mut App) {
+    if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
+        (sink.0)(&Asked::Place("operator"), cx);
+    }
+    if let Some(page) = live(cx) {
+        page.update(cx, |page, cx| page.open_id(id, cx));
+    }
+}
+
 /// What a link is decided with: whether `features.deepLinks` is on and the repositories Fleet serves, each `None`
 /// until Fleet has said. `None` where the screen is not up yet, or has no Fleet to read.
 pub fn link_state(cx: &App) -> Option<(Option<bool>, Option<Vec<ipc::RepositorySummary>>)> {
@@ -994,6 +1004,35 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_banner_press_on_an_operator_card_brings_the_page_with_that_card_open(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            OperatorScreen::mock(jobs, window, cx)
+        });
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        page.update(cx, |page, cx| {
+            for _ in 0..12 {
+                page.scene("replies", cx).expect("the Operator replies");
+            }
+        });
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "the long talk folds the card in front"));
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Jobs), window, cx));
+        let card = page.read_with(cx, |page, _| page.waiting().first().map(|turn| turn.id.clone())).expect("a card waits behind the front");
+        cx.update(|_, cx| open_card(&card, cx));
+        cx.run_until_parked();
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the Operator's page is in front");
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.clone()), Some(card.clone()), "with the banner's card in front");
+            assert!(!page.is_folded(), "open, not folded");
+        });
+    }
+
+    #[gpui::test]
     fn pasting_a_pull_request_link_into_a_text_box_stays_the_boxs(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
@@ -1113,6 +1152,23 @@ mod tests {
         screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Looks good").is_some(), "back on the page, the card is drawn again");
+    }
+
+    #[gpui::test]
+    fn the_card_in_front_keeps_its_whole_height_in_a_short_window(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        let title = page.read_with(cx, |page, _| page.open_item().map(|turn| super::super::face::card_title(turn).to_string())).expect("a card is in front");
+        let height = |cx: &mut VisualTestContext, high: f32| {
+            cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(high)));
+            redraw(cx);
+            cx.update(|_, cx| cx.set_global(LabelBook::default()));
+            redraw(cx);
+            drawn(cx, Role::Article, &title).expect("the card is drawn").size.height
+        };
+        let tall = height(cx, 1400.);
+        let short = height(cx, 460.);
+        assert_eq!(short, tall, "the card is drawn whole, with nothing in it scrolled away");
     }
 
     #[gpui::test]

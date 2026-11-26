@@ -18,9 +18,9 @@ async fn seated(rig: &Rig) {
 #[tokio::test]
 async fn his_words_are_refused_while_the_operators_session_is_not_running_and_nothing_is_kept() {
     let rig = rig_placing(None);
-    assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("off")).contains("fleet.operator_session_not_running"));
+    assert!(code(rig.fleet.operator_talked(super::operator_cards::said("hello", None)).await.expect_err("off")).contains("fleet.operator_session_not_running"));
     operator_on(&rig).await;
-    assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("no session")).contains("fleet.operator_session_not_running"));
+    assert!(code(rig.fleet.operator_talked(super::operator_cards::said("hello", None)).await.expect_err("no session")).contains("fleet.operator_session_not_running"));
     assert!(rig.fleet.operator_talk_wire().await.expect("read").lines.is_empty());
 }
 

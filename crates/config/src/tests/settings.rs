@@ -129,6 +129,7 @@ fn every_handle_names_an_entry_of_its_kind() {
     let kinds = |key: &str| entry(key).map(|found| found.kind).expect(key);
     for key in [
         s::LIBRARIAN_MODEL_SHARE,
+        s::LIBRARIAN_ASK_SHARE,
         s::DRONES_AT_ONCE,
         s::CHECKS_AT_ONCE,
         s::MEMORY_SPARE_PERCENT,

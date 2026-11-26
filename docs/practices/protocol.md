@@ -2209,3 +2209,20 @@ A drawing beside takes, and a second ask on one artifact, are refused the same w
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet sends no `answers` and no `question`, which a newer Bridge reads as none.
 **The event stream.** The record is carried whole, so it carries `answers`; no new event.
+
+## A talk to the Operator carries files: `attachments` and `mentions` on `TalkToOperator`
+
+Since 26 Nov 2026. `docs/concepts/operator.md`, *The page*.
+The owner ruled it on 25 Nov 2026: the Operator composer has no kind chips, every send is a talk, and the Operator reads the kind from his words.
+**Additive only**: two optional fields on one existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and the operation file, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `TalkToOperator` (`talk_to_operator`) | Bridge writes, Fleet reads | Gains `attachments`, the `SessionUpload`s he sent with the words, and `mentions`, the `SessionTag`s in them; each absent when empty. With `about` or without, they reach the Operator's session as a Job's message's do |
+
+**`dispatch_job` and `DispatchKind` stay**: crash reports, error toasts, Pocket and a kept idea's Start send them.
+Only the Operator composer stopped sending `dispatch_job`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Bridge sends no files, which a newer Fleet reads as none.

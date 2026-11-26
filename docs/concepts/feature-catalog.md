@@ -202,7 +202,7 @@ A pending feature is listed under the area `pending`, with no prefix and no line
 > **Rule.** A pending feature is made only in a library that has a feature already.
 > Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
 
-His Draft as Pending is the one exception, see *Starting a library*.
+His Draft as Pending and Read them are the exceptions, see *Starting a library*.
 
 Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
 The Operator brings him one card, with three options.
@@ -354,6 +354,7 @@ A pending feature is never matched.
 The same answer lists the open pull requests that are not his, mapped by their own files, as the ones he might be interested in.
 They are ranked as the issues are, the ones that matched a feature first, then the most Jobs, then the highest number.
 It is empty where Armada does not know who he is on the forge, since then nobody can be called somebody else.
+While the librarian holds a ranking for the project, `list_ranked_issues` answers in its order instead, see [Asking the librarian](#asking-the-librarian).
 
 ## Seeding
 
@@ -391,8 +392,8 @@ The Features screen draws a start panel in place of the project's page while tha
 | Part | What it does |
 |---|---|
 | Modules in the build files | The modules `get_library_start` reads, as the floor plan reads them, each a chip, with Draft as Pending |
-| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip |
-| Or feed the librarian | A box he pastes or drops docs into, or says what the project does in. Not built |
+| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip, with Read them |
+| Or feed the librarian | The Ask box, with the context `features_empty`: he pastes or drops docs into it, or says what the project does |
 
 **Draft as Pending** is `draft_module_features`: each module becomes its own pending feature, in the area `pending`, with no model asked.
 Its slug and title come from the module's name, and its folder is its one prefix in its repository, so the code map and health read it.
@@ -402,9 +403,15 @@ The press is refused once the project holds a confirmed or seeded feature, and a
 The panel goes when the first drafted row is confirmed.
 
 > **Rule.** Drafting is the one way a pending feature is made in a library with no feature of its own.
-> Why: it is his press that starts the library, so the earliest `added_at` is still the moment it started.
+> Why: it is his press, of Draft as Pending or of an ask, that starts the library, so the earliest `added_at` is still the moment it started.
 
-Docs in the repo are shown and not yet read: sending them to the librarian waits on its own operation.
+**Read them** is an ask of the librarian through the Ask box, with the docs the panel lists as its files and `features_empty` as its context.
+Fleet reads each of those docs from the project's repositories into the question, a docs folder's Markdown files one level down, because the model reads text and opens no file.
+The librarian drafts each feature the docs describe as its own pending feature, as Draft as Pending keeps a module, and a slug the library holds is passed over.
+Where the project keeps no area the ask keeps one, Features.
+The box's card says what it drafted, and Undo takes out each draft still pending.
+An ask from the box itself drafts the same way.
+The keys go Draft as Pending, Read them, then the box, and Tab past the box gives them back to the list.
 
 ## Librarian
 
@@ -414,10 +421,11 @@ It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `r
 Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built into a run so far, and a run does nothing else but keep its record.
 The model's part of `drift` is built and runs only on his press of Check on a feature's page, never in a run.
 
-Three settings in `settings.json` say what it does, on the Features page, `runs` first.
+Settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
 `features.librarianParts` names the parts a run does, all nine as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
+`features.librarianAskShare` is the night his asks spend from, apart from that share, and is in [Asking the librarian](#asking-the-librarian).
 
 `run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, the parts that ran, the paragraph it wrote, the calls it made and the parts it left out for the share.
 `list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
@@ -516,6 +524,111 @@ Bridge's card is one closed line until he presses its button, which reads Catch 
 A press opens the card and starts the run, a run begun elsewhere opens it only on that press, and he closes it once the run has ended.
 The open card is at most a fifth of the window high, and its steps scroll.
 
+## Asking the librarian
+
+An ask is his words, with any paths or links he dropped or pasted, put to a project's librarian from the Ask box.
+The librarian answers in one line and does at most one thing, already done, which Undo takes back.
+`ask_librarian` carries it, and the small model that sorts his messages (`models.dispute`) reads it.
+
+### The screen an ask comes from
+
+`context` names the screen, and a word Fleet does not know reads as `dashboard`.
+Fleet gives the model only the acts the screen allows, and an act the model names that the screen does not allow reads as an answer.
+
+| `context` | Screen | Acts allowed |
+|---|---|---|
+| `dashboard` | The project's Dashboard | Board, File, Rank, answer |
+| `feature:<slug>` | That feature's page | File, answer |
+| `features_empty` | The Features page with no feature | Draft, answer |
+| `metric:<id>` | A metric on the Dashboard | Answer |
+
+### The acts
+
+| Act | Does | Undo | Move |
+|---|---|---|---|
+| Board | Keeps the whole board as a new layout | Keeps the layout kept before, or forgets the kept one where it was the preset | No |
+| File | Keeps a path or link as a read of one feature | Drops the read, wherever Move last put it | Yes |
+| Rank | Puts both might lists in the librarian's order | Forgets the ranking | No |
+| Draft | Keeps each feature his docs describe as its own pending feature | Takes out each draft still pending | No |
+| Answer | Says one line and changes nothing | None | No |
+
+The reply is at most 200 characters on one line.
+A board is kept only where every block is a kind and view the Bridge draws, inside the grid's columns, over no other block and at least one cell large.
+A doc is filed only where it is one of his files or named in his words, under a feature the library holds, and on `feature:<slug>` under that feature unless his words name another.
+A draft keeps nothing in a project that holds a confirmed or seeded feature, and passes over a slug the library holds.
+Where an act fails these checks nothing is done, and the reply says so.
+
+### Undo and Move
+
+The card under the box says what the librarian did, with Undo, and Move where it filed a doc.
+`undo_librarian_ask` puts back what the act changed and nothing else, and an ask is undone once.
+`refile_librarian_ask` moves the filed read to another feature, asks no model and spends nothing, and Undo after a Move drops the read from where it now is.
+Fleet holds what Undo and Move need for the most recent asks of each project (`MOST_HELD` in `crates/fleet/src/feature_library/asking.rs`), in memory.
+A restart forgets them and the act stays as it was done.
+
+### The night an ask spends from
+
+`features.librarianAskShare` is how many model calls a project's asks may make in a night, forty as it ships, a number chosen and not measured.
+A night is the machine's local midnight to midnight, and the count is kept in the store, so a restart does not reset it.
+A call that fails still counts, since it was made, and its reply says the librarian did not answer.
+
+| Press | Calls spent |
+|---|---|
+| An ask that answers, files or changes the board | One |
+| An ask that ranks | Two: its own, and the ranking's |
+| Rank with the librarian | One |
+| Rank of two empty lists | None |
+| Reset, Undo, Move | None |
+
+Where no call is left, an ask or a rank is refused and nothing is asked.
+An ask that ranks with one call left spends it, and the reply says the lists were not ranked.
+
+### The ranking he asked for
+
+`rank_with_librarian`, or an ask that ranks, puts both might lists to the model with the features each row matched and the features his recent Jobs worked on.
+It answers one line a row, best first, and Fleet keeps each row's why at most 80 characters long.
+The ranking is held in Fleet's memory for the project until Reset (`forget_librarian_ranking`), the Undo of the ask that made it, or a restart.
+While it is held `list_ranked_issues` answers the rows it names first, in its order, each with `why`, and the rest after them in feature order, and `by_librarian` says when it ranked.
+A model call that failed or named no row changes nothing, and a later ranking replaces the held one.
+
+### In Bridge
+
+The Ask box takes his words, and paths or links dropped or pasted into it become chips that go with them.
+Its tooltip gives the night's calls spent against the limit.
+Its answer is a card under it, which stays until his next ask or Esc.
+The Issues block's head offers Rank with the librarian, then a Ranked chip that says when, and Reset beside it.
+Each ranked row shows its why under its title.
+
+### Refusals
+
+| Refused | Answer |
+|---|---|
+| A project Fleet does not hold | 422 `fleet.feature_project` |
+| No words and no files | 422 `fleet.librarian_ask_blank` |
+| The night's limit spent | 409 `fleet.librarian_asks_spent` |
+| An ask not held, already undone, older than those kept, before a restart, or one that did nothing | 404 `fleet.librarian_ask_unknown` |
+| A feature slug the library does not hold | 404 `fleet.feature_unknown` |
+| A Job's agent | 422 `fleet.not_the_operator` |
+
+The owner's Bridge and the Operator may call the operations; the operation files carry each one's body and answer.
+
+### Rulings
+
+The owner ruled these on 23 and 24 Nov 2026.
+
+> **Rule.** The librarian's answer is a card under the Ask box with Undo, kept until his next ask or Esc.
+
+> **Rule.** The librarian runs only on his press.
+
+> **Rule.** Asks have their own night of model calls, forty to start, separate from Catch up's share.
+> Why: asking would otherwise starve Catch up.
+
+> **Rule.** Rank with the librarian reorders the rows with a short why on each, and Reset goes back.
+
+> **Rule.** A doc the librarian files is on at once, with Move and Undo on the card.
+
+> **Rule.** There is one Ask box, shared by the Dashboard and the empty Features page.
+
 ## Glossary
 
 Each project has a glossary of its terms: the word, what it means, and the words that mean the same and should not be used.
@@ -555,7 +668,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
-| `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them |
+| `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them or in the order the librarian holds |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
@@ -566,6 +679,11 @@ A Job whose turns were read before searches were counted is in no week until its
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `stop_librarian` | The owner's Stop, or the Operator, stops a project's running librarian run before its next step |
 | `answer_retire` | The owner's Retire or Keep for a feature the librarian proposed to retire |
+| `ask_librarian` | His words to a project's librarian from the screen he asked on, answered in one line with at most one act done |
+| `undo_librarian_ask` | Takes back what one ask did |
+| `refile_librarian_ask` | Moves the doc one ask filed to another feature |
+| `rank_with_librarian` | Has the librarian rank the might lists with a why on each row, held until Reset |
+| `forget_librarian_ranking` | Puts the might lists back in feature order |
 | `check_docs` | The owner's Check, or the Operator, puts a feature's docs to the model against its code |
 | `dismiss_doc_flag` | The owner's Dismiss on a doc a check found disagreeing with the code |
 | `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
@@ -589,3 +707,4 @@ What the library would hold in the clear there is in [Central store](../contract
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
 - The check that marks a doc or ticket link `gone`.
+- The Ask box on a feature's page: Fleet answers `feature:<slug>`, and Bridge mounts the box on the Dashboard and the empty Features page alone.

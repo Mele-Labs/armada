@@ -98,6 +98,31 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/librarian/stop",
     },
     Route {
+        operation: "ask_librarian",
+        method: "POST",
+        path: "/features/librarian/ask",
+    },
+    Route {
+        operation: "undo_librarian_ask",
+        method: "POST",
+        path: "/features/librarian/undo",
+    },
+    Route {
+        operation: "refile_librarian_ask",
+        method: "POST",
+        path: "/features/librarian/refile",
+    },
+    Route {
+        operation: "rank_with_librarian",
+        method: "POST",
+        path: "/features/librarian/rank",
+    },
+    Route {
+        operation: "forget_librarian_ranking",
+        method: "POST",
+        path: "/features/librarian/rank/forget",
+    },
+    Route {
         operation: "change_feature",
         method: "POST",
         path: "/features/change",

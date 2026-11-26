@@ -27,8 +27,7 @@ pub struct StoryKind {
     /// The words a person types, which lead the sentence.
     pub opening: &'static str,
     pub pieces: Vec<Piece>,
-    /// The workflow it starts on, `none` for a talk Job. Kept for the step that sends it; nothing reads it yet.
-    #[allow(dead_code)]
+    /// The workflow it starts on, `none` for a talk Job. A start sends it as the Job's workflow, which stands over Fleet's guess.
     pub workflow: &'static str,
     pub starts: &'static str,
     /// What the line says where the choice reads its second word.
