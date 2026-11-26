@@ -183,6 +183,8 @@ impl ProjectScreen {
                 AskBoxEvent::Board(layout) => board.update(cx, |board, cx| board.take_from_fleet(layout.clone(), cx)),
                 AskBoxEvent::BoardAgain => board.update(cx, |board, cx| board.reread_layout(cx)),
                 AskBoxEvent::IssuesAgain => board.update(cx, |board, cx| board.reread_issues(cx)),
+                // The dashboard's box drafts no feature.
+                AskBoxEvent::FeaturesAgain => {}
             }
         })];
         // A save through the page tells the title bar, as the sheet over the window does; leaving it shows the project again.

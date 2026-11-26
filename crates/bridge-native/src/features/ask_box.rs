@@ -22,6 +22,8 @@ pub const KEEP_ASK: &str = "project.ask";
 
 /// The context of the dashboard's box.
 pub const DASHBOARD: &str = "dashboard";
+/// The context of the box on the Features page of a project with no feature yet.
+pub const FEATURES_EMPTY: &str = "features_empty";
 
 /// Where an ask goes: Fleet, or the walks' and tests' stand-in.
 pub enum AskSource {
@@ -47,9 +49,13 @@ impl MockLibrarian {
         }
         let calls = u32::try_from(self.sent.len()).unwrap_or(u32::MAX);
         let asked_at = Instant::carried(format!("2026-11-24T01:{:02}:00Z", calls % 60));
-        let act = ask.files.first().map(|file| LibrarianAct::FiledDoc { target: file.clone(), title: short_name(file), feature: "start-a-job".into(), feature_title: "Start a Job".into() });
+        let act = match (ask.context.as_str(), ask.files.first()) {
+            (FEATURES_EMPTY, Some(_)) => Some(LibrarianAct::Drafted { drafted: vec!["posting".into(), "reports".into()], held: Vec::new() }),
+            (_, file) => file.map(|file| LibrarianAct::FiledDoc { target: file.clone(), title: short_name(file), feature: "start-a-job".into(), feature_title: "Start a Job".into() }),
+        };
         let reply = match &act {
             Some(LibrarianAct::FiledDoc { title, feature_title, .. }) => format!("Filed {title} under {feature_title}"),
+            Some(LibrarianAct::Drafted { .. }) => "Drafted Posting and Reports as Pending".to_string(),
             _ => "The Run block starts the app on port 5173".to_string(),
         };
         Ok(LibrarianAnswered { project: ask.project, asked_at, reply, act, calls, limit: 40 })
@@ -64,6 +70,8 @@ pub enum AskBoxEvent {
     BoardAgain,
     /// The might-lists were ranked by an ask, or its Undo put them back: the Issues block reads them again.
     IssuesAgain,
+    /// An ask drafted pending features, or its Undo took them out: the Features list reads the library again.
+    FeaturesAgain,
 }
 
 impl EventEmitter<AskBoxEvent> for AskBox {}
@@ -106,6 +114,8 @@ pub struct AskBox {
     /// The board the last ask went with, which a mock Undo of a board change puts back.
     asked_board: Option<AskedBoard>,
     waiting: bool,
+    /// The ask on its way is the box's own words and chips, which its answer clears, and not another screen's ask.
+    typed: bool,
     /// An Undo or a Move is on its way.
     acting: bool,
     reply: Option<Reply>,
@@ -193,6 +203,7 @@ impl AskBox {
             board: None,
             asked_board: None,
             waiting: false,
+            typed: false,
             acting: false,
             reply: None,
             spent: None,
@@ -236,6 +247,11 @@ impl AskBox {
     #[allow(dead_code)] // Read by the tests and by the screens that prefill.
     pub fn asking_from(&self) -> &str {
         self.once.as_deref().unwrap_or(&self.context)
+    }
+
+    /// Whether an ask is on its way.
+    pub fn waiting(&self) -> bool {
+        self.waiting
     }
 
     /// The stand-in librarian, on the mock.
@@ -337,16 +353,27 @@ impl AskBox {
 
     /// Enter: the words, the files, the context and the board go to the librarian, and the box waits, read-only, for its answer.
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let words = self.input.read(cx).value().trim().to_string();
+        self.send_ask(words, self.files.clone(), true, window, cx);
+    }
+
+    /// Another button of the screen asks through the box: `words` and `files` go with the box's context, its answer is on the
+    /// card under it, and what he typed in the box stays.
+    pub fn ask_with(&mut self, words: &str, files: Vec<String>, window: &mut Window, cx: &mut Context<Self>) {
+        self.send_ask(words.to_string(), files, false, window, cx);
+    }
+
+    fn send_ask(&mut self, words: String, files: Vec<String>, typed: bool, window: &mut Window, cx: &mut Context<Self>) {
         if self.waiting {
             return;
         }
-        let words = self.input.read(cx).value().trim().to_string();
         let Some(project) = self.project.clone() else { return };
-        if words.is_empty() && self.files.is_empty() {
+        if words.is_empty() && files.is_empty() {
             return;
         }
         let context = self.once.take().unwrap_or_else(|| self.context.clone());
-        let ask = ipc::AskLibrarian { project, context, words, files: self.files.clone(), board: self.board.clone() };
+        let ask = ipc::AskLibrarian { project, context, words, files, board: self.board.clone() };
+        self.typed = typed;
         self.asked_board = ask.board.clone();
         self.examples = Examples::default();
         self.reply = None;
@@ -372,12 +399,15 @@ impl AskBox {
         match answer {
             Ok(answer) => {
                 self.spent = Some((answer.calls, answer.limit));
-                self.files.clear();
-                self.input.update(cx, |state, cx| state.set_value("", window, cx));
-                crate::drafts::clear(&self.keep, cx);
+                if self.typed {
+                    self.files.clear();
+                    self.input.update(cx, |state, cx| state.set_value("", window, cx));
+                    crate::drafts::clear(&self.keep, cx);
+                }
                 match &answer.act {
                     Some(LibrarianAct::Board { layout }) => cx.emit(AskBoxEvent::Board(Some(layout.clone()))),
                     Some(LibrarianAct::Ranked) => cx.emit(AskBoxEvent::IssuesAgain),
+                    Some(LibrarianAct::Drafted { .. }) => cx.emit(AskBoxEvent::FeaturesAgain),
                     _ => {}
                 }
                 self.reply = Some(Reply::Answered(answer));
@@ -425,7 +455,8 @@ impl AskBox {
                         AskSource::Mock(_) => cx.emit(AskBoxEvent::Board(self.asked_board.as_ref().filter(|board| !board.preset).map(|board| board.layout.clone()))),
                     },
                     LibrarianAct::Ranked => cx.emit(AskBoxEvent::IssuesAgain),
-                    LibrarianAct::FiledDoc { .. } | LibrarianAct::Drafted { .. } => {}
+                    LibrarianAct::Drafted { .. } => cx.emit(AskBoxEvent::FeaturesAgain),
+                    LibrarianAct::FiledDoc { .. } => {}
                 }
                 self.reply = Some(Reply::Undone(done.reply));
             }

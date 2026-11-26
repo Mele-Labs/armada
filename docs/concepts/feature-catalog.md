@@ -202,7 +202,7 @@ A pending feature is listed under the area `pending`, with no prefix and no line
 > **Rule.** A pending feature is made only in a library that has a feature already.
 > Why: the earliest `added_at` across a project is when it was seeded, and a pending feature in an unseeded project would move it.
 
-His Draft as Pending is the one exception, see *Starting a library*.
+His Draft as Pending and Read them are the exceptions, see *Starting a library*.
 
 Fleet tells the Operator once, with the Jobs that named it, the files filed under it and the features whose prefixes cover those files.
 The Operator brings him one card, with three options.
@@ -392,8 +392,8 @@ The Features screen draws a start panel in place of the project's page while tha
 | Part | What it does |
 |---|---|
 | Modules in the build files | The modules `get_library_start` reads, as the floor plan reads them, each a chip, with Draft as Pending |
-| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip |
-| Or feed the librarian | A box he pastes or drops docs into, or says what the project does in. Not built |
+| Docs in the repo | The docs at the top of each repository: a README, an architecture file and the like, and a docs folder, each a chip, with Read them |
+| Or feed the librarian | The Ask box, with the context `features_empty`: he pastes or drops docs into it, or says what the project does |
 
 **Draft as Pending** is `draft_module_features`: each module becomes its own pending feature, in the area `pending`, with no model asked.
 Its slug and title come from the module's name, and its folder is its one prefix in its repository, so the code map and health read it.
@@ -403,9 +403,15 @@ The press is refused once the project holds a confirmed or seeded feature, and a
 The panel goes when the first drafted row is confirmed.
 
 > **Rule.** Drafting is the one way a pending feature is made in a library with no feature of its own.
-> Why: it is his press that starts the library, so the earliest `added_at` is still the moment it started.
+> Why: it is his press, of Draft as Pending or of an ask, that starts the library, so the earliest `added_at` is still the moment it started.
 
-Docs in the repo are shown and not yet read: sending them to the librarian waits on its own operation.
+**Read them** is an ask of the librarian through the Ask box, with the docs the panel lists as its files and `features_empty` as its context.
+Fleet reads each of those docs from the project's repositories into the question, a docs folder's Markdown files one level down, because the model reads text and opens no file.
+The librarian drafts each feature the docs describe as its own pending feature, as Draft as Pending keeps a module, and a slug the library holds is passed over.
+Where the project keeps no area the ask keeps one, Features.
+The box's card says what it drafted, and Undo takes out each draft still pending.
+An ask from the box itself drafts the same way.
+The keys go Draft as Pending, Read them, then the box, and Tab past the box gives them back to the list.
 
 ## Librarian
 
@@ -533,7 +539,7 @@ Fleet gives the model only the acts the screen allows, and an act the model name
 |---|---|---|
 | `dashboard` | The project's Dashboard | Board, File, Rank, answer |
 | `feature:<slug>` | That feature's page | File, answer |
-| `features_empty` | The Features page with no feature | Answer |
+| `features_empty` | The Features page with no feature | Draft, answer |
 | `metric:<id>` | A metric on the Dashboard | Answer |
 
 ### The acts
@@ -543,11 +549,13 @@ Fleet gives the model only the acts the screen allows, and an act the model name
 | Board | Keeps the whole board as a new layout | Keeps the layout kept before, or forgets the kept one where it was the preset | No |
 | File | Keeps a path or link as a read of one feature | Drops the read, wherever Move last put it | Yes |
 | Rank | Puts both might lists in the librarian's order | Forgets the ranking | No |
+| Draft | Keeps each feature his docs describe as its own pending feature | Takes out each draft still pending | No |
 | Answer | Says one line and changes nothing | None | No |
 
 The reply is at most 200 characters on one line.
 A board is kept only where every block is a kind and view the Bridge draws, inside the grid's columns, over no other block and at least one cell large.
 A doc is filed only where it is one of his files or named in his words, under a feature the library holds, and on `feature:<slug>` under that feature unless his words name another.
+A draft keeps nothing in a project that holds a confirmed or seeded feature, and passes over a slug the library holds.
 Where an act fails these checks nothing is done, and the reply says so.
 
 ### Undo and Move
@@ -619,7 +627,7 @@ The owner ruled these on 23 and 24 Nov 2026.
 
 > **Rule.** A doc the librarian files is on at once, with Move and Undo on the card.
 
-> **Rule.** There is one Ask box, shared by the Dashboard and, later, the empty Features page.
+> **Rule.** There is one Ask box, shared by the Dashboard and the empty Features page.
 
 ## Glossary
 
@@ -699,4 +707,4 @@ What the library would hold in the clear there is in [Central store](../contract
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
 - The check that marks a doc or ticket link `gone`.
-- The Ask box on the Features page: Fleet answers `features_empty` and `feature:<slug>`, and Bridge mounts the box on the Dashboard alone.
+- The Ask box on a feature's page: Fleet answers `feature:<slug>`, and Bridge mounts the box on the Dashboard and the empty Features page alone.
