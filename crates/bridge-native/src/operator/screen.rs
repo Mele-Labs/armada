@@ -1155,6 +1155,23 @@ mod tests {
     }
 
     #[gpui::test]
+    fn the_card_in_front_keeps_its_whole_height_in_a_short_window(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        let title = page.read_with(cx, |page, _| page.open_item().map(|turn| super::super::face::card_title(turn).to_string())).expect("a card is in front");
+        let height = |cx: &mut VisualTestContext, high: f32| {
+            cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(high)));
+            redraw(cx);
+            cx.update(|_, cx| cx.set_global(LabelBook::default()));
+            redraw(cx);
+            drawn(cx, Role::Article, &title).expect("the card is drawn").size.height
+        };
+        let tall = height(cx, 1400.);
+        let short = height(cx, 460.);
+        assert_eq!(short, tall, "the card is drawn whole, with nothing in it scrolled away");
+    }
+
+    #[gpui::test]
     fn a_tall_plan_card_keeps_its_answer_and_foot_whole_and_the_talk_starts_below_it(cx: &mut TestAppContext) {
         let (screen, cx) = page_screen(cx);
         let page = screen.read_with(cx, |screen, _| screen.page.clone());

@@ -123,17 +123,6 @@ pub struct OperatorPageView {
     pub(super) talk_long: Rc<Cell<bool>>,
     /// How tall the talk's rows are together, as last drawn.
     pub(super) talk_tall: Rc<Cell<gpui::Pixels>>,
-    /// How tall the open card's scrolling words are, and the room the front needs with them scrolled away, as last drawn.
-    pub(super) said_tall: Rc<Cell<gpui::Pixels>>,
-    pub(super) front_floor: Rc<Cell<gpui::Pixels>>,
-    /// How much of the open card's answers a short window scrolled away, as last drawn.
-    pub(super) answers_hidden: Rc<Cell<gpui::Pixels>>,
-    /// Where the open card's foot ends, the front's height and the room it needs, where the box ends and how tall the talk
-    /// is, as last drawn.
-    pub(super) foot_low: Rc<Cell<gpui::Pixels>>,
-    pub(super) front_need: Rc<Cell<(gpui::Pixels, gpui::Pixels)>>,
-    pub(super) box_low: Rc<Cell<gpui::Pixels>>,
-    pub(super) talk_room: Rc<Cell<gpui::Pixels>>,
     /// How much of the talk's top row its top edge cuts while it follows its tail, as last drawn.
     pub(super) talk_cut: Rc<Cell<gpui::Pixels>>,
     /// He opened the folded card. It folds again when the talk grows or he sends.
@@ -236,13 +225,6 @@ impl OperatorPageView {
             talk_said: Vec::new(),
             talk_long: Rc::new(Cell::new(false)),
             talk_tall: Rc::new(Cell::new(gpui::px(0.))),
-            said_tall: Rc::new(Cell::new(gpui::px(0.))),
-            front_floor: Rc::new(Cell::new(gpui::px(0.))),
-            answers_hidden: Rc::new(Cell::new(gpui::px(0.))),
-            foot_low: Rc::new(Cell::new(gpui::px(0.))),
-            front_need: Rc::new(Cell::new((gpui::px(0.), gpui::px(0.)))),
-            box_low: Rc::new(Cell::new(gpui::px(0.))),
-            talk_room: Rc::new(Cell::new(gpui::px(0.))),
             talk_cut: Rc::new(Cell::new(gpui::px(0.))),
             unfolded: false,
             fresh: Vec::new(),
@@ -2450,6 +2432,16 @@ mod tests {
 
     fn bounds_named(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> Option<gpui::Bounds<gpui::Pixels>> {
         cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|drawn| drawn.bounds))
+    }
+
+    #[gpui::test]
+    fn the_cards_he_picked_stand_in_their_own_working_group_apart_from_since_you_last_looked(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        let group = bounds_named(cx, gpui::Role::Region, "Working").expect("Working is drawn");
+        let feed = bounds_named(cx, gpui::Role::Region, "Since you last looked").expect("the feed is drawn");
+        let row = bounds_named(cx, gpui::Role::Button, "Retry it once, Retry the flaky login test or skip it").expect("the working row is drawn");
+        assert!(row.top() >= group.top() && row.bottom() <= group.bottom(), "the row {row:?} is in Working {group:?}");
+        assert!(row.bottom() <= feed.top(), "and not in Since you last looked {feed:?}");
     }
 
     fn side_drawn(cx: &mut VisualTestContext) -> bool {

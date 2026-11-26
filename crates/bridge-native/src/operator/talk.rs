@@ -147,17 +147,12 @@ impl OperatorPageView {
                 .flex_grow(1.)
                 .flex_shrink(1.)
                 // Room for its newest rows whole, up to three lines' worth, before the card above scrolls any: a short talk is
-                // never cut at its top under the card. It gives that room up only to a card's answers and foot, as the build to
-                // try's card has it.
+                // never cut at its top under the card. It gives that room up to the card above, which is drawn whole.
                 .flex_basis(room)
                 .min_h_0()
                 .child(rows)
                 .child(div().absolute().top_0().left_0().w_full().h(self.talk_cut.get()).bg(look.color(token::BG_RAISED)))
-                .child(watch)
-                .child({
-                    let room = self.talk_room.clone();
-                    canvas(move |bounds, _, _| room.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()
-                }),
+                .child(watch),
             Role::Log,
             "Talk with the Operator",
         )

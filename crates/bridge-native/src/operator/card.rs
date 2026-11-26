@@ -8,10 +8,9 @@
 //! **[`Card`] is drawn for any view.** A Job's Needs you draws a question the Job asks on it (`job_view/needs_card.rs`),
 //! with Discuss putting the caret in the Job's own box; it is never drawn a second way.
 
-use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FocusHandle, FontWeight, Pixels, Role, SharedString, Stateful, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Div, FocusHandle, FontWeight, Role, SharedString, Stateful, Window};
 use ipc::operator_page::OperatorTurnItem;
 
 use super::face::{self, Kind};
@@ -199,14 +198,6 @@ pub(crate) struct Offer<V> {
     pub act: Act<V>,
 }
 
-/// Where the card in front reports its measures, so its page knows the room it needs: how much more of what it says is
-/// drawn than the line it keeps, how much of its answers a short window scrolled away, and the bottom of its foot.
-pub(crate) struct Pinned {
-    pub said_tall: Rc<Cell<Pixels>>,
-    pub answers_hidden: Rc<Cell<Pixels>>,
-    pub foot_low: Rc<Cell<Pixels>>,
-}
-
 /// The card, as any view fills it: the Operator's page with a card it brings, a Job's Needs you with a question the Job
 /// asks. The view keeps what the card does; the card is drawn here once for both.
 pub(crate) struct Card<V> {
@@ -239,14 +230,12 @@ pub(crate) struct Card<V> {
     pub foot: Vec<AnyElement>,
     /// Drawn under the line that raised it, set in.
     pub inset: bool,
-    /// Drawn in front: what it says scrolls in its own place and its answers and foot stay whole at its bottom edge.
-    pub pinned: Option<Pinned>,
 }
 
 impl<V: 'static> Card<V> {
     /// The card whole.
     pub(crate) fn draw(self, look: &Look, cx: &Context<V>) -> AnyElement {
-        let Card { id, kind, title, names, stepper, asks, read, returned, offers, keyed, focus, lifted, pending, refused, foot, inset, pinned } = self;
+        let Card { id, kind, title, names, stepper, asks, read, returned, offers, keyed, focus, lifted, pending, refused, foot, inset } = self;
         let danger = look.color(token::STATUS_COMPLETED_FAILED);
         let back = returned.is_some();
         let head = card_head(kind, title.clone(), look).when(back, |head| head.border_color(danger)).children(names).children(stepper);
@@ -275,52 +264,9 @@ impl<V: 'static> Card<V> {
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_OVERLAY))
             .children(foot);
-        let Some(Pinned { said_tall, answers_hidden, foot_low }) = pinned else {
-            let body = div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).children(asks).children(read).child(options).children(refused);
-            let card = card_frame(&id, inset, look).when(back, |card| card.border_color(danger)).child(head).child(body).child(foot);
-            return labelled(card, Role::Article, title).into_any_element();
-        };
-        // In front, a tall card scrolls what it says in its own place; its answers and its foot stay whole at its bottom edge.
-        // It keeps a line's worth in sight. The page reads how much more of it is drawn, to know the room the card needs
-        // without it.
-        let said = (asks.is_some() || read.is_some()).then(|| {
-            let least = look.length(token::SPACE_12);
-            div()
-                .id(SharedString::from(format!("card-said-{id}")))
-                .relative()
-                .flex_shrink(100.)
-                .min_h(least)
-                .overflow_y_scroll()
-                .mt(look.length(token::SPACE_4))
-                .child(div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).children(asks).children(read))
-                .child(canvas(move |bounds, _, _| said_tall.set((bounds.size.height - least).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-        });
-        // The answers hold their room, and scroll in their place only in a window too short for them and the box.
-        // The page reads how much of them a short window scrolled away, to give it back.
-        let inner = Rc::new(Cell::new(gpui::px(0.)));
-        let whole = inner.clone();
-        let answers = div()
-            .id(SharedString::from(format!("card-answers-{id}")))
-            .relative()
-            .flex_shrink(1.)
-            .min_h_0()
-            .overflow_y_scroll()
-            .mt(look.length(if said.is_some() { token::SPACE_3 } else { token::SPACE_4 }))
-            .px(look.length(token::SPACE_4))
-            .child(div().relative().child(options).child(canvas(move |bounds, _, _| whole.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()))
-            .child(canvas(move |bounds, _, _| answers_hidden.set((inner.get() - bounds.size.height).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
-        let refused = div().flex_none().flex().flex_col().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_4)).children(refused.map(|line| div().pt(look.length(token::SPACE_3)).child(line)));
-        let card = card_frame(&id, false, look)
-            .flex_shrink(1.)
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .when(back, |card| card.border_color(danger))
-            .child(head.flex_none())
-            .children(said)
-            .child(answers)
-            .child(refused)
-            .child(foot.flex_none().relative().child(canvas(move |bounds, _, _| foot_low.set(bounds.bottom()), |_, _, _, _| {}).absolute().top_0().left_0().size_full()));
+        // The card is drawn whole wherever it stands: nothing inside it scrolls, and the talk under it gives up its room.
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).children(asks).children(read).child(options).children(refused);
+        let card = card_frame(&id, inset, look).when(back, |card| card.border_color(danger)).child(head).child(body).child(foot);
         labelled(card, Role::Article, title).into_any_element()
     }
 }
@@ -429,7 +375,6 @@ impl OperatorPageView {
             refused: self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| why.clone()),
             foot: self.card_foot(target, look, cx),
             inset,
-            pinned: (!inset).then(|| Pinned { said_tall: self.said_tall.clone(), answers_hidden: self.answers_hidden.clone(), foot_low: self.foot_low.clone() }),
         }
         .draw(look, cx)
     }
