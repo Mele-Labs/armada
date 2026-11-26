@@ -14,5 +14,7 @@ notes = """
 
 **Settle** closes the thread and asks the agent to add its outcome to the page's Decisions section and write the page again: his `outcome` where he gave one, else the outcome as the thread reached it. The thread is `settled`, keeps `outcome`, and takes no more comments or acts (422 `fleet.margin_settled`).
 
+**On a Job held from another Mac it runs there**, as the act `margin_act` (`act_from_mac`), and that Mac's answer is passed back as it said it. Since 26 Nov 2026.
+
 `agent_access` is `No`: each is the person's.
 """

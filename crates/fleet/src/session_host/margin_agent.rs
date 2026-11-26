@@ -168,6 +168,9 @@ where
     }
 
     async fn get_margin_threads(&self, get: ipc::GetMarginThreads) -> Result<ipc::MarginThreads, Refusal> {
+        if let Some(mac) = self.mac_holding(get.session_id.as_str()).await {
+            return self.margin_from_other_mac(&mac, &get).await;
+        }
         self.margin_threads_read(get).await
     }
 

@@ -8,5 +8,7 @@ notes = """
 
 **`gone` is read off each revision the page keeps**: where the newest no longer holds the quote, the thread keeps the quote and says it is gone; a later revision that holds it again clears it. A page the Job holds none of is 422 `fleet.margin_no_page`; a blank `session_id` or `document` is 400.
 
+**A Job held from another Mac is read from that Mac's Fleet each time**, as `share_job_margin` answers there, and nothing of it is kept here. What that Mac refuses is passed on as it said it. Since 26 Nov 2026.
+
 `agent_access` is `No`: Bridge reads it for the page's margin.
 """

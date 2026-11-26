@@ -599,7 +599,7 @@ where
 
     async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
         if let Some(mac) = self.mac_holding(id.as_str()).await {
-            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision).await;
+            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision, false).await;
         }
         self.artifact_page(id.as_str(), &artifact, revision).await
     }
@@ -614,6 +614,9 @@ where
     }
 
     async fn get_hosted_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        if let Some(mac) = self.mac_holding(id.as_str()).await {
+            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision, true).await;
+        }
         self.hosted_artifact_page(id.as_str(), &artifact, revision).await
     }
 
