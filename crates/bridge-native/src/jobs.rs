@@ -100,13 +100,23 @@ pub enum Group {
     /// Headed by the state a Job stands in: Needs you, Ready to try, Working, Waiting on ci.
     #[default]
     State,
+    /// Headed by each feature a Job writes to now, as `list_features` reads it: a Job stands under each one.
+    Feature,
+    /// Headed by each area a Job writes to a feature of, once an area.
+    Area,
     /// Headed by the project, as the list was before the view button.
     Project,
     /// No headings: every Job in one list, by title.
     List,
 }
 
-const GROUPS: [(Group, &str, &str); 3] = [(Group::State, "state", "By state"), (Group::Project, "project", "By project"), (Group::List, "list", "One list")];
+const GROUPS: [(Group, &str, &str); 5] = [
+    (Group::State, "state", "By state"),
+    (Group::Feature, "feature", "By feature"),
+    (Group::Area, "area", "By area"),
+    (Group::Project, "project", "By project"),
+    (Group::List, "list", "One list"),
+];
 
 impl Group {
     fn id(self) -> &'static str {
@@ -151,6 +161,9 @@ fn view_label(scope: Scope, group: Group) -> String {
 }
 
 mod asleep_mac;
+mod leads;
+#[cfg(test)]
+mod leads_tests;
 #[cfg(test)]
 mod prioritise_tests;
 #[cfg(test)]
@@ -239,6 +252,10 @@ struct Row {
     asleep: bool,
     /// He pressed End and Fleet still serves the Job live: drawn ended, with this line in place of what it is doing.
     ending: Option<SharedString>,
+    /// A muted line under the row, by feature: the other features it writes to.
+    aside: Option<SharedString>,
+    /// The Job is drawn above already, under another heading: the keys pass this row by.
+    again: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -539,6 +556,8 @@ struct Head {
     name: SharedString,
     count: usize,
     stand: Option<Stand>,
+    /// A feature's, an area's or No feature's heading, which draws no count.
+    lead: Option<leads::Lead>,
 }
 
 /// One line of the list: a group's heading over its Jobs, or a Job.
@@ -763,6 +782,25 @@ fn lines_grouped(
     group: Group,
     hide_done: bool,
 ) -> Vec<Line> {
+    lines_led(jobs, ideas, scope, query, order, names, project, asleep, group, hide_done, &leads::Leads::default())
+}
+
+/// [`lines_grouped`] with the libraries the feature groupings read: by feature a Job stands under each feature whose
+/// `jobs_now` holds it, by area once under each area, and a Job under none stands under No feature, last.
+#[allow(clippy::too_many_arguments)]
+fn lines_led(
+    jobs: &[SessionRecord],
+    ideas: &[crate::queued::QueuedIdea],
+    scope: Scope,
+    query: &str,
+    order: &[String],
+    names: &Names,
+    project: Option<&str>,
+    asleep: &[crate::pairing::Unreachable],
+    group: Group,
+    hide_done: bool,
+    leads: &leads::Leads,
+) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
     let project = project.map(|id| names.same.get(id).map_or(id, String::as_str));
@@ -810,8 +848,8 @@ fn lines_grouped(
             up = starter_of(starter);
         }
     }
-    // By state a Job and its starter may stand in different groups, so no starter is drawn only for its place.
-    if group == Group::State {
+    // By state or by feature a Job and its starter may stand in different groups, so no starter is drawn only for its place.
+    if matches!(group, Group::State | Group::Feature | Group::Area) {
         places.clear();
     }
     let picked: Vec<&SessionRecord> = if places.is_empty() {
@@ -825,7 +863,43 @@ fn lines_grouped(
     let now = chrono::Utc::now();
     // Each group by its key, its words, the state it stands for where it has one, and its Jobs.
     let mut projects: Vec<(String, String, Option<Stand>, Vec<&SessionRecord>)> = Vec::new();
+    // What each feature, area and No feature heading leads to, by its key.
+    let mut led: HashMap<String, leads::Lead> = HashMap::new();
+    let shelves = leads.shelves();
     match group {
+        Group::Feature | Group::Area => {
+            let mut none = Vec::new();
+            for job in picked {
+                let held: Vec<&leads::Shelf> = shelves.iter().filter(|shelf| shelf.jobs.contains(&job.id.as_str())).collect();
+                if held.is_empty() {
+                    none.push(job);
+                }
+                for shelf in held {
+                    let (key, name, lead) = match group {
+                        Group::Feature => (shelf.key.clone(), shelf.title, leads::Lead::Feature { project: shelf.project.to_string(), slug: shelf.slug.to_string() }),
+                        _ => (shelf.area_key.clone(), shelf.area_title, leads::Lead::Area),
+                    };
+                    match projects.iter_mut().find(|(held, ..)| *held == key) {
+                        // By area a Job in two features of one area stands under it once.
+                        Some((.., held)) => {
+                            if !held.iter().any(|one| one.id == job.id) {
+                                held.push(job);
+                            }
+                        }
+                        None => {
+                            led.insert(key.clone(), lead);
+                            projects.push((key, name.to_string(), None, vec![job]));
+                        }
+                    }
+                }
+            }
+            // Headings stand in the libraries' order, so a Job's move never moves one.
+            projects.sort_by_key(|(key, ..)| shelves.iter().position(|shelf| shelf.key == *key || shelf.area_key == *key));
+            if !none.is_empty() {
+                led.insert(NO_FEATURE.to_string(), leads::Lead::NoFeature);
+                projects.push((NO_FEATURE.to_string(), "No feature".to_string(), None, none));
+            }
+        }
         Group::Project => {
             for job in picked {
                 let (key, name) = group_of(job, names);
@@ -868,6 +942,7 @@ fn lines_grouped(
         waiting.sort_by_cached_key(|idea| idea.title().to_string().to_lowercase());
     }
     let idea_key = |idea: &crate::queued::QueuedIdea| match group {
+        Group::Feature | Group::Area => NO_FEATURE.to_string(),
         Group::Project => idea_group(idea).0,
         Group::State => format!("stand:{}", Stand::Saved.words()),
         Group::List => "list".to_string(),
@@ -876,6 +951,10 @@ fn lines_grouped(
         let key = idea_key(idea);
         if !projects.iter().any(|(held, ..)| *held == key) {
             match group {
+                Group::Feature | Group::Area => {
+                    led.insert(key.clone(), leads::Lead::NoFeature);
+                    projects.push((key, "No feature".to_string(), None, Vec::new()));
+                }
                 Group::Project => projects.push((key, idea_group(idea).1, None, Vec::new())),
                 Group::State => projects.push((key, Stand::Saved.words().to_string(), Some(Stand::Saved), Vec::new())),
                 Group::List => projects.push((key, String::new(), None, Vec::new())),
@@ -887,7 +966,7 @@ fn lines_grouped(
     }
     let headed = match group {
         Group::Project => projects.len() > 1,
-        Group::State => true,
+        Group::State | Group::Feature | Group::Area => true,
         Group::List => false,
     };
     projects.extend(asleep_mac::groups(&sleeping, asleep, names).into_iter().map(|(key, name, held)| (key, name, None, held)));
@@ -896,8 +975,9 @@ fn lines_grouped(
         if !asleep_mac::open_line(&key, asleep, &mut lines) && headed {
             // Its Jobs but for a starter drawn only for its place, and its ideas.
             let count = held.iter().filter(|job| !places.contains(job.id.as_str())).count() + waiting.iter().filter(|idea| idea_key(idea) == key).count();
-            lines.push(Line::Group(Head { name: name.clone().into(), count, stand }));
+            lines.push(Line::Group(Head { name: name.clone().into(), count, stand, lead: led.get(&key).cloned() }));
         }
+        let from = lines.len();
         for idea in waiting.iter().filter(|idea| idea_key(idea) == key) {
             lines.push(Line::Job(Row {
                 id: format!("queued:{}", idea.id).into(),
@@ -932,6 +1012,8 @@ fn lines_grouped(
                 answer: false,
                 asleep: false,
                 ending: None,
+                aside: None,
+                again: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -973,6 +1055,8 @@ fn lines_grouped(
             answer: job.answer_unread,
             asleep: asleep_on(job).is_some(),
             ending: None,
+            aside: None,
+            again: false,
         };
         fn under<'a>(
             parent: &str,
@@ -994,9 +1078,29 @@ fn lines_grouped(
             lines.push(Line::Job(row_of(root, 0, &[], true)));
             under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
         }
+        // By feature a row names the other features its Job writes to, under each heading it stands under.
+        if group == Group::Feature && led.get(&key).is_some_and(|lead| matches!(lead, leads::Lead::Feature { .. })) {
+            for line in &mut lines[from..] {
+                if let Line::Job(row) = line {
+                    row.aside = leads::also_under(&leads.titles_of(&row.id), &name);
+                }
+            }
+        }
+    }
+    // A Job drawn a second time, under another heading, is passed by the keys.
+    let mut seen: std::collections::HashSet<SharedString> = std::collections::HashSet::new();
+    for line in &mut lines {
+        if let Line::Job(row) = line {
+            if row.queued.is_none() && !seen.insert(row.id.clone()) {
+                row.again = true;
+            }
+        }
     }
     lines
 }
+
+/// The key of the No feature heading, by feature and by area.
+const NO_FEATURE: &str = "no-feature";
 
 /// `lines` with each parent's sub-Jobs folded away where `folds` shuts it, and its row told what stands under
 /// it: a folded parent keeps their glyphs, one that needs him first, so folding hides no need. A parent drawn only
@@ -1267,6 +1371,10 @@ pub struct JobsList {
     selected: Vec<SharedString>,
     /// The row a ⇧-click or ⇧↓ selects from: the last one clicked, toggled or extended from.
     anchor: Option<SharedString>,
+    /// The projects' libraries the feature groupings read (`leads`), when they were last asked for, and the read under way.
+    leads: leads::Leads,
+    leads_at: Option<std::time::Instant>,
+    leads_read: Option<Task<()>>,
 }
 
 /// How the Jobs list on mock Jobs is grouped while a walk plays. A walk about the view button opens by state, as a first start does;
@@ -1387,6 +1495,7 @@ impl JobsList {
             if this.resume_open() {
                 cx.notify();
             }
+            this.refresh_leads(false, cx);
         });
         let (scope, group, order) = read_deck();
         crate::queued::begin(true, cx);
@@ -1467,6 +1576,9 @@ impl JobsList {
             _removed: None,
             selected: Vec::new(),
             anchor: None,
+            leads: leads::Leads::default(),
+            leads_at: None,
+            leads_read: None,
         };
         if fleet_held {
             this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
@@ -1915,7 +2027,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        let mut lines = lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done);
+        let mut lines = lines_led(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done, &self.leads);
         if !self.ending.is_empty() {
             for line in lines.iter_mut() {
                 if let Line::Job(row) = line {
@@ -2106,6 +2218,7 @@ impl JobsList {
     /// What the keys can land on at this line: a Job, or the fold of a Mac asleep, by the id they carry.
     fn stop_at(&self, at: usize) -> Option<SharedString> {
         match self.lines.get(at)? {
+            Line::Job(row) if row.again => None,
             Line::Job(row) => Some(row.id.clone()),
             Line::Asleep(shelf) => Some(shelf.id()),
             Line::Group(_) => None,
@@ -2823,6 +2936,7 @@ impl JobsList {
             self.group = *group;
             self.keep();
             self.relist(cx);
+            self.refresh_leads(true, cx);
         } else if let Some((scope, ..)) = SHOWS.iter().find(|(_, held, _)| *held == id) {
             self.scope = *scope;
             self.keep();
@@ -3005,7 +3119,7 @@ impl JobsList {
         let look = cx.look();
         let view = self.view;
         let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
-        let focused = self.focused.as_ref() == Some(&row.id);
+        let focused = self.focused.as_ref() == Some(&row.id) && !row.again;
         // The row stands for the earlier Job too: it is open when that one is.
         let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
@@ -3105,8 +3219,9 @@ impl JobsList {
                 .child(last)
                 .tooltip(tip("Last turn".into()))
         });
+        let aside = row.aside.clone().map(|aside| meta(look).min_w_0().truncate().text_color(look.color(token::FG_SUBTLE)).child(aside));
         let tagged = issue.is_some() || pr.is_some();
-        let under = tagged || flow.is_some() || now.is_some();
+        let under = tagged || flow.is_some() || now.is_some() || aside.is_some();
         let lamp_ink = look.color(lamp);
         // A folded parent keeps its sub-Jobs' glyphs in a strip, one that needs him first: folding hides no need.
         let strip_of = row.kids.as_ref().filter(|kids| kids.folded && !kids.strip.is_empty()).map(|kids| {
@@ -3348,7 +3463,7 @@ impl JobsList {
             .when(row.asleep, |strip| strip.opacity(0.6))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
             .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
-            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .when(!row.again, |strip| strip.child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full()))
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
                 strip.child(div().absolute().inset_0().rounded(radius).with_animation(
@@ -3403,7 +3518,8 @@ impl JobsList {
                         .gap(look.length(token::SPACE_1))
                         .when(tagged, |lines| lines.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(issue).children(pr)))
                         .children(flow)
-                        .children(now),
+                        .children(now)
+                        .children(aside),
                 )
             })
             .when(!row.place, |strip| {
@@ -3515,6 +3631,10 @@ impl JobsList {
 
     fn render_line(&self, at: usize, cx: &mut Context<Self>) -> gpui::AnyElement {
         match &self.lines[at] {
+            Line::Group(head) if head.lead.is_some() => {
+                let head = head.clone();
+                self.render_lead(at, &head, cx)
+            }
             Line::Group(head) => {
                 let look = cx.look();
                 let hue = head.stand.map_or(token::STATUS_NOT_STARTED, Stand::hue);
@@ -3540,6 +3660,11 @@ impl JobsList {
                     name,
                 )
                 .into_any_element()
+            }
+            // A Job's second row carries its element ids under its own place, so no two rows share one.
+            Line::Job(row) if row.again => {
+                let row = row.clone();
+                div().id(("again", at)).flex_none().flex().flex_col().child(self.render_job(at, &row, cx)).into_any_element()
             }
             Line::Job(row) => {
                 let row = row.clone();
@@ -5573,7 +5698,7 @@ mod tests {
         };
         assert_eq!(
             words(view_entries(Scope::Needs, Group::Project, true, false)),
-            ["# Group", "  By state", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Done Jobs true", "Root Jobs only true"]
+            ["# Group", "  By state", "  By feature", "  By area", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Done Jobs true", "Root Jobs only true"]
         );
         assert_eq!(words(view_entries(Scope::Active, Group::State, false, false))[1..2], ["x By state"]);
     }
