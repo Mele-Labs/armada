@@ -271,7 +271,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 12 + 17 + 29 + 4 + 22 + s::prompt_keys().count();
+    let handles = 22 + 12 + 17 + 29 + 4 + 22 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
