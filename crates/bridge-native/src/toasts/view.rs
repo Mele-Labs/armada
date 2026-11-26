@@ -1896,7 +1896,7 @@ fn edge_of(urgency: Urgency, look: &Look) -> Hsla {
 
 /// What the item asks, where a Job holds it; else the Operator's read.
 fn sentence(item: &OperatorTurnItem) -> SharedString {
-    face::ask_line(item).unwrap_or_default()
+    face::asks_of(item).or_else(|| item.read.as_ref().map(|read| SharedString::from(read.read.clone()))).unwrap_or_default()
 }
 
 /// The muted line: the Operator's read under what a Job asks; else where the item is.
