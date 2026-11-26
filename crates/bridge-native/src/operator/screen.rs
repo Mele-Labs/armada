@@ -334,7 +334,8 @@ impl OperatorScreen {
         this
     }
 
-    /// The cards' chips read every Job's title.
+    /// The page's box offers the Jobs the list holds, but those that have ended.
+    /// That box is the Job view's now and reads them itself; this gives the cards' chips every Job's title.
     fn name_jobs(&mut self, cx: &mut Context<Self>) {
         let list = self.jobs.read(cx).list.clone();
         // A card's chips name every Job it is about, ended ones too.
