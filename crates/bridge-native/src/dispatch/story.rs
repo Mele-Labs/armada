@@ -321,7 +321,8 @@ impl Story {
                 }
                 None => Keyed::Leave { back: true },
             },
-            "tab" | "enter" if list && (value_held || self.moved) => {
+            // ↵ on an open list always takes the marked row; ⇥ takes it once something was typed or the mark moved.
+            "tab" | "enter" if list && (key == "enter" || value_held || self.moved) => {
                 match self.take(catalog) {
                     Some(project) => Keyed::Project(project),
                     None => Keyed::Changed,
@@ -477,6 +478,16 @@ mod tests {
         press(&mut story, "down", &catalog);
         assert_eq!(press(&mut story, "enter", &catalog), Keyed::Changed);
         assert_eq!(story.values[2], "Checkout");
+
+        // Nothing typed and the mark where it opened: ↵ takes the first row, and ⇥ goes past the list.
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        assert_eq!(press(&mut story, "enter", &catalog), Keyed::Changed);
+        assert_eq!(story.values[2], "Login", "↵ took the first row");
+        let mut story = Story::new(BUG);
+        story.go_to(2);
+        assert_eq!(press(&mut story, "tab", &catalog), Keyed::Taken);
+        assert_eq!((story.values[2].as_str(), story.at), ("", 4), "⇥ left the blank empty and went on");
     }
 
     #[test]
