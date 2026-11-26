@@ -93,7 +93,7 @@ pub(super) fn first_key(item: &Item) -> String {
 pub(super) const FIRST_BUILD: &str = "first-build:";
 
 /// A button of the card: its glyph, then its words where `words`, else the glyph alone with its words for a tooltip.
-fn glyph_button(look: &Look, id: String, said: &'static str, icon: &'static str, kind: super::sketch_card::Kind, words: bool) -> Stateful<gpui::Div> {
+pub(super) fn glyph_button(look: &Look, id: String, said: &'static str, icon: &'static str, kind: super::sketch_card::Kind, words: bool) -> Stateful<gpui::Div> {
     use super::sketch_card::Kind as K;
     let base = div()
         .id(SharedString::from(id))

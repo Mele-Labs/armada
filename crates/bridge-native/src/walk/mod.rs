@@ -1764,6 +1764,8 @@ pub static WALKS: &[Walk] = &[
             step("The first card's step names it a prototype", Verb::Look, "listitem", "Now: Approve a prototype"),
             step("The card draws the scene itself, with a chip for each state", Verb::Look, "button", "List, shown. Every live Job, newest first"),
             step("Open tab stands in its head, to read it in a tab of its own", Verb::Look, "button", "Open tab"),
+            press_on("See it larger opens it in the review sheet", "button", "See it larger", "dialog", "Review"),
+            step("The review sheet draws the scene, larger", Verb::Look, "button", "List, shown. Every live Job, newest first"),
         ],
     },
     Walk {
@@ -3287,8 +3289,8 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-screens",
         steps: &[
-            step("A Job that waits on you: Needs you is up, in Fleet's sections under its labels", Verb::Press, "row", "Fix the merge line freshness chip"),
-            step("Questions first, then To review, Walks, Commands and PRs", Verb::Look, "region", "Questions"),
+            step("A Job that waits on you: its first ask is a card in the thread, and Needs you stays folded under it", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("⌥⌘Y opens Needs you, in Fleet's sections: Questions first, then To review, Walks, Commands and PRs", Verb::Key("alt-cmd-y"), "region", "Questions"),
             step("Needs you lists no To do: ⌥⌘Y folds it, and the To do waits in its own strip over the box, with its steps and a Done", Verb::Key("alt-cmd-y"), "region", "To do"),
             step("A press on its mark opens a box for a note", Verb::Open("img", "To do"), "textbox", "Note with Done"),
             step("The note is typed", Verb::Typed("Token rotated"), "textbox", "Note with Done"),

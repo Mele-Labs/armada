@@ -1297,7 +1297,19 @@ impl JobView {
                     )),
                     Role::Button,
                     "Ask for changes",
-                )),
+                ))
+                // In the thread a prototype is drawn at the card's width; the sheet draws it larger, which the card did not say
+                // by itself (his note of 26 Nov).
+                .when(matches!(part.content, PartContent::Prototype(_)) && !c.sheet && !c.tab, |row| {
+                    let artifact = c.id.to_string();
+                    row.child(labelled(
+                        super::first_card::glyph_button(look, format!("larger:{key}"), "See it larger", "maximize-2", Kind::Secondary, true)
+                            .tooltip(tip("Open the prototype in the review sheet"))
+                            .on_click(cx.listener(move |this, _, window, cx| this.open_review_at(Some(&artifact), window, cx))),
+                        Role::Button,
+                        "See it larger",
+                    ))
+                }),
             self.off_shown_to(ANSWER_PART, cx),
         )
         .into_any_element()
