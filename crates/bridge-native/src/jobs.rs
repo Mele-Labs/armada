@@ -2831,7 +2831,7 @@ impl JobsList {
             after += 1;
         }
         // Start a sub project, after Move to project: it groups the whole selection where this row is in it.
-        entries.insert(after, Entry::Item { id: "sub_project", label: "Start a sub project".into(), icon: Some("folder-plus"), danger: false, key: Some("\u{21e7}S".into()), off: None });
+        entries.insert(after, Entry::Item { id: "sub_project", label: "Start a sub project".into(), icon: Some("boxes"), danger: false, key: Some("\u{21e7}S".into()), off: None });
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
         let row_folded = row.kids.as_ref().map(|kids| kids.folded);

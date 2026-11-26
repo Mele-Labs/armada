@@ -133,7 +133,7 @@ impl Render for NameSheet {
                 .border_color(if focused { accent } else { look.color(token::BORDER_DEFAULT) })
                 .bg(look.color(token::BG_SUNKEN))
                 .text_size(look.length(token::TEXT_SM))
-                .child(svg().path(icon_path("folder-plus")).flex_none().size(glyph).text_color(look.color(token::FG_SUBTLE)))
+                .child(svg().path(icon_path("boxes")).flex_none().size(glyph).text_color(look.color(token::FG_SUBTLE)))
                 .child(div().flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).child(Input::new(&self.field).appearance(false)))
                 .child(kbd("Esc", look)),
             Role::TextInput,

@@ -203,7 +203,7 @@ impl JobsList {
         let sub = matches!(head.lead, Some(Lead::SubProject { .. }));
         let mark: gpui::AnyElement = match head.lead {
             Some(Lead::Feature { .. }) => glyph("layers", token::FG_MUTED),
-            Some(Lead::SubProject { .. }) => glyph("folder-tree", token::ACCENT),
+            Some(Lead::SubProject { .. }) => glyph("boxes", token::ACCENT),
             _ => div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::STATUS_NOT_STARTED)).into_any_element(),
         };
         let lead = head.lead.clone().filter(|lead| lead.stop().is_some());

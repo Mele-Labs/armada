@@ -151,7 +151,7 @@ impl Render for LeadBoard {
         let rows = read.rows.len();
         let chips = (!read.chips.is_empty()).then(|| {
             div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(read.chips.iter().enumerate().map(|(at, name)| {
-                labelled(crate::parts::chip::chip(look, ("board-sub", at), look.color(token::ACCENT), Some("folder-tree"), name.clone()), Role::Label, format!("In {name}"))
+                labelled(crate::parts::chip::chip(look, ("board-sub", at), look.color(token::ACCENT), Some("boxes"), name.clone()), Role::Label, format!("In {name}"))
             }))
         });
         let ungroup = read.ungroup.then(|| {
