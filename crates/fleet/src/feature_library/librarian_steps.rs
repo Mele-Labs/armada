@@ -255,7 +255,7 @@ impl Running {
     }
 
     /// `project`'s run going now, as told so far.
-    pub(super) fn now(&self, project: &str) -> Option<LibrarianRunning> {
+    pub(crate) fn now(&self, project: &str) -> Option<LibrarianRunning> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner).get(project).map(|going| going.now.clone())
     }
 }

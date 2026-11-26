@@ -330,6 +330,13 @@ test('a Drone gives its subagents no Logbook', async ($, on) => {
   expect(logbookAsks).toEqual([])
 })
 
+test('the Operator gives its subagents no Logbook, since it is what earlier Jobs learnt', async ($, on) => {
+  const { prompts, logbookAsks } = await spawnedWith(on, $, 'Fix it', { env: { ARMADA_OPERATOR: '1' }, logbook: 'text' })
+
+  expect(prompts).toEqual(['Fix it'])
+  expect(logbookAsks).toEqual([])
+})
+
 test('a subagent that stops is settled as spent', async ($, on) => {
   const { posts, clock } = world(on)
   on('classic.SubagentStop', () => ({}))
@@ -800,6 +807,12 @@ test('a session Fleet hosts is told only its id at a start, since its rules carr
   world(on, { env: { ARMADA_SESSION: 'S1' } })
   const out = await $.classic.SessionStart({ source: 'startup' })
   expect(out.additionalContext).toEqual(['Your Armada job id is S1. Pass it as session_id where an act or a tool takes one.'])
+})
+
+test('the Operator is told no Job id at a start, since it is not a Job', async ($, on) => {
+  world(on, { env: { ARMADA_SESSION: 'S1', ARMADA_OPERATOR: '1' } })
+  const out = await $.classic.SessionStart({ source: 'startup' })
+  expect(out.additionalContext ?? []).toEqual([])
 })
 
 test('an open of web pages is shown through Fleet and denied, not run', async ($, on) => {
@@ -1648,6 +1661,18 @@ test('a reply that names what the owner owes outside waiting_for is sent back on
   expect((await $.classic.Stop(stop(OWED, { stop_hook_active: true }))).block).toBeUndefined()
   await clock.settle()
   expect(waitingPosts(posts)).toHaveLength(1)
+})
+
+test('the Operator is never sent back to waiting_for, since it has no list', async ($, on) => {
+  const { posts, clock } = world(on, { thread: HELD, env: { ARMADA_SESSION: 'S1', ARMADA_OPERATOR: '1' } })
+  await $.session.start({ cwd: '/operator/session', surface: null, isInteractive: false })
+  await $.prompt.submit({ text: 'what is red', origin: { kind: 'user' } } as never)
+  await clock.settle()
+
+  expect((await $.classic.Stop(stop(OWED))).block).toBeUndefined()
+  expect((await $.classic.Stop(stop(OWED, { stop_hook_active: true }))).block).toBeUndefined()
+  await clock.settle()
+  expect(waitingPosts(posts)).toEqual([])
 })
 
 test('a turn sent back is told to Fleet once, with the words the session was given', async ($, on) => {

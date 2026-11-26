@@ -192,6 +192,9 @@ pub(super) fn settles_line(parts: &[ArtifactPart]) -> Option<String> {
 }
 
 /// The glyph and the name of a part's kind, which its caption draws.
+/// The caption of a Words part in an artifact that holds a prototype.
+const FROM_THE_JOB: &str = "From the Job";
+
 pub(super) fn kind_look(kind: PartKind) -> (&'static str, &'static str) {
     match kind {
         PartKind::Words => ("file-text", "Words"),
@@ -292,6 +295,8 @@ struct Ctx<'a> {
     takes: Option<String>,
     /// Two or more votes still ask: each keeps its note box, and one Send picks in the foot sends them all.
     several: bool,
+    /// The artifact holds a prototype: its words are captioned as the Job's own, apart from the build he approves.
+    prototype: bool,
 }
 
 impl PartsState {
@@ -400,6 +405,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: false,
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         if is_pick(&part) {
             let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
@@ -412,6 +418,10 @@ impl JobView {
     pub(super) fn parts_ix(&self, artifact: &str) -> Option<usize> {
         let job = self.shown.as_ref()?;
         let page = self.pages.get(job)?;
+        // The Job's first ask is answered on the first card, so its parts stand there.
+        if let Some(at) = page.extras.iter().position(|extra| matches!(extra, Extra::First(key) if key == artifact)) {
+            return Some(page.items + at);
+        }
         let newest = self.artifact_of(job, artifact)?.revisions.last()?.number;
         if let Some(held) = page.anchors.iter().find(|one| one.artifact == artifact && one.revision == newest) {
             return Some(held.item);
@@ -820,6 +830,10 @@ impl JobView {
             let fold = super::parts_fold::Fold { ix, artifact: id, title: &artifact.title, form: artifact.form, revision: last.map_or(1, |last| last.number), numbered: artifact.revisions.len() > 1, verdict, said };
             return Some(self.folded_parts(fold, page, look, cx));
         }
+        // Only the Job's first open ask stands as a card, the thread's first card (`first_card`): while this one asks it is one line.
+        if !tab && !sheet && asking && self.asking_item(&job, id, cx).is_some() {
+            return self.parts_pointer("thread", id, look, cx);
+        }
         // In its own tab it is read only, under the same line: no pick, verdict or Dismiss is drawn there.
         let pointer = if tab && !sheet && self.reads_only(id, cx) { self.parts_pointer("reader", id, look, cx) } else { None };
         let read_only = pointer.is_some();
@@ -850,6 +864,7 @@ impl JobView {
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
             several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
@@ -904,6 +919,44 @@ impl JobView {
             Some(pointer) => div().w_full().flex().flex_col().gap(look.length(token::SPACE_2)).child(pointer).child(card).into_any_element(),
             None => card,
         })
+    }
+
+    /// The parts of artifact `id` and its footer as its card draws them under its head, for the thread's first card at list
+    /// place `ix` while the artifact is the Job's first ask. None once it no longer asks.
+    pub(super) fn parts_inside(&self, ix: usize, id: &str, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let job = self.shown.clone()?;
+        let artifact = self.artifact_of(&job, id)?;
+        let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
+        let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
+        if dismissed || stand_of(&parts, artifact.state) != Stand::Asking {
+            return None;
+        }
+        let ctx = Ctx {
+            ix,
+            id,
+            job,
+            page,
+            look,
+            tab: false,
+            sheet: false,
+            words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
+            takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: several_picks(&parts),
+            prototype: parts.iter().any(|part| matches!(part.content, PartContent::Prototype(_))),
+        };
+        let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
+        let footer = held_press(self.parts_footer(ix, id, &parts, true, None, page, look, cx));
+        let artifact_id = id.to_string();
+        Some(
+            div()
+                .id(SharedString::from(format!("first-parts:{id}")))
+                .flex()
+                .flex_col()
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+                .children(blocks)
+                .child(footer)
+                .into_any_element(),
+        )
     }
 
     /// The footer of the artifact in the review panel, pinned under its parts and read as the card would read it.
@@ -1000,6 +1053,8 @@ impl JobView {
         let look = c.look;
         let key = part_key(c.id, &part.id);
         let (mark, name) = kind_look(part.content.kind());
+        // Beside a prototype, the Job's words are told apart from the build he approves.
+        let name = if c.prototype && matches!(part.content, PartContent::Words { .. }) { FROM_THE_JOB } else { name };
         let body = match &part.content {
             PartContent::Words { text } => self.words_body(c, &key, text, part, cx),
             PartContent::Takes { question, form, takes, .. } => self.takes_body(c, &key, part, question.as_deref(), *form, takes, cx),
@@ -1844,14 +1899,8 @@ impl JobView {
         let look = c.look;
         let scene = c.sheet.then(|| self.row_tabs.get(&c.job).and_then(|tabs| tabs.sheets.get(c.id))).flatten();
         if let Some((view, _)) = scene {
-            return div()
-                .id(SharedString::from(format!("prototype:{key}")))
-                .w_full()
-                .h(self.tall_most(c))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .child(view.clone())
-                .into_any_element();
+            // The scene draws its own frame.
+            return div().id(SharedString::from(format!("prototype:{key}"))).w_full().h(self.tall_most(c)).child(view.clone()).into_any_element();
         }
         div()
             .id(SharedString::from(format!("prototype:{key}")))
@@ -1974,7 +2023,7 @@ impl JobView {
             return None;
         }
         let key = part_key(artifact, &part.id);
-        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false };
+        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false, prototype: false };
         let open = part.is_open_ask() && *form == VoteForm::Pick;
         let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
         let chosen = if open { c.state().chosen.get(&key).copied().filter(|at| *at < takes.len()) } else { picked };
@@ -2403,7 +2452,10 @@ mod tests {
         view.update_in(cx, |view, window, cx| view.answer_part("draft:Page title", &part, PartHow::SentBack, None, Some("Name it for the question.".into()), window, cx));
         redraw(cx);
         assert!(drawn(cx, gpui::Role::Status, "Page title: Sent back"), "revision 1 stands as one line");
-        assert!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), "the Job's next drawing asks again, in a card of its own");
+        assert!(view.read_with(cx, |view, cx| view.asking_item(JOB, "draft:Page title", cx).is_some()), "the Job's next drawing asks again");
+        // Only the Job's first ask stands whole; a later one is a line in the thread until its turn.
+        let first = view.read_with(cx, |view, cx| view.first_ask(JOB, cx).map(|item| super::super::first_card::first_key(&item)));
+        assert_eq!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), first.as_deref() == Some("draft:Page title"), "revision 2 is a card of its own only where it is first: {first:?}");
         view.read_with(cx, |view, cx| {
             let verdict = view.verdict_kept(JOB, "draft:Page title", 1, cx).expect("his words were kept under revision 1");
             assert_eq!(verdict.note.as_deref(), Some("Name it for the question."));
@@ -2424,7 +2476,12 @@ mod tests {
 
     #[gpui::test]
     fn a_vote_is_picked_on_its_thread_card_and_leaves_the_sheet(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = folds_job(cx, |_| {});
+        // The Job put the vote first, so the first card holds it.
+        let (view, cx) = folds_job(cx, |jobs| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == JOB).expect("the Job");
+            let wire = br#"{"id":"agent-rollout","text":"Pick the rollout order","since":"2026-11-14T10:05:00Z","source":"agent","artifact":"sketch:Rollout order","order":1,"why":"The rollout waits on your pick"}"#;
+            job.waiting_for.insert(0, ipc::decode::<ipc::WaitingItem>("vote item", wire).expect("the vote item decodes"));
+        });
         let held = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.artifact_items(JOB, None).iter().any(|one| one.artifact.as_deref() == Some("sketch:Rollout order")));
         assert!(held(&view, cx), "the sheet holds the vote while it waits");
         let card = labelled_bounds(cx, gpui::Role::Article, "Artifact: Rollout order");

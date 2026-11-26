@@ -64,6 +64,8 @@ Each step lists the tabs it opens in `tabs`, the front one first, as ids of the 
 The row carries `workflow_strip.stalled`, when it went past and the cause, which says what the step waits on and whose move it is now.
 **An end that is his is his move only once there is something to press** (24 Nov 2026): while the Job is still working, or a plan he would approve was never recorded, the cause says the Job.
 **A step he wrote on stays plain until he has been quiet on it for half an hour** (`QUIET_SECS`, 24 Nov 2026): a step he is working through with the Job is not stalled.
+**A Job that has not run has not begun its step** (26 Nov 2026): its first step begins with its first turn, so a Job that waited on another is never stalled while it waits and starts inside its time.
+Seen 26 Nov 2026: a waiting Job's step was counted from its dispatch, and the nudge started it with no brief.
 Fleet tells the Job once for each visit to the step, as a `rail_nudge`, at a quiet moment: its turn is over and nothing waits on him.
 **This is the one word Fleet sends about the step**, which the owner asked for beside the rule below, and it repeats nothing: a step the Job leaves and enters again draws a new one.
 

@@ -16,8 +16,8 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::item_kept;
 use ipc::operator_page::OperatorFeedKind;
-use ipc::operator_talk::{OperatorSaid, OperatorTalk, OperatorTalkLine};
-use ipc::{CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReportCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
+use ipc::operator_talk::{OperatorSaid, OperatorTalk, OperatorTalkLine, TalkToOperator};
+use ipc::{SessionTag, SessionUpload, CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReportCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use store::KeptTurn;
 
 use super::turning::turn_number;
@@ -117,6 +117,8 @@ where
         let at = self.now();
         let id = format!("{CARD}{}", crate::session_host::new_id());
         let item = WaitingItem {
+            order: 0,
+            why: String::new(),
             id: id.clone(),
             text: title.to_string(),
             since: Instant::carried(at.as_str()),
@@ -287,16 +289,18 @@ where
 
     /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **Refused with
     /// `fleet.operator_session_not_running`** where no session runs, since nothing would hear them. A card he talks
-    /// about is named to the session. The session's answer is its thread, not this reply.
-    pub(crate) async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
+    /// about is named to the session. The files and tags he sent go with the words, card or none. The session's
+    /// answer is its thread, not this reply.
+    pub(crate) async fn operator_talked(self: &Arc<Self>, talk: TalkToOperator) -> Result<OperatorSaid, Refusal> {
+        let TalkToOperator { words, about, attachments, mentions } = talk;
         let running = self.operator_session_id().await.is_some();
-        let card = match about {
+        let card = match about.as_deref() {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,
         };
         match (running, card) {
-            (true, Some(card)) => self.card_talked_about(card, words).await?,
-            (true, None) => self.operator_told_as_him(words).await?,
+            (true, Some(card)) => self.card_talked_about(card, &words, attachments, mentions).await?,
+            (true, None) => self.operator_told_as_him(&words, attachments, mentions).await?,
             (false, _) => return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it")),
         }
         Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
@@ -310,11 +314,11 @@ where
 
     /// His words about a card, as he wrote them, with a short tag naming it. Refused where the card is not
     /// one Fleet holds or the Operator's session is not running.
-    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, words: &str) -> Result<(), Refusal> {
+    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, words: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
         self.card_known(id).await?;
         let n = turn_number(id).unwrap_or_default();
         let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.card_refused(&format!("{id} is no card Fleet holds")))?;
         let tag = format!("[About card turn:{n} \"{}\"]", Self::card_title(&row));
-        self.operator_told_as_him(&format!("{tag}\n{words}")).await
+        self.operator_told_as_him(&format!("{tag}\n{words}"), attachments, mentions).await
     }
 }

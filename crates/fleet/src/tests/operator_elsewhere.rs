@@ -116,6 +116,7 @@ fn the_dispatch(rig: &Rig) -> DispatchJob {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     let then = vec![DispatchThen::Message(DispatchMessage { text: ALSO.into(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
     DispatchJob { start, kind: None, then }

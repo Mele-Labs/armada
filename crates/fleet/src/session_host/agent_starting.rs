@@ -57,6 +57,8 @@ pub(crate) fn held_children(store: &Store, parent: &str) -> Result<Vec<HeldChild
 /// The parent's item for a held child: pressing it opens the child, whose Start settles it.
 pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("start:{}", child.id),
         text: format!("Press Start on \"{}\"", child.title),
@@ -183,6 +185,7 @@ where
                 held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             }, super::Marked::Plain)
             .await?;
         let brief = words.message.clone();
@@ -287,6 +290,7 @@ where
                 held: true,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await?;
         // A fork is not read, so its title alone is asked for when Start sends it (`fork_named`).

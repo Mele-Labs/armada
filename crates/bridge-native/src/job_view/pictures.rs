@@ -38,7 +38,7 @@ fn key(job: &str, file: &str) -> String {
 }
 
 /// The formats gpui draws.
-fn format_of(media_type: &str) -> Option<ImageFormat> {
+pub(crate) fn format_of(media_type: &str) -> Option<ImageFormat> {
     Some(match media_type {
         "image/png" => ImageFormat::Png,
         "image/jpeg" => ImageFormat::Jpeg,
@@ -62,7 +62,7 @@ pub(super) fn shown_path(job: &str, path: &str) -> String {
 }
 
 /// Whether a file is a picture the thread draws.
-pub(super) fn is_picture(file: &SentFile) -> bool {
+pub(crate) fn is_picture(file: &SentFile) -> bool {
     format_of(&file.media_type).is_some()
 }
 
@@ -82,7 +82,7 @@ pub(super) fn read_picture(path: &str) -> Option<SentFile> {
 
 /// A picture's width and height, read from its header: PNG, GIF, JPEG and WebP. Anything else is fitted
 /// whole inside the thumbnail's box.
-pub(super) fn natural_size(bytes: &[u8]) -> Option<(u32, u32)> {
+pub(crate) fn natural_size(bytes: &[u8]) -> Option<(u32, u32)> {
     let be32 = |at: usize| bytes.get(at..at + 4).map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]));
     let be16 = |at: usize| bytes.get(at..at + 2).map(|b| u32::from(u16::from_be_bytes([b[0], b[1]])));
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
@@ -121,7 +121,7 @@ pub(super) fn natural_size(bytes: &[u8]) -> Option<(u32, u32)> {
     None
 }
 
-pub(super) use super::zoomer::fitted;
+pub(crate) use super::zoomer::fitted;
 
 /// What a mock thread's pictures read as, with no Fleet to ask: a window with a sidebar and a few rows, in
 /// the shape its name says (`Wide`, `Tall`), else 960 by 600.
@@ -322,7 +322,7 @@ impl JobView {
 }
 
 /// The thumbnail's box: `max-width: calc(var(--space-12) * 4)`, `max-height: calc(var(--space-12) * 3)`.
-fn thumb_most(look: &Look) -> Size<f32> {
+pub(crate) fn thumb_most(look: &Look) -> Size<f32> {
     let unit = f32::from(look.length(token::SPACE_12));
     size(unit * 4., unit * 3.)
 }

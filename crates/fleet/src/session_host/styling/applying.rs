@@ -8,7 +8,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{MockNode, SessionRow, Sketch, StyleSources};
 
-use crate::session_host::document_page::sketches_in;
+use crate::session_host::document_page::{looks_of, sketches_in};
 
 use super::choosing::Styled;
 use super::choosing::{relative_to, style_mocks};
@@ -18,6 +18,9 @@ use crate::session_host::sketching::SKETCH_REFUSED;
 
 const JOB_UNKNOWN: &str = "fleet.style_job_unknown";
 const STYLES_UNFINISHED: &str = "fleet.sketch_styles_unfinished";
+
+/// Where a page's own stylesheets are in `kept_styles`. A sketch's key holds a `#`, so this cannot be one.
+pub(crate) const PAGE_STYLES_KEY: &str = "page";
 
 /// Most files read or changed that the walk is started from.
 const FILES_AT_MOST: usize = 40;
@@ -131,9 +134,10 @@ where
 /// The style sets a page's mocks were drawn with, and the mocks that cannot be.
 #[derive(Default)]
 pub(crate) struct PageStyles {
-    /// `{"<sketch title>#<node id>": "<hash>"}` as text, absent where the page keeps none.
+    /// `{"<sketch title>#<node id>": "<hash>"}` as text, with the page's own stylesheets under [`PAGE_STYLES_KEY`], absent
+    /// where the page keeps none.
     pub kept: Option<String>,
-    /// One sentence for each sketch with a mock that cannot be drawn.
+    /// One sentence for each sketch with a mock that cannot be drawn, and one for stylesheets the page links that cannot.
     pub refused: Vec<String>,
 }
 
@@ -158,7 +162,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Keep the style set of each `mock` of each sketch the page embeds. **The page is not
+    /// Keep the style set of each `mock` of each sketch the page embeds, and of the repository stylesheets it links,
+    /// checked as a mock's `styles` are. **The page is not
     /// rewritten**, because `keep` compares its bytes with the newest revision, so the hashes are
     /// returned to ride on the document's attachment.
     pub(crate) async fn page_styles(&self, id: &str, html: &str) -> PageStyles {
@@ -178,6 +183,17 @@ where
                 let named = sketch.title.as_ref().map(|title| format!(" (\"{title}\")")).unwrap_or_default();
                 let said: Vec<&str> = styled.refused.values().map(String::as_str).collect();
                 styles.refused.push(format!("sketch {} of {total}{named} will not draw: {}.", at + 1, said.join("; ")));
+            }
+        }
+        let looks = looks_of(html);
+        if !looks.sheets.is_empty() {
+            let page = MockNode { id: String::from("page"), styles: looks.sheets, has_css: looks.has_css };
+            if let Ok(styled) = self.mocks_styled(id, vec![page]).await {
+                kept.extend(styled.kept.into_values().map(|hash| (PAGE_STYLES_KEY.to_string(), hash)));
+                for why in styled.refused.into_values() {
+                    let why = why.replace("mock `page`: ", "").replace("`styles` entry", "link to");
+                    styles.refused.push(format!("the page's stylesheets will not draw: {why}."));
+                }
             }
         }
         styles.kept = (!kept.is_empty()).then(|| ipc::encode(&kept).ok()).flatten();

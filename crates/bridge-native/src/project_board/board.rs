@@ -9,13 +9,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use chrono::Utc;
-use gpui::{AnyWindowHandle, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
+use gpui::{AnyWindowHandle, App, AppContext, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState};
 use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, MetricReading, MetricReadings, MetricState, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
 
-use super::layout::{BlockKind, Layout, View};
+use super::layout::{BlockKind, Layout, View, COLUMNS};
 use super::model::{self, Fill, Item, Press, Project, Repository, Shown};
 use super::presets::{self, Kind};
+use super::system::{SystemBlock, SystemEvent};
 use super::{metric, mock, wire};
 use crate::features::chosen;
 use crate::fleet::FleetConnection;
@@ -93,6 +94,15 @@ pub struct IssuesRead {
     pub ranked: RankedIssues,
 }
 
+/// Where Rank with the librarian stands: asked, or refused with Fleet's line.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Ranking {
+    #[default]
+    Idle,
+    Waiting,
+    Refused(String),
+}
+
 /// A Command flagged `confirm: true` that has been pressed and waits for Run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Asking {
@@ -153,6 +163,8 @@ pub struct Board {
     /// Where each block's body is scrolled, by its element id, so a body that has rows to scroll keeps the wheel.
     pub(super) bodies: std::cell::RefCell<HashMap<String, gpui::ScrollHandle>>,
     pub(super) root: FocusHandle,
+    /// The System block, which reads and draws its own map.
+    pub(super) system: Entity<SystemBlock>,
     /// The cell the pointer was in, relative to the block's own corner, when the block was lifted.
     pub(super) grab: Option<(i16, i16)>,
     entered: bool,
@@ -163,6 +175,7 @@ pub struct Board {
     pub(super) drafts: BTreeMap<String, Result<AppRunDraft, String>>,
     pub(super) configs: Option<Vec<Result<ManifestConfig, String>>>,
     pub(super) issues: Option<Result<IssuesRead, String>>,
+    pub(super) ranking: Ranking,
     pub(super) checkout: Checkout,
     /// Presses in flight, so a second press on the same button waits for the first.
     pub(super) acting: HashSet<String>,
@@ -205,6 +218,16 @@ impl Board {
         if let Some(page) = crate::operator::live(cx) {
             subs.push(cx.observe(&page, |_, _, cx| cx.notify()));
         }
+        let system = match &source {
+            Source::Live(fleet) => cx.new(|cx| SystemBlock::live(fleet, cx)),
+            Source::Mock => cx.new(SystemBlock::mock),
+        };
+        subs.push(cx.observe(&system, |_, _, cx| cx.notify()));
+        subs.push(cx.subscribe(&system, |this, _, event: &SystemEvent, cx| match event {
+            SystemEvent::Feature(slug) => cx.emit(BoardEvent::Feature(slug.clone())),
+            SystemEvent::Job(id) => this.press(Press::Job(id.clone()), cx),
+            SystemEvent::Held { id, words } => crate::toasts::dispatch_held(id, words, cx),
+        }));
         Board {
             source,
             reviews,
@@ -224,6 +247,7 @@ impl Board {
             handles: BlockKind::ALL.into_iter().map(|kind| (kind, cx.focus_handle().tab_stop(true))).collect(),
             bodies: Default::default(),
             root: cx.focus_handle(),
+            system,
             grab: None,
             entered: false,
             read_for: None,
@@ -233,6 +257,7 @@ impl Board {
             drafts: BTreeMap::new(),
             configs: None,
             issues: None,
+            ranking: Ranking::Idle,
             checkout: Checkout::Main,
             acting: HashSet::new(),
             tail: None,
@@ -456,6 +481,102 @@ impl Board {
         }));
     }
 
+    /// The board as an ask to the librarian sees it: the layout drawn, whether it is the preset, and every kind and view this
+    /// build draws.
+    pub fn asked_board(&mut self, project: &str) -> ipc::AskedBoard {
+        self.layout(project);
+        let stored = &self.layouts[project];
+        let kinds = BlockKind::ALL.into_iter().map(|kind| ipc::AskedBlockKind { kind: kind.slug().to_string(), views: kind.views().iter().map(|view| view.slug().to_string()).collect() }).collect();
+        ipc::AskedBoard { layout: stored.layout.to_wire(&stored.unknown), preset: !stored.edited, kinds, columns: COLUMNS }
+    }
+
+    /// An ask changed the board, or its Undo put one back, and Fleet already keeps it: it is drawn at once and sent nowhere. A
+    /// change of his still waiting to be sent was on the board the ask saw, so it goes with it.
+    pub fn take_from_fleet(&mut self, kept: Option<BoardLayout>, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.saves.remove(&project.id);
+        self.unsaved.remove(&project.id);
+        if matches!(self.source, Source::Mock) {
+            match &kept {
+                Some(layout) => self.kept.insert(project.id.clone(), layout.clone()),
+                None => self.kept.remove(&project.id),
+            };
+        }
+        self.apply_kept(&project.id, kept, cx);
+    }
+
+    /// An ask's board change was taken back: the board is the one Fleet answers with now, or the preset where it keeps none.
+    pub fn reread_layout(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.saves.remove(&project.id);
+        self.unsaved.remove(&project.id);
+        match &self.source {
+            Source::Mock => {
+                let kept = self.kept.get(&project.id).cloned();
+                self.apply_kept(&project.id, kept, cx);
+            }
+            Source::Live(_) => self.read_layout(cx),
+        }
+    }
+
+    /// The might-lists changed in Fleet: the Issues block reads them again.
+    pub fn reread_issues(&mut self, cx: &mut Context<Self>) {
+        if matches!(self.source, Source::Live(_)) {
+            self.read_issues(cx);
+        }
+    }
+
+    // ---- ranking with the librarian -----------------------------------------------------------
+
+    /// Whether the lists on the board are in the librarian's order, as Fleet last answered them.
+    pub fn ranked_by_librarian(&self) -> bool {
+        self.ranked_at().is_some()
+    }
+
+    /// When the librarian ranked the lists on the board, where it did.
+    pub fn ranked_at(&self) -> Option<&ipc::Instant> {
+        match &self.issues {
+            Some(Ok(read)) => read.ranked.by_librarian.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Rank with the librarian, or Reset: the might-lists come back in the librarian's order with a why on each row, or by
+    /// features again.
+    pub fn rank(&mut self, forget: bool, cx: &mut Context<Self>) {
+        if self.ranking == Ranking::Waiting {
+            return;
+        }
+        let Some(project) = self.project(cx) else { return };
+        let task = match (&self.source, self.port(cx)) {
+            (Source::Live(_), Some(port)) if forget => crate::features::wire::forget_librarian_ranking(port, &project.id, cx),
+            (Source::Live(_), Some(port)) => crate::features::wire::rank_with_librarian(port, &project.id, cx),
+            (Source::Live(_), None) => crate::settings::wire::unreachable(),
+            (Source::Mock, _) => Task::ready(Ok(if forget { mock::issues().ranked } else { mock::ranked_by_librarian() })),
+        };
+        self.ranking = Ranking::Waiting;
+        let asked = project.id.clone();
+        self.tasks.insert("rank", cx.spawn(async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update(cx, |this, cx| {
+                match answer {
+                    Ok(ranked) => {
+                        this.ranking = Ranking::Idle;
+                        if this.project(cx).is_some_and(|now| now.id == asked) {
+                            match this.issues.as_mut() {
+                                Some(Ok(read)) => read.ranked = ranked,
+                                _ => this.issues = Some(Ok(IssuesRead { mine: Vec::new(), ranked })),
+                            }
+                        }
+                    }
+                    Err(why) => this.ranking = Ranking::Refused(crate::features::ask_box::refusal_line(&why)),
+                }
+                cx.notify();
+            });
+        }));
+        cx.notify();
+    }
+
     pub fn toggle_edit(&mut self, cx: &mut Context<Self>) {
         self.edit = !self.edit;
         self.grab = None;
@@ -555,6 +676,7 @@ impl Board {
             self.runs.clear();
             self.drafts.clear();
         }
+        self.follow_system(cx);
         self.read_layout(cx);
         self.read_metrics(cx);
         self.read_features(cx);
@@ -568,6 +690,13 @@ impl Board {
             });
         }
         cx.notify();
+    }
+
+    /// The System block reads the map of the project on screen.
+    fn follow_system(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        let manifests = project.repositories.iter().map(|one| one.id.clone()).collect();
+        self.system.update(cx, |system, cx| system.follow(&project.id, &project.name, manifests, cx));
     }
 
     /// Ask Fleet what each recipe of the project reads. Fleet fetches again only where a reading is stale, so asking is cheap; the
@@ -837,6 +966,8 @@ impl Board {
     pub fn fill(&self, kind: BlockKind, project: &Project, cx: &App) -> Fill {
         let now = Utc::now();
         match kind {
+            // The block draws itself, from the map it reads.
+            BlockKind::System => Fill::Reading,
             BlockKind::Needs => match &self.source {
                 Source::Mock => Fill::items(mock::needs()),
                 Source::Live(fleet) => {
@@ -1167,6 +1298,7 @@ impl Board {
         self.readings_changed(cx);
         self.apply_kept(&project.id, self.kept.get(&project.id).cloned(), cx);
         self.apply_preset(&project.id);
+        self.follow_system(cx);
         cx.notify();
     }
 

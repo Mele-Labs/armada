@@ -355,6 +355,7 @@ where
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await;
         let Ok(started) = started else { return Judged::NotClaimed("The fix Job did not start.".to_string()) };

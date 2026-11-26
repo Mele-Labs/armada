@@ -50,6 +50,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/artifact_page",
     },
     Route {
+        operation: "share_job_margin",
+        method: "GET",
+        path: "/other_mac/margin",
+    },
+    Route {
         operation: "share_job_page",
         method: "GET",
         path: "/other_mac/page",

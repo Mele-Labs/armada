@@ -174,6 +174,10 @@ know how far to trust the rest.
 lists, tables, code, quotes and figures Armada's type and colour. A page with
 no style of its own reads right.
 
+A prototype page can also link the repository's own stylesheet by its path from the
+repo's root, such as `<link rel="stylesheet" href="src/app.css">`; `get_style_sources`
+names them. Fleet draws them after the kit where the page is served sealed.
+
 Add a `<style>` only for what the kit does not say: a narrower column, a
 larger first paragraph, tabular figures, a bar. Your rules come after the kit's
 and win. Use the kit's variables, not hex values.
@@ -338,6 +342,22 @@ says it all. A table and a sketch are enough for most pages.
   cell or node. Use a tint fill, a full hairline outline, a glyph or dot, a
   chip, or a header band across the top.
 
+## A clickable prototype
+
+When the person asks for a Prototype in a repository other than Armada, write it
+as a page that moves: a screen of their app they can click through. Armada's own
+repository uses scenes and `show_prototype` instead.
+
+- Link the app's own stylesheets by repo path, as *The kit and your own style*
+  says, and write the markup with the app's real class names. Leave out
+  `armada-kit.css` unless the app has no styles.
+- Each screen is a `<section data-screen="...">`. The first is in the markup,
+  shown, and the rest are hidden until the script shows them.
+- A press that moves between screens is a button the script wires with
+  `addEventListener`. Give each one a `data-part` so a note on it names it.
+- Data is short and plausible, written into the page.
+- Save the page again to change it. Each save is its next revision and redraws.
+
 ## What Bridge drops
 
 The page is read element by element from an allow list. Dropped, without an
@@ -350,7 +370,7 @@ error:
 | `<img>`, `<canvas>`, `<video>`, `<audio>` | An inline `<svg>`, a table, a bar, a sketch |
 | In an `<svg>`: `<script>`, `<foreignObject>`, `<use>`, `<image>`, an `<a>` with an address, gradients and filters, `style="…"` | Shapes, text and `<g>`, coloured by class |
 | `<iframe>`, `<object>`, `<embed>`, a `<form>` that submits | Words |
-| Any `<link>` but `armada-kit.css` | `<style>` |
+| Any `<link>` but `armada-kit.css` and a repository stylesheet's path | `<style>` |
 | A CSS rule with `url(…)`, `@import`, `@font-face`, `@keyframes` | System fonts, no motion |
 | A link that is not `#id` or `http(s)://` | A full address |
 

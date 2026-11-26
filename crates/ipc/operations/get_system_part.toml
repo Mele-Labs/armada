@@ -1,0 +1,12 @@
+[operations.get_system_part]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What Fleet knows of one part, one feature or the whole project, in nine sections"
+notes = """
+`GET /projects/project/:project/system/part?part=&feature=`. Answers `SystemPartAnswers { project, part, feature?, … }`: `features`, `code`, `working`, `owners` (with `owner_days`, 30), `looks` (with `has_screen`), `docs`, `monitor`, `issues` (with `tracker`) and `pulls`. **Every section is present**, an empty one empty. Read from what Fleet holds: the feature catalog's file ownership, the Jobs' observed writes, `git log` over the part's paths, the issue lists and open pull requests already kept. No forge call and no model.
+
+**Every level shows the same nine sections.** `part` is one part or piece of the map. `feature` is one feature: its prefixes and the files filed to it as `code`, the Jobs writing them as `working`, owners over those files, the documents the Jobs that changed them read first as `docs`, the issues matched to it and the open pull requests whose files fall in it. Neither is the whole project: each repository's root as `code`, every feature, the Jobs writing anywhere in it, owners across it, the documents at the root (README, then `docs/`), every Kit server and run as `monitor`, every issue matched to a feature and every open pull request. `part` answers empty for a feature and for the whole project, and `feature` is present only for a feature. Both given, `feature` wins.
+
+404 `fleet.no_such_project`, 404 `fleet.system_part_unknown` for a part the map does not hold, 404 `fleet.feature_unknown` for a feature the project does not hold. 422 `fleet.project_unreadable`.
+"""

@@ -104,6 +104,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let session_id = self.started_hosted(begun, marked).await?.id;
         // The Custom tab it builds, or that it builds an instrument: kept on the hosting record, and published again so Bridge draws no row for it.

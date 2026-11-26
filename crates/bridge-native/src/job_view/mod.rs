@@ -15,6 +15,7 @@ mod acts;
 mod artifacts_tab;
 mod ask_card;
 mod ask_line;
+mod first_card;
 mod for_you_tab;
 mod questions;
 mod reader_sheet;
@@ -152,11 +153,12 @@ mod view_tabs;
 #[path = "../job_browser/mod.rs"]
 mod job_browser;
 mod loadout_tab;
+mod feature_tab;
 mod tokens_tab;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
-pub use judge_cards::{ask_judge_tab, choose_to_judge};
+pub use judge_cards::{ask_judge_choice, ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
@@ -251,8 +253,9 @@ pub(crate) enum Extra {
     Parts(String, u32),
     /// What he sent from the sheet on an ask no card of the thread stands for, by its key (`ask_line::answer_key`).
     Answer(String),
-    /// The open card of questions, by its call: a card for each question that still waits, answered in place (`ask_card`).
-    Asked(String),
+    /// The Job's first open ask in Fleet's order, by its card's key (`first_key`): the one ask that stands as a card, under a bar of the steps
+    /// it leads (`first_card`).
+    First(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -530,6 +533,8 @@ pub struct JobView {
     fork: fork::Fork,
     /// The Judge's box on a plan, while it is open.
     judge: Option<judge::Open>,
+    /// The judge types read for each repository and project a box was opened for.
+    judge_types: crate::judge_types::Held,
     /// The Report dialog, while it is open over the Job.
     reporting: Option<report::Report>,
     /// The Draw sketch sheet is up, over the Job's pad.
@@ -768,6 +773,7 @@ impl JobView {
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
             judge: None,
+            judge_types: Default::default(),
             reporting: None,
             sketch_open: false,
             pad: None,
@@ -991,6 +997,7 @@ impl JobView {
         self.visit(on, cx);
         self.tell_job_shown(window, cx);
         self.front_judge_tab(window, cx);
+        self.front_judge_choice(window, cx);
         cx.notify();
     }
 
@@ -1091,10 +1098,20 @@ impl JobView {
             .unwrap_or_default();
         let (answered, loose_tail) = parts_fold::place(&held.items, &loose);
         cards.extend(loose_tail.into_iter().map(|(key, _)| Extra::Answer(key)));
-        // The open card of questions is answered in place, a card for each question.
-        if let Some(asked) = held.head.asked.as_ref().filter(|asked| !asked.call.questions.is_empty()) {
-            cards.push(Extra::Asked(asked.call.call.clone()));
+        // Of all he is asked, only the first in Fleet's order stands as a card; the next takes its place once it is answered.
+        let first = self.first_ask(id, cx);
+        if let Some(first) = &first {
+            cards.push(Extra::First(first_card::first_key(first)));
         }
+        // The waiting plan and the pinned sketch stand over the thread only once they no longer ask: while the plan is first the
+        // first card is its one place, else its card is a line (`plan_card`), and the sketch's own card in the thread is.
+        let first_is_plan = first.as_ref().is_some_and(|first| first.kind == review::Kind::Plan);
+        let pin = held.head.sketch.as_ref().map(|one| one.sketch.clone());
+        extras.retain(|extra| match extra {
+            Extra::Plan(state) => !(first_is_plan && *state == PlanCardState::Waiting),
+            Extra::Sketch(_) => pin.as_deref().is_none_or(|ledger| self.open_ask_of(id, ledger, cx).is_none()),
+            _ => true,
+        });
         let asks: Vec<String> = self
             .review_items(id, cx)
             .into_iter()
@@ -1496,6 +1513,7 @@ impl Render for JobView {
         popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_judge_sheet(&id, window, cx));
         popups.extend(self.render_sketch());
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));

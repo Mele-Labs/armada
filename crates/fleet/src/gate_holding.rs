@@ -4,13 +4,14 @@
 //! ([`Fleet::gates_closed`]) every close goes through, and only for a row that was written then.
 //! **`all_done` is held while a gate is open**, not refused, and Fleet finishes the Job when the last
 //! gate closes. **The person is asked only for a gate nothing in the Job can close**, and only while
-//! nothing in it runs.
+//! nothing in it runs. **A merge gate with no pull request on the way is the agent's**: `all_done` is
+//! refused with what to do, and the person is never asked.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{AllDone, ApprovePlan, Instant, Notice, SessionId, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
-use store::{KeptAttachment, KeptGate, KeptPlan, Store, CHECKS_GREEN, PLAN_APPROVED};
+use store::{Holder, KeptAttachment, KeptGate, KeptPlan, Store, CHECKS_GREEN, PLAN_APPROVED};
 
 use crate::daemon::Fleet;
 
@@ -58,6 +59,33 @@ pub(crate) fn tasks_open_text(store: &Store, id: &str) -> Option<String> {
     })
 }
 
+/// The code `all_done` is refused with while the first open gate waits on a merge no pull request is on
+/// the way to.
+pub(crate) const MERGE_UNOPENED: &str = "fleet.gate_merge_unopened";
+
+/// What the agent is told when the first open gate waits on a merge and no pull request tied to its
+/// group is open: a group handed to a Job of its own reads that Job's. **Only the agent can open one**,
+/// so the person is never asked to close it in its place.
+pub(crate) fn merge_unopened_text(store: &Store, id: &str) -> Option<String> {
+    let plan = store.session_plan(id).ok().flatten()?;
+    let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
+    if group.gate.as_deref() != Some("merged") {
+        return None;
+    }
+    let held = store.attachments_of(&Holder::session(id)).unwrap_or_default();
+    let on_the_way = if group.own_job {
+        crate::gate_merges::handed_pulls(store, &held).iter().any(|one| one.group == group.id && crate::gate_merges::open(&one.row))
+    } else {
+        held.iter().any(|one| one.kind == "pr" && crate::gate_merges::open(one))
+    };
+    (!on_the_way).then(|| {
+        format!(
+            "\"{}\" waits on a merge, and no pull request for it is open. Open one: the gate closes when it merges. If its work already merged, or needs no pull request, record the plan again with that group's gate removed, then call all_done again.",
+            group.title
+        )
+    })
+}
+
 /// What a gate waits on, as the item says it, for a gate the person can close.
 fn phrase(gate: &str) -> Option<&'static str> {
     Some(match gate {
@@ -67,28 +95,25 @@ fn phrase(gate: &str) -> Option<&'static str> {
         "document_approved" => "waits on your approval of a page",
         "you_approved" => "waits on your approval",
         CHECKS_GREEN => "waits on Checks at a pushed commit",
-        "merged" => "has no open pull request to merge",
         _ => return None,
     })
 }
 
 /// The Needs you item for a held `all_done`: the first open gate, when the person is the one who can
 /// close it. **Derived on every read and never kept**, so it goes when the gate closes or the hold clears.
-/// A merge waits on its pull request while one is open, and Checks while a run has begun: those close
-/// themselves.
+/// Checks wait while a run has begun, and close themselves. A merge is never his: one on the way closes
+/// itself, and one with nothing on the way is the agent's (`merge_unopened_text`).
 /// `jobs_ended` is never his: each child Job's own needs show on its own row, so `phrase` has no words for it.
-pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, nothing_runs: bool) -> Option<WaitingItem> {
+pub(crate) fn item_of(plan: &KeptPlan, session: &str, nothing_runs: bool) -> Option<WaitingItem> {
     let hold = plan.held.as_ref().filter(|_| nothing_runs)?;
     let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
     let gate = group.gate.as_deref()?;
-    let yours = match gate {
-        "merged" => !held.iter().any(|one| one.kind == "pr" && one.state == store::AttachmentState::Standing && !crate::build_record::merged(one)),
-        CHECKS_GREEN => group.checks.is_none(),
-        _ => true,
-    };
+    let yours = gate != CHECKS_GREEN || group.checks.is_none();
     let waits_on = phrase(gate).filter(|_| yours)?;
     let option = |label: &str, does: &str| WaitingOption { label: label.to_string(), description: Some(does.to_string()), picture: None };
     Some(WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("{ITEM}{}", group.id),
         text: format!("\"{}\" {waits_on}", group.title),
@@ -146,15 +171,23 @@ where
             let _ = self.told_news_by_fleet(id, &text, Notice::GateClosed).await;
         }
         // The hold is cleared as it is read, so it is taken once, and its summary goes with the call.
-        let finishing = {
+        // A held call whose next gate waits on a merge nothing is on the way to is the agent's again.
+        let (finishing, unopened) = {
             let mut store = self.store().lock().await;
             match store.session_gate_hold(id).ok().flatten() {
-                Some(hold) if !gate_open(&store, id) && store.clear_session_gate_hold(id).unwrap_or(false) => Some(hold.summary),
-                _ => None,
+                Some(hold) if !gate_open(&store, id) && store.clear_session_gate_hold(id).unwrap_or(false) => (Some(hold.summary), None),
+                Some(_) => match merge_unopened_text(&store, id) {
+                    Some(text) if store.clear_session_gate_hold(id).unwrap_or(false) => (None, Some(text)),
+                    _ => (None, None),
+                },
+                None => (None, None),
             }
         };
         if let Some(summary) = finishing {
             self.held_done_taken(id, summary).await;
+        }
+        if let Some(text) = unopened {
+            let _ = self.told_by_fleet(id, &format!("all_done is no longer held: {text}"), Notice::GateHold).await;
         }
     }
 

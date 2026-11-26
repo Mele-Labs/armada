@@ -19,13 +19,21 @@ pub mod style;
 mod tests;
 pub mod window;
 
-use gpui::{div, prelude::*, Context, EventEmitter, FocusHandle, Focusable, IntoElement, Render, Role, SharedString, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{
+    canvas, div, prelude::*, Anchor, App, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, Global, IntoElement, Pixels,
+    Point, Render, Role, SharedString, Subscription, WeakEntity, Window, WindowId,
+};
 
 use self::fixtures::Fixtures;
 use self::markup::Scene;
-use crate::labels::labelled;
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
+use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::parts::{self, button::Kind, chip::chip, text::TextStyle, Tone};
+use crate::settings::view::tip;
 
 /// What a saved prototype carries: the scene, its markup, the fixture files as `(name, text)`, the
 /// state the agent set and the trouble Fleet found.
@@ -79,7 +87,48 @@ pub struct PrototypeView {
     /// The state drawn.
     state: Option<String>,
     home: Home,
+    /// The Job whose scene this is: a note made over it goes there (`prototype_at`).
+    job: Option<SharedString>,
+    /// Where the scene was drawn last, in its window.
+    drawn: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// The View menu while it is open, and where its button was drawn.
+    menu: Option<(Entity<Dropdown>, [Subscription; 2])>,
+    menu_at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    menu_key: FocusHandle,
     pub(crate) focus: FocusHandle,
+}
+
+/// The name the scene's whole drawing is labelled with: what a note made on it says it is in, and its band's chip.
+const LABEL: &str = "Prototype";
+
+/// What the band says where the scene has views to press.
+const HINT: &str = "Views. Press one to see it below";
+
+/// The most views drawn as tiles: past this, one View menu in the band lists them (25 Nov: eleven tiles crushed every name).
+const MOST_TILES: usize = 5;
+
+/// Every scene drawn for a Job, so a note made over one goes to its Job.
+#[derive(Default)]
+struct Drawn(Vec<WeakEntity<PrototypeView>>);
+
+impl Global for Drawn {}
+
+/// The Job and scene of the prototype drawn at `at` in `window` this frame, if one is. A view drawn
+/// last frame and not this one (a tab behind another, a sheet closed) is not in the window's label
+/// book, so it answers nothing.
+pub fn prototype_at(window: WindowId, at: Point<Pixels>, cx: &App) -> Option<(SharedString, String)> {
+    let drawn = cx.try_global::<Drawn>()?;
+    let book = cx.try_global::<LabelBook>()?;
+    let shown = book.drawn(window);
+    drawn.0.iter().filter_map(|view| view.upgrade()).find_map(|view| {
+        let view = view.read(cx);
+        let job = view.job.clone()?;
+        let bounds = view.drawn.get()?;
+        shown
+            .iter()
+            .any(|one| one.role == Role::Group && one.name.as_ref() == LABEL && one.bounds.contains(&bounds.center()) && one.shown.contains(&at) && bounds.contains(&at))
+            .then(|| (job, view.source.scene.clone()))
+    })
 }
 
 impl PrototypeView {
@@ -91,10 +140,24 @@ impl PrototypeView {
             trouble: Vec::new(),
             state: None,
             home,
+            job: None,
+            drawn: Rc::default(),
+            menu: None,
+            menu_at: Rc::default(),
+            menu_key: cx.focus_handle(),
             focus: cx.focus_handle(),
         };
         view.read(source, cx);
+        let me = cx.entity().downgrade();
+        let drawn = cx.default_global::<Drawn>();
+        drawn.0.retain(|one| one.upgrade().is_some());
+        drawn.0.push(me);
         view
+    }
+
+    /// The Job the scene belongs to, which a note made on it goes to.
+    pub fn set_job(&mut self, job: SharedString) {
+        self.job = Some(job);
     }
 
     /// The prototype saved again: the scene is read from its markup, and the state drawn is the
@@ -176,34 +239,15 @@ impl PrototypeView {
         &self.trouble
     }
 
-    /// The head: the scene's title, a chip for each state with the one drawn marked, and Pop out in a tab.
+    /// The head: a band tinted in the accent naming it a Prototype, with its title, the hint where it has views to press, and Open
+    /// tab and Pop out; under it a tile for each view, its name over what it shows, with the one drawn marked.
     fn head(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let states: Vec<String> = self.scene.as_ref().map(|scene| scene.states.clone()).unwrap_or_default();
-        let chips: Vec<_> = states
-            .into_iter()
-            .map(|id| {
-                let current = self.state.as_deref() == Some(id.as_str());
-                let (ink, glyph) = if current { (Tone::Accent.ink(look), "circle-dot") } else { (Tone::Neutral.ink(look), "circle") };
-                let target = id.clone();
-                let keyed = id.clone();
-                labelled(
-                    chip(look, SharedString::from(format!("state-{id}")), ink, Some(glyph), id.clone())
-                        .cursor_pointer()
-                        .focusable()
-                        .tab_stop(true)
-                        .on_click(cx.listener(move |this, _, _, cx| this.go(&target, cx)))
-                        .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
-                            if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
-                                this.go(&keyed, cx);
-                                cx.stop_propagation();
-                            }
-                        })),
-                    Role::Button,
-                    if current { format!("{id}, shown") } else { id },
-                )
-            })
-            .collect();
+        let accent = look.color(token::ACCENT);
+        let views: Vec<markup::View> = self.scene.as_ref().map(|scene| scene.views.clone()).unwrap_or_default();
+        let several = views.len() > 1 && views.len() <= MOST_TILES;
+        let menu = (views.len() > MOST_TILES).then(|| self.views_button(&views, cx));
+        let tiles: Vec<_> = if several { views.into_iter().map(|view| self.tile(view, cx)).collect() } else { Vec::new() };
         let open = (self.home == Home::Sheet).then(|| {
             labelled(
                 parts::button::button(look, "prototype-open-tab", Kind::Secondary, Some("app-window"), "Open tab", false)
@@ -220,19 +264,160 @@ impl PrototypeView {
                 "Pop out",
             )
         });
-        div()
+        let hint = several.then(|| {
+            div().flex_none().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(HINT)
+        });
+        let band = div()
             .flex_none()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_2))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title()))
-            .child(div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).children(chips))
+            .bg(accent.opacity(0.1))
+            .child(labelled(chip(look, "prototype-chip", accent, Some("app-window"), LABEL), Role::Label, LABEL))
+            .child(div().flex_1().min_w_0().truncate().child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title())))
+            .children(hint)
+            .children(menu)
             .children(open)
-            .children(pop)
+            .children(pop);
+        let row = several.then(|| {
+            labelled(
+                div()
+                    .id("prototype-views")
+                    .flex_none()
+                    .flex()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_4))
+                    .py(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .children(tiles),
+                Role::Group,
+                "Views",
+            )
+        });
+        div().flex_none().flex().flex_col().child(band).children(row)
+    }
+
+    /// The View menu's button, naming the view drawn: a press, Enter or Space opens the list.
+    fn views_button(&self, views: &[markup::View], cx: &Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let shown = views.iter().find(|view| self.state.as_deref() == Some(view.id.as_str())).map_or_else(String::new, |view| view.title.clone());
+        let said = format!("View: {shown}");
+        let at = Rc::clone(&self.menu_at);
+        labelled(
+            parts::button::button(look, "prototype-views", Kind::Secondary, None, said.clone(), false)
+                .track_focus(&self.menu_key)
+                .child(parts::glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+                .relative()
+                .on_click(cx.listener(|this, _, window, cx| this.open_views(window, cx)))
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space" | "down") && !event.keystroke.modifiers.modified() {
+                        this.open_views(window, cx);
+                        cx.stop_propagation();
+                    }
+                })),
+            Role::Button,
+            said,
+        )
+    }
+
+    /// The View menu: each view by its title, what it shows under it, the one drawn ticked. Picking one draws it.
+    pub fn open_views(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.is_some() {
+            return;
+        }
+        let views: Vec<markup::View> = self.scene.as_ref().map(|scene| scene.views.clone()).unwrap_or_default();
+        let entries = views
+            .iter()
+            .map(|view| {
+                let row = Row::new(crate::titlebar::id_of(format!("view:{}", view.id)), view.title.clone()).ticked(self.state.as_deref() == Some(view.id.as_str()));
+                Entry::Row(match &view.says {
+                    Some(says) => row.under(says.clone()),
+                    None => row,
+                })
+            })
+            .collect();
+        let at = self.menu_at.get().map_or_else(|| window.mouse_position(), crate::dropdown::under);
+        let dropdown = cx.new(|cx| Dropdown::new("Views", entries, at, Anchor::TopRight, true, cx));
+        let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id, .. } = picked;
+            this.menu = None;
+            if let Some(state) = id.strip_prefix("view:") {
+                let state = state.to_string();
+                this.go(&state, cx);
+            }
+            window.focus(&this.menu_key, cx);
+            cx.notify();
+        });
+        let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
+            this.menu = None;
+            window.focus(&this.menu_key, cx);
+            cx.notify();
+        });
+        let keys = dropdown.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.menu = Some((dropdown, [picked, dismissed]));
+        cx.notify();
+    }
+
+    /// One view's tile: a press, Enter or Space draws it.
+    fn tile(&self, view: markup::View, cx: &Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let current = self.state.as_deref() == Some(view.id.as_str());
+        let accent = look.color(token::ACCENT);
+        let (target, keyed) = (view.id.clone(), view.id.clone());
+        let says = view.says.clone().map(|says| {
+            div().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(says)
+        });
+        let named = match (&view.says, current) {
+            (Some(says), true) => format!("{}, shown. {says}", view.title),
+            (Some(says), false) => format!("{}. {says}", view.title),
+            (None, true) => format!("{}, shown", view.title),
+            (None, false) => view.title.clone(),
+        };
+        labelled(
+            div()
+                .id(SharedString::from(format!("state-{}", view.id)))
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1) / 2.)
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if current { accent } else { look.color(token::BORDER_DEFAULT) })
+                .when(current, |tile| tile.bg(accent.opacity(0.1)))
+                .when(!current, |tile| tile.hover(|tile| tile.bg(look.color(token::BG_HOVER))))
+                .cursor_pointer()
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(|tile| tile.border_color(look.color(token::EDGE_FOCUS)))
+                .when_some(view.says.clone(), |tile, says| tile.tooltip(tip(says)))
+                .on_click(cx.listener(move |this, _, _, cx| this.go(&target, cx)))
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                        this.go(&keyed, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+                .child(
+                    div()
+                        .truncate()
+                        .text_size(look.length(token::TEXT_SM))
+                        .line_height(look.length(token::LEADING_SM))
+                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .child(view.title.clone()),
+                )
+                .children(says),
+            Role::Button,
+            named,
+        )
     }
 
     /// What went wrong, a line each, in the danger tint with its hairline.
@@ -295,7 +480,8 @@ impl Render for PrototypeView {
         let head = (!shot).then(|| self.head(cx));
         let trouble = if shot { None } else { self.trouble_line(cx) };
         let look = cx.look();
-        div()
+        let drawn = Rc::clone(&self.drawn);
+        let root = div()
             .id("prototype")
             .track_focus(&self.focus)
             .when(self.home != Home::Window, |view| {
@@ -307,12 +493,21 @@ impl Render for PrototypeView {
                     }
                 }))
             })
+            .relative()
             .size_full()
             .flex()
             .flex_col()
             .bg(look.color(token::BG_BASE))
+            // The frame: a full hairline in the accent marks where the build he approves ends and the Job's own words begin.
+            .when(!shot, |root| root.overflow_hidden().rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::ACCENT)))
             .children(head)
             .children(trouble)
             .child(div().id("prototype-scene").flex_1().min_h_0().overflow_y_scroll().child(body))
+            .child(canvas(move |bounds, _, _| drawn.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .children(self.menu.as_ref().map(|(menu, _)| menu.clone()));
+        if shot {
+            return root.into_any_element();
+        }
+        labelled(root, Role::Group, LABEL).into_any_element()
     }
 }

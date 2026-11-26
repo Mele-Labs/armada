@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Projects, Refusal, Sessions};
+use ipc::operator_talk::TalkToOperator;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorFeedKind, OperatorLater};
 use ipc::{CardOption, CloseSession, Instant, NewProject, OperatorActs, OperatorCardKind, ProjectMember, RaiseCard, ReportCard, ReviseCard, SessionId, SetOperatorActs, SetWaitingFor, SettleCard, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
 
@@ -85,6 +86,11 @@ async fn started(rig: &Rig) -> String {
 
 fn heard(rig: &Rig, containing: &str) -> usize {
     rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
+}
+
+/// His words to the Operator, about `about` where it names a card, with nothing sent beside them.
+pub(super) fn said(words: &str, about: Option<&str>) -> TalkToOperator {
+    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
 }
 
 fn option(label: &str, cost: &str) -> CardOption {
@@ -181,14 +187,14 @@ async fn later_sends_a_card_off_the_page_and_tells_the_operator_when_and_his_wor
     eventually(|| async { heard(&rig, "back with Later") >= 1 }).await;
     assert_eq!(heard(&rig, "2099-01-01"), 1, "told until when");
 
-    rig.fleet.operator_talked("Why that one?", Some(&raised)).await.expect("said");
+    rig.fleet.operator_talked(said("Why that one?", Some(&raised))).await.expect("said");
     eventually(|| async { heard(&rig, "Why that one?") >= 1 }).await;
     assert_eq!(heard(&rig, &format!("About card {raised}")), 1, "tagged with the card");
-    rig.fleet.operator_talked("Anything else?", None).await.expect("said");
+    rig.fleet.operator_talked(said("Anything else?", None)).await.expect("said");
     eventually(|| async { heard(&rig, "Anything else?") >= 1 }).await;
 
     rig.fleet.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await.expect("closed");
-    let refused: Refusal = rig.fleet.operator_talked("Anyone?", Some(&raised)).await.expect_err("nothing would hear it");
+    let refused: Refusal = rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect_err("nothing would hear it");
     assert_eq!(code(refused).1, "fleet.operator_session_not_running");
 }
 
@@ -394,4 +400,34 @@ async fn only_the_operator_reports_on_a_card_and_a_report_is_one_of_step_or_fail
     }
     let after = page(&rig).await;
     assert!(after.working[0].card.as_ref().is_some_and(|one| one.steps.is_empty() && one.returned.is_none()), "nothing changed");
+}
+
+// Proves: a picture and a tag he sends to the Operator reach its session and stay on his row, about a card or none.
+#[tokio::test]
+async fn a_picture_and_a_tag_he_sends_the_operator_reach_its_session_about_a_card_or_none() {
+    let rig = rig();
+    let id = started(&rig).await;
+    let raised = rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised").card;
+    let with_files = |words: &str, about: Option<&str>| TalkToOperator {
+        attachments: vec![ipc::SessionUpload { name: "shot.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
+        mentions: vec![ipc::SessionTag { kind: ipc::TagKind::Branch, id: "armada/other".into(), title: "armada/other".into(), url: None }],
+        ..said(words, about)
+    };
+
+    for (words, about) in [("This toast is wrong", None), ("Like this one", Some(raised.as_str()))] {
+        rig.fleet.operator_talked(with_files(words, about)).await.expect("said");
+        eventually(|| async { heard(&rig, words) >= 1 }).await;
+        let rows = rig.rows(&SessionId::carried(&id)).await;
+        let (files, tags) = rows
+            .iter()
+            .rev()
+            .find_map(|row| match row {
+                ipc::SessionRow::Message { from: ipc::SessionVoice::You, files, tags, .. } => Some((files.clone(), tags.clone())),
+                _ => None,
+            })
+            .expect("his message is on the Operator's thread");
+        assert_eq!(files.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["shot.png"], "the picture rides with {words:?}");
+        assert_eq!(tags.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["armada/other"], "the tag rides with {words:?}");
+    }
+    assert_eq!(heard(&rig, &format!("About card {raised}")), 1, "the talk about the card still names it");
 }

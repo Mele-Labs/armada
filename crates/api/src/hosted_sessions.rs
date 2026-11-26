@@ -878,7 +878,7 @@ pub(crate) async fn get_job_artifacts<D: HostedSessions>(
 
 /// The Mac that holds the Job an artifact act names, where the act is the person's: **an agent's call through the door
 /// is never passed on**, so a Job cannot fold away or open an artifact on another Mac as him.
-async fn held_artifact_mac<D: OtherMacs>(served: &Served<D>, job: Option<&ipc::SessionId>) -> Option<String> {
+pub(crate) async fn held_artifact_mac<D: OtherMacs>(served: &Served<D>, job: Option<&ipc::SessionId>) -> Option<String> {
     if crate::acting::asking().is_some() {
         return None;
     }
@@ -1306,6 +1306,24 @@ pub(crate) async fn withdraw_for_you<D: HostedSessions>(State(served): State<Ser
     };
     match served.shared().withdraw_for_you(withdraw).await {
         Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The order of a Job's open asks, each with why. 200 with the row, or a [`Receipt`] of the order through the door;
+/// 422 naming ids that are not open asks.
+pub(crate) async fn order_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let order: ipc::OrderWaiting = match ipc::decode_body("an order of a job's asks", &body) {
+        Ok(order) => order,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().order_waiting(order).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::needs_first(&record), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 rust-version = "1.90"
 license = "MIT"
+description = "Bridge: the native desktop application, drawn with gpui."
 publish = false
 # Embeds the token, theme and font files from `packages/tokens` when it builds.
 build = "build.rs"

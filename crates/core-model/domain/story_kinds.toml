@@ -16,8 +16,8 @@
 #                {@feature}         a blank filled from the project's feature catalog
 #                {@feature|Armada}  the same, with one more row of its own at the top of the list
 #                {=now|later}       a choice of words, switched with the space bar or the arrows
-#   workflow - the workflow id the Job starts on, or `none` for a talk Job. Not sent in this step: Start carries the
-#              sentence as the request's words, and the tools as `tool` tags
+#   workflow - the workflow id the Job starts on, or `none` for a talk Job. Start sends it as the Job's workflow, which
+#              stands over Fleet's guess, with the sentence as the request's words and the tools as `tool` tags
 #   starts   - what the line under the sentence says the Job starts
 #   later    - the same where the choice reads `later`; absent where the kind has no choice
 #   tools    - the tools preset, as keys of `ask_tools.toml`, comma separated, or `none`

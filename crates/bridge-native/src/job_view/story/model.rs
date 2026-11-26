@@ -1,12 +1,12 @@
-//! What a Job's Story tab draws, worked out from the `JobStory` Fleet read: each ask's head line and the rows under it
-//! when it is unfolded. Nothing here touches the screen or the wire.
+//! What a Job's Story tab draws, worked out from the `JobStory` Fleet read: a timeline of rows oldest first, each with when
+//! it happened and the time its portion took, and what an opened row holds. Nothing here touches the screen or the wire.
 
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use ipc::{ArtifactForm, ArtifactState, AskKind, AskState, AskWords, JobFeature, JobStory, MessageKind, SessionId, StoryAsk, StoryShown, VoteResult};
+use ipc::{ArtifactForm, ArtifactState, Ask, AskKind, AskState, AskWords, JobFeature, JobStory, MessageKind, PullRequestCommit, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteResult};
 
-use crate::features::page_model::{day, has_job, instant, job_title, Hue, Titles};
+use crate::features::page_model::{instant, job_title, Hue, Titles};
 
 /// The titles of the features of the Job's project, by slug.
 pub type Features = HashMap<String, String>;
@@ -38,40 +38,6 @@ pub fn kind_word(kind: AskKind) -> &'static str {
     }
 }
 
-/// One row under an unfolded ask: a 16px glyph, the words, and a muted line.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Row {
-    pub key: String,
-    pub glyph: &'static str,
-    pub hue: Hue,
-    /// What the glyph's tooltip says.
-    pub said: String,
-    pub text: String,
-    /// The words are drawn in the glyph's hue instead of the default ink.
-    pub tinted: bool,
-    pub meta: String,
-    /// A second muted line: what he voted and pressed on what he was shown.
-    pub also: String,
-    /// The feature this row opens, where it is the line that files the ask under one.
-    pub feature: Option<String>,
-    /// His own words whole, drawn as the thread draws them: headings, lists and code as formatted, not one quoted line.
-    pub words: Option<String>,
-}
-
-/// One ask as the tab draws it.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Card {
-    pub ask_id: String,
-    /// `1.`: its place, open ones first and each group oldest first, as Fleet gave them.
-    pub number: String,
-    pub title: String,
-    pub kind: &'static str,
-    /// `Last: ...` and a short date, empty where nothing was said, shown, built or handed.
-    pub last: String,
-    pub stand: Stand,
-    pub rows: Vec<Row>,
-}
-
 /// A feature the Job is on, as the section above the asks lists it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FeatureLine {
@@ -83,26 +49,6 @@ pub struct FeatureLine {
     pub how: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct Built {
-    /// The features the Job is on, in the order Fleet gave them. The section is drawn only where this is not empty.
-    pub features: Vec<FeatureLine>,
-    pub cards: Vec<Card>,
-    /// What he was shown before any ask, unnumbered, under a heading the view draws only where this is not empty.
-    pub before: Vec<Row>,
-}
-
-impl Built {
-    /// The place of the ask `ask_id`.
-    pub fn find(&self, ask_id: &str) -> Option<usize> {
-        self.cards.iter().position(|card| card.ask_id == ask_id)
-    }
-
-    /// The ask unfolded where none was asked for: the first open one, else the first.
-    pub fn first_open(&self) -> Option<usize> {
-        self.cards.iter().position(|card| card.stand.hue == Hue::Running).or(if self.cards.is_empty() { None } else { Some(0) })
-    }
-}
 
 fn first_line(words: &str) -> String {
     plain(words).split_whitespace().collect::<Vec<_>>().join(" ")
@@ -151,149 +97,42 @@ fn form_word(form: ArtifactForm) -> &'static str {
     }
 }
 
-/// His votes and presses on it as one muted line, with no figure beside what it counts.
-fn also(shown: &StoryShown) -> String {
-    let mut parts: Vec<String> = Vec::new();
-    for cast in &shown.votes {
-        parts.push(match &cast.result {
-            VoteResult::Pick { take, .. } => format!("Picked {take}"),
-            VoteResult::Rank { order, .. } => format!("Ranked {}", order.join(", ")),
-            VoteResult::Score { .. } => "Scored".into(),
-        });
-    }
-    for press in &shown.presses {
-        parts.push(match &press.item {
-            Some(item) => format!("Pressed {} on {item}", press.action),
-            None => format!("Pressed {}", press.action),
-        });
-    }
-    parts.join(". ")
-}
-
-fn shown_row(shown: &StoryShown) -> Row {
-    let decision = decided(shown);
-    let (glyph, hue) = match shown.state {
-        ArtifactState::Approved => ("circle-check", Hue::Done),
-        ArtifactState::SentBack => ("undo-2", Hue::Warn),
-        ArtifactState::Dismissed => ("circle-x", Hue::Muted),
-        ArtifactState::Asking => ("circle-help", Hue::Warn),
-        ArtifactState::Reading => ("eye", Hue::Muted),
-        ArtifactState::Withdrawn => ("ban", Hue::Muted),
-    };
-    Row {
-        key: format!("shown-{}", shown.artifact),
-        glyph,
-        hue,
-        said: decision.clone(),
-        text: shown.title.clone(),
-        tinted: false,
-        meta: format!("{}, {}. {decision}", form_word(shown.form), day(instant(&shown.shown_at))),
-        also: also(shown),
-        feature: None,
-        words: None,
+fn handed_text(handed: &StoryHanded, mine: &SessionId, titles: &Titles) -> String {
+    let taken = handed.to == *mine;
+    let other = if taken { job_title(titles, &handed.from) } else { handed.to_title.clone().filter(|title| !title.is_empty()).or_else(|| job_title(titles, &handed.to)) };
+    match (taken, other) {
+        (true, Some(title)) => format!("Taken from {title}"),
+        (true, None) => "Taken".into(),
+        (false, Some(title)) => format!("Handed to {title}"),
+        (false, None) => "Handed".into(),
     }
 }
 
-fn said_row(words: &AskWords) -> Row {
-    let what = if words.kind == MessageKind::Answer { "answer" } else { "revision" };
-    Row {
-        key: format!("said-{}", words.row_id),
-        glyph: if words.kind == MessageKind::Answer { "message-square-reply" } else { "message-square-text" },
-        hue: Hue::Muted,
-        said: what.into(),
-        text: format!("\"{}\"", first_line(&words.words)),
-        tinted: false,
-        meta: format!("You, {}, {what}", day(instant(&words.at))),
-        also: String::new(),
-        feature: None,
-        words: Some(words.words.trim().to_string()),
+fn pull_number(built: &StoryBuilt) -> &str {
+    built.pull_request.trim().trim_start_matches('#')
+}
+
+/// What came of an ask, in one line: what was merged, where it was handed, or the last thing he decided or answered, and
+/// whether it is still open. An ask with nothing yet says where it stands.
+pub fn outcome(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> String {
+    if !story.built.is_empty() {
+        let merged = story.built.iter().map(|built| format!("#{}", pull_number(built))).collect::<Vec<_>>().join(", ");
+        return if story.open { format!("Merged {merged}, still open") } else { format!("Merged {merged}") };
     }
-}
-
-/// One thing that happened to an ask, with when, for the rows and the Last line.
-struct Happened {
-    at: DateTime<Utc>,
-    row: Row,
-    /// The words of the head's Last line.
-    last: String,
-}
-
-fn happenings(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> Vec<Happened> {
-    let mut out: Vec<Happened> = Vec::new();
-    for words in &story.ask.said {
+    if let Some(handed) = story.handed.last() {
+        return handed_text(handed, mine, titles);
+    }
+    let decisions = story.shown.iter().map(|shown| (instant(&shown.shown_at), decided(shown))).chain(story.ask.said.iter().map(|words| {
         let line = first_line(&words.words);
-        out.push(Happened { at: instant(&words.at), row: said_row(words), last: line });
+        (instant(&words.at), if words.kind == MessageKind::Answer { format!("Answered: {line}") } else { line })
+    }));
+    let latest = decisions.max_by_key(|(at, _)| *at).map(|(_, said)| said);
+    match (story.open, latest) {
+        (true, Some(said)) => format!("Open: {said}"),
+        (true, None) => "Open".into(),
+        (false, Some(said)) => said,
+        (false, None) => stand(story.ask.state).word.into(),
     }
-    for shown in &story.shown {
-        let decision = decided(shown);
-        out.push(Happened { at: instant(&shown.shown_at), row: shown_row(shown), last: format!("{decision}, {}", shown.title) });
-    }
-    for built in &story.built {
-        let number = built.pull_request.trim().trim_start_matches('#');
-        let text = format!("Merged #{number}");
-        out.push(Happened {
-            at: instant(&built.merged_at),
-            row: Row { key: format!("built-{number}"), glyph: "git-merge", hue: Hue::Done, said: "Merged".into(), text: text.clone(), tinted: true, meta: day(instant(&built.merged_at)), also: String::new(), feature: None, words: None },
-            last: text,
-        });
-    }
-    for handed in &story.handed {
-        let taken = handed.to == *mine;
-        let other = if taken { job_title(titles, &handed.from) } else { handed.to_title.clone().filter(|title| !title.is_empty()).or_else(|| job_title(titles, &handed.to)) };
-        let text = match (taken, other) {
-            (true, Some(title)) => format!("Taken from {title}"),
-            (true, None) => "Taken".into(),
-            (false, Some(title)) => format!("Handed to {title}"),
-            (false, None) => "Handed".into(),
-        };
-        out.push(Happened {
-            at: instant(&handed.at),
-            row: Row { key: format!("handed-{}", handed.at.as_str()), glyph: "arrow-right-left", hue: Hue::Handed, said: "Handed".into(), text: text.clone(), tinted: true, meta: day(instant(&handed.at)), also: String::new(), feature: None, words: None },
-            last: text,
-        });
-    }
-    // What happened first stands first; the order Fleet gave breaks a tie.
-    out.sort_by_key(|one| one.at);
-    out
-}
-
-fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features: &Features) -> Card {
-    let ask = &story.ask;
-    let started = format!("You, {}{}", day(instant(&ask.opened_at)), if has_job(&ask.said_in) { ", how it started" } else { ", to the Operator, how it started" });
-    let mut rows = vec![Row {
-        key: format!("start-{}", ask.ask_id),
-        glyph: "message-square-quote",
-        hue: Hue::Muted,
-        said: "How it started".into(),
-        text: format!("\"{}\"", first_line(&ask.first_words)),
-        tinted: false,
-        meta: started,
-        also: String::new(),
-        feature: None,
-        words: Some(ask.first_words.trim().to_string()),
-    }];
-    let happened = happenings(story, mine, titles);
-    let last = happened.last().map(|one| format!("Last: {}, {}", one.last, day(one.at))).unwrap_or_default();
-    rows.extend(happened.into_iter().map(|one| one.row));
-    if story.open {
-        rows.push(Row { key: "open".into(), glyph: "circle-dot", hue: Hue::Running, said: "Open".into(), text: "Open".into(), tinted: true, meta: String::new(), also: String::new(), feature: None, words: None });
-    }
-    for slug in &ask.features {
-        let title = features.get(slug).cloned().unwrap_or_else(|| slug.clone());
-        rows.push(Row {
-            key: format!("filed-{slug}"),
-            glyph: "library",
-            hue: Hue::Muted,
-            said: "Feature".into(),
-            text: format!("Filed under {title}"),
-            tinted: false,
-            meta: "Feature".into(),
-            also: String::new(),
-            feature: Some(slug.clone()),
-            words: None,
-        });
-    }
-    Card { ask_id: ask.ask_id.clone(), number: format!("{}.", at + 1), title: ask.title.clone(), kind: kind_word(ask.kind), last, stand: stand(ask.state), rows }
 }
 
 fn counted(count: u32, one: &str, many: &str) -> String {
@@ -308,12 +147,473 @@ pub fn how_touched(feature: &JobFeature) -> String {
     [wrote, named, filed].into_iter().flatten().collect::<Vec<_>>().join(" · ")
 }
 
-/// The tab's cards, in the order Fleet gave the asks, numbered in it.
-pub fn build(story: &JobStory, titles: &Titles, features: &Features) -> Built {
+
+// ---- the timeline ----------------------------------------------------------------------------
+
+/// Who a row in the timeline is with. One glyph each; no word is drawn on the row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Kind {
+    /// His words: an ask, and what he added to it.
+    You,
+    /// Another Job: an ask handed to it or taken from it.
+    Job,
+    /// What he was shown, and what he did with it.
+    Artifact,
+    /// A pull request that built an ask.
+    Pull,
+}
+
+impl Kind {
+    /// The order the filter tabs stand in.
+    pub const ALL: [Kind; 4] = [Kind::You, Kind::Job, Kind::Artifact, Kind::Pull];
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Kind::You => "user",
+            Kind::Job => "link",
+            Kind::Artifact => "layers",
+            Kind::Pull => "git-pull-request",
+        }
+    }
+
+    pub fn hue(self) -> Hue {
+        match self {
+            Kind::You => Hue::Warn,
+            Kind::Job => Hue::Handed,
+            Kind::Artifact => Hue::Running,
+            Kind::Pull => Hue::Muted,
+        }
+    }
+
+    /// What the glyph's tooltip and name say.
+    pub fn said(self) -> &'static str {
+        match self {
+            Kind::You => "You",
+            Kind::Job => "Another Job",
+            Kind::Artifact => "Artifact",
+            Kind::Pull => "Pull request",
+        }
+    }
+
+    /// The word on the filter tab.
+    pub fn tab(self) -> &'static str {
+        match self {
+            Kind::You => "You",
+            Kind::Job => "Jobs",
+            Kind::Artifact => "Artifacts",
+            Kind::Pull => "PRs",
+        }
+    }
+}
+
+/// Which rows the timeline shows. Opening a row leaves it as it is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Filter {
+    #[default]
+    All,
+    Only(Kind),
+}
+
+impl Filter {
+    pub fn word(self) -> &'static str {
+        match self {
+            Filter::All => "All",
+            Filter::Only(kind) => kind.tab(),
+        }
+    }
+
+    pub fn admits(self, kind: Kind) -> bool {
+        match self {
+            Filter::All => true,
+            Filter::Only(only) => only == kind,
+        }
+    }
+}
+
+/// Whose time a portion was: his while he was looking at what he was shown, the Job's otherwise.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Who {
+    You,
+    Job,
+}
+
+/// The time a row's portion took: from the row to the next row, or to now where the row still waits on him.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Spent {
+    pub minutes: Option<i64>,
+    pub who: Who,
+    /// The bar's share of the longest portion, 0 where there is no figure, otherwise 4 to 100.
+    pub share: u8,
+}
+
+impl Spent {
+    pub const NONE: Spent = Spent { minutes: None, who: Who::Job, share: 0 };
+
+    /// `45m`, `3h`, `2h 5m`, `2d`; nothing where the portion has no end yet.
+    pub fn said(&self) -> String {
+        match self.minutes {
+            None => String::new(),
+            Some(minutes) => spoken(minutes),
+        }
+    }
+}
+
+pub fn spoken(minutes: i64) -> String {
+    match minutes {
+        m if m < 1 => "<1m".into(),
+        m if m < 60 => format!("{m}m"),
+        m if m >= 1440 => format!("{}d", m / 1440),
+        m if m % 60 == 0 => format!("{}h", m / 60),
+        m => format!("{}h {}m", m / 60, m % 60),
+    }
+}
+
+/// When, as the column says it: `now`, `12m ago`, `3h ago`, `2d ago`.
+pub fn relative(now: DateTime<Utc>, at: DateTime<Utc>) -> String {
+    let seconds = (now - at).num_seconds();
+    match seconds {
+        s if s < 60 => "now".into(),
+        s if s < 3600 => format!("{}m ago", s / 60),
+        s if s < 86_400 => format!("{}h ago", s / 3600),
+        s => format!("{}d ago", s / 86_400),
+    }
+}
+
+/// One line of a chat: his on the right in the accent, the Job's on the left.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bubble {
+    pub mine: bool,
+    /// Who spoke, drawn under a bubble that is not his.
+    pub who: String,
+    pub said: String,
+    /// Relative; empty where Fleet did not keep when.
+    pub when: String,
+}
+
+/// A feature an ask is filed under: a row of its card opens the feature's page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Filed {
+    pub slug: String,
+    pub title: String,
+}
+
+/// The merge a pull request row stands for.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Merge {
+    pub number: u64,
+    pub at: DateTime<Utc>,
+}
+
+/// What an opened row holds.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Card {
+    /// Where the ask stands, as a fixed-width pill with its meaning in the tooltip.
+    pub stand: Option<Stand>,
+    /// What the pill's state means, for its tooltip.
+    pub means: &'static str,
+    pub bubbles: Vec<Bubble>,
+    pub filed: Vec<Filed>,
+    pub merge: Option<Merge>,
+    /// The Job an ask was handed to or taken from, which a button opens.
+    pub job: Option<(String, String)>,
+    /// What the hand was about: the ask's title.
+    pub about: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Entry {
+    pub key: String,
+    pub kind: Kind,
+    pub at: DateTime<Utc>,
+    pub title: String,
+    /// The explained status under the title, in plain words. Empty where there is none.
+    pub says: String,
+    /// The Job is waiting on him for this.
+    pub waiting: bool,
+    pub when: String,
+    pub spent: Spent,
+    pub card: Card,
+}
+
+/// One press an opened row offers, in the order the keys visit them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Link {
+    Feature(String),
+    Commit { number: u64, sha: String, headline: String },
+    Pull(u64),
+    Job(String),
+}
+
+/// One line of a pull request's own history: its commits and its merge.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Event {
+    pub glyph: &'static str,
+    pub hue: Hue,
+    pub said: String,
+    pub sha: Option<String>,
+    pub when: String,
+    pub link: Option<Link>,
+}
+
+/// A pull request's commits and its merge in the order they happened. A commit with no time stands first.
+pub fn pull_events(merge: &Merge, commits: &[PullRequestCommit], now: DateTime<Utc>) -> Vec<Event> {
+    let mut out: Vec<(DateTime<Utc>, Event)> = commits
+        .iter()
+        .map(|commit| {
+            let at = commit.at.as_deref().and_then(|at| DateTime::parse_from_rfc3339(at).ok()).map(|at| at.with_timezone(&Utc));
+            let event = Event {
+                glyph: "git-commit-horizontal",
+                hue: Hue::Muted,
+                said: commit.headline.clone(),
+                sha: Some(commit.sha.chars().take(7).collect()),
+                when: at.map(|at| relative(now, at)).unwrap_or_default(),
+                link: Some(Link::Commit { number: merge.number, sha: commit.sha.clone(), headline: commit.headline.clone() }),
+            };
+            (at.unwrap_or(DateTime::<Utc>::MIN_UTC), event)
+        })
+        .collect();
+    out.sort_by_key(|(at, _)| *at);
+    let merged = Event { glyph: "git-merge", hue: Hue::Done, said: "Merged".into(), sha: None, when: relative(now, merge.at), link: None };
+    let mut events: Vec<Event> = out.into_iter().map(|(_, event)| event).collect();
+    events.push(merged);
+    events
+}
+
+impl Entry {
+    /// The presses the opened row offers, in the order they are drawn: its features, its commits, then the button.
+    pub fn links(&self) -> Vec<Link> {
+        let mut links: Vec<Link> = self.card.filed.iter().map(|filed| Link::Feature(filed.slug.clone())).collect();
+        links.extend(self.card.job.iter().map(|(id, _)| Link::Job(id.clone())));
+        links
+    }
+
+    /// With the commits of its pull request, which are read after the story.
+    pub fn links_with(&self, commits: &[PullRequestCommit]) -> Vec<Link> {
+        let mut links = self.links();
+        if let Some(merge) = &self.card.merge {
+            links.extend(commits.iter().map(|commit| Link::Commit { number: merge.number, sha: commit.sha.clone(), headline: commit.headline.clone() }));
+            links.push(Link::Pull(merge.number));
+        }
+        links
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Built {
+    /// The features the Job is on, in the order Fleet gave them: the strip over the thread draws them.
+    pub features: Vec<FeatureLine>,
+    /// Oldest first.
+    pub entries: Vec<Entry>,
+    /// What he was shown before any ask, drawn under its own heading where this is not empty.
+    pub before: Vec<Entry>,
+}
+
+impl Built {
+    /// The place of the ask `ask_id`.
+    pub fn find(&self, ask_id: &str) -> Option<usize> {
+        let key = ask_key(ask_id);
+        self.entries.iter().position(|entry| entry.key == key)
+    }
+
+    /// The filter tabs: All, then each kind the story holds a row of, in a fixed order.
+    pub fn filters(&self) -> Vec<Filter> {
+        let held = |kind: Kind| self.entries.iter().chain(&self.before).any(|entry| entry.kind == kind);
+        std::iter::once(Filter::All).chain(Kind::ALL.into_iter().filter(|kind| held(*kind)).map(Filter::Only)).collect()
+    }
+
+    /// The places of the timeline's rows the filter lets through.
+    pub fn visible(&self, filter: Filter) -> Vec<usize> {
+        self.entries.iter().enumerate().filter(|(_, entry)| filter.admits(entry.kind)).map(|(at, _)| at).collect()
+    }
+
+    /// Whether the group of what he was shown before any ask is drawn under the filter.
+    pub fn before_shown(&self, filter: Filter) -> bool {
+        !self.before.is_empty() && filter.admits(Kind::Artifact)
+    }
+
+    /// The row the keys start on: the newest that waits on him, else the newest.
+    pub fn newest(&self, filter: Filter) -> Option<usize> {
+        let shown = self.visible(filter);
+        shown.iter().rev().find(|at| self.entries[**at].waiting).or(shown.last()).copied()
+    }
+}
+
+pub fn ask_key(ask_id: &str) -> String {
+    format!("ask-{ask_id}")
+}
+
+/// The rows oldest first, with the order Fleet gave breaking a tie.
+pub fn arrange(mut entries: Vec<Entry>) -> Vec<Entry> {
+    entries.sort_by_key(|entry| entry.at);
+    entries
+}
+
+/// Each row's portion: from the row to the next, or to `now` for the last where it waits on him. Time after something
+/// shown to him is his; every other portion is the Job's. The bar is the portion's share of the longest.
+pub fn durations(entries: &mut [Entry], now: DateTime<Utc>) {
+    let ends: Vec<Option<DateTime<Utc>>> = (0..entries.len()).map(|at| entries.get(at + 1).map(|next| next.at).or(entries[at].waiting.then_some(now))).collect();
+    let minutes: Vec<Option<i64>> = entries.iter().zip(&ends).map(|(entry, end)| end.map(|end| (end - entry.at).num_minutes().max(0))).collect();
+    let longest = minutes.iter().flatten().copied().max().unwrap_or(0).max(1);
+    for (entry, minutes) in entries.iter_mut().zip(minutes) {
+        let who = if entry.kind == Kind::Artifact { Who::You } else { Who::Job };
+        let share = minutes.map_or(0, |minutes| (100 * minutes / longest).clamp(4, 100) as u8);
+        entry.spent = Spent { minutes, who, share };
+    }
+}
+
+/// What a state of an artifact says he did, in his own terms.
+pub fn said_of(state: ArtifactState) -> &'static str {
+    match state {
+        ArtifactState::Approved => "You approved it",
+        ArtifactState::SentBack => "You sent it back with a note",
+        ArtifactState::Dismissed => "You dismissed it",
+        ArtifactState::Asking => "Asking you",
+        ArtifactState::Reading => "Shown to you",
+        ArtifactState::Withdrawn => "The Job took it back",
+    }
+}
+
+/// What a state of an ask means, for the pill's tooltip.
+pub fn means(state: AskState) -> &'static str {
+    match state {
+        AskState::Building => "A Job is building it",
+        AskState::Handed => "Passed to another Job, which builds it",
+        AskState::Backlog => "Decided and not started",
+        AskState::Built => "Built and merged",
+        AskState::Dropped => "Dropped",
+    }
+}
+
+/// His votes and presses on what he was shown, each as a line of his own with when.
+fn touches(shown: &StoryShown, now: DateTime<Utc>) -> Vec<(DateTime<Utc>, Bubble)> {
+    let said = |at: &ipc::Instant, said: String| {
+        let at = instant(at);
+        (at, Bubble { mine: true, who: "You".into(), said, when: relative(now, at) })
+    };
+    let votes = shown.votes.iter().map(|cast| {
+        said(
+            &cast.at,
+            match &cast.result {
+                VoteResult::Pick { take, .. } => format!("Picked {take}"),
+                VoteResult::Rank { order, .. } => format!("Ranked {}", order.join(", ")),
+                VoteResult::Score { .. } => "Scored".into(),
+            },
+        )
+    });
+    let presses = shown.presses.iter().map(|press| {
+        said(
+            &press.at,
+            match &press.item {
+                Some(item) => format!("Pressed {} on {item}", press.action),
+                None => format!("Pressed {}", press.action),
+            },
+        )
+    });
+    let mut out: Vec<_> = votes.chain(presses).collect();
+    out.sort_by_key(|(at, _)| *at);
+    out
+}
+
+fn shown_entry(shown: &StoryShown, job: &str, now: DateTime<Utc>) -> Entry {
+    let at = instant(&shown.shown_at);
+    let mut bubbles = vec![Bubble {
+        mine: false,
+        who: job.to_string(),
+        said: format!("Showed you the {} {}", form_word(shown.form).to_lowercase(), shown.title),
+        when: relative(now, at),
+    }];
+    if let Some(words) = shown.words.as_deref().map(str::trim).filter(|words| !words.is_empty()) {
+        bubbles.push(Bubble { mine: true, who: "You".into(), said: words.to_string(), when: String::new() });
+    }
+    bubbles.extend(touches(shown, now).into_iter().map(|(_, bubble)| bubble));
+    Entry {
+        key: format!("shown-{}", shown.artifact),
+        kind: Kind::Artifact,
+        at,
+        title: shown.title.clone(),
+        says: said_of(shown.state).into(),
+        waiting: shown.state == ArtifactState::Asking,
+        when: relative(now, at),
+        spent: Spent::NONE,
+        card: Card { bubbles, ..Card::default() },
+    }
+}
+
+fn ask_entry(story: &StoryAsk, mine: &SessionId, titles: &Titles, features: &Features, now: DateTime<Utc>) -> Entry {
+    let ask = &story.ask;
+    let at = instant(&ask.opened_at);
+    let you = |said: &str, at: DateTime<Utc>| Bubble { mine: true, who: "You".into(), said: said.trim().to_string(), when: relative(now, at) };
+    let mut bubbles = vec![you(&ask.first_words, at)];
+    bubbles.extend(ask.said.iter().map(|words| you(&words.words, instant(&words.at))));
+    Entry {
+        key: ask_key(&ask.ask_id),
+        kind: Kind::You,
+        at,
+        title: ask.title.clone(),
+        says: outcome(story, mine, titles),
+        waiting: false,
+        when: relative(now, at),
+        spent: Spent::NONE,
+        card: Card {
+            stand: Some(stand(ask.state)),
+            means: means(ask.state),
+            bubbles,
+            filed: ask.features.iter().map(|slug| Filed { slug: slug.clone(), title: features.get(slug).cloned().unwrap_or_else(|| slug.clone()) }).collect(),
+            ..Card::default()
+        },
+    }
+}
+
+fn handed_entry(handed: &StoryHanded, ask: &Ask, mine: &SessionId, titles: &Titles, now: DateTime<Utc>) -> Entry {
+    let at = instant(&handed.at);
+    let other = if handed.to == *mine { &handed.from } else { &handed.to };
+    Entry {
+        key: format!("handed-{}-{}", ask.ask_id, handed.at.as_str()),
+        kind: Kind::Job,
+        at,
+        title: handed_text(handed, mine, titles),
+        says: String::new(),
+        waiting: false,
+        when: relative(now, at),
+        spent: Spent::NONE,
+        card: Card { job: Some((other.as_str().to_string(), job_title(titles, other).unwrap_or_else(|| handed.to_title.clone().unwrap_or_default()))), about: ask.title.clone(), ..Card::default() },
+    }
+}
+
+fn built_entry(built: &StoryBuilt, now: DateTime<Utc>) -> Entry {
+    let at = instant(&built.merged_at);
+    let number = pull_number(built);
+    Entry {
+        key: format!("built-{number}"),
+        kind: Kind::Pull,
+        at,
+        title: format!("Pull request #{number}"),
+        says: "Merged".into(),
+        waiting: false,
+        when: relative(now, at),
+        spent: Spent::NONE,
+        card: Card { merge: number.parse().ok().map(|number| Merge { number, at }), ..Card::default() },
+    }
+}
+
+/// The timeline of a story, as drawn: oldest first, each row with its portion of time.
+pub fn build(story: &JobStory, titles: &Titles, features: &Features, now: DateTime<Utc>) -> Built {
+    let job = job_title(titles, &story.session_id).unwrap_or_else(|| "Job".into());
+    let mut entries = Vec::new();
+    for one in &story.asks {
+        entries.push(ask_entry(one, &story.session_id, titles, features, now));
+        entries.extend(one.shown.iter().map(|shown| shown_entry(shown, &job, now)));
+        entries.extend(one.handed.iter().map(|handed| handed_entry(handed, &one.ask, &story.session_id, titles, now)));
+        entries.extend(one.built.iter().map(|built| built_entry(built, now)));
+    }
+    let mut entries = arrange(entries);
+    durations(&mut entries, now);
+    let mut before: Vec<Entry> = story.shown_otherwise.iter().map(|shown| shown_entry(shown, &job, now)).collect();
+    before.sort_by_key(|entry| entry.at);
     Built {
         features: story.features.iter().map(|one| FeatureLine { slug: one.slug.clone(), title: one.title.clone(), area: one.area.clone(), how: how_touched(one) }).collect(),
-        cards: story.asks.iter().enumerate().map(|(at, ask)| card(at, ask, &story.session_id, titles, features)).collect(),
-        before: story.shown_otherwise.iter().map(shown_row).collect(),
+        entries,
+        before,
     }
 }
 

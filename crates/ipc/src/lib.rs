@@ -52,6 +52,7 @@ mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
 mod librarian;
+mod librarian_asking;
 mod doc_checks;
 mod library_start;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
@@ -151,6 +152,8 @@ mod issue_queries;
 mod project_store;
 mod metrics;
 mod project_board;
+/// A project's system map: its parts, how they reach each other, and what Fleet knows of each.
+mod system_map;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
@@ -339,6 +342,8 @@ mod autopilot_decisions;
 mod plan_usage;
 /// One Job's For you tab: what waits on him, what it builds, what lands.
 mod for_you;
+/// What a Job needs first: the order of its asks, and why.
+mod needs_first;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
 /// The agents' account signed out, for the whole Fleet.
@@ -401,6 +406,7 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
@@ -583,6 +589,9 @@ pub use metrics::{
     MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
 };
 pub use projects::MergeProjects;
+pub use system_map::{
+    AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
+};
 pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,
@@ -725,8 +734,8 @@ pub use story::{
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{
-    AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
-    JudgeState, MarkJudgeRead, SendJudgeNote,
+    AskJudge, DeleteJudgeType, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
+    JudgeState, JudgeType, JudgeTypes, MarkJudgeRead, SaveJudgeType, SendJudgeNote,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
@@ -933,6 +942,7 @@ pub use for_you::{
     AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding, ForYouOpens, LineForYou,
     OrderForYou, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
 };
+pub use needs_first::{OrderWaiting, WaitingPlace, WAITING_ORDER_BLANK, WAITING_ORDER_UNKNOWN};
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,

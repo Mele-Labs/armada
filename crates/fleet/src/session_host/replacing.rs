@@ -308,6 +308,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         // The Operator's successor is the Operator's: no repository to start in, and the mark carried.
         let made = match hosting.operator {

@@ -42,6 +42,23 @@ async fn the_operators_session_starts_with_its_switch_in_a_folder_of_its_own_and
     assert!(live(&rig).await.is_none(), "turned off: it ends");
 }
 
+/// **The Operator is not a Job**, so its start note carries neither the Jobs' Logbook nor how the
+/// owner works with Jobs, whose lines name `all_done` and `waiting_for`.
+#[tokio::test]
+async fn the_operators_start_note_carries_no_jobs_logbook_or_ways() {
+    let rig = rig_placing(None);
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let id = live(&rig).await.expect("started");
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id) }).await;
+
+    let start = rig.stand_in.starts().into_iter().find(|one| one.session == id).expect("its process");
+    let told = start.note.unwrap_or_default();
+    assert!(!told.contains(&rig.fleet.ways_note()), "{told}");
+    assert!(!told.contains("How the owner works with Jobs"), "{told}");
+    assert!(!told.contains("The Logbook"), "{told}");
+}
+
 #[tokio::test]
 async fn a_hand_on_keeps_the_successor_the_operator() {
     let rig = rig_placing(None);

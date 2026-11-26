@@ -207,13 +207,14 @@ pub fn fit(kind: ToolKind, name: &str, prompt: &str) -> Result<String, String> {
 
 type Parsed = (ToolKind, String, String, String);
 
-/// Parse one file. Every fault of its front matter is reported, not the first.
-fn parse(path: &Path, text: &str) -> Result<Parsed, String> {
+/// Split a file into its front matter and what follows. Shared with `judge_types`, whose files open the
+/// same way.
+pub(crate) fn split_front<'a>(text: &'a str, holding: &str) -> Result<(String, &'a str), String> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut lines = text.split_inclusive('\n');
     let opening = lines.next().unwrap_or("");
     if opening.trim_end() != "---" {
-        return Err("it does not open with a `---` line holding its kind and name".to_string());
+        return Err(format!("it does not open with a `---` line holding {holding}"));
     }
     let (mut front, mut used, mut closed) = (String::new(), opening.len(), false);
     for line in lines {
@@ -227,7 +228,34 @@ fn parse(path: &Path, text: &str) -> Result<Parsed, String> {
     if !closed {
         return Err("its front matter has no closing `---` line".to_string());
     }
-    let (front, prompt) = (front.as_str(), &text[used..]);
+    Ok((front, &text[used..]))
+}
+
+/// The checks a name and a prompt are held to, wherever the file is for. `Ok` is the trimmed name, the id
+/// it makes and the trimmed prompt. Shared with `judge_types`.
+pub(crate) fn named_and_worded(name: &str, prompt: &str) -> Result<(String, String, String), String> {
+    let name = name.trim().to_string();
+    let id = id_of(&name);
+    if id.is_empty() {
+        return Err(format!("`{name}` has no letters or digits, so it makes no id"));
+    }
+    if name.chars().count() > NAME_AT_MOST {
+        return Err(format!("its name is longer than {NAME_AT_MOST} characters"));
+    }
+    let prompt = prompt.trim().to_string();
+    if prompt.is_empty() {
+        return Err("it has no prompt after its front matter".to_string());
+    }
+    if prompt.chars().count() > PROMPT_AT_MOST {
+        return Err(format!("its prompt is longer than {PROMPT_AT_MOST} characters"));
+    }
+    Ok((name, id, prompt))
+}
+
+/// Parse one file. Every fault of its front matter is reported, not the first.
+fn parse(path: &Path, text: &str) -> Result<Parsed, String> {
+    let (front, prompt) = split_front(text, "its kind and name")?;
+    let front = front.as_str();
     let root: Value = serde_yaml_ng::from_str(front).map_err(|cause| {
         LoadError::NotYaml {
             path: path.to_path_buf(),
@@ -261,21 +289,7 @@ fn parse(path: &Path, text: &str) -> Result<Parsed, String> {
     let (Some(kind), Some(name)) = (kind, name) else {
         return Err("it names no kind or no name".to_string());
     };
-    let name = name.trim().to_string();
-    let id = id_of(&name);
-    if id.is_empty() {
-        return Err(format!("`{name}` has no letters or digits, so it makes no id"));
-    }
-    if name.chars().count() > NAME_AT_MOST {
-        return Err(format!("its name is longer than {NAME_AT_MOST} characters"));
-    }
-    let prompt = prompt.trim().to_string();
-    if prompt.is_empty() {
-        return Err("it has no prompt after its front matter".to_string());
-    }
-    if prompt.chars().count() > PROMPT_AT_MOST {
-        return Err(format!("its prompt is longer than {PROMPT_AT_MOST} characters"));
-    }
+    let (name, id, prompt) = named_and_worded(&name, prompt)?;
     Ok((kind, name, id, prompt))
 }
 

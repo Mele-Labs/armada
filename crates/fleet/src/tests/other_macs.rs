@@ -159,6 +159,7 @@ fn started_on_work(rig: &Rig, row: &SessionRecord) -> (ipc::JobAct, api::ActAnsw
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     (ipc::JobAct::Start(start), api::ActAnswered { status: 200, body: ipc::encode(row).expect("encodes").into_bytes() })
 }
@@ -436,19 +437,19 @@ async fn a_jobs_artifacts_go_out_only_for_a_shared_job_and_are_refused_as_for_no
     let in_none = job_in(&rig, None).await;
     let nobody = SessionId::carried("01NOSUCHJOB0000000000000000");
     let missing = rig.fleet.share_job_artifacts(nobody.clone()).await.expect_err("no such Job");
-    let missing_page = rig.fleet.share_job_artifact_page(nobody.clone(), "/a.html".into(), None).await.expect_err("no such Job");
+    let missing_page = rig.fleet.share_job_artifact_page(nobody.clone(), "/a.html".into(), None, false).await.expect_err("no such Job");
     assert_eq!((missing.status(), missing.error().code.as_str()), (404, "fleet.no_such_session"));
 
     for job in [&in_shop, &in_none] {
         let refused = rig.fleet.share_job_artifacts(job.clone()).await.expect_err("not shared");
         assert_eq!(said(&refused, job.as_str()), said(&missing, nobody.as_str()), "refused as a Job that does not exist");
-        let refused = rig.fleet.share_job_artifact_page(job.clone(), "/a.html".into(), None).await.expect_err("not shared");
+        let refused = rig.fleet.share_job_artifact_page(job.clone(), "/a.html".into(), None, false).await.expect_err("not shared");
         assert_eq!(said(&refused, job.as_str()), said(&missing_page, nobody.as_str()));
     }
 
     shared(&rig, &shop, true).await;
     assert!(rig.fleet.share_job_artifacts(in_shop.clone()).await.expect("a shared Job's list").is_empty());
-    let refused = rig.fleet.share_job_artifact_page(in_shop, "/a.html".into(), None).await.expect_err("it holds no such page");
+    let refused = rig.fleet.share_job_artifact_page(in_shop, "/a.html".into(), None, false).await.expect_err("it holds no such page");
     assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.artifact_not_held"), "past the share filter, the page's own refusal");
     let refused = rig.fleet.share_job_artifacts(in_none.clone()).await.expect_err("still none");
     assert_eq!(said(&refused, in_none.as_str()), said(&missing, nobody.as_str()));

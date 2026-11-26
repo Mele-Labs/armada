@@ -172,6 +172,60 @@ pub(super) fn split(rows: &[JobArtifact]) -> (Vec<&JobArtifact>, Vec<&JobArtifac
     rows.iter().partition(|one| one.archived.is_none())
 }
 
+/// One link the tab lists under Armada's own rows.
+pub(super) struct LinkRow {
+    pub url: String,
+    /// The site an external artifact is on, as Fleet named it.
+    pub site: Option<String>,
+    pub by_you: bool,
+    pub since: Instant,
+    /// Whether it is a Claude artifact.
+    pub claude: bool,
+}
+
+impl LinkRow {
+    /// The row's key among the tab's, for its cursor: no artifact id starts so.
+    pub fn key(&self) -> String {
+        format!("link:{}", self.url)
+    }
+}
+
+/// The Job's links in the tab's sections, each newest first: Claude artifacts, external ones, then every other link. A section
+/// with none is left out. Fleet says what each points at (`place`); a link it says nothing of is a plain one.
+pub(super) fn link_sections(attachments: &[ipc::Attachment]) -> Vec<(&'static str, Vec<LinkRow>)> {
+    let (mut claude, mut external, mut plain) = (Vec::new(), Vec::new(), Vec::new());
+    for one in attachments.iter().filter(|one| one.kind == "link").rev() {
+        let place = one.detail.get("place").map(String::as_str);
+        let row = LinkRow { url: one.target.clone(), site: one.detail.get("site").cloned(), by_you: one.detail.get("by").is_some_and(|by| by == "you"), since: one.since.clone(), claude: place == Some("claude") };
+        match place {
+            Some("claude") => claude.push(row),
+            Some("external") => external.push(row),
+            _ => plain.push(row),
+        }
+    }
+    [("Claude", claude), ("External", external), ("Links", plain)].into_iter().filter(|(_, rows)| !rows.is_empty()).collect()
+}
+
+/// A section's heading over its rows, as the Ledger heads a kind.
+fn section_heading(look: &Look, label: &'static str) -> AnyElement {
+    labelled(
+        div()
+            .id(SharedString::from(format!("artifacts-section:{label}")))
+            .px(look.length(token::SPACE_4))
+            .pt(look.length(token::SPACE_3))
+            .pb(look.length(token::SPACE_1))
+            .font_family(super::rows::mono(look))
+            .text_size(look.length(token::TEXT_2XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(label),
+        Role::Heading,
+        label,
+    )
+    .into_any_element()
+}
+
 /// The row after (`1`) or before (`-1`) the one the cursor is on, among `ids`; the first where it is on none.
 pub(super) fn step(ids: &[String], on: Option<&str>, by: i32) -> Option<String> {
     let at = on.and_then(|on| ids.iter().position(|id| id == on));
@@ -418,7 +472,8 @@ impl JobView {
     /// The Job's first artifact puts its Artifacts tab beside Now, behind, once (his ask of 15 Nov 2026). It waits for the
     /// store's answer, so a layout kept from an earlier run is not lost to it.
     pub(super) fn offer_artifacts(&mut self, job: &SharedString, cx: &mut Context<Self>) {
-        let any = self.artifacts.read.get(job.as_ref()).and_then(|read| read.rows.as_ref()).is_some_and(|rows| !rows.is_empty());
+        let any = self.artifacts.read.get(job.as_ref()).and_then(|read| read.rows.as_ref()).is_some_and(|rows| !rows.is_empty())
+            || self.record(job, cx).is_some_and(|record| record.attachments.iter().any(|one| one.kind == "link"));
         if any && self.panes_answered(job) {
             self.look_in(job, |was| super::panes_place::offer_beside_now(was, "artifacts"), cx);
         }
@@ -569,20 +624,38 @@ impl JobView {
 
     // ---- the tab -------------------------------------------------------------------------
 
-    /// The Artifacts tab: one row each, newest first, with the archived folded at the foot. None while the Job has none.
+    /// The Artifacts tab: Armada's own, one row each, newest first, with the archived folded at the foot; then the Job's links
+    /// as Claude artifacts, external ones and the rest. None while the Job has none of any.
     pub(super) fn pane_artifacts(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
         let Some(rows) = self.artifacts.read.get(id.as_ref()) else { return None };
         let Some(rows) = rows.rows.as_ref() else { return Some(self.artifact_shapes(look)) };
         let (live, folded) = split(rows);
-        if live.is_empty() && folded.is_empty() {
+        let sections = self.record(id, cx).map(|record| link_sections(&record.attachments)).unwrap_or_default();
+        if live.is_empty() && folded.is_empty() && sections.is_empty() {
             return None;
         }
         let now = Local::now();
         let cursor = self.artifacts.cursor.get(id.as_ref()).cloned();
         let open = self.artifacts.unfolded.contains(id.as_ref());
         let spot = page.keys.spot("artifacts-tab", cx);
-        let ids: Vec<String> = live.iter().map(|one| one.id.clone()).chain(open.then(|| folded.iter().map(|one| one.id.clone())).into_iter().flatten()).collect();
+        let ids: Vec<String> = live
+            .iter()
+            .map(|one| one.id.clone())
+            .chain(open.then(|| folded.iter().map(|one| one.id.clone())).into_iter().flatten())
+            .chain(sections.iter().flat_map(|(_, links)| links.iter().map(LinkRow::key)))
+            .collect();
+        // Armada's own rows take a heading only where links stand under them.
+        let armada_heading = (!sections.is_empty() && !(live.is_empty() && folded.is_empty())).then(|| section_heading(look, "Armada"));
+        let links: Vec<AnyElement> = sections
+            .into_iter()
+            .flat_map(|(label, links)| {
+                std::iter::once(section_heading(look, label)).chain(links.into_iter().map(|link| {
+                    let on = cursor.as_deref() == Some(link.key().as_str());
+                    self.link_row(id, link, on, now, look, cx)
+                }))
+            })
+            .collect();
         let (job, keyed) = (id.to_string(), ids.clone());
         let list = div()
             .id("pane-artifacts")
@@ -602,7 +675,10 @@ impl JobView {
                     }
                     ("enter", false, false) => {
                         let Some(on) = on else { return };
-                        this.open_artifact(&job, &on, window, cx);
+                        match on.strip_prefix("link:") {
+                            Some(url) => cx.open_url(url),
+                            None => this.open_artifact(&job, &on, window, cx),
+                        }
                     }
                     ("r", true, true) => {
                         let Some(on) = on else { return };
@@ -612,10 +688,84 @@ impl JobView {
                 }
                 cx.stop_propagation();
             }))
+            .children(armada_heading)
             .children(live.iter().map(|one| self.artifact_row(id, one, cursor.as_deref() == Some(one.id.as_str()), false, now, look, cx)))
             .children((!folded.is_empty()).then(|| self.archived_fold(id, open, look, cx)))
-            .children(open.then(|| folded.iter().map(|one| self.artifact_row(id, one, cursor.as_deref() == Some(one.id.as_str()), true, now, look, cx)).collect::<Vec<_>>()).into_iter().flatten());
+            .children(open.then(|| folded.iter().map(|one| self.artifact_row(id, one, cursor.as_deref() == Some(one.id.as_str()), true, now, look, cx)).collect::<Vec<_>>()).into_iter().flatten())
+            .children(links);
         Some(labelled(list, Role::List, "Artifacts").into_any_element())
+    }
+
+    /// One link: its kind's tile beside the address as the Ledger titles it, then where it points, who wrote it and when.
+    /// A press opens it in the browser.
+    fn link_row(&self, id: &SharedString, link: LinkRow, on: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = link.key();
+        let title = super::ledger::link_title(&link.url);
+        let (glyph, ink) = if link.claude {
+            ("sparkles", token::STATUS_HANDED_IN)
+        } else if link.site.is_some() {
+            ("external-link", token::TOOL_LOOK)
+        } else {
+            ("link", token::ACCENT)
+        };
+        let ink = look.color(ink);
+        let said = [link.site.clone(), Some(if link.by_you { "You" } else { "Agent" }.to_string())].into_iter().flatten().collect::<Vec<_>>().join(" \u{b7} ");
+        let tile = div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(look.length(token::SPACE_6) + look.length(token::BORDER_WIDTH) * 2.)
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(ink.opacity(0.18))
+            .child(gpui::svg().path(crate::assets::icon_path(glyph)).flex_none().size(look.length(token::TEXT_BASE)).text_color(ink));
+        let meta = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(SharedString::from(said))
+            .child(self.stamp(&link.since, look, now, true, cx));
+        let row = div()
+            .id(SharedString::from(format!("artifact-row:{key}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .cursor_pointer()
+            .when(on, |row| row.bg(look.color(token::BG_HOVER)))
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .tooltip(tip(link.url.clone()))
+            .child(tile)
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(
+                        div()
+                            .truncate()
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .child(SharedString::from(title.clone())),
+                    )
+                    .child(meta),
+            );
+        let (job, url) = (id.to_string(), link.url);
+        let row = row.on_click(cx.listener(move |this, _, _, cx| {
+            this.artifacts_cursor(&job, Some(format!("link:{url}")), cx);
+            cx.open_url(&url);
+        }));
+        labelled(row, Role::Button, format!("Open {title}")).into_any_element()
     }
 
     fn artifacts_cursor(&mut self, job: &str, to: Option<String>, cx: &mut Context<Self>) {
@@ -870,6 +1020,39 @@ mod tests {
         let (live, folded) = split(&rows);
         assert_eq!(live.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["design", "draft:Comment"]);
         assert_eq!(folded.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["draft:Release note"]);
+    }
+
+    #[test]
+    fn links_fall_under_claude_external_and_links_newest_first_and_an_empty_section_is_left_out() {
+        let link = |url: &str, detail: &[(&str, &str)]| ipc::Attachment {
+            kind: "link".into(),
+            manifest_id: None,
+            target: url.into(),
+            state: ipc::AttachmentState::Spent,
+            detail: detail.iter().map(|(key, value)| (key.to_string(), value.to_string())).collect(),
+            since: Instant::carried("2026-11-25T10:00:00Z"),
+            changed_at: Instant::carried("2026-11-25T10:00:00Z"),
+        };
+        let held = vec![
+            link("https://docs.rs/gpui", &[("by", "agent")]),
+            link("https://www.figma.com/a", &[("by", "you"), ("place", "external"), ("site", "Figma")]),
+            link("https://claude.ai/public/artifacts/x", &[("place", "claude")]),
+            link("https://docs.google.com/document/d/1", &[("place", "external"), ("site", "Google Docs")]),
+        ];
+        let sections = link_sections(&held);
+        let named: Vec<(&str, Vec<&str>)> = sections.iter().map(|(label, rows)| (*label, rows.iter().map(|row| row.url.as_str()).collect())).collect();
+        assert_eq!(
+            named,
+            vec![
+                ("Claude", vec!["https://claude.ai/public/artifacts/x"]),
+                ("External", vec!["https://docs.google.com/document/d/1", "https://www.figma.com/a"]),
+                ("Links", vec!["https://docs.rs/gpui"]),
+            ]
+        );
+        assert!(sections[0].1[0].claude);
+        assert_eq!(sections[1].1[1].site.as_deref(), Some("Figma"));
+        assert!(sections[1].1[1].by_you);
+        assert!(link_sections(&held[..1]).iter().all(|(label, _)| *label == "Links"));
     }
 
     #[test]

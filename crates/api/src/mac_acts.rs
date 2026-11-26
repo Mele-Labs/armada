@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::acting::MAC_HEADER;
 use crate::answers::{answer, problem, refused, undecodable};
-use crate::daemon::{ActBegun, Commands, HostedSessions, OtherMacs, PullRequests, Refusal, Sessions};
+use crate::daemon::{ActBegun, Commands, HostedSessions, Margins, OtherMacs, PullRequests, Refusal, Sessions};
 use crate::daemon::Story;
 use crate::served::Served;
 
@@ -59,7 +59,7 @@ where
 }
 
 /// The act run by the handler its own route has.
-async fn run<D: Commands + HostedSessions + Sessions + PullRequests + OtherMacs + Story>(served: Served<D>, mac: String, act: JobAct) -> Response {
+async fn run<D: Commands + HostedSessions + Sessions + PullRequests + OtherMacs + Story + Margins>(served: Served<D>, mac: String, act: JobAct) -> Response {
     use crate::{hosted_sessions as hosted, pull_requests, sessions};
     let run_id = served.run_id().clone();
     macro_rules! through {
@@ -90,6 +90,9 @@ async fn run<D: Commands + HostedSessions + Sessions + PullRequests + OtherMacs 
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
         JobAct::Close(body) => through!(hosted::close_session, &body),
         JobAct::ReadyAnswer(body) => through!(crate::building::answer_ready_to_try, &body),
+        JobAct::MarginComment(body) => through!(crate::margins::comment_margin, &body),
+        JobAct::MarginSendHeld(body) => through!(crate::margins::send_held_margin, &body),
+        JobAct::MarginAct(body) => through!(crate::margins::act_on_margin_thread, &body),
         JobAct::Merge { repository, number, .. } => {
             boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
         }
@@ -184,7 +187,7 @@ pub(crate) async fn share_job_conversation<D: OtherMacs>(
 }
 
 /// `POST /other_mac/act`: what the Gateway hands in from the Mac it names in `x-armada-mac`.
-pub(crate) async fn act_from_mac<D: Commands + HostedSessions + Sessions + PullRequests + OtherMacs + Story>(
+pub(crate) async fn act_from_mac<D: Commands + HostedSessions + Sessions + PullRequests + OtherMacs + Story + Margins>(
     State(served): State<Served<D>>,
     headers: HeaderMap,
     body: Bytes,

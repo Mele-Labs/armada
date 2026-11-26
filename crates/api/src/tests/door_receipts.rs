@@ -29,6 +29,8 @@ fn at() -> Instant {
 
 fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlace>) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: id.to_string(),
         text: text.to_string(),

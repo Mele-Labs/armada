@@ -247,6 +247,7 @@ impl Rig {
                 held,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
             .expect("started")
@@ -331,6 +332,7 @@ impl Rig {
                 held,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
             .expect("started")
@@ -358,6 +360,7 @@ impl Rig {
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
             .expect("started")
@@ -385,6 +388,7 @@ impl Rig {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         set(&mut start);
         Arc::clone(&self.fleet)
@@ -1039,6 +1043,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .unwrap()

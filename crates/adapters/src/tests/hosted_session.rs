@@ -206,6 +206,33 @@ fn every_launch_tells_the_job_its_id_once_after_the_rules() {
     }
 }
 
+/// **The Operator is not a Job**: it is told its own rules and no Job's id, and it runs with the
+/// mod's Operator style, so the person's style, the `Armada` one among them, never reaches it.
+#[test]
+fn the_operator_is_told_no_job_id_and_runs_with_its_own_style() {
+    let operator = rendered(&launching(false, SessionMode::Auto).as_operator());
+    let told = appended(&operator);
+    assert!(told.starts_with("You are the Operator"), "{told}");
+    assert!(!told.contains("job id"), "{told}");
+    assert!(!told.contains(rules()), "{told}");
+    let settings = value_after(&operator, "--settings").expect("settings");
+    assert!(settings.contains("\"outputStyle\":\"armada:Operator\""), "{settings}");
+    let job = value_after(&rendered(&launching(false, SessionMode::Auto)), "--settings").expect("settings");
+    assert!(!job.contains("outputStyle"), "a Job keeps the person's own style: {job}");
+}
+
+/// The Operator's style is the mod's file of that name, so a rename of either fails here.
+#[test]
+fn the_operator_style_is_the_mods() {
+    let style = include_str!("../../../../plugins/armada/output-styles/operator.md");
+    let (plugin, name) = crate::hosted_session::OPERATOR_STYLE.split_once(':').expect("a plugin's style");
+    assert_eq!(plugin, "armada");
+    assert!(style.contains(&format!("\nname: {name}\n")), "{style}");
+    for job_only in ["all_done", "waiting_for", "Needs you"] {
+        assert!(!style.contains(job_only), "{job_only} is a Job's");
+    }
+}
+
 /// The rules name the tools Fleet's door offers, so a rename there fails here.
 #[test]
 fn the_rules_name_the_tools_that_surface_a_need() {

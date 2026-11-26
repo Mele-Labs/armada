@@ -35,6 +35,12 @@ What it may do unasked is set for each project.
 A fresh copy takes over with the open cards, the saved level of each project, what it waits on and what you told it in the talk.
 Its `session_id` is on the page, so the page follows the copy in front.
 
+**It is not a Job.**
+It has no Needs you list, no plan, no preview and no end, so the door offers it none of a Job's own acts: `waiting_for`, `all_done`, `finish_up`, `record_plan`, `offer_preview`, the Later items, `write_feature_sections`, and the asks a Job sends it.
+A call to one is refused, whatever it was told.
+Its prompt carries its own rules and no Job's id, no Logbook and none of how you work with Jobs.
+The mod sends none of its replies back to a list, and it runs with the mod's `Operator` output style whatever style you picked.
+
 **Detection stays Fleet's.**
 The Operator is told what Fleet saw and is never asked whether something happened.
 
@@ -52,8 +58,8 @@ A card never holds a count or a status report.
 | Answer a Job's build to try | The Job's own Ready to try card stands in the card's place, as the Job's thread draws it, with no Operator frame: Looks good, Needs rework, Show me how, Remind me and Refresh preview, answered as in the thread. Keys 1 to 3 are Looks good, Needs rework and Show me how. The card keeps its whole height, and the talk gives up room for it. Its chip in Next up reads Ready to try |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer with the tag | His words join the talk under the card as a talk about that card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
-| Send in the composer with no tag and no kind chip | His words are a talk to the Operator about no card (`talk_to_operator` with no `about`). They join the same talk with no `About:` row, and the Operator answers there. No card settles for them. A talk carries words only |
-| Send in the composer with Idea, Feature or Bug picked | His words are work for the Operator: a dispatch with that kind, which the Operator may start, fold into a live Job, ask about or keep as an idea. A toast says which |
+| Send in the composer with no tag | His words are a talk to the Operator about no card (`talk_to_operator` with no `about`). They join the same talk with no `About:` row, and the Operator answers there. No card settles for them. The Operator reads from his words whether it is work: it may start a Job, fold it into a live one, ask on a card or keep it as an idea |
+| Attach, paste or drop a file or a picture, then send | It goes with his words, with or without a tag, and reaches the Operator's session as a Job's message's files reach a Job. A picture is drawn under his words in the talk, and any other file is a chip with its name. The composer has no kind or repository chips: every send is a talk |
 | Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |
 | Show (`⌘Enter`) on the new-card strip | The newest card that came comes in front, open, and the strip goes |
 | Snooze (`S`) | The card goes back until its time, hidden until then |

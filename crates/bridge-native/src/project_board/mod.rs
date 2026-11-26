@@ -12,15 +12,18 @@ mod metric_view;
 mod mock;
 mod model;
 mod presets;
+pub mod system;
+#[cfg(test)]
+mod ask_tests;
 #[cfg(test)]
 mod tests;
 mod view;
 mod wire;
 
 use gpui::{deferred, div, prelude::*, AnyElement, AnyWindowHandle, Anchor, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Toggled, Window};
-use gpui_component::input::{Input, InputEvent, InputState};
 
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
+use crate::features::ask_box::{self, AskBox, AskBoxEvent, AskSource};
 use crate::features::{chosen, FeaturesScreen, Section};
 use crate::fleet::FleetConnection;
 use crate::labels::labelled;
@@ -32,12 +35,6 @@ use crate::titlebar::parts::{card, glyph, sans, tip, Btn, Weight};
 use crate::titlebar;
 use board::{Board, BoardEvent, Checkout};
 use layout::BlockKind;
-
-/// Asks the librarian box offers when it takes the keys, so a person sees what it could be asked.
-const EXAMPLE_ASKS: [&str; 5] = ["Show errors as a graph", "Add a Docs block", "File this link under a feature", "What runs this project?", "Hide Checks on this board"];
-
-/// Where the box that asks the librarian keeps what was typed.
-const KEEP_ASK: &str = "project.ask";
 
 /// How a checkout reads: on the button, in its menu and in the button's name.
 fn checkout_name(checkout: &Checkout) -> String {
@@ -115,13 +112,6 @@ struct AddMenu {
     focus: FocusHandle,
 }
 
-/// The list of example asks under the librarian box: open while the box has the keys, and the row the arrows are on.
-#[derive(Default)]
-struct Asks {
-    open: bool,
-    at: Option<usize>,
-}
-
 pub struct ProjectScreen {
     board: Entity<Board>,
     features: Entity<FeaturesScreen>,
@@ -129,8 +119,7 @@ pub struct ProjectScreen {
     settings: Entity<NewProjectSheet>,
     tab: Tab,
     within: FocusHandle,
-    ask: Entity<InputState>,
-    asks: Asks,
+    ask_box: Entity<AskBox>,
     menu: Option<CheckoutMenu>,
     adding: Option<AddMenu>,
     /// The watch on the title bar's project pick, made once the bar exists.
@@ -145,7 +134,8 @@ impl ProjectScreen {
         let board = cx.new(|cx| Board::live(fleet, reviews, window, cx));
         let features = cx.new(|cx| FeaturesScreen::live(fleet, None, window, cx));
         let settings = cx.new(|cx| NewProjectSheet::new(crate::new_project::wire::Wire::Live(fleet.clone()), window, cx));
-        let mut this = Self::new(board, features, settings, window, cx);
+        let ask_box = cx.new(|cx| AskBox::new(AskSource::Live(fleet.clone()), None, ask_box::DASHBOARD, window, cx));
+        let mut this = Self::new(board, features, settings, ask_box, window, cx);
         // The project the page edits is read from what Fleet holds, which may arrive after the tab is opened.
         let watch = cx.observe_in(fleet, window, |this, _, window, cx| this.keep_settings(window, cx));
         this._subs.push(watch);
@@ -159,7 +149,8 @@ impl ProjectScreen {
         let mut wire = crate::new_project::wire::Mock::new();
         wire.projects.projects.extend(mock::projects());
         let settings = cx.new(|cx| NewProjectSheet::new(crate::new_project::wire::Wire::Mock(Box::new(wire)), window, cx));
-        Self::new(board, features, settings, window, cx)
+        let ask_box = cx.new(|cx| AskBox::new(AskSource::Mock(Box::default()), None, ask_box::DASHBOARD, window, cx));
+        Self::new(board, features, settings, ask_box, window, cx)
     }
 
     /// As [`Self::mock`], with the feature library the Cockpit's floor draws given.
@@ -169,7 +160,14 @@ impl ProjectScreen {
         let mut wire = crate::new_project::wire::Mock::new();
         wire.projects.projects.extend(mock::projects());
         let settings = cx.new(|cx| NewProjectSheet::new(crate::new_project::wire::Wire::Mock(Box::new(wire)), window, cx));
-        Self::new(board, features, settings, window, cx)
+        let ask_box = cx.new(|cx| AskBox::new(AskSource::Mock(Box::default()), None, ask_box::DASHBOARD, window, cx));
+        Self::new(board, features, settings, ask_box, window, cx)
+    }
+
+    /// The box that asks the librarian, which another screen fills for "Fix with the librarian".
+    #[allow(dead_code)] // Live metrics fills it.
+    pub fn ask_box(&self) -> Entity<AskBox> {
+        self.ask_box.clone()
     }
 
     /// The feature library's screen under the Features tab, which the Cockpit's floor plan reads as well.
@@ -177,33 +175,16 @@ impl ProjectScreen {
         self.features.clone()
     }
 
-    fn new(board: Entity<Board>, features: Entity<FeaturesScreen>, settings: Entity<NewProjectSheet>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let ask = cx.new(|cx| InputState::new(window, cx).placeholder("Ask the librarian"));
-        if let Some(words) = crate::drafts::kept(KEEP_ASK, cx) {
-            ask.update(cx, |state, cx| state.set_value(words, window, cx));
-        }
-        let mut subs = vec![cx.subscribe_in(&ask, window, |this, state, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => {
-                let text = state.read(cx).value().to_string();
-                if text.is_empty() {
-                    crate::drafts::clear(KEEP_ASK, cx);
-                } else {
-                    crate::drafts::keep(KEEP_ASK, &text, cx);
-                }
-            }
-            // The examples are offered while the box has the keys, and Enter takes the one the arrows are on.
-            InputEvent::Focus => {
-                this.asks = Asks { open: true, at: None };
-                cx.notify();
-            }
-            InputEvent::Blur => {
-                this.asks = Asks::default();
-                cx.notify();
-            }
-            InputEvent::PressEnter { .. } => {
-                if let Some(at) = this.asks.at.filter(|_| this.asks.open) {
-                    this.use_ask(at, window, cx);
-                }
+    fn new(board: Entity<Board>, features: Entity<FeaturesScreen>, settings: Entity<NewProjectSheet>, ask_box: Entity<AskBox>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        // What an ask did to the board or to the issues, the board draws at once.
+        let mut subs = vec![cx.subscribe(&ask_box, |this, _, event: &AskBoxEvent, cx| {
+            let board = this.board.clone();
+            match event {
+                AskBoxEvent::Board(layout) => board.update(cx, |board, cx| board.take_from_fleet(layout.clone(), cx)),
+                AskBoxEvent::BoardAgain => board.update(cx, |board, cx| board.reread_layout(cx)),
+                AskBoxEvent::IssuesAgain => board.update(cx, |board, cx| board.reread_issues(cx)),
+                // The dashboard's box drafts no feature.
+                AskBoxEvent::FeaturesAgain => {}
             }
         })];
         // A save through the page tells the title bar, as the sheet over the window does; leaving it shows the project again.
@@ -221,9 +202,12 @@ impl ProjectScreen {
             }
             BoardEvent::FixMetric { id, title } => this.fix_with_librarian(title, id, window, cx),
         }));
-        // The header and the tabs draw from what the board and the library hold.
-        subs.push(cx.observe(&board, |_, _, cx| cx.notify()));
-        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask, asks: Asks::default(), menu: None, adding: None, bar: None, window: window.window_handle(), _subs: subs };
+        // The header and the tabs draw from what the board and the library hold, and an ask goes with the board on screen.
+        subs.push(cx.observe(&board, |this, _, cx| {
+            this.keep_ask(cx);
+            cx.notify();
+        }));
+        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask_box, menu: None, adding: None, bar: None, window: window.window_handle(), _subs: subs };
         this.features.update(cx, |features, cx| features.set_section(Section::Features, window, cx));
         this
     }
@@ -239,6 +223,7 @@ impl ProjectScreen {
         }
         self.follow_bar(window, cx);
         self.board.update(cx, |board, cx| board.enter(cx));
+        self.keep_ask(cx);
         // The library is read for the Features tabs from the first, so a feature the board is asked to open is there to open.
         self.features.update(cx, |features, cx| features.enter(window, cx));
         if self.tab == Tab::Dashboard {
@@ -335,29 +320,16 @@ impl ProjectScreen {
         }
     }
 
-    // ---- the librarian box's examples ----------------------------------------------------------
+    // ---- the librarian box ---------------------------------------------------------------------
 
-    /// A press or Enter on an example: it is the box's words, and the box keeps the keys.
-    fn use_ask(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(text) = EXAMPLE_ASKS.get(at) else { return };
-        self.asks = Asks::default();
-        self.ask.update(cx, |state, cx| state.set_value(*text, window, cx));
-        crate::drafts::keep(KEEP_ASK, text, cx);
-        cx.notify();
-    }
-
-    /// ↓ opens the examples where they are shut, and ↑ ↓ move along them; Esc puts them away with the keys still in the box.
-    fn on_ask_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
-        let last = EXAMPLE_ASKS.len() - 1;
-        match (event.keystroke.key.as_str(), self.asks.open) {
-            ("down", false) => self.asks = Asks { open: true, at: Some(0) },
-            ("down", true) => self.asks.at = Some(self.asks.at.map_or(0, |at| (at + 1).min(last))),
-            ("up", true) => self.asks.at = self.asks.at.and_then(|at| at.checked_sub(1)),
-            ("escape", true) => self.asks = Asks::default(),
-            _ => return,
-        }
-        cx.stop_propagation();
-        cx.notify();
+    /// The box asks about the project on screen, with its board as drawn.
+    fn keep_ask(&mut self, cx: &mut Context<Self>) {
+        let project = self.board.read(cx).project(cx).map(|project| project.id);
+        let board = project.as_ref().map(|id| self.board.update(cx, |board, _| board.asked_board(id)));
+        self.ask_box.update(cx, |ask, cx| {
+            ask.set_project(project, cx);
+            ask.set_board(board);
+        });
     }
 
     // ---- the Start menu ------------------------------------------------------------------------
@@ -453,73 +425,6 @@ impl ProjectScreen {
 
     // ---- drawing -------------------------------------------------------------------------------
 
-    /// The box that asks the librarian. It is drawn and keeps what is typed; nothing sends it yet, and its tooltip says so. While
-    /// it has the keys the examples hang under it.
-    fn ask_box(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let ring = ring_colour(look);
-        let rows = EXAMPLE_ASKS.iter().enumerate().map(|(at, text)| {
-            let on = self.asks.at == Some(at);
-            labelled(
-                div()
-                    .id(SharedString::from(format!("project-ask-example-{at}")))
-                    .flex()
-                    .items_center()
-                    .h(look.length(token::H_ROW_ACTION))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .text_size(look.length(token::TEXT_XS))
-                    .when(on, |row| row.bg(look.color(token::BG_HOVER)))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .focus_visible(move |style| style.border_color(ring))
-                    // A press keeps the keys in the box, which a press on anything else would take.
-                    .on_mouse_down(gpui::MouseButton::Left, |_, window, cx| {
-                        cx.stop_propagation();
-                        window.prevent_default();
-                    })
-                    .on_click(cx.listener(move |this, _, window, cx| this.use_ask(at, window, cx)))
-                    .child(div().min_w_0().truncate().child(*text)),
-                Role::MenuItem,
-                *text,
-            )
-        });
-        let examples = self.asks.open.then(|| {
-            deferred(
-                labelled(
-                    card(look).id("project-ask-examples").absolute().top_full().mt(look.length(token::SPACE_1)).left_0().w_full().p(look.length(token::SPACE_1)).children(rows),
-                    Role::Menu,
-                    "Example asks",
-                ),
-            )
-            .with_priority(2)
-        });
-        div()
-            .relative()
-            .flex_none()
-            .child(labelled(
-                div()
-                    .id("project-ask")
-                    .w(look.length(token::SPACE_12) * 4.0)
-                    .h(look.length(token::H_CONTROL))
-                    .px(look.length(token::SPACE_2))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .bg(look.color(token::BG_RAISED))
-                    .tooltip(tip("Asking the librarian is not connected yet"))
-                    .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| this.on_ask_key(event, cx)))
-                    .child(glyph("sparkles", look.length(token::SPACE_4), look.color(token::ASK_FEATURES)))
-                    .child(div().flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_XS)).child(Input::new(&self.ask).appearance(false))),
-                Role::TextInput,
-                "Ask the librarian",
-            ))
-            .children(examples)
-            .into_any_element()
-    }
-
     fn header(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let editing = self.board.read(cx).edit;
         let on_board = self.tab == Tab::Dashboard;
@@ -584,7 +489,7 @@ impl ProjectScreen {
             .px(look.length(token::SPACE_3))
             .pt(look.length(token::SPACE_3))
             .child(div().flex_1().min_w_0())
-            .child(self.ask_box(look, cx))
+            .child(self.ask_box.clone())
             .when(on_board && editing, |row| row.child(add))
             .when(on_board, |row| row.child(edit))
             .child(members)

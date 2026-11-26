@@ -24,6 +24,10 @@ pub(super) struct JudgePane {
     area: Entity<TextareaState>,
     /// What was asked in this frame, read until Fleet's reading of it arrives.
     asked: Option<String>,
+    /// The id of the judge type chosen, which the tab keeps while it is open.
+    pub(super) chosen: String,
+    /// The row of judge types, one stop for Tab where ← and → move the choice.
+    pub(super) chips: gpui::FocusHandle,
     _enter: Subscription,
 }
 
@@ -46,12 +50,16 @@ impl JobView {
     /// The toolbelt's Judge: a balance that reads the last reading's state, as `JudgeAct` draws it.
     pub(super) fn judge_act(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (state, failed) = self.whole_state(id, cx);
-        let said = match state {
-            Press::Reading => "Judge reading".to_string(),
-            Press::Unread => "Notes to read".to_string(),
-            Press::Clean => "Nothing missed".to_string(),
-            Press::Failed => failed.unwrap_or_else(|| "Send a judge to read it".to_string()),
-            Press::Idle => "Send a judge to read it".to_string(),
+        let judged_as = self.record(id, cx).and_then(|record| whole_reading(record, id)).map(crate::judge_types::name_of);
+        let said = match (state, &judged_as) {
+            (Press::Reading, _) => "Judge reading".to_string(),
+            (Press::Unread, Some(name)) => format!("Judged as {name}: notes waiting"),
+            (Press::Unread, None) => "Notes waiting".to_string(),
+            (Press::Clean, Some(name)) => format!("Judged as {name}: nothing missed"),
+            (Press::Clean, None) => "Nothing missed".to_string(),
+            (Press::Failed, _) => failed.unwrap_or_else(|| "Send a judge to read it".to_string()),
+            (Press::Idle, Some(name)) => format!("Judged as {name}"),
+            (Press::Idle, None) => "Send a judge to read it".to_string(),
         };
         let mark = match state {
             Press::Reading => glyph(look, "circle-dot", Size::Mark, look.color(token::STEP_RUNNING))
@@ -116,9 +124,10 @@ impl JobView {
         });
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.insert(box_key, area.clone());
-            page.judge = Some(JudgePane { area, asked: None, _enter: enter });
+            page.judge = Some(JudgePane { area, asked: None, chosen: crate::judge_types::DEFAULT.to_string(), chips: cx.focus_handle().tab_stop(true), _enter: enter });
         }
         self.judge_read(&job, cx);
+        self.read_judge_types(window, cx);
         cx.notify();
     }
 
@@ -139,6 +148,7 @@ impl JobView {
         let prompt = area.read(cx).value().trim().to_string();
         area.update(cx, |area, cx| area.set_value("", window, cx));
         let title = self.record(&job, cx).map(|record| record.title.clone().unwrap_or_default()).filter(|title| !title.is_empty()).unwrap_or_else(|| "the Job".to_string());
+        let judge = self.judge_asked_as(super::judge::Chips::Tab, cx);
         let held = self.record(&job, cx).and_then(|record| whole_reading(record, &job)).map(|one| one.id.clone());
         let mark = format!("judge:{KEY}");
         if let Some(page) = self.pages.get_mut(&job) {
@@ -149,7 +159,7 @@ impl JobView {
             }
         }
         cx.notify();
-        let body = ipc::encode(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact: JudgeArtifact { kind: JudgeKind::Job, id: job.to_string(), title }, prompt })
+        let body = ipc::encode(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact: JudgeArtifact { kind: JudgeKind::Job, id: job.to_string(), title }, prompt, judge })
             .map_err(|why| format!("{why:?}"));
         let back = job.clone();
         self.post_with(
@@ -181,7 +191,7 @@ impl JobView {
         let refused = page.cards.said.get(KEY).cloned();
         let gate = look.color(token::KIND_GATE);
         let asked = prompt.map(|prompt| {
-            let (term, said) = if prompt.is_empty() { ("Asked", "What did we miss?".to_string()) } else { ("Verify that", prompt) };
+            let (term, said) = if prompt.is_empty() { ("Asked", "What did we miss?".to_string()) } else { ("Asked", prompt) };
             div()
                 .flex()
                 .flex_col()
@@ -269,9 +279,9 @@ impl JobView {
                 .min_w_0()
                 .text_size(look.length(token::TEXT_SM))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(Textarea::new(&pane.area).appearance(false).aria_label("Verify that")),
+                .child(Textarea::new(&pane.area).appearance(false).aria_label("Anything in particular?")),
             Role::TextInput,
-            "Verify that",
+            "Anything in particular?",
         );
         let composer = div()
             .rounded(look.length(token::RADIUS_LG))
@@ -295,7 +305,8 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_2))
             .child(what("A Judge reads this Job once on the strongest model, read-only. It sees what you asked for, the work and the repository, and never the agent's account of it. A note reaches the agent only if you send it."))
-            .child(what("Say what to verify. Left empty, it looks for what was missed."))
+            .child(what("Say what to look at in particular. Left empty, it looks for what was missed."))
+            .children(self.judge_chips(KEY, super::judge::Chips::Tab, look, cx))
             .child(composer);
         Some(
             labelled(

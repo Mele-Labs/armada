@@ -23,6 +23,7 @@ export type * from "./plan-usage";
 export type * from "./preview";
 export type * from "./pull-requests";
 export type * from "./requests";
+export type * from "./review-runs";
 export type * from "./ring-band";
 export type * from "./session-activity";
 export type * from "./session-build";

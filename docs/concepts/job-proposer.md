@@ -109,7 +109,8 @@ Fleet makes the call on them, against the workflows and the models this machine 
 | `settings:` `model=` | The Job's model | A name this machine does not run |
 | `settings:` `effort=` | The Job's effort | A level the CLI does not take (`low`, `medium`, `high`) |
 
-**What the person set wins.** A title, model or effort given on the start, or changed in a panel while the call was out, is left as it is.
+**What the person set wins.** A title, workflow, model or effort given on the start, or changed in a panel while the call was out, is left as it is.
+A workflow of none on the start is one he gave: the Job stays custom.
 Each field the proposer did fill is listed in the record's `proposal.picked` until the person changes that field.
 
 **A failure starts the Job on the machine's defaults.** A call that fails, passes its budget or answers with no `workflow:` line is logged on Fleet's stderr and the Job starts as if no request had been given, with the first line of the request for a title.

@@ -1,5 +1,7 @@
-//! The Story tab of a Job: its asks as cards, open ones first, each a head line that unfolds to how it started, what he
-//! was shown and decided, what was built and what was handed on, and under which feature it is filed.
+//! The Story tab of a Job: what happened in it over time, oldest first, one row each for what he asked, what he was shown,
+//! what was handed to another Job and what was merged. A row says when it was and how long its portion took, and opens into
+//! the row itself as a card: the chat of it, the features an ask is filed under, a pull request's commits. A strip of
+//! filters over the rows picks one kind; opening a row leaves it as it is.
 //!
 //! What is read is Fleet's own: `get_job_story`, off the main thread, drawn as bones until it answers. `story/model.rs`
 //! works out every line. The tab is a fixed kind of a Job's panes (`Zone::Story`), drawn from `place_draw.rs` by [`JobView::pane_story`].
@@ -11,8 +13,8 @@
 //! areas come from `list_features`, read once for every tab of the project (`story/library.rs`), so a row reads by its slug
 //! until they land.
 //!
-//! **The features the Job is on** head the tab, above the asks: Up from the first ask reaches them, and a row opens its
-//! feature as a Filed under row does.
+//! **A pull request's commits land after the row opens**: the tab asks the Job view for them (`StoryEvent::ReadPull`), and a
+//! press on a commit opens the Pull Requests tab at that commit's files (`StoryEvent::OpenPull`).
 //!
 //! **The overlay.** A Filed under row opens the feature's page over the tab in a [`FeatureOverlay`], which holds what was
 //! opened from inside it on one stack and draws the top: one layer, one Esc back.
@@ -20,7 +22,7 @@
 use std::collections::HashMap;
 
 use gpui::{div, prelude::*, AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment, ListState, SharedString, Subscription, Task, Window};
-use ipc::JobStory;
+use ipc::{JobStory, PullRequestCommit};
 
 use super::JobView;
 use crate::features::overlay::{FeatureOverlay, OverlayEvent, Source as OverlaySource};
@@ -29,7 +31,7 @@ use crate::features::story_link;
 use crate::fleet::{FleetConnection, LibrarianStepsMoved, StoryMoved};
 use crate::keymap::Act;
 use crate::settings::wire::{request, Ask, Refused};
-use model::{Built, Features};
+use model::{Built, Entry, Features, Filter, Link};
 
 pub(crate) mod lead;
 pub(crate) mod library;
@@ -46,8 +48,14 @@ mod tests;
 pub enum StoryEvent {
     /// Esc, with nothing in the tab left to put away: the keys go back to where the tab was opened from.
     Escape,
-    /// A Filed under row, pressed. Only a tab inside an overlay says this; the tab in a pane opens its own overlay.
+    /// A feature opened from a row of the tab. A tab inside an overlay says this, and so does one a Job view holds in its panes, which opens the page as a tab.
     Feature { slug: String, title: String },
+    /// A pull request row opened: its commits are wanted.
+    ReadPull { number: u64 },
+    /// A press on a pull request, or on one of its commits: the Pull Requests tab opens on it.
+    OpenPull { number: u64, commit: Option<(String, String)> },
+    /// A press on the Job an ask was handed to.
+    OpenJob(String),
 }
 
 enum Reads {
@@ -62,12 +70,11 @@ pub(crate) enum Load<T> {
     Failed(String),
 }
 
-/// The parts of the tab the keys are in: the features the Job is on, the ask heads, and the Filed under rows of the ask
-/// that is unfolded.
+/// The parts of the tab the keys are in: the filter tabs, the rows, and the presses inside the opened row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Region {
-    Features,
-    Asks,
+    Filters,
+    Rows,
     Links,
 }
 
@@ -96,21 +103,26 @@ pub struct StoryTab {
     pub(crate) built: Built,
     /// The read of the library's names the tab holds, as [`library::names`] counts them.
     names_at: u64,
-    /// The ask whose rows show, by id. One at a time.
+    /// The row that is opened, by key. One at a time.
     pub(crate) unfolded: Option<String>,
-    /// Whether an ask has been unfolded by default or by him, so a read again does not unfold one he folded.
-    chosen: bool,
-    /// The ask the keys are on, and the Filed under row they are on in the unfolded one.
+    /// Which rows show.
+    pub(crate) filter: Filter,
+    /// The row the keys are on, in the rows as drawn (`rows`), and the press they are on in the opened row.
     pub(crate) cursor: Option<usize>,
     pub(crate) region: Region,
     pub(crate) link_at: usize,
-    /// The row of the features the Job is on that the keys are on.
-    pub(crate) feature_at: usize,
+    /// The commits of the pull requests whose rows were opened, by number, as they were read.
+    pub(crate) commits: HashMap<u64, Vec<PullRequestCommit>>,
+    /// The tab has put the newest row in front once.
+    placed: bool,
     pub(crate) focus: FocusHandle,
     pub(crate) list: ListState,
     /// The ask to put in front when the story is read: from a Story link, or asked for by whoever opened the tab.
     want: Option<String>,
     overlay: Option<Entity<FeatureOverlay>>,
+    /// Set by the Job view that holds the tab in its panes: a feature opens as a tab beside the thread, so the tab says so up
+    /// instead of drawing an overlay over itself.
+    routed: bool,
     overlay_sub: Option<Subscription>,
     stamp: Option<Stamp>,
     read_port: Option<u16>,
@@ -182,15 +194,17 @@ impl StoryTab {
             built: Built::default(),
             names_at: 0,
             unfolded: None,
-            chosen: false,
+            filter: Filter::All,
             cursor: None,
-            region: Region::Asks,
+            region: Region::Rows,
             link_at: 0,
-            feature_at: 0,
+            commits: HashMap::new(),
+            placed: false,
             focus,
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             want: None,
             overlay: None,
+            routed: false,
             overlay_sub: None,
             stamp: None,
             read_port: None,
@@ -324,12 +338,15 @@ impl StoryTab {
         }
     }
 
-    /// The cards from what is held, and the list drawn again.
+    /// The rows from what is held, and the list drawn again.
     pub(crate) fn rebuild(&mut self, cx: &mut Context<Self>) {
         self.built = match &self.story {
-            Load::Read(story) => model::build(story, &self.titles, &self.features),
+            Load::Read(story) => model::build(story, &self.titles, &self.features, chrono::Utc::now()),
             _ => Built::default(),
         };
+        if !self.built.filters().contains(&self.filter) {
+            self.filter = Filter::All;
+        }
         let count = self.places();
         self.list.reset(count);
         self.settle(cx);
@@ -341,144 +358,204 @@ impl StoryTab {
         matches!(self.story, Load::Read(_))
     }
 
-    /// The places of the list: the features the Job is on, each ask, and the group of what was shown before any.
+    /// The rows as drawn under the filter: the timeline's, then what he was shown before any ask.
+    pub(crate) fn rows(&self) -> Vec<&Entry> {
+        let shown = self.built.visible(self.filter).into_iter().map(|at| &self.built.entries[at]);
+        let before = if self.built.before_shown(self.filter) { self.built.before.iter().collect::<Vec<_>>() } else { Vec::new() };
+        shown.chain(before).collect()
+    }
+
+    /// How many of `rows` are the timeline's, the rest standing under the heading of what he was shown before any ask.
+    pub(crate) fn timeline_len(&self) -> usize {
+        self.built.visible(self.filter).len()
+    }
+
+    /// The places of the list: each row, and the heading of the group of what he was shown before any ask.
     pub(crate) fn places(&self) -> usize {
-        self.head() + self.built.cards.len() + usize::from(!self.built.before.is_empty())
+        self.timeline_len() + if self.built.before_shown(self.filter) { 1 + self.built.before.len() } else { 0 }
     }
 
-    /// The places before the first ask: one for the features the Job is on, where it is on any.
-    pub(crate) fn head(&self) -> usize {
-        usize::from(!self.built.features.is_empty())
+    /// The place in the list of row `at` of `rows`.
+    pub(crate) fn place_of(&self, at: usize) -> usize {
+        if at < self.timeline_len() { at } else { at + 1 }
     }
 
-    /// The ask asked for, or the one that was unfolded, or the first open one, is unfolded with the keys on it.
+    /// The row asked for, or the one that was opened, is opened with the keys on it; the keys start on the newest row.
     fn settle(&mut self, cx: &mut Context<Self>) {
-        let wanted = self.want.as_deref().and_then(|id| self.built.find(id));
-        let kept = self.unfolded.as_deref().and_then(|id| self.built.find(id));
-        // The first ask is unfolded once, when there are asks; an ask he folded stays folded as the story is read again.
-        let first = if self.chosen { None } else { self.built.first_open() };
-        let at = wanted.or(kept).or(first);
-        self.chosen |= !self.built.cards.is_empty();
-        if wanted.is_some() {
+        if let Some(want) = self.want.as_deref().and_then(|id| self.built.find(id)).map(|at| self.built.entries[at].key.clone()) {
+            // The row asked for is shown whatever the filter was.
+            if !self.rows().iter().any(|entry| entry.key == want) {
+                self.filter = Filter::All;
+                let count = self.places();
+                self.list.reset(count);
+            }
             self.want = None;
+            self.unfolded = Some(want.clone());
+            self.cursor = self.rows().iter().position(|entry| entry.key == want);
+            self.region = Region::Rows;
+            self.link_at = 0;
+            if let Some(at) = self.cursor {
+                self.list.scroll_to_reveal_item(self.place_of(at));
+            }
         }
-        // An ask not found yet stays wanted until the story that holds it is read.
-        self.unfolded = at.map(|at| self.built.cards[at].ask_id.clone());
-        self.cursor = self.cursor.filter(|at| *at < self.built.cards.len()).or(at);
-        if wanted.is_some() {
-            self.cursor = at;
-            self.region = Region::Asks;
+        let held = self.unfolded.clone().filter(|key| self.rows().iter().any(|entry| &entry.key == key));
+        self.unfolded = held;
+        let count = self.rows().len();
+        self.cursor = self.cursor.filter(|at| *at < count);
+        if self.cursor.is_none() {
+            let visible = self.built.visible(self.filter);
+            self.cursor = self.built.newest(self.filter).and_then(|at| visible.iter().position(|one| *one == at)).or(if count == 0 { None } else { Some(count - 1) });
         }
-        self.link_at = self.link_at.min(self.feature_rows().len().saturating_sub(1));
-        self.feature_at = self.feature_at.min(self.built.features.len().saturating_sub(1));
-        if self.region == Region::Features && self.built.features.is_empty() {
-            self.region = Region::Asks;
+        // The Job's present is at the foot: the list starts there, once.
+        if !self.placed && count > 0 {
+            self.placed = true;
+            if let Some(at) = self.cursor {
+                self.list.scroll_to_reveal_item(self.place_of(at));
+            }
         }
-        if let Some(at) = wanted {
-            self.list.scroll_to_reveal_item(self.head() + at);
+        self.link_at = self.link_at.min(self.links().len().saturating_sub(1));
+        if self.region == Region::Filters && self.built.filters().len() < 2 {
+            self.region = Region::Rows;
         }
         cx.notify();
     }
 
-    /// The places of the Filed under rows of the unfolded ask, in its rows.
-    pub(crate) fn feature_rows(&self) -> Vec<String> {
-        self.unfolded.as_deref().and_then(|id| self.built.find(id)).map(|at| self.built.cards[at].rows.iter().filter_map(|row| row.feature.clone()).collect()).unwrap_or_default()
+    /// The presses of the opened row, in the order they are drawn.
+    pub(crate) fn links(&self) -> Vec<Link> {
+        let Some(key) = self.unfolded.as_deref() else { return Vec::new() };
+        let Some(entry) = self.rows().into_iter().find(|entry| entry.key == key) else { return Vec::new() };
+        let none = Vec::new();
+        entry.links_with(entry.card.merge.as_ref().and_then(|merge| self.commits.get(&merge.number)).unwrap_or(&none))
+    }
+
+    /// The commits of pull request `number` were read.
+    pub fn set_commits(&mut self, number: u64, commits: Vec<PullRequestCommit>, cx: &mut Context<Self>) {
+        self.commits.insert(number, commits);
+        let count = self.places();
+        self.list.reset(count);
+        cx.notify();
     }
 
     // ---- what the keys are on ----------------------------------------------------------------
 
-    /// Unfold the ask at `at`, which folds the one that was open; or fold it where it is the open one.
-    pub(crate) fn toggle(&mut self, at: usize, cx: &mut Context<Self>) {
-        let Some(card) = self.built.cards.get(at) else { return };
-        let before = self.unfolded.as_deref().and_then(|id| self.built.find(id));
-        self.unfolded = if self.unfolded.as_deref() == Some(card.ask_id.as_str()) { None } else { Some(card.ask_id.clone()) };
-        self.cursor = Some(at);
-        self.region = Region::Asks;
-        self.link_at = 0;
-        let head = self.head();
-        if let Some(before) = before {
-            self.list.remeasure_items(head + before..head + before + 1);
+    /// Put the filter on `filter`: the rows it lets through are drawn, and the opened row stays opened where it is still there.
+    pub(crate) fn filter_by(&mut self, filter: Filter, cx: &mut Context<Self>) {
+        if self.filter == filter {
+            return;
         }
-        self.list.remeasure_items(head + at..head + at + 1);
-        self.list.scroll_to_reveal_item(head + at);
+        self.filter = filter;
+        self.cursor = None;
+        let count = self.places();
+        self.list.reset(count);
+        self.settle(cx);
+    }
+
+    /// Open the row at `at` of `rows`, which closes the one that was open; or close it where it is the open one.
+    pub(crate) fn toggle(&mut self, at: usize, cx: &mut Context<Self>) {
+        let Some(key) = self.rows().get(at).map(|entry| entry.key.clone()) else { return };
+        let before = self.unfolded.as_deref().and_then(|open| self.rows().iter().position(|entry| entry.key == open));
+        self.unfolded = if self.unfolded.as_deref() == Some(key.as_str()) { None } else { Some(key) };
+        self.cursor = Some(at);
+        self.region = Region::Rows;
+        self.link_at = 0;
+        if let Some(before) = before {
+            let place = self.place_of(before);
+            self.list.remeasure_items(place..place + 1);
+        }
+        let place = self.place_of(at);
+        self.list.remeasure_items(place..place + 1);
+        self.list.scroll_to_reveal_item(place);
+        let wanted = self.rows().get(at).filter(|_| self.unfolded.is_some()).and_then(|entry| entry.card.merge.as_ref().map(|merge| merge.number));
+        if let Some(number) = wanted.filter(|number| !self.commits.contains_key(number)) {
+            cx.emit(StoryEvent::ReadPull { number });
+        }
         cx.notify();
     }
 
-    /// Up and Down: the features the Job is on come before the first ask, so the keys go from one part to the other.
+    /// Up and Down: along the rows, or along the presses of the opened row. Left and Right: along the filters.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let was = (self.region, self.feature_at, self.cursor, self.link_at);
+        let was = (self.cursor, self.link_at);
         match self.region {
-            Region::Features => {
-                let next = self.feature_at as isize + by;
-                if next >= self.built.features.len() as isize && !self.built.cards.is_empty() {
-                    self.region = Region::Asks;
-                    self.cursor = Some(0);
-                    self.list.scroll_to_reveal_item(self.head());
-                } else {
-                    self.feature_at = next.clamp(0, self.built.features.len() as isize - 1) as usize;
-                    self.list.scroll_to_reveal_item(0);
-                }
-            }
-            Region::Asks => {
-                let count = self.built.cards.len() as isize;
-                let at = self.cursor.map_or(if by > 0 { -1 } else { count }, |at| at as isize);
-                if at + by < 0 && !self.built.features.is_empty() {
-                    self.region = Region::Features;
-                    self.feature_at = self.built.features.len() - 1;
-                    self.list.scroll_to_reveal_item(0);
-                } else if count > 0 {
+            Region::Filters => {}
+            Region::Rows => {
+                let count = self.rows().len() as isize;
+                if count > 0 {
+                    let at = self.cursor.map_or(if by > 0 { -1 } else { count }, |at| at as isize);
                     let next = (at + by).clamp(0, count - 1) as usize;
                     self.cursor = Some(next);
-                    self.list.scroll_to_reveal_item(self.head() + next);
+                    self.list.scroll_to_reveal_item(self.place_of(next));
                 }
             }
             Region::Links => {
-                let count = self.feature_rows().len() as isize;
+                let count = self.links().len() as isize;
                 self.link_at = (self.link_at as isize + by).clamp(0, (count - 1).max(0)) as usize;
             }
         }
-        if was != (self.region, self.feature_at, self.cursor, self.link_at) {
+        if was != (self.cursor, self.link_at) {
             crate::ui_sounds::moved();
         }
         cx.notify();
     }
 
-    /// Tab: the keys go between the ask heads and the Filed under rows of the unfolded ask. A part with nothing in it is passed over.
-    fn switch(&mut self, cx: &mut Context<Self>) {
-        self.region = match self.region {
-            Region::Asks if !self.feature_rows().is_empty() => Region::Links,
-            _ => Region::Asks,
-        };
+    /// Left and Right on the filters: the next tab is the filter.
+    fn step_filter(&mut self, by: isize, cx: &mut Context<Self>) {
+        let tabs = self.built.filters();
+        let at = tabs.iter().position(|one| *one == self.filter).unwrap_or(0) as isize;
+        let next = (at + by).clamp(0, tabs.len() as isize - 1) as usize;
+        if let Some(filter) = tabs.get(next).copied() {
+            self.region = Region::Filters;
+            self.filter_by(filter, cx);
+            crate::ui_sounds::moved();
+        }
+    }
+
+    /// Tab: the keys go from the filters to the rows to the presses of the opened row. A part with nothing in it is passed over.
+    fn switch(&mut self, back: bool, cx: &mut Context<Self>) {
+        let mut parts = Vec::new();
+        if self.built.filters().len() > 1 {
+            parts.push(Region::Filters);
+        }
+        parts.push(Region::Rows);
+        if !self.links().is_empty() {
+            parts.push(Region::Links);
+        }
+        let at = parts.iter().position(|one| *one == self.region).unwrap_or(0) as isize;
+        self.region = parts[(at + if back { -1 } else { 1 }).rem_euclid(parts.len() as isize) as usize];
         self.link_at = 0;
         cx.notify();
     }
 
-    /// Enter: a feature the Job is on opens, a head folds or unfolds, a Filed under row opens its feature.
+    /// Enter: a row opens or closes, a press in the opened row goes where it says.
     fn press(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.region {
-            Region::Features => {
-                if let Some(line) = self.built.features.get(self.feature_at) {
-                    self.open_feature(line.slug.clone(), window, cx);
-                }
-            }
-            Region::Asks => {
+            Region::Filters => {}
+            Region::Rows => {
                 if let Some(at) = self.cursor {
                     self.toggle(at, cx);
                 }
             }
             Region::Links => {
-                if let Some(slug) = self.feature_rows().get(self.link_at).cloned() {
-                    self.open_feature(slug, window, cx);
+                if let Some(link) = self.links().get(self.link_at).cloned() {
+                    self.go(link, window, cx);
                 }
             }
         }
     }
 
+    /// A press in an opened row.
+    pub(crate) fn go(&mut self, link: Link, window: &mut Window, cx: &mut Context<Self>) {
+        match link {
+            Link::Feature(slug) => self.open_feature(slug, window, cx),
+            Link::Commit { number, sha, headline } => cx.emit(StoryEvent::OpenPull { number, commit: Some((sha, headline)) }),
+            Link::Pull(number) => cx.emit(StoryEvent::OpenPull { number, commit: None }),
+            Link::Job(id) => cx.emit(StoryEvent::OpenJob(id)),
+        }
+    }
+
     /// The feature's page opens over the tab, in the overlay, or in the one this tab is inside.
     pub(crate) fn open_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
-        let listed = self.built.features.iter().find(|one| one.slug == slug).map(|one| one.title.clone());
-        let title = self.features.get(&slug).cloned().or(listed).unwrap_or_else(|| slug.clone());
-        if self.nested {
+        let title = self.feature_title(&slug);
+        if self.nested || self.routed {
             cx.emit(StoryEvent::Feature { slug, title });
             return;
         }
@@ -506,6 +583,26 @@ impl StoryTab {
         cx.notify();
     }
 
+    /// What feature `slug` is called here, or its slug where nothing names it.
+    pub(crate) fn feature_title(&self, slug: &str) -> String {
+        let listed = self.built.features.iter().find(|one| one.slug == slug).map(|one| one.title.clone());
+        self.features.get(slug).cloned().or(listed).unwrap_or_else(|| slug.to_string())
+    }
+
+    /// Features opened from this tab go up as [`StoryEvent::Feature`] to whoever holds it in a pane, not into an overlay.
+    pub(crate) fn route_features(&mut self) {
+        self.routed = true;
+    }
+
+    /// Where a feature's page reads from, the project it is in, and the place it was opened from.
+    pub(crate) fn feature_source(&self, cx: &App) -> Option<(OverlaySource, String, String)> {
+        let source = match &self.source {
+            Reads::Live(fleet) => OverlaySource::Live(fleet.clone()),
+            Reads::Mock => OverlaySource::Mock,
+        };
+        Some((source, self.project(cx)?, format!("Story of {}", self.name())))
+    }
+
     /// What the Job is called, or what stands in for its name.
     pub(crate) fn name(&self) -> String {
         self.titles.get(&self.job).cloned().unwrap_or_else(|| "this Job".into())
@@ -522,8 +619,8 @@ impl StoryTab {
         if event.keystroke.key != "escape" {
             return;
         }
-        if self.region == Region::Links {
-            self.region = Region::Asks;
+        if self.region != Region::Rows {
+            self.region = Region::Rows;
             cx.notify();
             cx.stop_propagation();
         } else if self.nested {
@@ -537,8 +634,9 @@ impl StoryTab {
     pub(crate) fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         match act.id {
             "features_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
+            "features_chip" => self.step_filter(if act.slot == 0 { -1 } else { 1 }, cx),
             "features_open" => self.press(window, cx),
-            "features_pane" => self.switch(cx),
+            "features_pane" => self.switch(act.slot % 2 == 1, cx),
             _ => cx.propagate(),
         }
     }
@@ -558,12 +656,16 @@ pub fn init(cx: &mut App) {
     super::kind_chip::init(cx);
     super::thread_rail::init(cx);
     super::on_job_shown(
-        |job, _, cx| {
+        |job, window, cx| {
             cx.default_global::<Stories>().0.retain(|held, _| job.as_deref() == Some(held.as_str()));
             let Some(job) = job else { return };
             lead::shown(&job, cx);
             if let Some(view) = JobView::live(cx) {
-                view.update(cx, |view, cx| view.open_for_link(&job, cx));
+                // The strip over the column names the Job's features, so the story is read as the Job comes on screen.
+                view.update(cx, |view, cx| {
+                    view.story_of(&job, window, cx);
+                    view.open_for_link(&job, cx);
+                });
             }
         },
         cx,
@@ -616,7 +718,7 @@ impl JobView {
     }
 
     /// Job `job`'s Story tab, made where there is none.
-    fn story_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> Entity<StoryTab> {
+    pub(super) fn story_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> Entity<StoryTab> {
         if let Some(tab) = cx.default_global::<Stories>().0.get(job) {
             return tab.clone();
         }
@@ -626,6 +728,70 @@ impl JobView {
             None => StoryTab::mock(named.clone(), false, window, cx),
         });
         cx.default_global::<Stories>().0.insert(job.to_string(), tab.clone());
+        tab.update(cx, |tab, _| tab.route_features());
+        let shown = job.to_string();
+        cx.subscribe_in(&tab, window, move |this, _, event: &StoryEvent, window, cx| {
+            match event {
+                StoryEvent::Feature { slug, title } => this.open_feature_tab(&shown, slug.clone(), title.clone(), window, cx),
+                StoryEvent::ReadPull { number } => this.read_story_pull(&shown, *number, window, cx),
+                StoryEvent::OpenPull { number, commit } => this.open_story_pull(&shown, *number, commit.clone(), window, cx),
+                StoryEvent::OpenJob(id) => this.open_job(id.clone(), cx),
+                StoryEvent::Escape => {}
+            }
+        })
+        .detach();
+        // The strip over the column draws the tab's features, so it draws again when the tab does.
+        cx.observe(&tab, |_, _, cx| cx.notify()).detach();
         tab
+    }
+
+    /// The commits of pull request `number`, which a Job's Story row opened: read from Fleet, and handed to the tab.
+    fn read_story_pull(&mut self, job: &str, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(manifest) = self.pulls_of(job, cx).into_iter().find(|one| one.number == number).and_then(|one| one.manifest) else { return };
+        let Some(tab) = cx.default_global::<Stories>().0.get(job).cloned() else { return };
+        if self.fleet.is_none() {
+            if let Some(page) = crate::mock::pull_page(&format!("{manifest}#{number}")) {
+                tab.update(cx, |tab, cx| tab.set_commits(number, page.commits, cx));
+            }
+            return;
+        }
+        self.get(
+            format!("/pull_request_details/{}/{number}", super::wire::encoded(&manifest)),
+            window,
+            cx,
+            Box::new(move |_, answer, _, cx| {
+                if let Ok(page) = answer.and_then(|bytes| ipc::decode::<ipc::PullRequestPage>("PullRequestPage", &bytes).map_err(|why| why.to_string())) {
+                    tab.update(cx, |tab, cx| tab.set_commits(number, page.commits, cx));
+                }
+            }),
+        );
+    }
+
+    /// A press on pull request `number` of a Job's Story, or on one of its commits: the pull request opens over the Job,
+    /// at that commit's files where one was pressed, with Back to the Story over them.
+    fn open_story_pull(&mut self, job: &str, number: u64, commit: Option<(String, String)>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(pull) = self.pulls_of(job, cx).into_iter().find(|one| one.number == number) else { return };
+        self.open_pull(pull, window, cx);
+        if let Some((sha, headline)) = commit {
+            self.show_commit(sha, headline, window, cx);
+        }
+        if let Some(panel) = self.pull_panel_mut() {
+            panel.from_story = true;
+        }
+    }
+
+    /// The features Job `job` is on as its Story tab holds them, most touched first, each with the hue the Features list gives
+    /// its area. None are held until the tab has read the story.
+    pub(super) fn story_features(&self, job: &str, cx: &App) -> Vec<super::column_strip::StripFeature> {
+        let Some(tab) = cx.try_global::<Stories>().and_then(|held| held.0.get(job)) else { return Vec::new() };
+        let tab = tab.read(cx);
+        tab.built.features.iter().map(|line| super::column_strip::StripFeature { slug: line.slug.clone(), title: line.title.clone(), hue: crate::features::hue_among(tab.areas.iter().map(String::as_str), &line.area) }).collect()
+    }
+
+    /// A feature chip of the strip pressed: the feature's page opens as a tab beside the thread, as a row of the Story tab's does.
+    pub(super) fn open_story_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let title = self.story_of(&job, window, cx).read(cx).feature_title(&slug);
+        self.open_feature_tab(&job, slug, title, window, cx);
     }
 }

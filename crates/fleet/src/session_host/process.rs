@@ -258,6 +258,9 @@ impl ProcessHost {
     }
 }
 
+/// What Fleet sets in the Operator's process and no Job's. The mod reads it as `ARMADA_DRONE` is read.
+const OPERATOR_ENV: &str = "ARMADA_OPERATOR";
+
 impl Processes for ProcessHost {
     fn start(&self, start: &Start, sink: Sink) -> Result<Arc<dyn Process>, String> {
         self.door_published().map_err(|why| why.to_string())?;
@@ -277,6 +280,11 @@ impl Processes for ProcessHost {
         // and resuming this process does not read as the lease's holder gone.
         .and_then(|env| env.and(adapters::leasing::Holder::SESSION_ENV, &start.session))
         .and_then(|env| env.and(crate::scratch::SCRATCH_ENV, &scratch.to_string_lossy()))
+        // The mod's hooks read it, so the Operator is never held to a Job's `waiting_for`.
+        .and_then(|env| match start.operator {
+            true => env.and(OPERATOR_ENV, "1"),
+            false => Ok(env),
+        })
         .map_err(|why| why.said())?;
         // A conversation resumed from another directory (a Session moving into
         // its slot) is not found by the CLI unless it is put where it looks.

@@ -345,13 +345,12 @@ pub fn send_other_mac(
 }
 
 /// [`crate::Gateway`]'s answer to Fleet's `read_other_mac`: a `/other_mac/session?…`, `/other_mac/thread?…`,
-/// `/other_mac/conversation?…`, `/other_mac/artifacts?…` or `/other_mac/artifact_page?…` path, read from Mac `mac` as
-/// `/api/mac/session?…`, `/api/mac/thread?…`, `/api/mac/conversation?…`, `/api/mac/artifacts?…` or
-/// `/api/mac/artifact_page?…`. Fleet asks nothing else of another Mac this way.
+/// `/other_mac/conversation?…`, `/other_mac/artifacts?…`, `/other_mac/artifact_page?…` or `/other_mac/margin?…` path,
+/// read from Mac `mac` as the same path under `/api/mac/`. Fleet asks nothing else of another Mac this way.
 pub fn read_other_mac(gateway: &Gateway, mac: &str, path: &str) -> impl Future<Output = Result<(u16, Vec<u8>), String>> + Send + 'static {
     let (gateway, mac, path) = (gateway.clone(), mac.to_string(), path.to_string());
     async move {
-        let read = ["session", "thread", "conversation", "artifacts", "artifact_page"].into_iter().find_map(|what| {
+        let read = ["session", "thread", "conversation", "artifacts", "artifact_page", "margin"].into_iter().find_map(|what| {
             let rest = path.strip_prefix(&format!("/other_mac/{what}"))?;
             (rest.is_empty() || rest.starts_with('?')).then(|| format!("/api/mac/{what}{rest}"))
         });

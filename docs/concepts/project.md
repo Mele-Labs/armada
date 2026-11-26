@@ -286,11 +286,13 @@ No two blocks overlap and none has room above it: a move or a resize pins the bl
 | Issues | The issues assigned to him, and under them the ones he might pick up |
 | Features | What moved since he looked, and in its Picture the rooms of the code map. A feature opens on the Features tab |
 | Checks and commands | The Checks and Commands of its manifests, run in the main checkout |
+| System | What the project is made of: the people who use it, its entry points, what they reach, its stores and what it reaches outside. A part zooms into its pieces, and a feature into its path through them |
 
 The might-pick-up and might-be-interested rows are Fleet's ranking, which [Feature catalog](feature-catalog.md), *Ranking the issues he might pick up*, owns.
+The Issues block's head offers Rank with the librarian, and the Ask box asks it, which [Feature catalog](feature-catalog.md), *Asking the librarian*, owns.
 
 **Each block has a view switch, and it offers only the views the block's data fits.**
-Needs you is a List or Cards, Run a List, Table or Cards, Reviews Cards, List or Table, Issues a Table, List or Cards, Features Cards, List or Picture, and Checks and commands a List or Table.
+Needs you is a List or Cards, Run a List, Table or Cards, Reviews Cards, List or Table, Issues a Table, List or Cards, Features Cards, List or Picture, Checks and commands a List or Table, and System a Graph or List.
 The first of a block's views is the one it starts in.
 
 **Edit turns the blocks into things to arrange.**
@@ -312,12 +314,35 @@ The kind is read from the manifest kinds the code map already names, so no secon
 | Compiled | `cargo`, `go`, `gradle`, `maven`, `dotnet` or `swift`, and no `npm` | Checks and commands, then Needs you |
 | Unknown | None of those, or the map not read yet | The web board |
 
+Every preset puts System first, the full width of the board, and the rest under it.
+
 The layout is kept in the project's own file as `look.board`, and no other layer sets it ([Projects](../practices/protocol/projects.md), *The board*).
 A drag or a run of arrow keys is one save, sent once the board has stood still a moment.
 Reset board, on the Settings tab, has Fleet forget the layout, and the board draws the preset again.
 
 A block's kind and view are plain text on the wire.
 A kind a later Bridge adds crosses without a wire break, and a block of a kind this build does not draw is kept and sent back as it was saved.
+
+### The System block
+
+**Fleet reads a project's parts from its own files, with no model.**
+Where the project picked folders of a repository, it reads only those folders, so a part, a feature or an owner outside them is not shown.
+Build manifests, workspaces, compose files and Kit servers name the entry points people use, the services behind them, the stores and what the project reaches outside.
+A library every part uses folds into the parts that use it, and shows as a piece when a part is zoomed into.
+A package's description names its part, as `Bridge Classic: the Electron desktop application` names Bridge Classic.
+
+**A click selects a part, and double-click, Return or Look inside zooms into it.**
+Level one is the whole project, level two a part's pieces and the parts they call, and level three one feature's numbered path through them with its files at each stop.
+Esc steps out a level, and at level one gives the board back.
+The zoomed block covers the board.
+
+**Every part, every feature and the project itself answer the same nine sections**: features, code, who is working on it, owner, what it looks like, docs, how to watch it, open issues and open pull requests.
+A section with nothing in it says why in one line.
+New feature… under Features takes a sentence and starts a Job.
+
+**Find missed parts has the librarian read the project for parts its files do not show.**
+Its parts draw dashed with a chip until he keeps them, and Work with the librarian takes a note it redoes the part from.
+A part he removes is not proposed again ([Projects](../practices/protocol/projects.md), *The system map*).
 
 ### The header
 
@@ -326,7 +351,7 @@ The header is the same on every tab.
 | Part | What it does |
 |---|---|
 | Project chips | A press shows that project |
-| Ask the librarian | A box that keeps what is typed. While it has the keys it offers example asks, and a press on one fills the box. Sending is not built |
+| Ask the librarian | A box that keeps what is typed. While it has the keys it offers example asks, and a press on one fills the box. Enter sends the words and any files to the project's librarian, and its answer is a card under the box |
 | Edit | Turns editing the board on and off, and with it Add block, on the Dashboard tab |
 | Members and Settings | Open the Settings tab. Members puts the keys in the list of members |
 | Start | Starts the project's run on the checkout beside it |
@@ -368,5 +393,4 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | A Job on one Mac linked to a task on the other | Acts across Macs, a later stage of two Macs as one Armada |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |
 | The System, Docs and Errors blocks | Each is a later Job. Block kinds are plain text, so they add without a wire break |
-| Sending the Ask the librarian box | A later Job. The box keeps what is typed and offers examples, and sends nothing |
 | The librarian choosing the preset | A later Job. The preset follows the manifest kinds alone |

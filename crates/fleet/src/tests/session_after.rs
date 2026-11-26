@@ -35,6 +35,7 @@ pub(super) fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, 
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     }
 }
 
@@ -655,7 +656,7 @@ async fn a_session_waiting_on_a_workflow_gets_no_step_prompt_before_its_conditio
 
     let waiting = rig.waits(&agent, StartCondition::Ends, StartBase::Main).await;
     rig.eventually(&waiting.id, "the brief read", |one| one.workflow.as_deref() == Some("rail")).await;
-    rig.rail_has_acted().await;
+    rig.rail_has_looked().await;
 
     assert_eq!(rig.processes(), processes, "no process starts for a Session that waits");
     assert!(rig.rows(&waiting.id).await.is_empty(), "and nothing is sent to it");

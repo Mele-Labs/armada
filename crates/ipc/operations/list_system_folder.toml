@@ -1,0 +1,10 @@
+[operations.list_system_folder]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The names in one folder of a project's repository at HEAD, for the code tree under a part"
+notes = """
+`GET /projects/project/:project/system/folder?path=`, `path` repository-relative, empty for the root. Answers `SystemFolder { project, path, entries }`: the names in the folder at the checkout's `HEAD`, folders first, each folder ending in `/`. Where the project holds several repositories, `path` starts with the repository's folder name. A path that leaves the repository is refused.
+
+404 `fleet.no_such_project`, 404 `fleet.system_folder_unknown` for a folder `HEAD` holds none of.
+"""

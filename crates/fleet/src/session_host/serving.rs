@@ -269,7 +269,7 @@ where
     }
 
     async fn talk_to_operator(self: Arc<Self>, talk: ipc::operator_talk::TalkToOperator) -> Result<ipc::operator_talk::OperatorSaid, Refusal> {
-        self.operator_talked(&talk.words, talk.about.as_deref()).await
+        self.operator_talked(talk).await
     }
 
     async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
@@ -599,7 +599,7 @@ where
 
     async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
         if let Some(mac) = self.mac_holding(id.as_str()).await {
-            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision).await;
+            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision, false).await;
         }
         self.artifact_page(id.as_str(), &artifact, revision).await
     }
@@ -614,6 +614,9 @@ where
     }
 
     async fn get_hosted_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        if let Some(mac) = self.mac_holding(id.as_str()).await {
+            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision, true).await;
+        }
         self.hosted_artifact_page(id.as_str(), &artifact, revision).await
     }
 
@@ -676,6 +679,10 @@ where
 
     async fn withdraw_for_you(self: Arc<Self>, withdraw: ipc::WithdrawForYou) -> Result<ipc::ForYou, Refusal> {
         self.for_you_withdrawn(withdraw).await
+    }
+
+    async fn order_waiting(self: Arc<Self>, order: ipc::OrderWaiting) -> Result<SessionRecord, Refusal> {
+        self.waiting_ordered(order).await
     }
 
     async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {

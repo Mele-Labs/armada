@@ -1,0 +1,13 @@
+[operations.refile_librarian_ask]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Move the doc or link one ask of a project's librarian filed to another feature. Give the project's id, the ask's asked_at and the feature's slug"
+notes = """
+`POST /features/librarian/refile`, body `RefileLibrarianAsk`: `project`, `asked_at`, `feature`. Answered with `LibrarianAnswered` as `ask_librarian` answers, under the same `asked_at`: `reply` says where it went, `act` is the `filed_doc` with its new `feature` and `feature_title`, and `calls` and `limit` are the night's as they stand. **No model call**: a move spends nothing.
+
+The read is dropped from the feature it was under and kept under the one named, so Undo after a move drops it from where it is now. Moving it to the feature it is under changes nothing and answers the same.
+
+**Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. An ask Fleet does not hold, or one that filed nothing, 404 `fleet.librarian_ask_unknown`. A slug the library does not hold, 404 `fleet.feature_unknown`. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
+"""

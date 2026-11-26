@@ -176,6 +176,7 @@ impl Rig {
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
             .expect("started")
@@ -859,6 +860,13 @@ impl Rig {
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
 
+    /// The rail has had its look at a Job that has not run. **No step event comes for one**: its step begins
+    /// with its first turn, so this settles the timeline and gives the rail a moment.
+    pub(super) async fn rail_has_looked(&self) {
+        self.fleet.timeline().settled().await;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+
     /// What was written to the process started `nth`, in the order it was.
     pub(super) fn sent_to(&self, nth: usize) -> Vec<String> {
         self.stand_in.process(nth).sent.lock().unwrap().clone()
@@ -877,7 +885,7 @@ async fn a_session_an_agent_started_on_a_workflow_gets_no_turn_and_no_process_un
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     eventually_read(&rig, &held.session_id).await;
     assert_eq!(rig.record(&held.session_id).await.workflow.as_deref(), Some("rail"), "the brief put it on the workflow");
-    rig.rail_has_acted().await;
+    rig.rail_has_looked().await;
 
     assert_eq!(rig.stand_in.starts().len(), processes, "the rail starts nothing for a Job that has not run");
     assert!(rig.rows(&held.session_id).await.is_empty(), "and tells it nothing");
@@ -891,7 +899,7 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_message_and_no
     eventually_read(&rig, &agent).await;
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", FIRST)).await.expect("held");
     eventually_read(&rig, &held.session_id).await;
-    rig.rail_has_acted().await;
+    rig.rail_has_looked().await;
 
     rig.begin(&held.session_id, None).await;
     eventually(|| async { rig.stand_in.starts().len() == 2 && !rig.sent_to(1).is_empty() }).await;

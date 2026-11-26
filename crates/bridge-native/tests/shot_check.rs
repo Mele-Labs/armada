@@ -46,7 +46,9 @@ fn a_scene_set_against_itself_matches_in_every_state() {
 fn a_scene_whose_part_moved_drifts_and_the_check_fails() {
     let dir = scene_in("moved", str::to_string);
     let moved = dir.join("moved.html");
-    let text = std::fs::read_to_string(dir.join("scene.html")).unwrap().replace("<state id=\"list\">", "<state id=\"list\"><box h=\"4\"></box>");
+    let was = std::fs::read_to_string(dir.join("scene.html")).unwrap();
+    let text = was.replacen("<pane title=\"Jobs\"", "<box h=\"4\"></box><pane title=\"Jobs\"", 1);
+    assert_ne!(text, was, "the sample scene's Jobs pane is where the box goes");
     std::fs::write(&moved, text).unwrap();
     let (passed, report) = check(&dir, &["--against", moved.to_str().unwrap()]);
     assert!(!passed, "a moved list must fail the check: {report}");

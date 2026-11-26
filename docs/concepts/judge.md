@@ -59,9 +59,11 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Words selected in the thread | The selection bar, beside Ask |
 | A sketch, document, draft, Ready to try or agent reply card | The card in the thread |
 | Anything above | **Judge…** in the command palette |
+| The Job as a whole, or a pull request it holds, on the phone | **Judge…** in the Job page's ⋯ menu, which opens Pocket's Judge screen |
 
 On an artifact, the press opens a small box, **Verify that**, for an optional line naming what to check.
-Left empty, the Judge looks for **what the person or the agent missed**.
+The same press names a **judge type**, which says what the Judge looks for ([Judge types](#judge-types)).
+Left empty, the Judge asks only what its type asks, and the default type, Adversarial, asks for **what the person or the agent missed**.
 
 > **Rule.** The Judge runs only when a person presses it.
 > Why: it spends the strongest model on an open question, and his press decides when that is worth it. Nothing starts it on a schedule or at a boundary.
@@ -76,6 +78,7 @@ The act on a row reads the state of the last reading.
 
 No count is drawn beside the act or the notes.
 A finished Judge puts a line in the thread saying so, and a press on it opens the artifact at its notes.
+Pocket asks in the order the native Bridge does: what to judge, then the judge type, then an optional line, and its notes are sent or dismissed there as they are on a desktop.
 The Judge of the whole Job has no artifact to stand in, so its press opens a Judge tab, which asks in a composer of its own and holds the reading ([The Judge](session/the-judge.md)).
 **A finished Judge raises no Needs you call**, since it asks nothing of the person.
 
@@ -85,7 +88,7 @@ The Judge of the whole Job has no artifact to stand in, so its press opens a Jud
 | --- | --- |
 | The request the person dispatched with | The agent's own messages |
 | The artifact | The agent's account of its work |
-| The Judge's prompt, with the person's line where one was typed | The agent's transcript |
+| The judge type's prompt, with the person's line after it where one was typed | The agent's transcript |
 | The repository, read-only | Any id Fleet keeps for the artifact |
 
 **The artifact is shown by its words and no ids, so a note can never name one.** A note that said *Task W2* would mean nothing to the person reading it.
@@ -99,6 +102,33 @@ It starts in the checkout Fleet serves and never in a Job's worktree, so an agen
 It runs on the review model setting, `models.review` (`crates/config/settings.toml`, row `settings.review-model`), the strongest tier on the roster unless the machine says otherwise.
 **An answer that cites a file or quotes words it was never shown is refused.** The reading fails with Fleet's words for why, and no note from it is kept.
 Why: a citation is what makes a note persuasive, so an invented one is not a stricter reading but an unfalsifiable one.
+
+## Judge types
+
+**A judge type is one file: a name and a prompt.**
+What shape its answer takes is not the file's to say: it is notes, as every reading has.
+Armada carries five: Adversarial, Code, Design, System design and API review.
+**Adversarial is the default**, and its prompt is what an empty press asked before there were types: what the person or the agent missed.
+A press names a type by its id, and the reading keeps that id and the name the type had then.
+A press that names none reads as Adversarial, and so does a reading kept before types.
+His line, where he typed one, is laid after the type's prompt and does not replace it.
+A press that names a type nobody defines for the repository and project is refused, and the refusal names it.
+
+| Place | Whose | Wins over |
+| --- | --- | --- |
+| `~/.armada/judges/projects/<project>/` | His, for the one project | Every place below |
+| `~/.armada/judges/` | His, in every project | The repository's and Armada's |
+| `<repository>/.armada/judges/` | The repository's, for everyone on it | Armada's |
+| Armada's own | Carried in the binary | |
+
+**The most specific place wins**, by id: the name lower cased with its words joined by a dash.
+The folder for one project is named by the project's id, as a workflow's is under `~/.armada/workflows/projects/`.
+**A Kit save of an Armada id is how a built-in prompt is edited**, and deleting that Kit copy is Reset to Armada's.
+A new type is his, and nothing of it reaches the repository until he presses Commit to repository, which copies it into `.armada/judges/` by a Job of its own ([Kit](kit.md#commit-to-repository)).
+Fleet writes only into Kit's folders, so a save into the repository's scope is refused.
+A file that does not fit is left out and named, and the rest stand.
+The types are read from the folders on each press and each list.
+The wire is `list_judge_types`, `save_judge_type` and `delete_judge_type`.
 
 ## A note
 
@@ -237,7 +267,8 @@ It is deliberately the floor rather than the middle: the dial is only legible ag
 A stronger default would not let a step judge see more, since it reads the same checkout under the same turn cap whatever the model, and would only make every criterion cost more and take longer.
 The turn cap is the `judge-read-turns` setting.
 
-**Judge prompts are compiled into the binary and are not user-editable.** No Kit library, no Manifest override, so prompt version is the binary version and no prompt hash is recorded on the verdict.
+**Step judges' prompts are compiled into the binary and are not user-editable.** No Kit library, no Manifest override, so prompt version is the binary version and no prompt hash is recorded on the verdict.
+A pressed Judge's types are not these: they are files a person edits ([Judge types](#judge-types)).
 Where the prompt library lives, and whether a prompt version is recorded on the verdict, is tracked in `../contracts/agent-prompt.md`; what a Judge is and is not told is specified there, sections 2 and 7.
 
 **The Judge cost cap per check row still reads `undecided`**, and was reviewed and left open rather than guessed at (see Open questions).

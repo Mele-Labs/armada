@@ -902,6 +902,26 @@ where
         self.project_board_saved(project, save).await
     }
 
+    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemMap, Refusal> {
+        self.system_map_read(project, part, feature).await
+    }
+
+    async fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemPartAnswers, Refusal> {
+        self.system_part_read(project, part, feature).await
+    }
+
+    async fn list_system_folder(&self, project: String, path: String) -> Result<ipc::SystemFolder, Refusal> {
+        self.system_folder_read(project, path).await
+    }
+
+    async fn map_system_with_librarian(&self, project: String) -> Result<ipc::SystemMap, Refusal> {
+        self.system_librarian_pressed(project).await
+    }
+
+    async fn answer_system_addition(&self, project: String, answer: ipc::AnswerSystemAddition) -> Result<ipc::SystemMap, Refusal> {
+        self.system_addition_answered(project, answer).await
+    }
+
     async fn read_metrics(&self, project: String) -> Result<ipc::MetricReadings, Refusal> {
         self.metrics_read_for(project).await
     }

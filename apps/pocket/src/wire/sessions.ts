@@ -347,12 +347,12 @@ export type WaitingSource =
   | "browser_ask"
   /**
    * Fleet: the Job's `all_done` is held at a gate nothing in the Job can close, and the person can.
-   * Derived on every read, never kept: id `gate:<group id>`, text `"<group title>" waits on <what>`
-   * (for a merge, `has no open pull request to merge`), an `answer` act whose `target` is the Job's
+   * Derived on every read, never kept: id `gate:<group id>`, text `"<group title>" waits on <what>`,
+   * an `answer` act whose `target` is the Job's
    * own id, and exactly two options, `Approve` (choice 0) and `Skip this group` (choice 1), each with
    * a description of what it does. Listed while a hold stands, nothing in the Job
-   * runs, and the first open gate is one the person can close: an approval of any kind, a merge no
-   * queued pull request is on the way to, or Checks no run has begun. `Approve` on a `plan_approved`
+   * runs, and the first open gate is one the person can close: an approval of any kind, or Checks no
+   * run has begun. A merge is never his: the agent is refused `all_done` instead. `Approve` on a `plan_approved`
    * gate approves the plan; on any other it closes the gate by his word. `Skip this group` closes it
    * as skipped. Neither sends the agent a word of its own, since the close tells it. Words alone go
    * to the agent as a message. Gone when the gate closes or the hold clears. Dismissing it is refused.
@@ -528,6 +528,13 @@ export type WaitingItem = {
    * from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
    */
   artifact?: string;
+  /**
+   * Its place among the Job's open asks, 1 first: the Job's own order from `order_waiting`, else Fleet's
+   * fallback. 0 on a list that is not a Job's open asks, such as the closed ones. `docs/concepts/session/waiting-on-the-person.md`.
+   */
+  order?: number;
+  /** Why it stands where it does, one plain sentence: the Job's own, else Fleet's. Empty where `order` is 0. */
+  why?: string;
 };
 
 /** What the Operator made of a question it would answer. */

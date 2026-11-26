@@ -37,6 +37,8 @@ pub(super) fn card_items(asked: &CallInFlight, picked: &[QuestionAnswer]) -> Vec
             .enumerate()
             .filter(|(_, one)| !picked.iter().any(|done| done.question == one.question))
             .map(|(at, one)| WaitingItem {
+                order: 0,
+                why: String::new(),
                 approves: false,
                 id: ask_item_id(&asked.call, at),
                 text: one.question.clone(),
@@ -64,6 +66,8 @@ pub(super) fn card_items(asked: &CallInFlight, picked: &[QuestionAnswer]) -> Vec
             .collect();
     }
     vec![WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("perm:{}", asked.call),
         text: format!("{} {}", asked.tool, asked.detail)

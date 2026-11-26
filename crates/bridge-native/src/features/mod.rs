@@ -6,6 +6,7 @@
 //! title bar's strip (`operator/screen.rs`).
 
 pub mod artifact_link;
+pub mod ask_box;
 pub(crate) mod asks;
 pub(crate) mod chosen;
 mod curate;
@@ -447,6 +448,12 @@ impl FeaturesScreen {
                         this.relist(cx);
                     }
                 },
+                // The mock librarian's drafts are not in the mock library, so only Fleet's are read again.
+                StartEvent::Asked => {
+                    if let Source::Live(_) = &this.source {
+                        this.read(cx);
+                    }
+                }
                 StartEvent::Escape => {
                     let me = cx.entity();
                     cx.defer(move |cx| {

@@ -36,6 +36,8 @@ fn rule_act_item(act: &KeptRuleAct) -> Option<WaitingItem> {
     };
     let id = format!("{RULE_ACT}{}", act.id);
     Some(WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone(), on: None }),
         id,

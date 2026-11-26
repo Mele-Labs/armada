@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings as keys;
 use ipc::operator_page::OperatorFeedKind;
-use ipc::{CloseSession, ManifestId, Notice, SessionVoice, StartSession};
+use ipc::{CloseSession, ManifestId, Notice, SendSessionMessage, SessionId, SessionTag, SessionUpload, SessionVoice, StartSession};
 
 use crate::daemon::Fleet;
 use super::arriving::{Arrival, Arrived};
@@ -120,6 +120,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let id = self.started_hosted(start, Marked::Operator).await?.id.as_str().to_string();
         self.first_message_from(&id, SessionVoice::You, BEGIN).await?;
@@ -164,12 +165,14 @@ where
         Handed::Now
     }
 
-    /// The person's words to the Operator's session, as he wrote them. A refusal says it is not running.
-    pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str) -> Result<(), Refusal> {
+    /// The person's words to the Operator's session, as he wrote them, with the files and tags he sent. A refusal
+    /// says it is not running.
+    pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
         let Some(id) = self.operator_session_id().await else {
             return Err(self.hosted_refusal(NOT_RUNNING, "the Operator's session is not running, so nothing here reaches it"));
         };
-        self.first_message_from(&id, SessionVoice::You, text).await
+        let sent = SendSessionMessage { session_id: SessionId::carried(&id), text: text.to_string(), attachments, mentions, sketches: Vec::new() };
+        self.message_from(sent, SessionVoice::You).await
     }
 }
 

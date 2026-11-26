@@ -398,6 +398,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
         .route("/sessions/judge/read", post(crate::judge::mark_judge_read::<D>))
+        .route("/judge_types", get(crate::judge::list_judge_types_unplaced::<D>))
+        .route(
+            "/judge_types/:repository",
+            get(crate::judge::list_judge_types::<D>).post(crate::judge::save_judge_type::<D>),
+        )
+        .route("/judge_types/:repository/delete", post(crate::judge::delete_judge_type::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),
@@ -810,6 +816,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/for_you", get(crate::hosted_sessions::get_for_you::<D>))
         .route("/sessions/for_you/withdraw", post(crate::hosted_sessions::withdraw_for_you::<D>))
         .route("/sessions/for_you/order", post(crate::hosted_sessions::order_for_you::<D>))
+        .route("/sessions/waiting/order", post(crate::hosted_sessions::order_waiting::<D>))
         .route("/sessions/for_you/line", post(crate::hosted_sessions::line_for_you::<D>))
         .route("/sessions/for_you/add", post(crate::hosted_sessions::add_for_you::<D>))
         .route(
@@ -962,6 +969,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/seed", post(crate::features::seed_features::<D>))
         .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/librarian/stop", post(crate::features::stop_librarian::<D>))
+        .route("/features/librarian/ask", post(crate::features::ask_librarian::<D>))
+        .route("/features/librarian/undo", post(crate::features::undo_librarian_ask::<D>))
+        .route("/features/librarian/refile", post(crate::features::refile_librarian_ask::<D>))
+        .route("/features/librarian/rank", post(crate::features::rank_with_librarian::<D>))
+        .route("/features/librarian/rank/forget", post(crate::features::forget_librarian_ranking::<D>))
         .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))
@@ -983,6 +995,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/project/:project/metrics/token", post(crate::projects::save_metric_token::<D>))
         .route("/projects/project/:project/metrics/:id/remove", post(crate::projects::remove_metric::<D>))
         .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
+        .route("/projects/project/:project/system", get(crate::system_map::get_system_map::<D>))
+        .route("/projects/project/:project/system/part", get(crate::system_map::get_system_part::<D>))
+        .route("/projects/project/:project/system/folder", get(crate::system_map::list_system_folder::<D>))
+        .route("/projects/project/:project/system/librarian", post(crate::system_map::map_system_with_librarian::<D>))
+        .route("/projects/project/:project/system/answer", post(crate::system_map::answer_system_addition::<D>))
         .route(
             "/projects/project/:project/store",
             get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),

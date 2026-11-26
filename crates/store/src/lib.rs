@@ -67,7 +67,10 @@ mod feature_changes;
 mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
+mod librarian_asks;
 mod librarian_runs;
+/// The parts of a project's system map its librarian added, and what he answered.
+mod system_additions;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
 /// What the owner asked of a Job, sorted from his messages: asks, how each message was sorted, merges and hands.
@@ -116,6 +119,8 @@ mod margin_threads;
 mod page_moves;
 /// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
 mod for_you;
+/// The order a Job set on its open asks, and why each stands there.
+mod waiting_order;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -290,6 +295,7 @@ pub use features::{
     KeptFeatureMerge, KeptSection,
 };
 pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
+pub use system_additions::{addition_state, KeptAddition};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
@@ -317,6 +323,7 @@ pub use page_votes::KeptVote;
 pub use artifact_seen::KeptArtifactSeen;
 pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, KeptMarginSuggestion, KeptMarginThread};
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
+pub use waiting_order::KeptWaitingPlace;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
