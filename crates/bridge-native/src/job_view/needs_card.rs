@@ -337,22 +337,38 @@ mod tests {
         let (_view, cx) = opened(cx);
         assert!(drawn(cx, Role::Button, FIRST), "the first question is its line");
         assert!(drawn(cx, Role::Button, SECOND), "and the second its own, not behind it");
-        assert!(!drawn(cx, Role::Article, FIRST), "no card");
-        assert!(!drawn(cx, Role::Group, "Options"), "no options");
-        assert!(!drawn(cx, Role::Button, REDIRECT), "no option to press");
+        // The thread's first card answers the first question; the panel draws none of it.
+        assert!(!in_panel(cx, Role::Article, FIRST), "no card");
+        assert!(!in_panel(cx, Role::Group, "Options"), "no options");
+        assert!(!in_panel(cx, Role::Button, REDIRECT), "no option to press");
         assert!(!drawn(cx, Role::Status, "1 of 2"), "no stepper");
     }
 
-    /// The Job's pick, among labels with no word on what each costs, is answered in the sheet too: a press on the line opens
-    /// it on that question, and the panel draws no option of it.
+    /// Whether `name` is drawn inside the panel's list of questions.
+    fn in_panel(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        let panel = bounds_of(cx, Role::Region, "Questions");
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().any(|one| one.role == role && one.name.as_ref() == name && panel.contains(&one.bounds.center())))
+    }
+
+    /// The Job's pick, among labels with no word on what each costs, is its first ask: a press on the line folds the panel
+    /// and brings the thread to its card, and the panel draws no option of it.
     #[gpui::test]
-    fn a_press_on_the_line_of_a_question_with_a_pick_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+    fn a_press_on_the_line_of_the_first_question_brings_the_thread_to_its_card(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened_with(cx, labels_only);
-        assert!(!drawn(cx, Role::Button, PICK), "the pick is not pressed in the panel");
+        assert!(!in_panel(cx, Role::Button, PICK), "the pick is not pressed in the panel");
         press(cx, FIRST);
-        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("agent-1"), "the sheet opens on that question");
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the sheet stays shut while the thread holds the card");
+        assert!(drawn(cx, Role::Article, &format!("Question: {FIRST}")), "the thread stands at the question's card");
         view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.is_empty()), "nothing is answered by the press"));
+    }
+
+    /// A question after the first has no card yet, so a press on its line opens the sheet on it.
+    #[gpui::test]
+    fn a_press_on_the_line_of_a_later_question_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx);
+        press(cx, SECOND);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("agent-2"), "the sheet opens on that question");
     }
 
     #[test]

@@ -241,6 +241,12 @@ impl JobView {
             let words = settled.as_ref().and_then(|(_, words)| words.as_deref());
             return self.folded_sketch(ix, card, standing, words, page, look, cx);
         }
+        // While it asks, the first card is the one place it is answered: here it is a line that opens the sheet on it.
+        if standing == Standing::Asking && !card.replaced {
+            if let Some(ask) = self.shown.as_deref().and_then(|job| self.open_ask_of(job, &card.sketch, cx)) {
+                return self.ask_pointer(&format!("thread:{}", card.sketch), &ask, super::ask_line::Stands::Thread, look, cx);
+            }
+        }
         let revisions = card.revisions.len();
         let picked = super::cards::picked_revision(&page.cards.revision, &key, revisions);
         let shown_earlier = picked.is_some_and(|at| at + 1 < revisions);

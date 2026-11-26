@@ -22,6 +22,10 @@ pub struct KeptJudgeReading {
     pub title: String,
     /// What the person asked. Empty asks what was missed.
     pub prompt: String,
+    /// The judge type it read as, by id and by the name it had then. None on a reading kept before judge
+    /// types, which read as `adversarial`.
+    pub judge: Option<String>,
+    pub judge_name: Option<String>,
     /// `reading`, `done` or `failed`.
     pub state: String,
     pub asked_at: String,
@@ -60,7 +64,8 @@ fn keeping_fault(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("keeping a Judge reading")(why))
 }
 
-const READING: &str = "id, kind, artifact_id, title, prompt, state, asked_at, finished_at, failed, read, cost_micros";
+const READING: &str =
+    "id, kind, artifact_id, title, prompt, state, asked_at, finished_at, failed, read, cost_micros, judge, judge_name";
 const NOTE: &str = "id, about, claim, place, expected, found, impact, cites, how, settled_at";
 
 fn reading(row: &Row<'_>) -> rusqlite::Result<KeptJudgeReading> {
@@ -76,6 +81,8 @@ fn reading(row: &Row<'_>) -> rusqlite::Result<KeptJudgeReading> {
         failed: row.get(8)?,
         read: row.get::<_, i64>(9)? != 0,
         cost_micros: row.get::<_, Option<i64>>(10)?.and_then(|micros| micros.try_into().ok()),
+        judge: row.get(11)?,
+        judge_name: row.get(12)?,
         notes: Vec::new(),
     })
 }
@@ -114,7 +121,7 @@ impl Store {
         )
         .map_err(keeping_fault)?;
         held.execute(
-            &format!("INSERT INTO judge_readings (session_id, {READING}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"),
+            &format!("INSERT INTO judge_readings (session_id, {READING}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
             params![
                 session_id,
                 kept.id,
@@ -128,6 +135,8 @@ impl Store {
                 kept.failed,
                 kept.read as i64,
                 kept.cost_micros.and_then(|micros| i64::try_from(micros).ok()),
+                kept.judge,
+                kept.judge_name,
             ],
         )
         .map_err(keeping_fault)?;

@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::Instant;
+use crate::review_runs::{ReviewToolLeftOut, ReviewToolScope, ReviewToolSource};
 use crate::sessions::SessionId;
 
 /// What kind of thing was read.
@@ -116,6 +117,12 @@ pub struct JudgeReading {
     pub artifact: JudgeArtifact,
     /// What the person asked. Empty asks what was missed.
     pub prompt: String,
+    /// The judge type it read as, by id and by the name it had then. Absent on a reading kept before
+    /// judge types, which read as `adversarial`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judge: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judge_name: Option<String>,
     pub state: JudgeState,
     pub asked_at: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -140,6 +147,9 @@ pub struct AskJudge {
     /// Empty asks what was missed.
     #[serde(default)]
     pub prompt: String,
+    /// The judge type's id. Absent reads as `adversarial`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub judge: Option<String>,
 }
 
 /// `send_judge_note`'s body. `POST /sessions/judge/send`.
@@ -163,4 +173,59 @@ pub struct DismissJudgeNote {
 pub struct MarkJudgeRead {
     pub session_id: SessionId,
     pub reading: String,
+}
+
+/// One judge type, resolved for one project: the most specific place that defines its id. Armada carries
+/// Adversarial, Code, Design, System design and API review. Kit's for this project
+/// (`~/.armada/judges/projects/<project>/`) replaces Kit's for all projects (`~/.armada/judges/`), which
+/// replaces the repository's (`.armada/judges/`), and any replaces Armada's, as workflows are kept.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JudgeType {
+    /// The name lower cased with its words joined by a dash, which is also the file's stem.
+    pub id: String,
+    pub name: String,
+    /// What this judge looks for. The shape of its answer is Fleet's: notes, as every reading has.
+    pub prompt: String,
+    pub source: ReviewToolSource,
+    /// Where `source` is Kit: the one project it applies to. Absent, all projects.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<ReviewToolSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hides: Option<ReviewToolSource>,
+}
+
+/// `list_judge_types`: the types one project sees, Armada's first in the order it carries them, then the
+/// others as added. `GET /judge_types/:repository`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JudgeTypes {
+    pub types: Vec<JudgeType>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_out: Vec<ReviewToolLeftOut>,
+}
+
+/// `save_judge_type`'s body. `POST /judge_types/:repository`. A Kit save of an Armada id is how a
+/// built-in prompt is edited in Settings.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SaveJudgeType {
+    pub scope: ReviewToolScope,
+    /// With scope Kit: the one project it applies to. Absent, all projects.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    pub name: String,
+    pub prompt: String,
+    /// Replace the file already holding this id in `scope`. Without it that is a 422.
+    #[serde(default)]
+    pub overwrite: bool,
+}
+
+/// `delete_judge_type`'s body. `POST /judge_types/:repository/delete`. Deleting Kit's copy of an
+/// Armada id brings Armada's prompt back.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeleteJudgeType {
+    pub scope: ReviewToolScope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    pub id: String,
 }

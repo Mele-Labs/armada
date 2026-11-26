@@ -82,9 +82,12 @@ impl WordsReach {
     }
 
     /// This session is the Operator's own: what it is offered at the door beyond a hosted session's is
-    /// the `Operator` rows and the reads and acts across repositories its rules name.
+    /// the `Operator` rows and the reads and acts across repositories its rules name. **None of a Job's
+    /// own acts** ([`crate::door::JOB_ONLY`]): it is not a Job, so it has no Needs you list and no end.
     pub fn the_operator(mut self) -> WordsReach {
         self.operator = true;
+        self.may.retain(|operation| !crate::door::JOB_ONLY.contains(operation));
+        self.otherwise = "it is not a Job, so a Job's own acts are not offered to it";
         self
     }
 
@@ -105,7 +108,8 @@ impl WordsReach {
     /// The refusal a call outside the reach is answered with. **It names the
     /// operation**, so a session reads which act was the person's.
     pub fn refusing(&self, operation: &str) -> String {
-        format!("`{operation}` is not this Job's to call: {}", self.otherwise)
+        let whose = if self.operator { "the Operator's" } else { "this Job's" };
+        format!("`{operation}` is not {whose} to call: {}", self.otherwise)
     }
 }
 

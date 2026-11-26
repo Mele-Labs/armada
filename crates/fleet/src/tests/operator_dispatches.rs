@@ -34,6 +34,7 @@ pub(super) fn the_dispatch(rig: &Rig) -> DispatchJob {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     DispatchJob { start, kind: None, then: vec![DispatchThen::Message(DispatchMessage { text: ALSO.to_string(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })] }
 }

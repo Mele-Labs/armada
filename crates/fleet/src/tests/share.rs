@@ -35,6 +35,7 @@ pub(super) async fn job_in(rig: &Rig, project: Option<&str>) -> SessionId {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     rig.fleet.start_session(start).await.expect("started").id
 }

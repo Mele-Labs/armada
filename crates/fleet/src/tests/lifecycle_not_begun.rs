@@ -60,6 +60,7 @@ async fn a_job_with_no_process(rig: &Rig) -> SessionId {
         held: true,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     rig.fleet.start_session(start).await.expect("started").id
 }

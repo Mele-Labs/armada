@@ -22,10 +22,10 @@ Why: a mock shows one state, and a scene shows each state the agent declared and
 
 | Where | What it does |
 |---|---|
-| The Prototype tab | Draws the scene under a head naming its title and a chip for each state |
-| A state chip, or a part with `goes` | Steps to that state |
+| The Prototype tab | Draws the scene in a frame: an accent hairline, and a band naming it a Prototype with its title |
+| A view tile, or a part with `goes` | Steps to that state; a tile names the state by its `title` over its `says` |
 | Pop out, or ⌥⌘P in the tab | Draws the scene in a window of its own |
-| ⌥⌘A, in the tab or the window | Starts a note, which names the part by its `data-part` |
+| ⌥⌘A, in the tab, the review sheet or the window | Starts a note, which names the part by its `data-part` and goes to the prototype's own Job |
 | Approve, or a note sent back | Goes through the artifact as for any other part |
 
 The state he pressed stays across a redraw, unless the agent's call names a new `state`.
@@ -79,14 +79,14 @@ Fleet finds fixtures by a light scan of each `<fixture src>` and nothing more: t
 ## The vocabulary
 
 **Rule.** A scene is one `<scene>` holding fixtures, states and parts, and each part is drawn by the part of the same name in `crates/bridge-native/src/parts/`.
-A part outside every `<state>` draws in each state, as the tabs do in the example below.
+A part outside every `<state>` draws in each state.
 Words written directly inside a part draw as body text.
 
 | Part | Attributes | Draws |
 |---|---|---|
 | `scene` | `title`, `first`, `walk` | The root; `first` names the state shown first, and `walk` the walk that shows the built screen, for the shot check |
 | `fixture` | `name`, `src`, `type` | Nothing; binds a JSON file to `name` |
-| `state` | `id` | Its children, while it is the state shown |
+| `state` | `id`, `title`, `says` | Its children, while it is the state shown; `title` and `says` are its view tile in the head |
 | `pane` | `title` | A titled region |
 | `card` | `title`, `tone` | A card, its head in the tone |
 | `row` | `title`, `says`, `glyph`, `tone` | A list row; its children are controls at the end |
@@ -117,6 +117,18 @@ Any part takes these, and `tone` takes a tone word or a colour token.
 A space step is `0` or a `--space-N` token in `packages/tokens/tokens.json`.
 A colour token is named there without its leading `--`, such as `bg-raised` or `border-subtle`.
 The tone words are neutral, accent, success, danger (or failed), running, waiting and warning.
+
+### Views
+
+**Rule.** Each `<state>` carries a `title`, a plain name for the view such as `One need`, and a `says`, one line on what that view shows.
+The head draws a tile for each state, its `title` over its `says`, and a press, Enter or Space on a tile steps to it.
+A state with no `title` shows its `id`.
+Past five states, the band holds one View menu in place of the tiles, each state by its `title` over its `says`.
+Why: he could not tell what a chip named `1-do-this-first` changed, or how two states that overlap differ.
+
+**Rule.** A scene draws no tabs, buttons or links whose only job is to switch between its own states.
+`goes` is for a press the built screen has, such as a row that opens its detail or a Back button.
+Why: the head's view tiles already switch states, and a second row that does the same tells him two things do it.
 
 ### Binding, goes and data-part
 
@@ -159,12 +171,7 @@ Each also adds one line to the red band under the head, with Fleet's own trouble
 <scene title="Jobs list" first="list">
   <fixture name="jobs" src="jobs.json" type="json"></fixture>
 
-  <tabs data-part="View tabs">
-    <tab goes="list" data-part="List tab">List</tab>
-    <tab goes="detail" data-part="Detail tab">Detail</tab>
-  </tabs>
-
-  <state id="list">
+  <state id="list" title="List" says="Two Jobs, one waiting on you">
     <pane title="Jobs" data-part="Jobs pane">
       <list each="jobs.sessions" as="job" limit="4" data-part="Jobs list">
         <row title="{job.title}" says="{job.repo}" glyph="circle-dot" tone="running" goes="detail" data-part="Job row">
@@ -174,7 +181,7 @@ Each also adds one line to the red band under the head, with Fleet's own trouble
     </pane>
   </state>
 
-  <state id="detail">
+  <state id="detail" title="One Job" says="The first Job opened, with its summary">
     <card title="{jobs.sessions.0.title}" tone="accent" data-part="Job card">
       <text style="muted" data-part="Job summary">{jobs.sessions.0.summary}</text>
       <box dir="row" gap="2">

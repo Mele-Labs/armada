@@ -61,6 +61,7 @@ where
             project_rows: Vec::new(),
             on_your_words: None,
             project: start.project.filter(|_| !loose),
+            workflow: None,
         };
         let record = self.started_hosted_as(begun, Marked::Plain, Some(side)).await?;
         let (terminal, run_id) = Arc::clone(&self)

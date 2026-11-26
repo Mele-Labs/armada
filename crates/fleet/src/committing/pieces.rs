@@ -32,6 +32,7 @@ fn identity_of(piece: &PieceToCommit) -> Option<Identity> {
         PieceToCommit::FlightControls { .. }
         | PieceToCommit::Workflow { .. }
         | PieceToCommit::ReviewTool { .. }
+        | PieceToCommit::JudgeType { .. }
         | PieceToCommit::Manifest
         | PieceToCommit::Requests { .. } => None,
     }
@@ -43,6 +44,7 @@ fn older_word(piece: &PieceToCommit) -> &'static str {
         PieceToCommit::FlightControls { .. } => "tiles",
         PieceToCommit::Workflow { .. } => "a workflow",
         PieceToCommit::ReviewTool { .. } => "a review tool",
+        PieceToCommit::JudgeType { .. } => "a judge type",
         PieceToCommit::Manifest => "armada.yml",
         PieceToCommit::Requests { .. } => "requests",
         PieceToCommit::Lifecycle { .. }

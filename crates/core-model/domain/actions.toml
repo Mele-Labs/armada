@@ -1394,7 +1394,7 @@ shortcut = "⌥⌘U"
 scope = "thread"
 destructive = false
 confirms = false
-notes = "Asks the Judge to read the words selected in the thread. Beside Ask in the selection bar and its menu: it opens the same Verify that box the other Judge presses open, and nothing is read until Judge is pressed in it. The reading is of kind `excerpt`, its id the row the words came from and eight hex digits of a hash of the words, its title the words. The finished reading is a Judged card at the thread's end. `POST /sessions/judge`."
+notes = "Asks the Judge to read the words selected in the thread. Beside Ask in the selection bar and its menu: it opens the same box the other Judge presses open, with a row of judge types and the line Anything in particular?, and nothing is read until Judge is pressed in it. The reading is of kind `excerpt`, its id the row the words came from and eight hex digits of a hash of the words, its title the words. The finished reading is a Judged card at the thread's end. `POST /sessions/judge`."
 
 [actions.card_judge]
 kind = "Action"
@@ -1416,7 +1416,7 @@ shortcut = "⌥⌘L"
 scope = "list"
 destructive = false
 confirms = false
-notes = "Asks the Judge to read the Job in focus on the Jobs list, as the Job head's Judge does. The row shows the reading going, then a dot where notes wait or a check where it found nothing; pressing the dot or check opens that Job with its Judge tab in front. `POST /sessions/judge`."
+notes = "Opens the Job in focus on the Jobs list with a list of what it holds to judge: the Job, its plan, its pull requests and its Ledger artifacts. Choosing one opens the box of judge types on it, and nothing is read until Judge is pressed there. The row shows the reading going, then a dot where notes wait or a check where it found nothing; pressing the dot or check opens that Job with its Judge tab in front. `POST /sessions/judge`."
 
 [actions.palette_judge]
 kind = "Action"
@@ -1427,7 +1427,7 @@ shortcut = "⇧⌘J"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Lists what can be judged in the Job in focus in the command palette: the Job, its plan and its Ledger artifacts. Choosing one opens the Verify that box on it, and nothing is read until Judge is pressed there. `POST /sessions/judge`."
+notes = "Lists what can be judged in the Job in focus in the command palette: the Job, its plan and its Ledger artifacts. Choosing one opens the box of judge types on it, and nothing is read until Judge is pressed there. `POST /sessions/judge`."
 
 [actions.finding_move]
 kind = "Motion"

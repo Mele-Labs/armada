@@ -154,6 +154,40 @@ async fn the_operator_is_offered_the_issue_reads_and_another_session_is_not() {
     assert!(!listed.contains("\"isError\":true"), "{listed}");
 }
 
+/// **The Operator is not a Job**, so it is offered none of a Job's own acts and a call to one is
+/// refused. It once said "I'm not calling all_done" in its thread, because the door listed it.
+#[tokio::test]
+async fn the_operator_is_offered_no_job_only_act_and_a_call_to_one_is_refused() {
+    let (daemon, app) = hosting_a_session();
+    let job = posted(&app, SESSION, LISTING).await;
+    *daemon.session_is_the_operator.lock().expect("not poisoned") = true;
+
+    let operator = posted(&app, SESSION, LISTING).await;
+
+    for tool in ["waiting_for", "list_closed_waiting", "all_done", "finish_up", "record_plan", "offer_preview", "withdraw_preview", "defer_later", "settle_later", "raise_conflict", "ask_held", "withdraw_held", "write_feature_sections"] {
+        assert!(job.contains(&named(tool)), "`{tool}` is a Job's: {job}");
+        assert!(!operator.contains(&named(tool)), "`{tool}` is a Job's alone, and offered to the Operator: {operator}");
+    }
+    for tool in ["show_sketch", "report_bug", "start_another_job", "handoff_brief", "list_issues"] {
+        assert!(operator.contains(&named(tool)), "`{tool}` is still the Operator's: {operator}");
+    }
+    let refused = posted(&app, SESSION, &calling("all_done", r#"{"summary":"done"}"#)).await;
+    assert!(refused.contains("\"isError\":true"), "{refused}");
+    assert!(refused.contains("not a tool this Fleet offers"), "{refused}");
+}
+
+/// At a door inside a Manifest the reach decides, and it refuses the same acts by name.
+#[test]
+fn the_operators_reach_refuses_a_jobs_own_acts_by_name() {
+    let job = crate::WordsReach::of_a_hosted_session();
+    let operator = job.clone().the_operator();
+    assert!(job.may("all_done"));
+    assert!(!operator.may("all_done"));
+    assert!(!operator.may("waiting_for"));
+    assert!(operator.may("show_sketch"));
+    assert!(operator.refusing("all_done").starts_with("`all_done` is not the Operator's to call"), "{}", operator.refusing("all_done"));
+}
+
 /// What `--permission-prompt-tool` sends, answered by the daemon rather than
 /// refused as a tool that is not there.
 #[tokio::test]

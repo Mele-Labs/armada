@@ -146,6 +146,7 @@ async fn a_job_starts_in_a_copy_that_lists_its_repository_and_is_refused_by_one_
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     let refused = rig.fleet.start_session(start).await.expect_err("the copy does not list the repository");
     assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.project_copy_not_member"));

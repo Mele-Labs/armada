@@ -149,6 +149,9 @@ where
                         String::from("Share does not carry lifecycles, rules or autonomy defaults yet."),
                     ))
                 }
+                PieceToCommit::JudgeType { .. } => {
+                    return Err(self.share_refusal(REFUSED, String::from("Share does not carry judge types yet.")))
+                }
             }
         }
         let text = package::written(made.clone()).map_err(|why| self.share_refusal(UNWRITABLE, format!("The package could not be made: {why}")))?;

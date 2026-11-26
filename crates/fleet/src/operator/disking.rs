@@ -84,6 +84,8 @@ where
             [DROP_THEM, LEAVE_THEM].map(|label| WaitingOption { label: label.to_string(), description: None, picture: None }).into()
         };
         let item = WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id,
             text: said(free, hold, root, next),

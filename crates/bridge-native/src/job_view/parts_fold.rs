@@ -452,7 +452,9 @@ mod tests {
             assert!(page.anchors.iter().any(|one| one.artifact == "draft:Merge line wording" && one.revision == 1), "revision 1 stands under an item of the thread, not at its foot");
         });
         assert!(drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 1"));
-        assert!(drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 2"), "the asking revision is a card answered in the thread");
+        // The asking revision stands whole only as the Job's first ask; until then it is a line in the thread.
+        let first = view.read_with(cx, |view, cx| view.first_ask(JOB, cx).map(|item| super::super::first_card::first_key(&item)));
+        assert_eq!(drawn(cx, Role::Article, "Artifact: Merge line wording, Revision 2"), first.as_deref() == Some("draft:Merge line wording"), "first: {first:?}");
     }
 
     #[gpui::test]

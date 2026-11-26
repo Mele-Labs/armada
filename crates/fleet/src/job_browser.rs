@@ -403,6 +403,8 @@ where
 fn page_ask_item(ask: PageAsk) -> ipc::WaitingItem {
     let id = format!("{ASK_ITEM}{}", ask.id);
     ipc::WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Answer, target: id.clone(), on: None }),
         id,
