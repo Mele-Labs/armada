@@ -169,6 +169,7 @@ pub fn offered_without_a_manifest() -> &'static [&'static str] {
 const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     door::ASKS_A_PERSON,
     "waiting_for",
+    "order_waiting",
     "list_closed_waiting",
     "all_done",
     "show_window",

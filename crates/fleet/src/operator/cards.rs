@@ -117,6 +117,8 @@ where
         let at = self.now();
         let id = format!("{CARD}{}", crate::session_host::new_id());
         let item = WaitingItem {
+            order: 0,
+            why: String::new(),
             id: id.clone(),
             text: title.to_string(),
             since: Instant::carried(at.as_str()),

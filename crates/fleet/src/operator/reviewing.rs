@@ -88,6 +88,8 @@ where
 
     async fn review_offered(&self, manifest: &str, number: u64, tools: &[String]) {
         let item = WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id: id_of(manifest, number),
             text: format!("Run {} on #{number}?", tools.join(", ")),

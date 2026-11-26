@@ -528,6 +528,13 @@ export type WaitingItem = {
    * from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
    */
   artifact?: string;
+  /**
+   * Its place among the Job's open asks, 1 first: the Job's own order from `order_waiting`, else Fleet's
+   * fallback. 0 on a list that is not a Job's open asks, such as the closed ones. `docs/concepts/session/waiting-on-the-person.md`.
+   */
+  order?: number;
+  /** Why it stands where it does, one plain sentence: the Job's own, else Fleet's. Empty where `order` is 0. */
+  why?: string;
 };
 
 /** What the Operator made of a question it would answer. */

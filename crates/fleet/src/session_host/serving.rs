@@ -678,6 +678,10 @@ where
         self.for_you_withdrawn(withdraw).await
     }
 
+    async fn order_waiting(self: Arc<Self>, order: ipc::OrderWaiting) -> Result<SessionRecord, Refusal> {
+        self.waiting_ordered(order).await
+    }
+
     async fn order_for_you(self: Arc<Self>, order: ipc::OrderForYou) -> Result<ipc::ForYou, Refusal> {
         self.for_you_ordered(order).await
     }

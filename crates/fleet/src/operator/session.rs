@@ -120,6 +120,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let id = self.started_hosted(start, Marked::Operator).await?.id.as_str().to_string();
         self.first_message_from(&id, SessionVoice::You, BEGIN).await?;

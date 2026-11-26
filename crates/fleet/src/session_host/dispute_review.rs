@@ -86,6 +86,7 @@ where
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await;
         let review = match started {

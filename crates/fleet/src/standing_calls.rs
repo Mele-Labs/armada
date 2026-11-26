@@ -215,6 +215,8 @@ impl Job {
     /// `waitingOf`'s own items: the start that failed, which has no item on the wire, then the wire's.
     fn waits(&self) -> Vec<WaitingItem> {
         let failed = self.start_failed.then(|| WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id: "start_failed".into(),
             text: "Start it again or report it".into(),
