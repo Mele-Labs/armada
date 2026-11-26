@@ -33,7 +33,7 @@ pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
 }
 
 /// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/preview_offers`, `/api/mac/projects`, `/api/mac/session`,
-/// `/api/mac/thread`, `/api/mac/artifacts` and `/api/mac/artifact_page`: Fleet's answer as it came.
+/// `/api/mac/thread`, `/api/mac/artifacts`, `/api/mac/artifact_page` and `/api/mac/margin`: Fleet's answer as it came.
 pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
     read_as(gateway, mac, uri, false).await
 }

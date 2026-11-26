@@ -59,6 +59,8 @@ struct Begin {
     repository: String,
     /// The project of the row picked, by Fleet's id.
     project: Option<String>,
+    /// The workflow the sentence's kind starts on, empty for a talk Job; none for plain words.
+    workflow: Option<String>,
     model: Option<String>,
     effort: Option<String>,
     held: bool,
@@ -433,8 +435,8 @@ impl DispatchScreen {
             match asked {
                 Asked::ReadRepository(words) => self.read_repository(words.clone(), window, cx),
                 Asked::ReadWait { job, words } => self.read_wait(job.clone(), words.clone(), window, cx),
-                Asked::Start { words, repository, project, model, effort, held } => {
-                    let begin = Begin { words: words.clone(), repository: repository.clone(), project: project.clone(), model: model.clone(), effort: effort.clone(), held: *held };
+                Asked::Start { words, repository, project, workflow, model, effort, held } => {
+                    let begin = Begin { words: words.clone(), repository: repository.clone(), project: project.clone(), workflow: workflow.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
                 Asked::Queue { .. } | Asked::JobHere(_) | Asked::ReadFeatures(_) | Asked::Closed => {}
@@ -682,7 +684,7 @@ impl DispatchScreen {
             project_rows: Vec::new(),
             on_your_words: None,
             project: begin.project,
-            workflow: None,
+            workflow: begin.workflow,
         };
         // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
         // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.

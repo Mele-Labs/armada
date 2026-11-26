@@ -40,6 +40,33 @@ pub fn run_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::Lib
     request(port, Ask::Post("/features/librarian".into(), crate::settings::wire::body(&body)), "LibrarianRan", cx)
 }
 
+/// `POST /features/librarian/ask`: his words to the project's librarian, which does at most one thing with them.
+pub fn ask_librarian(port: u16, body: &ipc::AskLibrarian, cx: &App) -> Task<Result<ipc::LibrarianAnswered, Refused>> {
+    request(port, Ask::Post("/features/librarian/ask".into(), crate::settings::wire::body(body)), "LibrarianAnswered", cx)
+}
+
+/// `POST /features/librarian/undo`: the act of one ask is taken back.
+pub fn undo_librarian_ask(port: u16, body: &ipc::UndoLibrarianAsk, cx: &App) -> Task<Result<ipc::LibrarianAskUndone, Refused>> {
+    request(port, Ask::Post("/features/librarian/undo".into(), crate::settings::wire::body(body)), "LibrarianAskUndone", cx)
+}
+
+/// `POST /features/librarian/refile`: the doc one ask filed moves to another feature.
+pub fn refile_librarian_ask(port: u16, body: &ipc::RefileLibrarianAsk, cx: &App) -> Task<Result<ipc::LibrarianAnswered, Refused>> {
+    request(port, Ask::Post("/features/librarian/refile".into(), crate::settings::wire::body(body)), "LibrarianAnswered", cx)
+}
+
+/// `POST /features/librarian/rank`: the project's might-lists, ranked by the librarian.
+pub fn rank_with_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::RankedIssues, Refused>> {
+    let body = ipc::RankWithLibrarian { project: project.to_string() };
+    request(port, Ask::Post("/features/librarian/rank".into(), crate::settings::wire::body(&body)), "RankedIssues", cx)
+}
+
+/// `POST /features/librarian/rank/forget`: the might-lists go back to the ranking by features.
+pub fn forget_librarian_ranking(port: u16, project: &str, cx: &App) -> Task<Result<ipc::RankedIssues, Refused>> {
+    let body = ipc::RankWithLibrarian { project: project.to_string() };
+    request(port, Ask::Post("/features/librarian/rank/forget".into(), crate::settings::wire::body(&body)), "RankedIssues", cx)
+}
+
 /// `POST /features/librarian/stop`: the project's running run stops before its next step. `crates/ipc/operations/stop_librarian.toml`.
 pub fn stop_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::LibrarianStopping, Refused>> {
     let body = ipc::StopLibrarian { project: project.to_string() };

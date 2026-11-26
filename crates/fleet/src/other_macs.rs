@@ -351,8 +351,12 @@ where
         self.job_artifacts_shared(&job).await
     }
 
-    async fn share_job_artifact_page(&self, job: SessionId, artifact: String, revision: Option<u32>) -> Result<ipc::ArtifactPageShared, Refusal> {
-        self.job_artifact_page_shared(&job, &artifact, revision).await
+    async fn share_job_artifact_page(&self, job: SessionId, artifact: String, revision: Option<u32>, host_kit: bool) -> Result<ipc::ArtifactPageShared, Refusal> {
+        self.job_artifact_page_shared(&job, &artifact, revision, host_kit).await
+    }
+
+    async fn share_job_margin(&self, get: ipc::GetMarginThreads) -> Result<ipc::MarginThreads, Refusal> {
+        self.job_margin_shared(get).await
     }
 
     async fn share_job_page(&self, job: SessionId, port: u16) -> Result<(), Refusal> {

@@ -11,9 +11,9 @@ use std::collections::HashSet;
 
 use gpui::{
     anchored, canvas, deferred, div, point, prelude::*, Anchor, AnchoredPositionMode, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, FontWeight, KeyDownEvent,
-    MouseButton, MouseDownEvent, Role, SharedString, Subscription, Toggled, Window,
+    MouseButton, MouseDownEvent, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui_component::input::{InputEvent, TextareaState};
 use ipc::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeReading, JudgeState, MarkJudgeRead, SendJudgeNote, SessionId, SessionPlan,
     SessionPlanGroup, SessionRecord,
@@ -135,10 +135,7 @@ pub(super) enum Chips {
     Tab,
 }
 
-/// The type a choice means in a list read: the one chosen, else Adversarial, else the first.
-pub(super) fn chosen_in<'a>(list: &'a [ipc::JudgeType], chosen: &str) -> Option<&'a ipc::JudgeType> {
-    list.iter().find(|one| one.id == chosen).or_else(|| list.iter().find(|one| one.id == crate::judge_types::DEFAULT)).or_else(|| list.first())
-}
+pub(super) use crate::judge_chips::chosen_in;
 
 /// Where the notes of a plan stand: only a reading that finished has any.
 pub(super) struct Pinned<'a> {
@@ -360,23 +357,7 @@ impl JobView {
             JudgeKind::Job => "Judge the Job".to_string(),
             _ => format!("Judge {}", open.artifact.title),
         };
-        let field = labelled(
-            div()
-                .id(SharedString::from(format!("judge-box:{key}")))
-                .key_context(crate::keymap::TEXT_BOX)
-                .w_full()
-                .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_SUNKEN))
-                .text_size(look.length(token::TEXT_SM))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(Textarea::new(&open.area).appearance(false).aria_label("Anything in particular?")),
-            Role::TextInput,
-            "Anything in particular?",
-        );
+        let field = crate::judge_chips::prompt_field(key, &open.area, look);
         labelled(
             div()
                 .id(SharedString::from(format!("judge-pop:{key}")))
@@ -540,10 +521,7 @@ impl JobView {
     fn step_judge_type(&mut self, which: Chips, delta: isize, cx: &mut Context<Self>) {
         let Some((chosen, _)) = self.chosen_where(which) else { return };
         let Some(Ok(list)) = self.judge_list(cx) else { return };
-        let at = chosen_in(list, &chosen).and_then(|one| list.iter().position(|other| other.id == one.id)).unwrap_or(0);
-        let to = at.saturating_add_signed(delta).min(list.len().saturating_sub(1));
-        if to != at {
-            let id = list[to].id.clone();
+        if let Some(id) = crate::judge_chips::stepped(list, &chosen, delta) {
             crate::ui_sounds::moved();
             self.choose_judge_type(which, id, cx);
         }
@@ -555,75 +533,21 @@ impl JobView {
         let (chosen, focus) = self.chosen_where(which)?;
         let job = self.shown.as_ref()?;
         self.judge_place(job, cx)?;
-        let hue = look.color(token::STATUS_AWAITING_REVIEW);
-        let tall = look.length(token::H_CONTROL_SM);
-        let list = match self.judge_list(cx) {
-            None => {
-                let bones = [0.8, 1.1, 0.7].into_iter().enumerate().map(|(at, wide)| {
-                    div().flex_none().h(tall).w(look.length(token::SPACE_12) * wide).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::FG_DEFAULT).opacity(0.07)).with_animation(
-                        SharedString::from(format!("judge-types-{key}-{at}")),
-                        Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.5, 1.)),
-                        |shape, at| shape.opacity(at),
-                    )
-                });
-                return Some(labelled(div().id(SharedString::from(format!("judge-types:{key}"))).flex().gap(look.length(token::SPACE_2)).children(bones), Role::Status, "Judge types").into_any_element());
-            }
-            Some(Err(why)) => return Some(super::acts::refusal(look, key, why.clone().into())),
-            Some(Ok(list)) => list,
-        };
-        let on = chosen_in(list, &chosen).map(|one| one.id.clone())?;
-        let chip = |one: &ipc::JudgeType| {
-            let (id, selected) = (one.id.clone(), one.id == on);
-            let tip_text = crate::judge_types::first_sentence(&one.prompt);
-            let chip = div()
-                .id(SharedString::from(format!("judge-type:{key}:{}", one.id)))
-                .flex_none()
-                .flex()
-                .items_center()
-                .h(tall)
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(if selected { hue } else { look.color(token::BORDER_DEFAULT) })
-                .when(selected, |chip| chip.bg(hue.opacity(0.14)).text_color(hue).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
-                .when(!selected, |chip| chip.text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_HOVER))))
-                .cursor_pointer()
-                .text_size(look.length(token::TEXT_SM))
-                .aria_toggled(if selected { Toggled::True } else { Toggled::False })
-                .when(!tip_text.is_empty(), |chip| chip.tooltip(tip(tip_text.clone())))
-                .child(SharedString::from(one.name.clone()))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    cx.stop_propagation();
-                    this.choose_judge_type(which, id.clone(), cx);
-                    if let Some((_, focus)) = this.chosen_where(which) {
-                        window.focus(&focus, cx);
-                    }
-                }));
-            labelled(chip, Role::RadioButton, one.name.clone()).into_any_element()
-        };
-        let row = div()
-            .id(SharedString::from(format!("judge-types:{key}")))
-            .track_focus(&focus)
-            .flex()
-            .flex_wrap()
-            .gap(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_MD))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(gpui::transparent_black())
-            .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
-                let delta = match event.keystroke.key.as_str() {
-                    "left" => -1,
-                    "right" => 1,
-                    _ => return,
-                };
-                if !event.keystroke.modifiers.modified() {
-                    cx.stop_propagation();
-                    this.step_judge_type(which, delta, cx);
+        Some(crate::judge_chips::chips(
+            key,
+            self.judge_list(cx),
+            &chosen,
+            &focus,
+            look,
+            cx,
+            move |this, id, window, cx| {
+                this.choose_judge_type(which, id, cx);
+                if let Some((_, focus)) = this.chosen_where(which) {
+                    window.focus(&focus, cx);
                 }
-            }))
-            .children(list.iter().map(chip));
-        Some(labelled(row, Role::RadioGroup, "Judge type").into_any_element())
+            },
+            move |this, delta, _, cx| this.step_judge_type(which, delta, cx),
+        ))
     }
 
     /// Whether the Judge's box is open under the press `key` of the Job shown.

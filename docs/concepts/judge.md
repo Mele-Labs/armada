@@ -52,6 +52,7 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Artifact | Where the act stands |
 | --- | --- |
 | Plan, pull request, commit, file | Its ledger row |
+| A pull request a Job holds | The head of its page in Reviews, with its notes under Review comments |
 | Walk page, sketch | Its ledger row |
 | Document | Its ledger row and the head of its page |
 | Command, subagent, issue, note | Its ledger row |

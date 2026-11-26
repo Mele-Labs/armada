@@ -71,7 +71,9 @@ impl ReviewsScreen {
             let said = copied.then(|| labelled(div().id("page-copied").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Link copied"), Role::Status, "Link copied"));
             div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(said).child(copy).child(browse)
         });
-        let title_row = div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(heading)).children(acts);
+        // Judge sits beside Copy link, where a Job holds the pull request.
+        let beside = div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(self.judge_button(page, look, cx)).children(acts);
+        let title_row = div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(heading)).child(beside);
         panel(look)
             .flex_none()
             .flex()

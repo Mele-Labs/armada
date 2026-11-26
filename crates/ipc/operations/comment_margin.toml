@@ -12,5 +12,7 @@ notes = """
 
 Refused with 422: `fleet.margin_empty` for blank words or a blank quote, `fleet.margin_no_page` for a page the Job holds none of, `fleet.margin_no_thread` for a thread the Job has none of or one on another page, and `fleet.margin_settled` for a settled thread.
 
+**On a Job held from another Mac it runs there**, as the act `margin_comment` (`act_from_mac`), and that Mac's answer is passed back as it said it. Since 26 Nov 2026.
+
 `agent_access` is `No`: the comment is the person's.
 """

@@ -9,6 +9,7 @@ mod rows_from_newer;
 mod devices;
 mod job_shells;
 mod features;
+mod librarian_asks;
 mod librarian_runs;
 mod system_additions;
 mod feature_doc_checks;

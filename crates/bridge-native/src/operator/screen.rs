@@ -224,6 +224,10 @@ impl OperatorScreen {
         }
         let list = jobs.read(cx).list.clone();
         let view = jobs.read(cx).view().clone();
+        // Reviews reads a Job's readings of the pull requests it holds from the same list.
+        if let Some(reviews) = &reviews {
+            reviews.update(cx, |reviews, cx| reviews.watch_jobs(list.clone(), cx));
+        }
         let subs = vec![
             cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx)),
             // The card in front may be a Job's Ready to try, drawn from the Job view; and the Review panel, opened over the page,

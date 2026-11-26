@@ -7,6 +7,9 @@
 //! matches the code, `floor_plan` which modules it lights, `brief` what an agent is handed first, `measuring` how the library is judged. The library lives on
 //! this Mac; nothing here is shared with teammates.
 
+pub(crate) mod asking;
+mod asking_rank;
+mod asking_reply;
 pub(crate) mod brief;
 mod changing;
 mod consulting;

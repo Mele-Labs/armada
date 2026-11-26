@@ -438,6 +438,7 @@ impl ReviewsScreen {
             let said = "Seen at the latest commit";
             labelled(div().id(SharedString::from(format!("seen-{number}"))).tooltip(tip(said)).child(glyph("check", look.length(token::SPACE_4), look.color(token::FG_MUTED))), Role::Image, said)
         });
+        let judged = self.judge_row_mark(number, look, cx);
         let weight = if open { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let card = row_card(look, SharedString::from(format!("pr-row-{number}")), open, focused, true, look.length(token::SPACE_2))
             .cursor_pointer()
@@ -468,6 +469,7 @@ impl ReviewsScreen {
                     // The seen, review and checks columns keep their width on every row, so the titles and marks line up whether a row is marked or not.
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(seen))
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(reviewing))
+                    .child(div().flex_none().w(look.length(token::SPACE_4)).flex().justify_center().children(judged))
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(checks)),
             )
             .child(labelled(

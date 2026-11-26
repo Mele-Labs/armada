@@ -28,7 +28,7 @@ use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
-mod judging;
+pub(crate) mod judging;
 
 actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow]);
 

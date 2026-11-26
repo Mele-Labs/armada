@@ -248,6 +248,66 @@ pub(crate) async fn stop_librarian<D: Features>(State(served): State<Served<D>>,
     }
 }
 
+/// He asks the librarian from the Ask box. **Placed as `run_librarian` is.**
+pub(crate) async fn ask_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::AskLibrarian = match ipc::decode_body("an ask of the librarian", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ask_librarian(crate::acting::asking(), asked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He presses Undo under an answer. **Placed as `run_librarian` is.**
+pub(crate) async fn undo_librarian_ask<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::UndoLibrarianAsk = match ipc::decode_body("an ask to undo", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().undo_librarian_ask(crate::acting::asking(), asked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He presses Move under a filed doc. **Placed as `run_librarian` is.**
+pub(crate) async fn refile_librarian_ask<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::RefileLibrarianAsk = match ipc::decode_body("a filed doc to move", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().refile_librarian_ask(crate::acting::asking(), asked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He presses Rank with the librarian. **Placed as `run_librarian` is.**
+pub(crate) async fn rank_with_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::RankWithLibrarian = match ipc::decode_body("a project to rank", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().rank_with_librarian(crate::acting::asking(), asked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He presses Reset on the ranked lists. **Placed as `run_librarian` is.**
+pub(crate) async fn forget_librarian_ranking<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let asked: ipc::RankWithLibrarian = match ipc::decode_body("a project whose ranking to forget", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().forget_librarian_ranking(crate::acting::asking(), asked).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
 /// not on the agent's connection.
 pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {

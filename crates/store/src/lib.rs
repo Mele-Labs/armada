@@ -67,6 +67,7 @@ mod feature_changes;
 mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
+mod librarian_asks;
 mod librarian_runs;
 /// The parts of a project's system map its librarian added, and what he answered.
 mod system_additions;

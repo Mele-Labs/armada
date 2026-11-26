@@ -878,7 +878,7 @@ pub(crate) async fn get_job_artifacts<D: HostedSessions>(
 
 /// The Mac that holds the Job an artifact act names, where the act is the person's: **an agent's call through the door
 /// is never passed on**, so a Job cannot fold away or open an artifact on another Mac as him.
-async fn held_artifact_mac<D: OtherMacs>(served: &Served<D>, job: Option<&ipc::SessionId>) -> Option<String> {
+pub(crate) async fn held_artifact_mac<D: OtherMacs>(served: &Served<D>, job: Option<&ipc::SessionId>) -> Option<String> {
     if crate::acting::asking().is_some() {
         return None;
     }

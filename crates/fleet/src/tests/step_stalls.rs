@@ -178,3 +178,58 @@ async fn a_step_inside_its_time_is_told_nothing_and_leaving_it_keeps_nothing_tol
     let kept = rig.fleet.store().lock().await.session_rail(id.as_str(), &["plan".to_string(), "implement".to_string(), "handoff".to_string()]).unwrap();
     assert!(kept.stalled.is_empty(), "nothing was told for this step: {kept:?}");
 }
+
+// ---- A Job that waits on another has not begun ----
+
+/// A Job on the rail workflow made to wait for `on` to land its pull request.
+async fn waits_on(rig: &Rig, on: &SessionId) -> SessionId {
+    let start = ipc::StartSession {
+        project: None,
+        manifest_id: rig.manifest.clone(),
+        title: None,
+        model: None,
+        effort: None,
+        mode: None,
+        fork: None,
+        root: None,
+        request: Some("Build the reader once the other lands.".into()),
+        after: Some(ipc::StartAfter { session: on.clone(), condition: ipc::StartCondition::PrLands, base: ipc::StartBase::Main, needs: String::new() }),
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+        workflow: Some("rail".into()),
+    };
+    Arc::clone(&rig.fleet).start_session_reading(start).await.expect("made to wait").id
+}
+
+#[tokio::test]
+async fn a_job_waiting_on_another_is_never_stalled_or_told_and_its_step_begins_at_its_first_turn() {
+    let (rig, held) = clocked();
+    let on = on_the_rail(&rig).await;
+    rig.stand_in.finishes(0, "Reading the code.");
+    eventually(|| async { rig.turn(&on).await == ipc::SessionTurn::Idle }).await;
+    let waiting = waits_on(&rig, &on).await;
+    // A step kept while it waited, as Fleet kept one before a waiting Job kept none.
+    let steps: Vec<String> = ["plan", "implement", "handoff"].iter().map(|one| one.to_string()).collect();
+    let dispatched = rig.fleet.now().as_str().to_string();
+    let planted = KeptRail { step: Some(0), visits: vec![(0, dispatched.clone())], ..KeptRail::default() };
+    rig.fleet.store().lock().await.keep_session_rail(waiting.as_str(), &planted, &steps).unwrap();
+    others_stayed(&rig, &on, 3600).await;
+    held.on(4000);
+
+    let still = record(&rig, &waiting).await;
+    assert!(still.waits.is_some(), "it still waits");
+    assert!(still.workflow_strip.and_then(|strip| strip.stalled).is_none(), "a Job that has not begun is not late");
+    rig.fleet.steps_stalled_told().await;
+    let told = rig.fleet.told_by_fleet(waiting.as_str(), "Fleet: a word for it.", ipc::Notice::RailNudge).await;
+    assert!(matches!(told, Ok(false)), "Fleet's word does not reach it: {told:?}");
+    assert_eq!(nudges(&rig.rows(&waiting).await), 0, "no nudge");
+    assert_eq!(rig.stand_in.starts().len(), 1, "and no process started for it");
+
+    Arc::clone(&rig.fleet).start_waiting_now(ipc::StartWaitingNow { session_id: waiting.clone() }).await.expect("started");
+    eventually(|| async { rig.stand_in.starts().len() == 2 }).await;
+    let began = record(&rig, &waiting).await.workflow_visits.last().cloned().expect("its step began");
+    let ms = |at: &str| Timestamp::from_rfc3339(at).epoch_millis().unwrap();
+    assert!(ms(began.since.as_str()) >= ms(&dispatched) + 4_000_000, "the step began at its first turn, not when it was made: {began:?}");
+    assert!(record(&rig, &waiting).await.workflow_strip.and_then(|strip| strip.stalled).is_none(), "so it starts inside its time");
+}
