@@ -146,7 +146,7 @@ impl HomeScreen {
 
     fn new(source: Source, page: Entity<OperatorPageView>, features: Entity<FeaturesScreen>, list: Entity<JobsList>, system: Entity<SystemBlock>, cx: &mut Context<Self>) -> Self {
         let needs = cx.new(|cx| NeedsCards::new(list.clone(), NeedsScope::default(), cx));
-        let floor = cx.new(|cx| FloorPlan::plan(features.clone(), list, cx));
+        let floor = cx.new(|cx| FloorPlan::waiting(features.clone(), list, cx));
         let stats = cx.new(|_| PlaceholderBlock::headless(HomeBlockKind::SystemStats));
         let keys = page.read(cx).focus.clone();
         let mut subs = vec![
@@ -202,6 +202,9 @@ impl HomeScreen {
         this.needs.update(cx, |needs, cx| needs.set_hosted(true, cx));
         this.follow_project(cx);
         this.sync_blocks(cx);
+        if up {
+            this.floor.update(cx, |floor, cx| floor.follow(cx));
+        }
         this
     }
 
@@ -216,6 +219,9 @@ impl HomeScreen {
         let up = self.is_up(cx);
         if up != self.up {
             self.up = up;
+            if up {
+                self.floor.update(cx, |floor, cx| floor.follow(cx));
+            }
             cx.emit(HomeEvent::Moved);
         }
         cx.notify();

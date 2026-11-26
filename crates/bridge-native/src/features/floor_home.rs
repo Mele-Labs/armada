@@ -109,10 +109,15 @@ pub struct Floor {
 impl Floor {
     /// The plan alone, for a block of the Cockpit's home: it reads the library as soon as it is made and follows it from then on.
     pub fn plan(features: Entity<FeaturesScreen>, list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
-        let subs = vec![cx.observe(&features, |this, _, cx| this.sync(cx)), cx.observe(&list, |_, _, cx| cx.notify())];
-        let mut this = Floor { features, list, overview: Overview::Idle, asked: None, work: None, _subs: subs };
+        let mut this = Self::waiting(features, list, cx);
         this.follow(cx);
         this
+    }
+
+    /// The plan alone, asking nothing of Fleet until `follow`: for a home that is not drawn yet.
+    pub fn waiting(features: Entity<FeaturesScreen>, list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
+        let subs = vec![cx.observe(&features, |this, _, cx| this.sync(cx)), cx.observe(&list, |_, _, cx| cx.notify())];
+        Floor { features, list, overview: Overview::Idle, asked: None, work: None, _subs: subs }
     }
 
     /// The floor reads the library without being in front. Called again where another place was in front and left.
