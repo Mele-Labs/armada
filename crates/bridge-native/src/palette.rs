@@ -1350,6 +1350,7 @@ impl Palette {
                         project_rows: Vec::new(),
                         project: None,
                         on_your_words: None,
+                        workflow: None,
                     };
                     said(ipc::encode(&start)).map(|body| Request::Post("/sessions/start", body))
                 }

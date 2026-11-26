@@ -102,6 +102,7 @@ impl Rig {
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
     }
@@ -159,6 +160,7 @@ impl Rig {
                 held: false,
                 project_rows: Vec::new(),
                 on_your_words: None,
+                workflow: None,
             })
             .await
             .expect("started");
@@ -320,6 +322,7 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         })
         .await
         .expect("started");

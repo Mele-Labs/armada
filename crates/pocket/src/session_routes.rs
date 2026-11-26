@@ -388,6 +388,7 @@ fn starting(manifest_id: ManifestId) -> StartSession {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     }
 }
 

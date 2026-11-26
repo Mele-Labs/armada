@@ -246,6 +246,7 @@ async fn waiting_in(rig: &Rig, project: &str, on: &SessionId) -> SessionId {
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     api::HostedSessions::start_session_reading(Arc::clone(&rig.fleet), start).await.expect("started, waiting").id
 }
