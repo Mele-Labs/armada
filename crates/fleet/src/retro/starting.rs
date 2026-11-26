@@ -108,6 +108,7 @@ where
             held: false,
             project_rows: Vec::new(),
             on_your_words: None,
+            workflow: None,
         };
         let started = match HostedSessions::start_session(self.as_ref(), start).await {
             Ok(record) => record.id.as_str().to_string(),

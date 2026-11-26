@@ -159,6 +159,7 @@ fn started_on_work(rig: &Rig, row: &SessionRecord) -> (ipc::JobAct, api::ActAnsw
         held: false,
         project_rows: Vec::new(),
         on_your_words: None,
+        workflow: None,
     };
     (ipc::JobAct::Start(start), api::ActAnswered { status: 200, body: ipc::encode(row).expect("encodes").into_bytes() })
 }

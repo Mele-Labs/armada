@@ -682,6 +682,7 @@ impl DispatchScreen {
             project_rows: Vec::new(),
             on_your_words: None,
             project: begin.project,
+            workflow: None,
         };
         // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
         // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.
@@ -759,6 +760,7 @@ impl DispatchScreen {
             on_your_words: None,
             // The project of the row it was saved from, whatever the window is on now.
             project: idea.project.clone(),
+            workflow: None,
         };
         // His idea is his work: it goes as a dispatch, unheld, its words the first message, answered as the sheet's Start is.
         let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
