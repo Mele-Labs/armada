@@ -487,6 +487,7 @@ impl Commands for FakeDaemon {
             ipc::PieceToCommit::FlightControls { .. } => ".armada/flight-controls.toml".to_string(),
             ipc::PieceToCommit::Workflow { workflow_id } => format!(".armada/workflows/{}", workflow_id.as_str()),
             ipc::PieceToCommit::ReviewTool { id } => format!(".armada/review-tools/{id}.md"),
+            ipc::PieceToCommit::JudgeType { id, .. } => format!(".armada/judges/{id}.md"),
             ipc::PieceToCommit::Manifest => "armada.yml".to_string(),
             ipc::PieceToCommit::Requests { .. } => ".armada/requests.toml".to_string(),
             ipc::PieceToCommit::Lifecycle { id, .. } => format!(".armada/lifecycles/{id}.yml"),

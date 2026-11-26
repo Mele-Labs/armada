@@ -282,6 +282,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/for_you/withdraw",
     },
     Route {
+        operation: "order_waiting",
+        method: "POST",
+        path: "/sessions/waiting/order",
+    },
+    Route {
         operation: "order_for_you",
         method: "POST",
         path: "/sessions/for_you/order",

@@ -68,6 +68,20 @@ pub(super) fn wire_instant(at: &str) -> ipc::Instant {
 }
 
 pub(super) fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
+    let mut detail = row.detail.clone();
+    // A link says what it points at, read from its address as it is served, so a link kept before this was known says it too.
+    if row.kind == crate::session_links::LINK {
+        match adapters::link_site(&row.target) {
+            adapters::LinkSite::Claude => {
+                detail.insert("place".to_string(), "claude".to_string());
+            }
+            adapters::LinkSite::External(site) => {
+                detail.insert("place".to_string(), "external".to_string());
+                detail.insert("site".to_string(), site.to_string());
+            }
+            adapters::LinkSite::Web => {}
+        }
+    }
     ipc::Attachment {
         kind: row.kind.clone(),
         manifest_id: (!row.manifest_id.is_empty()).then(|| ManifestId::carried(&row.manifest_id)),
@@ -77,7 +91,7 @@ pub(super) fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
             AttachmentState::Spent => ipc::AttachmentState::Spent,
             AttachmentState::GivenBack => ipc::AttachmentState::GivenBack,
         },
-        detail: row.detail.clone(),
+        detail,
         since: wire_instant(&row.since),
         changed_at: wire_instant(&row.changed_at),
     }
@@ -214,5 +228,35 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         claim_waits: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+    }
+}
+
+#[cfg(test)]
+mod link_place_tests {
+    use super::*;
+
+    fn link(target: &str) -> KeptAttachment {
+        KeptAttachment {
+            holder: store::Holder::session("s1"),
+            kind: crate::session_links::LINK.into(),
+            manifest_id: String::new(),
+            target: target.into(),
+            state: AttachmentState::Spent,
+            detail: std::collections::BTreeMap::from([("by".to_string(), "agent".to_string())]),
+            since: "2026-11-25T10:00:00Z".into(),
+            changed_at: "2026-11-25T10:00:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn a_link_is_served_saying_what_it_points_at() {
+        let claude = attachment_wire(&link("https://claude.ai/public/artifacts/abc"));
+        assert_eq!(claude.detail.get("place").map(String::as_str), Some("claude"));
+        let figma = attachment_wire(&link("https://www.figma.com/design/abc"));
+        assert_eq!(figma.detail.get("place").map(String::as_str), Some("external"));
+        assert_eq!(figma.detail.get("site").map(String::as_str), Some("Figma"));
+        let plain = attachment_wire(&link("https://docs.rs/gpui"));
+        assert_eq!(plain.detail.get("place"), None);
+        assert_eq!(plain.detail.get("by").map(String::as_str), Some("agent"));
     }
 }

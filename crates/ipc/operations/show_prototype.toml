@@ -1,5 +1,5 @@
 [operations.show_prototype]
-ask_tool = "none"
+ask_tool = "prototype"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

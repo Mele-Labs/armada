@@ -14,6 +14,8 @@ use crate::session_host::dedup::{left_off_as_misread, FOLDS_AT};
 
 fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
     WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: id.to_string(),
         text: text.to_string(),

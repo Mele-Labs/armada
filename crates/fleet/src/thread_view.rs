@@ -10,7 +10,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use ipc::{
-    Instant, JudgeState, PlanCardState, RawScene, SessionAskState, SessionRecord, SessionRow, SessionThread,
+    Instant, JudgeKind, JudgeState, PlanCardState, RawScene, SessionAskState, SessionRecord, SessionRow, SessionThread,
     SessionVoice, ThreadHead, ThreadItem, ThreadMargin, ThreadPlan, ThreadReadyToTry, ThreadTrail, TimelineEvent,
 };
 
@@ -404,9 +404,12 @@ fn names_of(rows: &[SessionRow]) -> Vec<String> {
 }
 
 /// A Judge's finished reading, after the last row written by then: before them all where it finished first,
-/// and after the last where no row's time reads. Several after one row keep the order they were asked in.
+/// and after the last where no row's time reads. Several after one row keep the order they were asked in. A
+/// failed reading of selected words stands too, since the words have no card of their own to say why.
 fn with_judged<'a>(entries: Vec<Entry<'a>>, record: &SessionRecord) -> Vec<Entry<'a>> {
-    let done = record.judge_readings.iter().filter(|one| one.state == JudgeState::Done);
+    let done = record.judge_readings.iter().filter(|one| {
+        one.state == JudgeState::Done || (one.state == JudgeState::Failed && one.artifact.kind == JudgeKind::Excerpt)
+    });
     let mut after: BTreeMap<Option<usize>, Vec<Entry<'a>>> = BTreeMap::new();
     for one in done {
         let Some(finished) = one.finished_at.as_ref() else { continue };

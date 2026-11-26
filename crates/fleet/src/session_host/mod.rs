@@ -50,9 +50,12 @@ mod margin_agent;
 pub(crate) mod margin_rounds;
 mod page_actions;
 mod page_votes;
+mod page_repo_css;
 mod page_sealed;
 mod artifact_seen;
 mod for_you;
+/// What a Job needs first: the place and the why of each open ask.
+pub(crate) mod needs_first;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod approval_items;

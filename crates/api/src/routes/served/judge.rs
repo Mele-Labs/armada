@@ -1,4 +1,4 @@
-//! The rows of [`SERVED`](super::SERVED) a Judge is asked and its notes settled through, and a Job's asides, which are read
+//! The rows of [`SERVED`](super::SERVED) a Judge is asked, its notes settled and its types kept through, and a Job's asides, which are read
 //! the same way: one read-only call, kept apart from the thread. Its own table for
 //! the parent's reason: past 1200 lines.
 
@@ -39,5 +39,25 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "mark_judge_read",
         method: "POST",
         path: "/sessions/judge/read",
+    },
+    Route {
+        operation: "list_judge_types",
+        method: "GET",
+        path: "/judge_types",
+    },
+    Route {
+        operation: "list_judge_types",
+        method: "GET",
+        path: "/judge_types/:repository",
+    },
+    Route {
+        operation: "save_judge_type",
+        method: "POST",
+        path: "/judge_types/:repository",
+    },
+    Route {
+        operation: "delete_judge_type",
+        method: "POST",
+        path: "/judge_types/:repository/delete",
     },
 ];

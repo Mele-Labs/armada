@@ -1740,11 +1740,11 @@ mod tests {
     fn a_removed_tool_chip_is_not_sent(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            // Sketch is the first row, Takes the third.
+            // Sketch is the first row, Takes the fourth.
             sheet.open_tools(window, cx);
             sheet.pick_tool(0, window, cx);
             sheet.open_tools(window, cx);
-            sheet.pick_tool(2, window, cx);
+            sheet.pick_tool(3, window, cx);
             assert_eq!(held_tools(sheet), ["sketch", "takes"]);
             assert_eq!(&named(sheet, cx)[..3], ["tool", "tool", "request"], "each chip is a stop over the request");
             assert!(!named(sheet, cx).contains(&"queue"), "Queue for later keeps nothing but words");

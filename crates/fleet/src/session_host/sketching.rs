@@ -629,6 +629,8 @@ pub(crate) fn sketch_items<'a>(
         .collect();
     open.sort_by_key(|(one, _)| std::cmp::Reverse(drawn_at(one)));
     open.into_iter().map(move |(one, text)| WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: one.target.clone(),
         text,

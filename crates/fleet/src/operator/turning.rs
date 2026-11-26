@@ -310,6 +310,8 @@ where
         let facts = brief_of(main).lines().next().unwrap_or_default().to_string();
         let id = format!("{RED}{manifest}:{commit}");
         let item = WaitingItem {
+            order: 0,
+            why: String::new(),
             approves: false,
             id,
             text: format!("Main is red at {}. {facts}", commit.get(..7).unwrap_or(commit)).trim().to_string(),

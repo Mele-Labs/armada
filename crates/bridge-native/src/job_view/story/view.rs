@@ -4,7 +4,7 @@
 use gpui::{div, list, prelude::*, px, AnyElement, Div, FontWeight, Hsla, IntoElement, Render, Role, SharedString, Window};
 use gpui_component::text::TextView;
 
-use super::model::{Card, Row};
+use super::model::{Card, Heading, Row};
 use super::{Load, Region, StoryTab};
 use crate::features::asks::hue_token;
 use crate::features::{hue_among, hue_square};
@@ -132,13 +132,13 @@ impl StoryTab {
             said.clone(),
         );
         // Under the title, cut only where the panel ends.
-        let last = if card.last.is_empty() {
+        let last = if card.outcome.is_empty() {
             None
         } else {
             Some(labelled(
-                div().id(SharedString::from(format!("story-last-{ix}"))).flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(card.last.clone())),
+                div().id(SharedString::from(format!("story-last-{ix}"))).flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(card.outcome.clone())),
                 Role::Label,
-                card.last.clone(),
+                card.outcome.clone(),
             ))
         };
         let under = div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(chip(look, card.kind)).children(last);
@@ -206,7 +206,40 @@ impl StoryTab {
             .pb(if open { look.length(token::SPACE_1) } else { look.length(token::SPACE_3) })
             .child(div().pb(if open { look.length(token::SPACE_2) } else { px(0.) }).child(head))
             .children(rows);
-        labelled(body, Role::ListBoxOption, format!("{} {}", card.number, card.title)).into_any_element()
+        let card_el = labelled(body, Role::ListBoxOption, format!("{} {}", card.number, card.title));
+        match &card.heading {
+            Some(heading) => div()
+                .w_full()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(self.render_heading(ix, heading, look))
+                .child(card_el)
+                .into_any_element(),
+            None => card_el.into_any_element(),
+        }
+    }
+
+    /// The feature a group of asks is filed under: its area's square and its title, as the features list draws them.
+    fn render_heading(&self, ix: usize, heading: &Heading, look: &Look) -> AnyElement {
+        labelled(
+            div()
+                .id(SharedString::from(format!("story-group-{ix}")))
+                .w_full()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .pt(if ix == 0 { px(0.) } else { look.length(token::SPACE_2) })
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(look.color(token::FG_MUTED))
+                .child(hue_square(look, hue_among(self.areas.iter().map(String::as_str), &heading.area), look.length(token::SPACE_2)))
+                .child(SharedString::from(heading.title.clone())),
+            Role::Heading,
+            heading.title.clone(),
+        )
+        .into_any_element()
     }
 
     /// What he was shown before any ask: an unnumbered group under its own heading.

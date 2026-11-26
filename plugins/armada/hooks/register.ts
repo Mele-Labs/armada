@@ -1198,7 +1198,8 @@ async function promptPut($: Dollar, tool: string, input: unknown): Promise<void>
  * the session can never loop on it.
  */
 async function sendBack($: Dollar, answer: string, stopActive: boolean): Promise<string | undefined> {
-  if (await $.env.get('ARMADA_DRONE')) return undefined
+  // The Operator is not a Job: it has no waiting_for list to be held to.
+  if ((await $.env.get('ARMADA_DRONE')) || (await $.env.get('ARMADA_OPERATOR'))) return undefined
   const [id, one] = await current($)
   const turn = one.turn
   if (turn.reported) return undefined
@@ -1416,7 +1417,8 @@ export const register: Register = on => {
   on('classic.SessionStart', async ($, e, next) => {
     classicHeard = true
     const out = await next(e)
-    if (await $.env.get('ARMADA_DRONE')) return out
+    // The Operator is not a Job, so it is told no Job's id.
+    if ((await $.env.get('ARMADA_DRONE')) || (await $.env.get('ARMADA_OPERATOR'))) return out
     const id = await $.session.id()
     // A hosted session has the rules on its prompt already, `show_window` and the rest with them.
     const note = (await $.env.get('ARMADA_SESSION')) ? hostedNote(id) : idNote(id)
@@ -1722,7 +1724,8 @@ export const register: Register = on => {
   on('agent.spawn', async ($, e, next) => {
     // The parent's permission mode is on the spawn: the one place left to read it where the settings hooks are not run.
     if (!classicHeard && e.parentAgentId === undefined) void seen($, e.permissionMode, undefined)
-    const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
+    // The Logbook is what earlier Jobs learnt, and the Operator's subagents work for no Job.
+    const told = (await $.env.get('ARMADA_DRONE')) || (await $.env.get('ARMADA_OPERATOR')) ? '' : await logbookFor($, e.prompt)
     // The features its brief names, as the Job's own brief does: counted under the spawn call, since the agent has no id yet.
     const call = e.tool_use_id ?? 'spawn'
     const pages = mayNameFeatures(e.prompt) ? await handedOver($, { brief: e.prompt, agent_id: call }) : ''

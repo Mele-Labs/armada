@@ -61,7 +61,7 @@ fn tool_of(def: &Def) -> ReviewTool {
 /// Every `*.md` in `folder`, by name. A folder that is not there holds none; a file that will not
 /// read is skipped here, since a person cannot be told what is not readable except as a file
 /// that did not fit, and that sentence needs text.
-fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
+pub(crate) fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };

@@ -96,6 +96,8 @@ fn job_ask_item(ask: &KeptJobAsk) -> Option<WaitingItem> {
         _ => return None,
     };
     Some(WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: ask.id.clone(), on: None }),
         id: ask.id.clone(),

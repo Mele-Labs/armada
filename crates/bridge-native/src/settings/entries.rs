@@ -67,6 +67,8 @@ pub enum Body {
     Account,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
     Mods(Option<ipc::ModKind>),
+    /// The judge types a project sees: Armada's, his own in Kit, and the repository's (`judges.rs`).
+    Judges,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -131,6 +133,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "model", label: "Model", palette: "Models", words: &["Models", "model", "roster", "opus", "sonnet", "haiku"] },
     Section { id: "effort", label: "Effort", palette: "Effort", words: &["Effort", "reasoning", "low", "medium", "high"] },
     Section { id: "prompts", label: "Prompts", palette: "Drone prompts", words: &["Prompts", "brief", "baseline", "instructions"] },
+    Section { id: "judges", label: "Judges", palette: "Judges", words: &["Judges", "judge", "types", "adversarial", "code", "design", "system design", "api review", "review", "prompt", "verify", "kit", "commit"] },
     Section { id: "features", label: "Features", palette: "Features", words: &["Features", "switch", "on your words", "draft pull requests"] },
     Section { id: "editor", label: "Editor", palette: "Editor", words: &["Editor", "open", "code", "vscode", "visual"] },
     Section { id: "terminal", label: "Terminal", palette: "Terminal", words: &["Terminal", "iterm", "ghostty", "warp", "wezterm", "shell"] },
@@ -167,6 +170,7 @@ pub const ENTRIES: &[Entry] = &[
     page("kit:workflows", "Workflows", Group::Kit, Body::Workflows, "git-branch", DELIVERY),
     page("kit:models", "Models", Group::Kit, Body::Models, "bot", ESCALATED),
     page("kit:prompts", "Prompts", Group::Kit, Body::Schema(&["prompts"]), "message-square", REVIEW),
+    page("kit:judges", "Judges", Group::Kit, Body::Judges, "scale", REVIEW),
     page("kit:harness", "Harness", Group::Kit, Body::Schema(&["harness"]), "cpu", ESCALATED),
     page("fleet:limits", "Limits", Group::Fleet, Body::Schema(&["limits"]), "gauge", FAILED),
     page("fleet:timeouts", "Timeouts", Group::Fleet, Body::Schema(&["timeouts"]), "hourglass", FAILED),
@@ -259,6 +263,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Layout => &["layout"],
         Body::Time => &["time"],
         Body::Ways => &["ways"],
+        Body::Judges => &["judges"],
         Body::Values(page) => &[page.section()],
         Body::Repository | Body::Keyboard | Body::Workflows => &[],
     };
@@ -342,7 +347,7 @@ mod tests {
         assert_eq!(
             mac,
             [
-                "kit:models", "kit:prompts", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:features",
+                "kit:models", "kit:prompts", "kit:judges", "kit:harness", "fleet:limits", "fleet:timeouts", "fleet:retention", "fleet:plan", "fleet:token-use", "fleet:machine", "fleet:account", "fleet:features",
                 "fleet:repository", "bridge:all", "bridge:theme", "bridge:layout", "bridge:words", "bridge:tracker", "bridge:fleet", "bridge:ways", "bridge:spacing", "bridge:keyboard", "bridge:time", "bridge:editor",
                 "bridge:terminal", "bridge:links",
             ],

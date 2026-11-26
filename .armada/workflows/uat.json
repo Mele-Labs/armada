@@ -16,7 +16,7 @@
 {
   "version": 1,
   "workflow_id": "uat",
-  "name": "uat",
+  "name": "UAT",
   "for_requests": "Running acceptance scenarios against a test environment and writing the results back to the sheet they came from, where no code is written, changed or delivered.",
   "carries_no_code": true,
   "steps": [

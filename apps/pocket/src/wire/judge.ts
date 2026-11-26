@@ -90,6 +90,12 @@ export type JudgeReading = {
   artifact: JudgeArtifact;
   /** What the person asked. Empty asks what was missed. */
   prompt: string;
+  /**
+   * The judge type it read as, by id and by the name it had then. Absent on a reading kept before
+   * judge types, which read as `adversarial`.
+   */
+  judge?: string;
+  judge_name?: string;
   state: JudgeState;
   asked_at: Instant;
   finished_at?: Instant;

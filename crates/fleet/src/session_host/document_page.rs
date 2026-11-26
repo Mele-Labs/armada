@@ -103,6 +103,38 @@ pub(crate) fn sketches_in(html: &str) -> Vec<PageSketch> {
     found
 }
 
+/// What a page styles itself with beyond the kit.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct PageLooks {
+    /// The `href` of each `<link rel="stylesheet">` that names a repository file, in page order.
+    pub sheets: Vec<String>,
+    /// A `<style>` of the page's own holds some css.
+    pub has_css: bool,
+}
+
+/// The repository stylesheets the page links, and whether it styles itself.
+pub(crate) fn looks_of(html: &str) -> PageLooks {
+    let lower = html.to_ascii_lowercase();
+    let mut looks = PageLooks::default();
+    let mut from = 0;
+    while let Some((tag, after)) = open_tag(&lower, "link", from) {
+        from = after;
+        let tag = &html[tag..after];
+        let stylesheet = attribute(tag, "rel").is_some_and(|rel| rel.split_whitespace().any(|one| one.eq_ignore_ascii_case("stylesheet")));
+        let href = attribute(tag, "href").map(|href| href.trim().to_string());
+        if let Some(href) = href.filter(|href| stylesheet && super::page_sealed::repo_href(href)) {
+            looks.sheets.push(href);
+        }
+    }
+    let mut from = 0;
+    while let Some((_, content)) = open_tag(&lower, "style", from) {
+        let end = lower[content..].find("</style").map_or(lower.len(), |at| content + at);
+        looks.has_css |= !html[content..end].trim().is_empty();
+        from = end;
+    }
+    looks
+}
+
 /// One `<armada-action>` of a page, in the order the page holds them, its attributes trimmed and nothing checked.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PageAction {

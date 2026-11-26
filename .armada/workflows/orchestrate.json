@@ -15,7 +15,7 @@
 {
   "version": 1,
   "workflow_id": "orchestrate",
-  "name": "orchestrate",
+  "name": "Orchestrate",
   "for_requests": "A pile of work to split up and hand out: a batch of feedback, a list of issues or a milestone, where what is wanted is several Jobs run to land it and a report of what each landed. One change, however large, that one Job can land is a feature; working out how to build something before anybody builds it is a design plan.",
   "lands": "report",
   "steps": [

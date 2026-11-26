@@ -103,6 +103,15 @@ fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
 }
 
 #[test]
+fn a_prototype_is_said_as_a_scene_in_armada_and_a_clickable_page_elsewhere() {
+    let line = mention_line(&[tag(TagKind::Tool, "prototype", "Prototype", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for Prototype: in Armada, show a scene with `show_prototype` and edit its files after, since each save redraws it; in any other repository, write a page that moves under `.armada/documents/`, linking the app's own stylesheets, as the `armada:writing-a-document` skill says under A clickable prototype.")
+    );
+}
+
+#[test]
 fn the_api_client_names_each_requests_tool_the_agent_can_call() {
     let line = mention_line(&[tag(TagKind::Tool, "api-client", "API Client", None)]);
     assert_eq!(

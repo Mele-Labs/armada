@@ -1249,10 +1249,10 @@ mod tests {
         });
         let (sheet, cx) = cx.add_window_view(|window, cx| DispatchSheet::new(crate::dispatch::scenes::rest(&[]), window, cx));
         let tools = sheet.update_in(cx, |sheet, window, cx| {
-            // Takes is the third row; picked twice, it is held once.
+            // Takes is the fourth row; picked twice, it is held once.
             for _ in 0..2 {
                 sheet.open_tools(window, cx);
-                sheet.pick_tool(2, window, cx);
+                sheet.pick_tool(3, window, cx);
             }
             sheet.tools_held()
         });

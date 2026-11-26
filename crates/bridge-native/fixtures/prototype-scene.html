@@ -1,12 +1,7 @@
 <scene title="Jobs list" first="list">
   <fixture name="jobs" src="prototype-jobs.json" type="jobs"></fixture>
 
-  <tabs data-part="View tabs">
-    <tab goes="list" data-part="List tab">List</tab>
-    <tab goes="detail" data-part="Detail tab">Detail</tab>
-  </tabs>
-
-  <state id="list">
+  <state id="list" title="List" says="Every live Job, newest first">
     <pane title="Jobs" data-part="Jobs pane">
       <list each="jobs.sessions" as="job" limit="4" data-part="Jobs list">
         <row title="{job.title}" says="{job.manifest_id}" glyph="circle-dot" tone="status-running" goes="detail" data-part="Job row">
@@ -16,7 +11,7 @@
     </pane>
   </state>
 
-  <state id="detail">
+  <state id="detail" title="One Job" says="The first Job opened, with its summary">
     <card title="{jobs.sessions.0.title}" tone="accent" data-part="Job card">
       <text style="muted" data-part="Job summary">{jobs.sessions.0.so_far}</text>
       <box dir="row" gap="2" align="center">

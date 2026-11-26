@@ -1,0 +1,13 @@
+[operations.save_judge_type]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "On your words"
+description = "Write one judge type in Kit's folder, for one project or for all"
+notes = """
+`POST /judge_types/:repository`, body `SaveJudgeType`: `scope` (`kit`), `project` (with `kit`, the one project it applies to; absent, all projects), `name`, `prompt` and `overwrite`. Since 23 Nov 2026. Answers `JudgeTypes`, read again for that project, so the caller sees what runs now. **A Kit save of an Armada id is how a built-in prompt is edited.**
+
+**Checked before anything is written**: a blank name or prompt is a 422 `fleet.judge_type_blank`, a name that is no words a 422 `fleet.judge_type_not_a_name`, and an id already defined in that place a 422 `fleet.judge_type_exists` naming the file unless `overwrite` is `true`. A 422 `fleet.judge_type_misplaced` for a `repository` scope, which is never written here (a repository's types arrive by `commit_to_repository`, a Job and a pull request), and for a `project` that is no one folder's name. A project Fleet holds no file for, or that does not hold this repository, is refused as a workflow's copy is. 500 `fleet.judge_type_unwritable` where the file cannot be written. The file that held the id is the one replaced, whatever it is called.
+
+`agent_access` is `On your words`, `save_review_tool`'s reason: what is written decides what every Judge press on this machine asks a model.
+"""

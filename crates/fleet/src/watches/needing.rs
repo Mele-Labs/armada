@@ -29,6 +29,8 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
     let held = &kept.watch;
     Some(WaitingItem {
+        order: 0,
+        why: String::new(),
         approves: false,
         id: format!("{NOT_OURS_ITEM}{}", held.id),
         text: format!("{}: {} failed", held.name, names.join(", ")),

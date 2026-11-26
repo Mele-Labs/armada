@@ -8,6 +8,7 @@ mod delete;
 mod merge;
 pub mod entries;
 pub(crate) mod gateway;
+mod judges;
 mod keyboard;
 pub(crate) mod limits;
 pub(crate) mod rows;

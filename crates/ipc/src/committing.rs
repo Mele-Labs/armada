@@ -48,6 +48,13 @@ pub enum PieceToCommit {
     /// A review tool from Kit's `~/.armada/review-tools/`, by its dashed id, copied into
     /// `.armada/review-tools/`.
     ReviewTool { id: String },
+    /// A judge type from Kit's `~/.armada/judges/`, or from `~/.armada/judges/projects/<project>/` where
+    /// `project` names one, by its dashed id, copied into `.armada/judges/`.
+    JudgeType {
+        id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        project: Option<String>,
+    },
     /// The person's own `armada.yml` for the repository, from the place their Kit keeps it,
     /// copied to the workspace root.
     Manifest,

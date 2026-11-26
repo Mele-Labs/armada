@@ -121,6 +121,8 @@ pub enum Picking {
     Cell(Key, Column),
     /// A run's model on Models, by its place in `RUNS`.
     Run(usize),
+    /// The project Judges reads its list for, by its place among the projects.
+    JudgeProject,
 }
 
 pub struct SettingsOverlay {
@@ -177,6 +179,8 @@ pub struct SettingsOverlay {
     pub workflows: super::workflows::WorkflowsPage,
     /// Pull requests › the review tools offered on a new pull request.
     pub review_offer: super::review_offer::ReviewOffer,
+    /// Settings › Judges.
+    pub judges: super::judges::JudgesPage,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     /// The press on a meter that has not been let go, so a click and a drag are told apart.
@@ -294,6 +298,7 @@ impl SettingsOverlay {
             ways: super::ways::WaysPage::new(cx),
             lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
+            judges: super::judges::JudgesPage::new(window, cx),
             review_offer: Default::default(),
             tracks: Rc::default(),
             meter: None,
@@ -724,6 +729,7 @@ impl SettingsOverlay {
             }
             Picking::Cell(key, column) => self.chose_cell((*key, *column), n, window, cx),
             Picking::Run(at) => self.chose_run(*at, n, window, cx),
+            Picking::JudgeProject => self.chose_judge_project(n, window, cx),
         }
     }
 
@@ -955,6 +961,9 @@ impl SettingsOverlay {
         if let Body::Ways = shown.body {
             return self.ways_stops(cx);
         }
+        if let Body::Judges = shown.body {
+            return self.judges_stops(cx);
+        }
         if let Body::Theme = shown.body {
             let mut stops = vec![self.theme.focus.clone()];
             stops.extend(self.mod_stops(super::mods::Page::Theme, cx));
@@ -1141,6 +1150,9 @@ impl SettingsOverlay {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Ways) && self.ways_key(key, window, cx) {
+            return true;
+        }
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Judges) && self.judges_key(key, window, cx) {
             return true;
         }
         // A mod row's arrows: open and shut what it holds, and move between rows.

@@ -24,6 +24,7 @@ mod harness;
 mod kit_manifest;
 mod autonomy;
 mod lifecycle;
+mod judge_types;
 mod live;
 mod loops;
 mod manifest;

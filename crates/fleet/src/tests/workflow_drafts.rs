@@ -387,7 +387,7 @@ async fn an_agent_put_is_recorded_as_the_agents_change_and_marks_the_change_draf
 #[tokio::test]
 async fn an_ask_on_an_armada_workflow_is_accepted_and_its_result_lands_in_a_scopeless_draft() {
     let carried = config::carried().into_iter().find(|one| one.path().ends_with("feature.json")).expect("Armada carries feature").text().to_string();
-    let after = carried.replace("\"name\": \"feature\"", "\"name\": \"feature two\"");
+    let after = carried.replace("\"name\": \"Feature\"", "\"name\": \"Feature two\"");
     assert_ne!(after, carried);
     let rig = rig(&[&after]).await;
     let asked = ipc::encode(&ipc::AskWorkflowChange {

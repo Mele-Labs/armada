@@ -341,6 +341,8 @@ mod autopilot_decisions;
 mod plan_usage;
 /// One Job's For you tab: what waits on him, what it builds, what lands.
 mod for_you;
+/// What a Job needs first: the order of its asks, and why.
+mod needs_first;
 /// The default model stepping down while the weekly window runs out.
 mod model_downshift;
 /// The agents' account signed out, for the whole Fleet.
@@ -730,8 +732,8 @@ pub use story::{
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{
-    AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
-    JudgeState, MarkJudgeRead, SendJudgeNote,
+    AskJudge, DeleteJudgeType, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
+    JudgeState, JudgeType, JudgeTypes, MarkJudgeRead, SaveJudgeType, SendJudgeNote,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
@@ -938,6 +940,7 @@ pub use for_you::{
     AddForYou, ForYou, ForYouAdded, ForYouBuild, ForYouBy, ForYouChanged, ForYouItem, ForYouKind, ForYouLanding, ForYouOpens, LineForYou,
     OrderForYou, WithdrawForYou, FOR_YOU_BLANK, FOR_YOU_UNKNOWN,
 };
+pub use needs_first::{OrderWaiting, WaitingPlace, WAITING_ORDER_BLANK, WAITING_ORDER_UNKNOWN};
 pub use accounts::{
     AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetRepositoryProfile, SetUpState,
     SetUpSteps, SignInAppRegistration, SignInEnded, SignInOutcome, SignOut, SignedOut, UnmatchedRepository,

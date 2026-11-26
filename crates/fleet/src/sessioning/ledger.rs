@@ -377,7 +377,7 @@ where
         // A call held at a gate only the person can close is his to settle.
         if session.state == store::SessionState::Live {
             let nothing_runs = record.running.is_empty();
-            let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &reads.held, &session.id, nothing_runs));
+            let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &session.id, nothing_runs));
             record.waiting_for.extend(gate);
         }
         record.closed = waited.closed;

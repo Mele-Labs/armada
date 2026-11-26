@@ -1310,6 +1310,24 @@ pub(crate) async fn withdraw_for_you<D: HostedSessions>(State(served): State<Ser
     }
 }
 
+/// The order of a Job's open asks, each with why. 200 with the row, or a [`Receipt`] of the order through the door;
+/// 422 naming ids that are not open asks.
+pub(crate) async fn order_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let order: ipc::OrderWaiting = match ipc::decode_body("an order of a job's asks", &body) {
+        Ok(order) => order,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().order_waiting(order).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::needs_first(&record), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The order of a Job's For you rows. 200 with the view after it; 422 naming ids that are not rows.
 pub(crate) async fn order_for_you<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let order: ipc::OrderForYou = match ipc::decode_body("an order of For you rows", &body) {

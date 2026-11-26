@@ -856,6 +856,46 @@ mod tests {
     }
 
     #[gpui::test]
+    fn opened_from_a_job_the_sheet_heads_its_list_with_the_job_and_tags_the_chosen_ask_with_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let (title, asked) = view.read_with(cx, |view, _| {
+            let review = view.review().expect("the sheet is up");
+            assert!(review.groups.iter().all(|group| group.job == JOB), "the sheet holds this Job's asks alone");
+            (review.groups.first().expect("the Job's group").title.clone(), view.review_chosen().expect("an ask is chosen").name)
+        });
+        assert!(!title.is_empty(), "the Job has a title");
+        let list = bounds_of(cx, Role::List, "Asks");
+        let heading = bounds_of(cx, Role::Heading, &title);
+        assert!(heading.left() >= list.left() && heading.right() <= list.right() + px(1.), "the list is headed by the Job: {heading:?} {list:?}");
+        let head = bounds_of(cx, Role::Heading, &asked);
+        let chip = bounds_of(cx, Role::Group, &format!("From {title}"));
+        let close = bounds_of(cx, Role::Button, "Close");
+        assert!(chip.left() >= head.left() && chip.top() >= head.top() && chip.bottom() <= head.bottom(), "the chip stands in the chosen ask's head: {chip:?} {head:?}");
+        assert!(close.top() < chip.bottom() && close.bottom() > chip.top() && close.left() > chip.right(), "Close ends the chip's row: {close:?} {chip:?}");
+    }
+
+    #[gpui::test]
+    fn opened_on_every_job_the_sheet_heads_each_jobs_asks_with_that_job(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "review-asks", "mock-01", size(px(1440.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_review_with(super::super::review::Scope::All, None, None, window, cx));
+        redraw(cx);
+        let titles: Vec<String> = view.read_with(cx, |view, _| {
+            let review = view.review().expect("the sheet is up");
+            review.groups.iter().filter(|group| group.items.iter().any(|item| !item.read)).map(|group| group.title.clone()).collect()
+        });
+        assert!(titles.len() > 1, "the sheet holds more than one Job's asks: {titles:?}");
+        for title in &titles {
+            assert!(drawn(cx, Role::Heading, title), "{title} heads its asks");
+        }
+        let chosen = view.read_with(cx, |view, _| {
+            let review = view.review().expect("the sheet is up");
+            let item = view.review_chosen().expect("an ask is chosen");
+            review.groups.iter().find(|group| group.job == item.job).expect("its Job's group").title.clone()
+        });
+        assert!(drawn(cx, Role::Group, &format!("From {chosen}")), "the chosen ask names {chosen}");
+    }
+
+    #[gpui::test]
     fn takes_stand_side_by_side_at_2400(cx: &mut gpui::TestAppContext) {
         let (_, cx) = opened(cx, 2400., 1500.);
         let tops: Vec<_> = TAKES.iter().map(|name| take_bounds(cx, name).top()).collect();
