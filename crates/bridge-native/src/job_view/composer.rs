@@ -26,6 +26,7 @@ use ipc::{
     ModelChoices, SendSessionMessage, SendSessionMessageBody, SentFile, SessionMode, SessionRow, SessionTag, SessionUpload,
     SessionVoice, ThreadItem, TuneSession,
 };
+use ipc::operator_talk::TalkToOperator;
 use serde::{Deserialize, Serialize};
 
 use super::head::{drawn, icon_button, tip, Confirm};
@@ -285,16 +286,9 @@ impl Composer {
 pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobView>) -> (Composer, Vec<Subscription>) {
     let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true));
     let mut subs = Vec::new();
-    subs.push(cx.subscribe_in(&input, window, |this, _, event: &InputEvent, window, cx| match event {
-        InputEvent::Change => {
-            this.draw_format(window, cx);
-            this.typed(cx);
-            this.refresh_offer(window, cx);
-        }
-        // Shift+Enter puts a new line in the box, which the box has done; only a plain Enter sends. Enter
-        // in a quote or a list was settled before the box saw it (`enter_in_block`).
-        InputEvent::PressEnter { shift: false, .. } => this.send(window, cx),
-        _ => {}
+    subs.push(cx.subscribe_in(&input, window, |this, _, event: &InputEvent, window, cx| {
+        this.beside_leave();
+        this.box_event(event, window, cx);
     }));
     subs.push(cx.observe_window_bounds(window, |this, window, cx| this.fit_box(window, cx)));
     let composer = Composer {
@@ -601,6 +595,21 @@ impl JobView {
         self.typed(cx);
     }
 
+    /// What the box said it did: typed words are kept and read for the lists over it, and a plain Enter sends.
+    pub(super) fn box_event(&mut self, event: &InputEvent, window: &mut Window, cx: &mut Context<Self>) {
+        match event {
+            InputEvent::Change => {
+                self.draw_format(window, cx);
+                self.typed(cx);
+                self.refresh_offer(window, cx);
+            }
+            // Shift+Enter puts a new line in the box, which the box has done; only a plain Enter sends. Enter
+            // in a quote or a list was settled before the box saw it (`enter_in_block`).
+            InputEvent::PressEnter { shift: false, .. } => self.send(window, cx),
+            _ => {}
+        }
+    }
+
     /// Fold what is in the box into the shown Job's draft before it leaves the screen.
     pub(super) fn composer_leave(&mut self, cx: &mut Context<Self>) {
         let Some(id) = self.box_key() else { return };
@@ -674,7 +683,7 @@ impl JobView {
     }
 
     /// The box grows to half the window and then scrolls (`SessionComposer.tsx:768`).
-    fn fit_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn fit_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let look = cx.look();
         let line = look.length(token::SPACE_6);
         let half = window.viewport_size().height * 0.5;
@@ -746,7 +755,8 @@ impl JobView {
             return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
-        if self.opens_mcp(&id, &kept.text, cx) {
+        // The Operator's `/mcp` is a command like any other: it has no Loadout to open.
+        if !self.is_beside(&id) && self.opens_mcp(&id, &kept.text, cx) {
             return self.mcp_typed(&id, window, cx);
         }
         // The box answers a question from the sheet's Answer in words: the words go as the panel's box sends them.
@@ -824,10 +834,28 @@ impl JobView {
         let sketches: Vec<ipc::SentSketch> = drawn.iter().map(|one| ipc::SentSketch { id: one.id.clone(), title: one.title.clone() }).collect();
         if line.is_none() {
             self.set_box(&Kept::default(), window, cx);
-            if self.composer.drafts.set(&id, Kept::default()) {
+            let key = self.box_key().unwrap_or_else(|| id.clone());
+            if self.composer.drafts.set(&key, Kept::default()) {
                 self.keep_soon(cx);
             }
             self.composer.offer = None;
+        }
+        // His words to the Operator are a talk (`talk_to_operator`), sent by its page with the card the box names.
+        if self.is_beside(&id) {
+            let about = self.beside.as_ref().and_then(|beside| beside.about.clone());
+            let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
+            page.refused = None;
+            page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false, about: about.clone() });
+            let talk = TalkToOperator { words: text, about: about.map(|(card, _)| card), attachments: Vec::new(), mentions };
+            cx.spawn_in(window, async move |this, cx| {
+                let attachments = cx.background_executor().spawn(async move { encoded_files(files) }).await;
+                let _ = this.update_in(cx, |this, window, cx| this.say_to_operator(key, TalkToOperator { attachments, ..talk }, window, cx));
+            })
+            .detach();
+            self.pin(&id);
+            self.sync(&id, cx);
+            cx.notify();
+            return;
         }
         let refuse = self.fleet.is_none() && self.mock_refusals > 0;
         let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
@@ -835,12 +863,12 @@ impl JobView {
         if refuse {
             // Mock data: this one Fleet does not take, so the walk shows Not sent and its Retry.
             self.mock_refusals -= 1;
-            page.pending.push(Pending { key, text, seen, tags: mentions, body: None, failed: true });
+            page.pending.push(Pending { key, text, seen, tags: mentions, body: None, failed: true, about: None });
             self.tell_not_sent(&id, "Fleet did not take it".into(), cx);
         } else {
             match self.fleet.clone() {
                 Some(_) => {
-                    page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false });
+                    page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false, about: None });
                     let job = id.clone();
                     let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions, sketches };
                     cx.spawn_in(window, async move |this, cx| {
@@ -941,10 +969,16 @@ impl JobView {
 
     /// Retry: the same message again, as it first went (`outgoing.ts` `retry`).
     pub(super) fn retry(&mut self, id: &SharedString, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let talk = self.said_to_operator(key).filter(|_| self.is_beside(id));
         let Some(page) = self.pages.get_mut(id) else { return };
         let Some(at) = page.pending.iter().position(|one| one.key == key && one.failed) else { return };
         page.refused = None;
-        if self.fleet.is_none() {
+        if let Some(talk) = talk {
+            if let Some(one) = self.pages.get_mut(id).and_then(|page| page.pending.get_mut(at)) {
+                one.failed = false;
+            }
+            self.say_to_operator(key, talk, window, cx);
+        } else if self.fleet.is_none() {
             let one = page.pending.remove(at);
             self.mock_sent(id, key, one.text, Vec::new(), one.tags, Vec::new(), None);
         } else {
@@ -993,6 +1027,9 @@ impl JobView {
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
             self.thread_key(which, window, cx);
+        } else if act.is("send_message") && in_box && self.beside_in() && self.beside_empty(cx) {
+            // ⌘Enter in the Operator's empty box is its page's: Show, where a new card waits in the strip.
+            cx.propagate();
         } else if act.is("send_message") && in_box {
             // ⌘Enter sends from the box too.
             self.send(window, cx);
@@ -1040,6 +1077,9 @@ impl JobView {
         } else if key == "escape" && self.reporting.is_some() {
             // Esc puts the report away, as the dialog's Cancel does.
             self.close_report(window, cx);
+            cx.stop_propagation();
+        } else if key == "escape" && self.beside_in() && self.beside_leaves(window, cx) {
+            // Nothing over the Operator's box to put away: Esc gives the keys back to its page.
             cx.stop_propagation();
         } else if key == "escape" {
             // Nothing over the box to put away: Esc gives the keys back to the list.
@@ -1141,7 +1181,7 @@ impl JobView {
         (mode, model, effort)
     }
 
-    fn ask_tune(&mut self, id: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn ask_tune(&mut self, id: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let (mode, model, effort) = self.tuning(&id, cx);
         let body = ipc::encode(&TuneSession { session_id: Self::session_id(&id), model, effort, mode });
         let job = id.clone();
@@ -1191,6 +1231,7 @@ impl JobView {
         let back = window.focused(cx);
         let menu = cx.new(|cx| Dropdown::new("Permission mode", entries, at, Anchor::BottomLeft, from_keys, cx));
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
+            this.beside_leave();
             let Picked::Entry { id: pick, .. } = picked;
             let mode = match *pick {
                 "ask" => SessionMode::Ask,
@@ -1226,13 +1267,20 @@ impl JobView {
         let (offered, default) = (models.map(|models| models.offered.clone()), models.map(|models| models.session.clone()).unwrap_or_default());
         let back = window.focused(cx);
         let picker = cx.new(|cx| TunePicker::new(offered, default, model, effort, at, cx));
-        let tuned = cx.subscribe_in(&picker, window, |this, _, tuned: &Tuned, window, cx| {
-            if let Some(job) = this.shown.clone() {
-                let one = this.composer.box_of(&job);
-                one.model = Some(tuned.model.clone());
-                one.effort = Some(tuned.effort.clone());
-                this.ask_tune(job, window, cx);
-            }
+        let side = self.beside_in();
+        let tuned = cx.subscribe_in(&picker, window, move |this, _, tuned: &Tuned, window, cx| {
+            this.as_side(side, |this| {
+                if let Some(job) = this.shown.clone() {
+                    let one = this.composer.box_of(&job);
+                    one.model = Some(tuned.model.clone());
+                    one.effort = Some(tuned.effort.clone());
+                    if side {
+                        this.tune_operator(job, window, cx);
+                    } else {
+                        this.ask_tune(job, window, cx);
+                    }
+                }
+            });
         });
         self.open_popup(picker, back, vec![tuned], window, cx);
     }
@@ -1246,10 +1294,13 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let side = self.beside_in();
         let dismissed = cx.subscribe_in(&view, window, move |this, _, _: &DismissEvent, window, cx| {
-            this.composer.popup = None;
-            let box_keys = this.composer.input.read(cx).focus_handle(cx);
-            window.focus(back.as_ref().unwrap_or(&box_keys), cx);
+            this.as_side(side, |this| {
+                this.composer.popup = None;
+                let box_keys = this.composer.input.read(cx).focus_handle(cx);
+                window.focus(back.as_ref().unwrap_or(&box_keys), cx);
+            });
             cx.notify();
         });
         subs.push(dismissed);
@@ -1464,17 +1515,26 @@ impl JobView {
             .px(look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }))
             .py(look.length(token::SPACE_2))
             .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(mode_button)
-            .child(tune_button)
-            .child(self.tools_button(look, cx))
-            .child(attach)
-            .child(self.sketch_button(look, cx))
-            .child(self.side_chat_button(look, cx))
-            .children(self.render_live_pill(id, look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }), window, cx))
-            .child(div().id("context-figure").flex_none().ml_auto())
-            .child(self.render_talk(look, cx))
-            .child(send);
+            .border_color(look.color(token::BORDER_SUBTLE));
+        // The Operator's box has its model, files, Stop while it writes, and Send: it has no mode, sketch or side chat of a Job's.
+        let bar = if self.is_beside(id) {
+            bar.child(tune_button)
+                .child(attach)
+                .child(div().flex_none().ml_auto())
+                .children(self.working(id, cx).then(|| self.stop_button(look, cx)))
+                .child(send)
+        } else {
+            bar.child(mode_button)
+                .child(tune_button)
+                .child(self.tools_button(look, cx))
+                .child(attach)
+                .child(self.sketch_button(look, cx))
+                .child(self.side_chat_button(look, cx))
+                .children(self.render_live_pill(id, look.length(if narrow { token::SPACE_1 } else { token::SPACE_2 }), window, cx))
+                .child(div().id("context-figure").flex_none().ml_auto())
+                .child(self.render_talk(look, cx))
+                .child(send)
+        };
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());
         let needs = self.render_needs(id, window.viewport_size().height, cx);
         let risen = needs.is_some() && self.needs_up(id, cx);
@@ -1539,6 +1599,7 @@ impl JobView {
                             .children(self.render_look_row(id, look, cx))
                             .children(self.render_answering(id, look, cx))
                             .children(self.render_offer(look, cx))
+                            .children(self.about_chip(cx))
                             .children(self.render_quick(id, look, window, cx))
                             .children(self.render_tray(id, look, cx))
                             .child(labelled(words, Role::TextInput, if self.answering_row(id, cx).is_some() { "Answer in words" } else { "Message" }))

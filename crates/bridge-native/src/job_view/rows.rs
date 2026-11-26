@@ -305,6 +305,19 @@ impl JobView {
             Some((files, Some(true))) => self.want_read_pictures(&id, &files, window, cx),
             None => {}
         }
+        // A card the Operator raised in the talk is drawn by its page, whole and inset under the talk's line.
+        if let Some(card) = self.raised_of(ix) {
+            let look = cx.look().clone();
+            let Some(card) = self.raised_card(&card, window, cx) else { return nothing() };
+            return div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .px(look.length(token::SPACE_4) + super::bleed(&look))
+                .pb(self.row_gap(&look))
+                .child(div().w_full().min_w_0().max_w(self.column(&look)).child(div().pl(look.length(token::SPACE_6)).child(card)))
+                .into_any_element();
+        }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
         let look = cx.look();
         let working = self.working(&id, cx);
@@ -744,6 +757,10 @@ impl JobView {
         if let Some(line) = self.asking_line(item, page, look, cx) {
             return Some(line);
         }
+        // The Operator's talk is its words and the tools under them: what else it made, the page shows in its own places.
+        if self.beside_in() && !matches!(item, ThreadItem::Row { .. } | ThreadItem::Calls { .. }) {
+            return None;
+        }
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => {
@@ -789,8 +806,18 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx)
+                let words = self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx);
+                // His words to the Operator about another card than his last stand under an About row.
+                let last = match i.checked_sub(1).and_then(|before| page.pending.get(before)) {
+                    Some(before) => before.about.as_ref().map(|(card, _)| card.clone()),
+                    None => self.about_before(items, items.len()),
+                };
+                match one.about.as_ref().filter(|(card, _)| self.beside_in() && last.as_ref() != Some(card)) {
+                    Some((_, title)) => div().flex().flex_col().child(self.about_row(&format!("pending:{}", one.key), title, cx)).child(words).into_any_element(),
+                    None => words,
+                }
             }
+            Extra::Raised(_) => return None,
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
                 let doing = self.shown.as_deref().and_then(|id| self.record(id, cx)).and_then(|job| job.activity.as_ref()).and_then(|activity| activity.now.as_deref());
@@ -1295,12 +1322,26 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
+            // Fleet's notices to the Operator are not his words, and its talk leaves them out.
+            SessionRow::Message { from: SessionVoice::You, notice: Some(_), .. } if self.beside_in() => return None,
             SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, aside, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
+                // His words to the Operator carry the card they are about in a tag: an About row stands over them where the
+                // talk turns to another card, and the words are drawn without it.
+                let tagged = self.beside_in().then(|| crate::operator::talk::tag_of(text)).flatten();
+                let Some((card, title, words)) = tagged else {
+                    return Some(self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx));
+                };
+                let items = self.shown.as_ref().and_then(|job| self.thread(job, cx)).map_or(&[][..], |held| held.items.as_slice());
+                let turned = self.about_before(items, ix).as_deref() != Some(card);
+                let words = self.you(ix, page, id, words, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx);
+                if !turned {
+                    return Some(words);
+                }
+                div().flex().flex_col().child(self.about_row(id, title, cx)).child(words).into_any_element()
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {

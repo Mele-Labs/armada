@@ -334,25 +334,15 @@ impl OperatorScreen {
         this
     }
 
-    /// The page's box offers the Jobs the list holds, but those that have ended.
+    /// The cards' chips read every Job's title.
     fn name_jobs(&mut self, cx: &mut Context<Self>) {
         let list = self.jobs.read(cx).list.clone();
-        let named: Vec<(String, String)> = list
-            .read(cx)
-            .records()
-            .iter()
-            .filter(|job| job.state != ipc::SessionState::Ended)
-            .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
-            .collect();
         // A card's chips name every Job it is about, ended ones too.
         let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
         if let Some(usage) = &self.usage {
             usage.update(cx, |usage, cx| usage.set_titles(&titles, cx));
         }
-        self.page.update(cx, |page, cx| {
-            page.set_jobs(named, cx);
-            page.set_titles(titles, cx);
-        });
+        self.page.update(cx, |page, cx| page.set_titles(titles, cx));
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.
@@ -1042,10 +1032,11 @@ mod tests {
         cx.update(|window, cx| {
             screen.update(cx, |screen, cx| {
                 screen.bring(Some(Front::Operator), window, cx);
-                let composer = screen.page.read(cx).composer.clone();
-                composer.update(cx, |composer, cx| composer.focus(window, cx));
             })
         });
+        cx.run_until_parked();
+        // The box is the Job view's, made as the page first draws it.
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
         cx.run_until_parked();
         cx.update(|_, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(PASTED.to_string())));
         cx.simulate_keystrokes("cmd-v");
@@ -1247,9 +1238,8 @@ mod tests {
         assert!(!home(screen, cx), "the Job is open over the page");
     }
 
-    fn box_has_keys(screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
-        let composer = screen.read_with(cx, |screen, cx| screen.page.read(cx).composer.clone());
-        cx.update(|window, cx| composer.read(cx).has_keys(window, cx))
+    fn box_has_keys(_: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx))
     }
 
     #[test]

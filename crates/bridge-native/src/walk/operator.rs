@@ -46,9 +46,9 @@ pub static STEPS: [Step; 64] = [
     step("Typing is only typing: a, l, / and 2 press nothing", Verb::Typed(ASKED), "textbox", "Message"),
     step("Enter sends it as a talk about the card. The talk under the card overflows its room, so the card folds to one line: its title, the Operator's last act and a chevron", Verb::Key("enter"), "button", "Unfold Two Jobs are changing paging.rs"),
     step("A row About: and the card's title stands where his words turn to the card", Verb::Look, "separator", "About: Two Jobs are changing paging.rs"),
-    step("His words follow it at the right, in the bubble a Job's thread draws them in", Verb::Look, "listitem", "You: Why hold Pocket and not the other Job? Is a 2 hour wait worse?"),
+    step("His words follow it at the right, in the bubble a Job's thread draws them in", Verb::Look, "region", "Your message"),
     answer("The Operator answers in its thread and raises a card in the talk. The card it raised is whole at the talk's end, which the talk follows. The box stays at the foot, with the keys in it", "said", "article", RAISED),
-    answer("Scrolled up, the Operator's words stand above the card, under its name", "talk-up", "listitem", "Operator: Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files."),
+    answer("Scrolled up, the Operator's words stand above the card, under its name", "talk-up", "group", "Agent message"),
     step("Esc gives the keys to the page", Verb::Key("escape"), "article", RAISED),
     step("2 settles the card in play with its second option at once. The talk stays, and the next card comes in front folded, as the talk still overflows", Verb::Key("2"), "button", "Unfold Main is red at 4c1d2e9"),
     step("A press opens it above the talk. It stays open until the talk grows or he sends again", Verb::Open("button", "Unfold Main is red at 4c1d2e9"), "article", NEXT),
@@ -96,8 +96,8 @@ pub static STEPS: [Step; 64] = [
     answer("A Job's build to try comes in front: the card its thread draws, with Looks good, Needs rework, Show me how and Remind me", "build-comes", "button", "Looks good"),
     step("A press puts the keys in the box. It holds no tag", Verb::Press, "textbox", "Message"),
     step("He asks the Operator a question", Verb::Typed(QUESTION), "textbox", "Message"),
-    step("Enter sends it as a talk to the Operator about no card: his words join the talk with no About row, and the card in front stays as it is", Verb::Key("enter"), "listitem", "You: Which Jobs are running now?"),
-    answer("The Operator answers in the talk. The talk now overflows its room, so the card in front folds to one line, as when the Operator says more", "said", "listitem", "Operator: Pocket, Jobs screens and the desktop_unit fix are running. None of them waits on you."),
+    step("Enter sends it as a talk to the Operator about no card: his words join the talk with no About row, and the card in front stays as it is", Verb::Key("enter"), "region", "Your message"),
+    answer("The Operator answers in the talk. The talk now overflows its room, so the card in front folds to one line, as when the Operator says more", "said", "group", "Agent message"),
     step("The keys: 1 to 4 settle the card with that option, A or Enter its pick, / Discuss, S Snooze, ↓ ↑ or j k bring the next or the last queued card, Esc leaves the box, Next up, a kept idea or a picked card, ⌘Enter shows a card waiting in the strip, Tab moves through the page and Enter or Space presses what it is on", Verb::Look, "heading", "Operator"),
 ];
 
