@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn every_key_of_the_map_is_in_one_group_and_the_counts_are_in_the_map() {
         let all: Vec<&str> = GROUPS.iter().flat_map(|group| group.keys.iter().copied()).collect();
-        assert_eq!(all.len(), 15);
+        assert_eq!(all.len(), 16);
         let mut once = all.clone();
         once.sort_unstable();
         once.dedup();
