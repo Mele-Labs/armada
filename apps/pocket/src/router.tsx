@@ -50,6 +50,7 @@ export function homeWhenBack(): void {
       screen === "document" ||
       screen === "artifact" ||
       screen === "artifacts" ||
+      screen === "judge" ||
       screen === "try"
     )
       go("/", true);
@@ -111,6 +112,11 @@ export type Route =
       id: string;
     }
   | {
+      screen: "judge";
+      origin: string;
+      id: string;
+    }
+  | {
       screen: "try";
       origin: string;
       id: string;
@@ -129,6 +135,7 @@ export const documentPath = (origin: string, id: string, page: string) =>
   `${jobPath(origin, id)}/document?page=${encodeURIComponent(page)}`;
 export const artifactPath = (origin: string, id: string, artifact: string) =>
   `${jobPath(origin, id)}/artifact?id=${encodeURIComponent(artifact)}`;
+export const judgePath = (origin: string, id: string) => `${jobPath(origin, id)}/judge`;
 export const artifactsPath = (origin: string, id: string) => `${jobPath(origin, id)}/artifacts`;
 export const tryPath = (origin: string, id: string, card: string) =>
   `${jobPath(origin, id)}/try?id=${encodeURIComponent(card)}`;
@@ -165,9 +172,10 @@ export function routeOf(whole: string): Route {
       origin: decodeURIComponent(draft[1]!),
       id: decodeURIComponent(draft[2]!),
     };
-  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document|artifact|artifacts|try))?$/.exec(
-    url.pathname,
-  );
+  const job =
+    /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document|artifact|artifacts|judge|try))?$/.exec(
+      url.pathname,
+    );
   if (job !== null) {
     const mac = decodeURIComponent(job[1]!);
     const id = decodeURIComponent(job[2]!);
@@ -202,6 +210,12 @@ export function routeOf(whole: string): Route {
     if (job[3] === "artifacts" && mac !== "_")
       return {
         screen: "artifacts",
+        origin: mac,
+        id,
+      };
+    if (job[3] === "judge" && mac !== "_")
+      return {
+        screen: "judge",
         origin: mac,
         id,
       };

@@ -892,7 +892,7 @@ async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as
 
     let json = "application/json";
     let ok = r#"{"ok":true}"#;
-    let table: [(Method, &str, &str, StatusCode, &str, &str); 9] = [
+    let table: [(Method, &str, &str, StatusCode, &str, &str); 14] = [
         (Method::GET, "/api/sessions/artifacts?session_id=s1", "", StatusCode::OK, json, ok),
         (Method::GET, "/api/sessions/artifacts/page?session_id=s1&artifact=a1&revision=3", "", StatusCode::OK, "text/html; charset=utf-8", "<p>page</p>"),
         (Method::POST, "/api/sessions/artifacts/part/answer", r#"{"session_id":"s1","part":"p1"}"#, StatusCode::OK, json, ok),
@@ -902,6 +902,11 @@ async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as
         (Method::GET, "/api/sessions/thread?session_id=s1&limit=20&before=r9", "", StatusCode::OK, json, ok),
         (Method::GET, "/api/sessions/repository_file?session_id=s1&path=src%2Flib.rs", "", StatusCode::NOT_FOUND, json, r#"{"code":"fleet.no_file"}"#),
         (Method::POST, "/api/sessions/ready_to_try/answer", r#"{"session_id":"s1","card":"c1"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/judge", r#"{"session_id":"s1","artifact":{"kind":"job","id":"s1","title":"t"},"judge":"code"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/judge/send", r#"{"session_id":"s1","reading":"r1","note":"n1"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/judge/dismiss", r#"{"session_id":"s1","reading":"r1","note":"n1"}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/judge/read", r#"{"session_id":"s1","reading":"r1"}"#, StatusCode::OK, json, ok),
+        (Method::GET, "/api/judge_types/armada?project=p1", "", StatusCode::OK, json, ok),
     ];
     for (method, path, body, status, kind, answer) in table {
         let before = calls.lock().unwrap().len();
