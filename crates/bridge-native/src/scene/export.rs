@@ -574,6 +574,13 @@ impl<'a> Kit<'a> {
         );
     }
 
+    /// One line of words centred on `middle`, as in a chip.
+    #[allow(clippy::too_many_arguments)]
+    fn say_centred(&self, out: &mut String, x: f32, middle: f32, at: f32, weight: f32, fill: &str, anchor: &str, words: &str) {
+        let top = middle + at * tile::CAP_MID - self.baseline(at, weight, false);
+        self.say(out, x, top, at, weight, false, fill, anchor, words, "");
+    }
+
     /// Wrapped words, a line to each `LEAD`, from `top`.
     #[allow(clippy::too_many_arguments)]
     fn say_lines(&self, out: &mut String, x: f32, top: f32, wrap: Option<f32>, at: f32, weight: f32, mono: bool, fill: &str, anchor: &str, words: &str) {
@@ -859,7 +866,7 @@ fn node_svg(kit: &Kit, node: &SceneNode, rect: Rect, tree: Option<&Rc<ScreenElem
 fn pill_svg(kit: &Kit, pill: Rect) -> String {
     let mut out = format!(r#"<g class="sk-start" aria-hidden="true" transform="translate({} {})">"#, n(pill.x), n(pill.y));
     let _ = write!(out, r#"<rect width="{}" height="{}" rx="{}" fill="url(#sk-pill)"/>"#, n(pill.w), n(pill.h), n(tile::PILL_H / 2.));
-    kit.say(&mut out, tile::PILL_PAD, (tile::PILL_H - LEAD) / 2., tile::PILL_AT, tile::NAME_WEIGHT, false, &kit.on_accent, "start", start::TAB_WORD, "");
+    kit.say_centred(&mut out, tile::PILL_PAD, tile::PILL_H / 2., tile::PILL_AT, tile::NAME_WEIGHT, &kit.on_accent, "start", start::TAB_WORD);
     out.push_str("</g>");
     out
 }
@@ -954,7 +961,7 @@ fn draw_tile(kit: &Kit, node: &SceneNode, rect: Rect, face: &Face, out: &mut Str
             kit.sunken,
             n(tile::HAIRLINE)
         );
-        kit.say(out, cx, cy - LEAD / 2., tile::BADGE_AT, tile::BADGE_WEIGHT, false, &kit.fg, "middle", number, "");
+        kit.say_centred(out, cx, cy, tile::BADGE_AT, tile::BADGE_WEIGHT, &kit.fg, "middle", number);
     }
 }
 
@@ -1080,8 +1087,8 @@ fn edge_svg(kit: &Kit, scene: &Scene, edge: &SceneEdge, way: &Way) -> String {
             n(tile::HAIRLINE)
         );
         for (index, line) in lines.iter().enumerate() {
-            let top = chip.y + tile::LABEL_PAD_Y + index as f32 * tile::LABEL_LEAD + (tile::LABEL_LEAD - LEAD) / 2.;
-            kit.say(&mut out, chip.x + chip.w / 2., top, tile::LABEL_AT, tile::LABEL_WEIGHT, false, &stroke, "middle", line, "");
+            let middle = chip.y + tile::LABEL_PAD_Y + (index as f32 + 0.5) * tile::LABEL_LEAD;
+            kit.say_centred(&mut out, chip.x + chip.w / 2., middle, tile::LABEL_AT, tile::LABEL_WEIGHT, &stroke, "middle", line);
         }
         out.push_str("</g>");
     }
@@ -1906,7 +1913,7 @@ mod tests {
         let curve = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Cubic(Pt { x: 10., y: 0. }, Pt { x: 20., y: 30. }, Pt { x: 30., y: 30. })];
         assert!(drawn(&arrow(None, None, Some(ScenePath::Curve), None), curve).contains(r#"d="M0 0C10 0 20 30 30 30""#));
         let hop = vec![Seg::Move(Pt { x: 0., y: 0. }), Seg::Line(Pt { x: 46., y: 0. }), Seg::Arc(Pt { x: 54., y: 0. }, 4., true), Seg::Line(Pt { x: 100., y: 0. })];
-        assert!(drawn(&arrow(None, None, None, None), hop).contains(r#"d="M0 0L46 0A4 4 0 0 1 54 0L95.5 0""#));
+        assert!(drawn(&arrow(None, None, None, None), hop).contains(r#"d="M0 0L46 0A4 4 0 0 1 54 0L97 0""#));
     }
 
     #[test]

@@ -74,6 +74,10 @@ pub(super) const BADGE_AT: f32 = 10.;
 pub(super) const BADGE_WEIGHT: f32 = 600.;
 pub(super) const BADGE_RING: f32 = 0.22;
 
+/// How far below the middle of a chip the baseline of its words sits, as a share of their size: half the height of a capital,
+/// so a picture centres the words in a chip as the app's text, centred on its line, does.
+pub(super) const CAP_MID: f32 = 0.35;
+
 /// The Start pill: its height, the size of its word, and the room each side of the word.
 pub(super) const PILL_H: f32 = 16.;
 pub(super) const PILL_AT: f32 = 9.;
@@ -87,7 +91,7 @@ pub(super) const LABEL_AT: f32 = 11.;
 pub(super) const LABEL_WEIGHT: f32 = 500.;
 pub(super) const LABEL_LEAD: f32 = 15.;
 pub(super) const LABEL_PAD_X: f32 = 7.;
-pub(super) const LABEL_PAD_Y: f32 = 1.;
+pub(super) const LABEL_PAD_Y: f32 = 2.;
 pub(super) const LABEL_FILL: f32 = 0.9;
 
 /// The chip an arrow's words sit on: `widest` of their lines with the chip's padding round them, centred where the words
