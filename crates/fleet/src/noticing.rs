@@ -59,6 +59,8 @@ pub(crate) struct Sweep {
     pub(crate) queues: BTreeMap<String, Vec<adapter_traits::QueueEntry>>,
     /// Each repository's newest merged pull requests as last listed, by root.
     pub(crate) merged: BTreeMap<String, Vec<crate::main_hub::MergedPulled>>,
+    /// Whether each repository's merge queue is stuck, by root. `crate::queue_watch`.
+    pub(crate) queue_watch: BTreeMap<String, crate::queue_watch::QueueWatch>,
     /// The CI run on main for each of those merge commits, by root and commit.
     /// A settled one is kept and never asked again.
     pub(crate) main_runs: BTreeMap<String, BTreeMap<String, crate::main_hub::MergedRun>>,

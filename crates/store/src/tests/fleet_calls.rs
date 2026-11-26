@@ -19,3 +19,21 @@ fn a_call_is_kept_for_its_session_with_an_id_of_its_own_and_survives_a_reopen() 
     assert_eq!(store.calls_of("s2").expect("reads").len(), 1);
     assert!(store.calls_of("s3").expect("reads").is_empty());
 }
+
+#[test]
+fn the_calls_of_one_notice_are_taken_back_and_the_sessions_that_held_them_named() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_call("s1", "queue_stuck:/repo", "The merge queue is stuck.", "2026-11-25T10:00:00Z").expect("kept");
+    store.keep_call("s1", "queue_stuck:/repo", "Again.", "2026-11-25T10:01:00Z").expect("kept");
+    store.keep_call("s2", "queue_stuck:/other", "Elsewhere.", "2026-11-25T10:02:00Z").expect("kept");
+    store.keep_call("s1", "write_clash", "A clash.", "2026-11-25T10:03:00Z").expect("kept");
+
+    let held = store.drop_calls("queue_stuck:/repo").expect("taken back");
+
+    assert_eq!(held, ["s1"], "each Session once");
+    let left: Vec<String> = store.calls_of("s1").expect("reads").into_iter().map(|one| one.notice).collect();
+    assert_eq!(left, ["write_clash"]);
+    assert_eq!(store.calls_of("s2").expect("reads").len(), 1, "another notice's call stays");
+    assert!(store.drop_calls("queue_stuck:/repo").expect("nothing").is_empty());
+}

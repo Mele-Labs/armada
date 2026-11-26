@@ -93,6 +93,16 @@ pub trait Forge {
     /// ran it, or the forge would not say.
     fn queue_commit_of(&self, in_repo: &str, base: &str, number: u64) -> Option<String>;
 
+    /// The merge queue's runs of `base` the forge has not finished, newest first as the forge lists
+    /// them. **One forge call.** `None` is the forge's silence, which a caller must not read as a
+    /// queue running nothing.
+    fn queue_runs(&self, in_repo: &str, base: &str) -> Option<crate::QueueRuns>;
+
+    /// The jobs of `commit` that failed, each with why where the forge's annotations say: no runner
+    /// took it, or it ran out of time. `None` is the forge's silence; an empty list is a commit no
+    /// job failed on, which a caller must not read as an infrastructure failure.
+    fn infra_failures(&self, in_repo: &str, commit: &str) -> Option<Vec<crate::InfraFailure>>;
+
     /// The text of one CI job's log, **its tail and bounded**: a failure is
     /// printed last, and a log runs to megabytes. Timestamps the forge puts on
     /// every line are taken off. `None` where it would not give one.
@@ -182,6 +192,11 @@ pub trait Forge {
     /// **A write to the forge, taken only from a person's press**, like [`merge`](Forge::merge).
     /// Nothing is posted on the pull request.
     fn rerun_failed(&self, in_repo: &str, pull_request: &str) -> Result<Rerun, NotRerun>;
+
+    /// Stop one workflow run, by the forge's id for it. **A write to the forge that posts nothing**:
+    /// Fleet takes it on a merge queue run no queue entry stands behind, which holds a runner for
+    /// nothing. A run already over is done. The refusal is the forge's own sentence.
+    fn cancel_run(&self, in_repo: &str, run_id: u64) -> Result<(), String>;
 
     /// The laps the CI run of `commit` on the base recorded for the test map, if it has.
     /// `docs/concepts/test-map.md`, *How it stays current*.

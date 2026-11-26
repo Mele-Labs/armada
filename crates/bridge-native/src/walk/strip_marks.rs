@@ -86,7 +86,13 @@ pub static LIVE: [Step; 5] = [
     marks("Fleet stopped, with the same Job open: the title bar says so, and the line Fleet last said stays drawn, as Electron keeps it", "strip-live-down", "button", READY),
 ];
 
-pub static STEPS: [Step; 41] = [
+/// The stuck merge queue alone: the band on main's card, and where its log opens.
+pub static QUEUE_STUCK: [Step; 2] = [
+    marks("A merge queue stuck on a job with no runner: an amber band on main's card, since when, and the pull requests in their order", "strip-queue-stuck", "status", "Merge queue stuck"),
+    step("Open log goes to the failed job's page", Verb::Look, "button", "Open log"),
+];
+
+pub static STEPS: [Step; 42] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
     step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
@@ -101,6 +107,7 @@ pub static STEPS: [Step; 41] = [
     press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),
     step("Esc shuts it and the keys go back to the strip", Verb::Key("escape"), "region", "Merge queue"),
     marks("A Job that took the red main shows on the card in place of the button", "strip-red-taken", "region", "main"),
+    marks("A merge queue stuck on a job with no runner: an amber band on main's card, since when, and the pull requests in their order", "strip-queue-stuck", "status", "Merge queue stuck"),
     marks("Until Fleet answers, the line is placeholder chips", "strip-loading", "region", "Merge queue"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),
     step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
