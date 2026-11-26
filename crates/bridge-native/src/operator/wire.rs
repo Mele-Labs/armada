@@ -152,12 +152,12 @@ impl Wire {
     }
 
     /// `POST /operator/talk`. The mock holds its answer until a scene gives one, so the wait is seen.
-    pub fn say(&mut self, words: String, about: Option<String>, cx: &App) -> Option<Task<Result<OperatorSaid, String>>> {
+    pub fn say(&mut self, talk: TalkToOperator, cx: &App) -> Option<Task<Result<OperatorSaid, String>>> {
         if let Wire::Mock(mock) = self {
-            mock.heard.push((words, about));
+            mock.heard.push((talk.words, talk.about));
             return None;
         }
-        let said = body(&TalkToOperator { words, about });
+        let said = body(&talk);
         Some(self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/talk", said), "OperatorSaid", Some("Your words were not sent to the Operator"), cx)))
     }
 

@@ -28,9 +28,10 @@ A card is in front → you press an option, or press Discuss and talk → the ca
 | Read the feed on the right | What happened since you last looked: what the Operator dispatched, merges, Jobs ended, and what Jobs asked or told it |
 
 **A question or a thought goes in the composer too.**
-With no tag and no kind chip picked, a send is a talk to the Operator about no card, and it answers in the talk.
-A thought for work already running goes to the Job it belongs to.
-Pick Idea, Feature or Bug to make the send work: it is started as a Job, or the Operator does it.
+With no tag, a send is a talk to the Operator about no card, and it answers in the talk.
+A screenshot or a file goes with the words: attach it, paste it or drop it on the box, with or without a tag.
+Nothing marks what kind of thing it is.
+The Operator reads your words: it starts a Job, folds the work into one already running, asks you on a card, or keeps it as an idea.
 
 **With no session running, nothing hears you.**
 The composer and a press on a card are refused with `fleet.operator_session_not_running`, and the card stands. A dispatch starts as you asked.

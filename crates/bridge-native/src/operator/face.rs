@@ -28,7 +28,7 @@ const fn kind(word: &'static str, glyph: &'static str, (hue, ground): (Token, To
     Kind { word, glyph, hue, ground }
 }
 
-/// What he may call a dispatch, as a chip: its word, its registry glyph and its hue. A hint: the Operator still decides.
+/// What a dispatch is marked as, drawn: its word, its registry glyph and its hue. A hint: the Operator still decides.
 pub fn dispatch_kind(kind: ipc::DispatchKind) -> Kind {
     match kind {
         ipc::DispatchKind::Idea => self::kind("Idea", "lightbulb", REVIEW),
@@ -36,18 +36,6 @@ pub fn dispatch_kind(kind: ipc::DispatchKind) -> Kind {
         ipc::DispatchKind::Bug => self::kind("Bug", "bug", FAILED),
     }
 }
-
-/// What the chip's tooltip says: picked, it turns the send into work for the Operator.
-pub fn dispatch_kind_tip(kind: ipc::DispatchKind) -> &'static str {
-    match kind {
-        ipc::DispatchKind::Idea => "Send it as an idea, work for the Operator to act on",
-        ipc::DispatchKind::Feature => "Send it as a feature, work for the Operator to act on",
-        ipc::DispatchKind::Bug => "Send it as a bug, work for the Operator to act on",
-    }
-}
-
-/// The three kinds he may pick, in the order the chips stand.
-pub const DISPATCH_KINDS: [ipc::DispatchKind; 3] = [ipc::DispatchKind::Idea, ipc::DispatchKind::Feature, ipc::DispatchKind::Bug];
 
 /// A red main nobody is on is a go-ahead whose item id is `red:<repository>:<commit>`.
 pub fn is_red_main(turn: &OperatorTurnItem) -> bool {
