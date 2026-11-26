@@ -260,7 +260,7 @@ impl StoryTab {
         labelled(button, Role::Button, said.to_string()).into_any_element()
     }
 
-    /// One row: its glyph, its title with what it says under it, then the opened mark, the portion of time and when.
+    /// One row: its glyph, its title with what it says under it, then the opened mark, the portion of time and when. The timing wraps under the title when the pane is too narrow to hold both.
     fn render_entry(&self, flat: usize, entry: &Entry, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let open = self.unfolded.as_deref() == Some(entry.key.as_str());
         let on = self.focus.is_focused(window) && self.cursor == Some(flat) && self.region == Region::Rows;
@@ -272,7 +272,7 @@ impl StoryTab {
         );
         let words = div()
             .flex_1()
-            .min_w_0()
+            .min_w(look.length(token::SPACE_12) * 4.)
             .flex()
             .flex_col()
             .gap(px(1.))
@@ -302,8 +302,10 @@ impl StoryTab {
             .id(SharedString::from(format!("story-row-{}", entry.key)))
             .w_full()
             .flex()
+            .flex_wrap()
             .items_center()
-            .gap(look.length(token::SPACE_3))
+            .gap_x(look.length(token::SPACE_3))
+            .gap_y(look.length(token::SPACE_1))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
             .rounded(look.length(token::RADIUS_MD))
@@ -321,9 +323,7 @@ impl StoryTab {
             }))
             .child(mark)
             .child(words)
-            .child(caret)
-            .child(spent)
-            .child(stamp);
+            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(caret).child(spent).child(stamp));
         let named = if entry.says.is_empty() { format!("{}, {}", entry.title, entry.when) } else { format!("{}, {}, {}", entry.title, entry.says, entry.when) };
         let line = labelled(line, Role::Button, named.clone());
         let frame = div().id(SharedString::from(format!("story-entry-{}", entry.key))).w_full().flex().flex_col();
