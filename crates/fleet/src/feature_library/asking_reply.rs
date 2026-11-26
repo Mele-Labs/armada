@@ -9,6 +9,8 @@ use ipc::{AskedBoard, BoardBlock};
 pub(super) const MOST_REPLY: usize = 200;
 /// The most features the prompt names.
 const MOST_FEATURES: usize = 80;
+/// The most features one draft keeps.
+pub(super) const MOST_DRAFTED: usize = 40;
 
 /// The screen he asked from, read from `context`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,12 +38,13 @@ impl Screen {
         Screen::Dashboard
     }
 
-    /// The acts an ask from here may do. The empty Features page and a metric answer only, for now.
+    /// The acts an ask from here may do. A metric answers only, for now.
     pub(super) fn acts(&self) -> &'static [&'static str] {
         match self {
             Screen::Dashboard => &["board", "file", "rank", "answer"],
             Screen::Feature(_) => &["file", "answer"],
-            Screen::FeaturesEmpty | Screen::Metric(_) => &["answer"],
+            Screen::FeaturesEmpty => &["draft", "answer"],
+            Screen::Metric(_) => &["answer"],
         }
     }
 
@@ -62,8 +65,8 @@ pub(super) struct Named {
     pub(super) area: String,
 }
 
-/// What the model is asked.
-pub(super) fn question(screen: &Screen, words: &str, files: &[String], features: &[Named], board: Option<&AskedBoard>) -> String {
+/// What the model is asked. `docs` are the name and text of each doc he gave that Fleet read.
+pub(super) fn question(screen: &Screen, words: &str, files: &[String], docs: &[(String, String)], features: &[Named], board: Option<&AskedBoard>) -> String {
     let acts = screen.acts();
     let mut text = format!(
         "You are the librarian of a software project's feature catalog. Its owner typed into the Ask box on {}. \
@@ -81,6 +84,9 @@ pub(super) fn question(screen: &Screen, words: &str, files: &[String], features:
     if acts.contains(&"rank") {
         text.push_str("- rank: rank the issues he might pick up and the pull requests he might be interested in.\n");
     }
+    if acts.contains(&"draft") {
+        text.push_str("- draft: draft each feature his docs describe, for him to confirm one by one.\n");
+    }
     text.push_str("- answer: answer him and do nothing else.\n\n");
     text.push_str(
         "Answer in these lines and nothing else:\n\
@@ -93,9 +99,15 @@ pub(super) fn question(screen: &Screen, words: &str, files: &[String], features:
     if acts.contains(&"file") {
         text.push_str("For file, one line: FILE <path or link> | <title> | <feature slug>\n");
     }
+    if acts.contains(&"draft") {
+        text.push_str("For draft, one line a feature: FEATURE <slug, lower case words joined by dashes> | <title> | <one line of what it does>\n");
+    }
     text.push_str(&format!("\nHis words: {}\n", flat(words)));
     if !files.is_empty() {
         text.push_str(&format!("His files and links: {}\n", files.iter().map(|one| one.trim()).collect::<Vec<_>>().join(", ")));
+    }
+    for (name, read) in docs {
+        text.push_str(&format!("\nThe doc {name}:\n{}\n", read.trim()));
     }
     if let Screen::Feature(slug) = screen {
         text.push_str(&format!("A file goes under `{slug}` unless his words name another feature.\n"));
@@ -127,6 +139,8 @@ pub(super) enum Said {
     Board(Option<Vec<BoardBlock>>),
     File { target: String, title: String, feature: String },
     Rank,
+    /// Each feature it drafted: slug, title and one line.
+    Draft(Vec<(String, String, String)>),
     Answer,
 }
 
@@ -144,6 +158,7 @@ pub(super) fn read(reply: &str, screen: &Screen) -> Reading {
     let mut line = None;
     let mut blocks: Vec<Option<BoardBlock>> = Vec::new();
     let mut file = None;
+    let mut drafts = Vec::new();
     for raw in reply.lines() {
         let raw = raw.trim().trim_start_matches(['-', '*']).trim();
         let (head, rest) = raw.split_once(char::is_whitespace).map_or((raw, ""), |(head, rest)| (head, rest.trim()));
@@ -152,6 +167,7 @@ pub(super) fn read(reply: &str, screen: &Screen) -> Reading {
             "REPLY" if line.is_none() => line = Some(rest.to_string()),
             "BLOCK" => blocks.push(block_of(rest)),
             "FILE" if file.is_none() => file = file_of(rest),
+            "FEATURE" => drafts.extend(draft_of(rest)),
             _ => {}
         }
     }
@@ -160,6 +176,7 @@ pub(super) fn read(reply: &str, screen: &Screen) -> Reading {
         Some("board") if allowed("board") => Said::Board((!blocks.is_empty()).then(|| blocks.into_iter().collect::<Option<Vec<_>>>()).flatten()),
         Some("file") if allowed("file") => file.map_or(Said::Answer, |(target, title, feature)| Said::File { target, title, feature }),
         Some("rank") if allowed("rank") => Said::Rank,
+        Some("draft") if allowed("draft") => Said::Draft(drafts),
         _ => Said::Answer,
     };
     let reply = match (line, act.is_some()) {
@@ -183,6 +200,14 @@ fn file_of(rest: &str) -> Option<(String, String, String)> {
     let title = parts.next().unwrap_or("").to_string();
     let feature = parts.next().unwrap_or("").trim_matches('`').to_string();
     Some((target, title, feature))
+}
+
+fn draft_of(rest: &str) -> Option<(String, String, String)> {
+    let mut parts = rest.split('|').map(str::trim);
+    let slug = parts.next().unwrap_or("").trim_matches('`').to_string();
+    let title = one_line(parts.next().unwrap_or(""), 80);
+    let summary = one_line(parts.next().unwrap_or(""), MOST_REPLY);
+    (!slug.is_empty() || !title.is_empty()).then_some((slug, title, summary))
 }
 
 /// Whether `blocks` may be kept on `board`: only its kinds and their views, inside its columns, none over another, none

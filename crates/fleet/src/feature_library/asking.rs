@@ -16,6 +16,7 @@ use store::{feature_link_kind, feature_state, KeptFeatureLink};
 use super::asking_rank::{self, Ranking};
 use super::asking_reply::{self, Named, Said, Screen};
 use super::reading::Loaded;
+use super::starting::{self, Draft};
 use crate::daemon::Fleet;
 
 /// Blank words and no files.
@@ -38,6 +39,8 @@ enum Undo {
     Filed { feature_id: String, feature_title: String, target: String, title: String },
     /// The ranking it made, by when.
     Ranked { at: Instant },
+    /// The pending features it drafted, by slug.
+    Drafted { slugs: Vec<String> },
 }
 
 #[derive(Default)]
@@ -163,7 +166,15 @@ where
             .collect();
         let board = ask.board.as_ref().filter(|_| screen == Screen::Dashboard);
         let asked_at = Instant::carried(self.now().as_str());
-        let question = asking_reply::question(&screen, &ask.words, &files, &features, board);
+        // The model reads text alone, so Fleet reads the docs he gave from the project's repositories into the question.
+        let docs = match (&screen, self.served_members(&project)) {
+            (Screen::FeaturesEmpty, Some(repositories)) if !files.is_empty() => {
+                let (roots, given): (Vec<_>, Vec<String>) = (repositories.into_iter().map(|(_, root)| root).collect(), files.clone());
+                tokio::task::spawn_blocking(move || starting::docs_text(&roots, &given)).await.unwrap_or_default()
+            }
+            _ => Vec::new(),
+        };
+        let question = asking_reply::question(&screen, &ask.words, &files, &docs, &features, board);
         self.ask_call_spent(&project, &night).await?;
         let reading = match self.story_asked(&question).await {
             Ok(reply) => asking_reply::read(&reply, &screen),
@@ -208,6 +219,28 @@ where
                 Err(refusal) if refusal.error().code == SPENT => ("The lists were not ranked. Tonight's asks are spent.".to_string(), None, None),
                 Err(_) => ("The lists were not ranked. They could not be read.".to_string(), None, None),
             },
+            Said::Draft(found) => {
+                let drafts: Vec<Draft> = found
+                    .into_iter()
+                    .filter_map(|(slug, title, summary)| {
+                        let slug = Some(starting::slug_of(&slug)).filter(|one| !one.is_empty()).unwrap_or_else(|| starting::slug_of(&title));
+                        let title = if title.is_empty() { slug.clone() } else { title };
+                        (!slug.is_empty()).then_some(Draft { slug, title, summary, manifest: String::new(), path: String::new() })
+                    })
+                    .take(asking_reply::MOST_DRAFTED)
+                    .collect();
+                let kept = if drafts.is_empty() {
+                    Some((Vec::new(), Vec::new()))
+                } else {
+                    let mut store = self.store().lock().await;
+                    self.pending_drafted(&mut store, &project, drafts, starting::FEATURES_AREA).map_err(|why| self.ledger_fault(why))?
+                };
+                match kept {
+                    None => ("Nothing was drafted. This project holds features of its own.".to_string(), None, None),
+                    Some((drafted, _)) if drafted.is_empty() => ("Nothing was drafted. The librarian named no feature the library does not hold.".to_string(), None, None),
+                    Some((drafted, held)) => (said_or("The features were drafted as Pending."), Some(LibrarianAct::Drafted { drafted: drafted.clone(), held }), Some(Undo::Drafted { slugs: drafted })),
+                }
+            }
         };
         if let Some(undo) = undo {
             self.librarian_asks().keep(&project, asked_at.as_str(), undo);
@@ -268,6 +301,17 @@ where
             Undo::Ranked { at } => {
                 self.librarian_asks().forget(&project, Some(at));
                 "The lists are back in feature order.".to_string()
+            }
+            Undo::Drafted { slugs } => {
+                let mut store = self.store().lock().await;
+                // A draft he confirmed since is his, and stays.
+                for slug in slugs {
+                    let pending = store.feature_named(&project, slug).map_err(|why| self.ledger_fault(why))?.is_some_and(|one| one.state == feature_state::PENDING);
+                    if pending {
+                        store.retire_feature(&project, slug).map_err(|why| self.ledger_fault(why))?;
+                    }
+                }
+                "The drafted features are taken back out.".to_string()
             }
         };
         self.librarian_asks().let_go(&project, undo.asked_at.as_str());

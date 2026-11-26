@@ -425,7 +425,7 @@ impl AskBox {
                         AskSource::Mock(_) => cx.emit(AskBoxEvent::Board(self.asked_board.as_ref().filter(|board| !board.preset).map(|board| board.layout.clone()))),
                     },
                     LibrarianAct::Ranked => cx.emit(AskBoxEvent::IssuesAgain),
-                    LibrarianAct::FiledDoc { .. } => {}
+                    LibrarianAct::FiledDoc { .. } | LibrarianAct::Drafted { .. } => {}
                 }
                 self.reply = Some(Reply::Undone(done.reply));
             }

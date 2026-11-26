@@ -5,12 +5,13 @@ use std::sync::Arc;
 
 use api::{Features, Projects};
 use ipc::{
-    AreaSeed, AskLibrarian, AskedBlockKind, AskedBoard, BoardBlock, BoardLayout, FeatureSeed, LibrarianAct, RankWithLibrarian, RefileLibrarianAsk, SaveProjectBoard, SettingValue,
-    UndoLibrarianAsk, UpsertFeatures,
+    AreaSeed, AskLibrarian, AskedBlockKind, AskedBoard, BoardBlock, BoardLayout, DraftModules, FeatureSeed, LibrarianAct, NewProject, ProjectMember, RankWithLibrarian, RefileLibrarianAsk,
+    SaveProjectBoard, SettingValue, UndoLibrarianAsk, UpsertFeatures,
 };
-use store::feature_link_kind;
+use store::{feature_link_kind, feature_state};
 use testkit::{FakeJudge, FakeTracker, FakeTrackers};
 
+use super::doc_drift::write;
 use super::librarian::{libraried, rig_judged, set};
 use super::peer::Placing;
 use super::session_host::{rig_fitted, Rig};
@@ -230,8 +231,81 @@ async fn an_answer_does_nothing_and_a_screen_that_answers_only_reads_any_act_as_
     let answered = rig.fleet.ask_librarian(None, ask(&project, "somewhere new", "What is here?", &[], None)).await.expect("answered");
     assert_eq!((answered.act, answered.reply.as_str()), (None, "Voting on takes is the one feature."));
     let empty = rig.fleet.ask_librarian(None, ask(&project, "features_empty", "Add a block", &[], Some(board(true)))).await.expect("answered");
-    assert_eq!((empty.act, empty.reply.as_str()), (None, "Added a block."), "the empty Features page answers only");
+    assert_eq!((empty.act, empty.reply.as_str()), (None, "Added a block."), "the empty Features page does no board act");
     assert_eq!(kept_board(&rig, &project).await, None);
+}
+
+/// A project of the rig's repository holding no feature, with one crate, a README and a docs folder of one page.
+async fn bare(rig: &Rig) -> String {
+    let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
+    let project = rig.fleet.add_project(NewProject { name: "Ledger".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone();
+    let root = rig.root.as_str();
+    write(root, "crates/api/Cargo.toml", "[package]\nname = \"ledger_api\"\n");
+    write(root, "README.md", "# Ledger\nLedger posts entries and prints monthly reports.\n");
+    write(root, "docs/posting.md", "# Posting\nAn entry is posted to two accounts.\n");
+    project
+}
+
+/// Each feature of `project` by slug, with its state and area.
+async fn kept_features(rig: &Rig, project: &str) -> Vec<(String, String, String)> {
+    let features = rig.fleet.store().lock().await.features_in(project).expect("read");
+    features.into_iter().map(|one| (one.slug, one.state, one.area)).collect()
+}
+
+const TWO_DRAFTED: &str = "ACT draft\nREPLY Drafted Posting and Reports.\nFEATURE posting | Posting | Posts an entry to two accounts\nFEATURE reports | Reports | Prints monthly reports";
+
+#[tokio::test]
+async fn a_features_empty_ask_drafts_each_feature_the_docs_name_as_its_own_pending_row_and_undo_takes_them_out() {
+    let (rig, judge) = rig_judged(FakeJudge::saying(TWO_DRAFTED));
+    let project = bare(&rig).await;
+    let answered = rig.fleet.ask_librarian(None, ask(&project, "features_empty", "Draft the features these docs describe", &["README.md", "docs/"], None)).await.expect("answered");
+    assert_eq!(answered.act, Some(LibrarianAct::Drafted { drafted: vec!["posting".into(), "reports".into()], held: Vec::new() }));
+    assert_eq!(answered.reply, "Drafted Posting and Reports.");
+    let asked = judge.asked();
+    assert!(asked[0].contains("monthly reports") && asked[0].contains("two accounts"), "the docs' text reaches the model: {}", asked[0]);
+
+    let pending = |slug: &str| (slug.to_string(), feature_state::PENDING.to_string(), "pending".to_string());
+    assert_eq!(kept_features(&rig, &project).await, [pending("posting"), pending("reports")], "each its own pending row");
+    let posting = rig.fleet.store().lock().await.feature_named(&project, "posting").expect("read").expect("held");
+    assert_eq!((posting.title.as_str(), posting.summary.as_str()), ("Posting", "Posts an entry to two accounts"));
+
+    let undone = rig.fleet.undo_librarian_ask(None, UndoLibrarianAsk { project: project.clone(), asked_at: answered.asked_at }).await.expect("undone");
+    assert_eq!(undone.reply, "The drafted features are taken back out.");
+    assert!(kept_features(&rig, &project).await.is_empty(), "both taken out");
+}
+
+#[tokio::test]
+async fn a_slug_the_library_holds_is_passed_over_and_undo_leaves_it() {
+    let (rig, _) = rig_judged(FakeJudge::saying("ACT draft\nREPLY Drafted two.\nFEATURE ledger-api | The API | Serves the ledger\nFEATURE posting | Posting | Posts entries"));
+    let project = bare(&rig).await;
+    rig.fleet.draft_module_features(None, DraftModules { project: project.clone() }).await.expect("drafted");
+    let answered = rig.fleet.ask_librarian(None, ask(&project, "features_empty", "Read them", &["README.md"], None)).await.expect("answered");
+    assert_eq!(answered.act, Some(LibrarianAct::Drafted { drafted: vec!["posting".into()], held: vec!["ledger-api".into()] }));
+    let api = rig.fleet.store().lock().await.feature_named(&project, "ledger-api").expect("read").expect("held");
+    assert_eq!(api.title, "ledger_api", "the module's draft is untouched");
+
+    rig.fleet.undo_librarian_ask(None, UndoLibrarianAsk { project: project.clone(), asked_at: answered.asked_at }).await.expect("undone");
+    let slugs: Vec<String> = kept_features(&rig, &project).await.into_iter().map(|(slug, _, _)| slug).collect();
+    assert_eq!(slugs, ["ledger-api"], "only what the ask drafted is taken out");
+}
+
+#[tokio::test]
+async fn a_features_empty_ask_drafts_nothing_in_a_library_with_a_feature_of_its_own() {
+    let (rig, _) = rig_judged(FakeJudge::saying(TWO_DRAFTED));
+    let (project, _) = libraried(&rig).await;
+    let answered = rig.fleet.ask_librarian(None, ask(&project, "features_empty", "Read them", &["README.md"], None)).await.expect("answered");
+    assert_eq!(answered.act, None);
+    assert_eq!(answered.reply, "Nothing was drafted. This project holds features of its own.");
+    assert!(rig.fleet.store().lock().await.feature_named(&project, "posting").expect("read").is_none());
+}
+
+#[tokio::test]
+async fn a_draft_from_another_screen_reads_as_an_answer() {
+    let (rig, _) = rig_judged(FakeJudge::saying(TWO_DRAFTED));
+    let project = bare(&rig).await;
+    let answered = rig.fleet.ask_librarian(None, ask(&project, "dashboard", "Read them", &["README.md"], None)).await.expect("answered");
+    assert_eq!(answered.act, None, "only the empty Features page drafts");
+    assert!(kept_features(&rig, &project).await.is_empty());
 }
 
 #[tokio::test]

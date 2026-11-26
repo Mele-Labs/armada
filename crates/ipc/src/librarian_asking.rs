@@ -74,6 +74,13 @@ pub enum LibrarianAct {
     },
     /// The might-lists were ranked by the librarian: `list_ranked_issues` answers them in its order, each with a why.
     Ranked,
+    /// Each feature the librarian found in the docs was kept as its own pending feature, by slug: from `features_empty`.
+    Drafted {
+        drafted: Vec<String>,
+        /// The slugs it named that the library held already, passed over.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        held: Vec<String>,
+    },
 }
 
 /// `undo_librarian_ask`: the act of one ask is taken back.

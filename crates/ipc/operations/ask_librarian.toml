@@ -11,12 +11,13 @@ notes = """
 
 - `board`: the board is kept as `layout`, as `save_project_board` keeps it, and `projects.changed` is published. Fleet checks the model's layout first: only a kind and a view in `board.kinds`, inside `columns`, no two blocks over each other, no width or height under one. A layout that fails is not kept, there is no act, and the reply says the board was not changed.
 - `filed_doc`: a path or link is kept as a read of one feature, `target`, `title`, `feature` and `feature_title`, and shows on its page at once. `refile_librarian_ask` moves it.
+- `drafted`: each feature the docs he gave describe is kept as its own pending feature, as `draft_module_features` keeps a module: `drafted` names the slugs kept and `held` the slugs passed over because the library holds them. Only from `features_empty`, and Fleet reads the text of each of his `files` that is a doc at the top of the project's repositories (a docs folder's Markdown files one level down) into the question. A project holding a confirmed or seeded feature keeps nothing, and the reply says so. Undo takes out each draft still pending.
 - `ranked`: both might-lists are ranked by the librarian, as `rank_with_librarian` ranks them. **The ranking is a second call**, since the lists are read only once the librarian asks for them, and it spends from the same night: where none is left, or the lists do not read, there is no act and the reply says the lists were not ranked.
 - No act: the reply is the answer, at most 200 characters on one line.
 
 A filed doc must be one of his `files` or named in his `words`, and its feature one the library holds; otherwise nothing is filed and the reply says so.
 
-**The screen is `context`**: `dashboard`, `features_empty`, `feature:<slug>` or `metric:<id>`, and any other word reads as `dashboard`. On `feature:<slug>` that feature is where a filed doc goes unless his words say another. On `features_empty` and `metric:<id>` the librarian answers and does nothing yet.
+**The screen is `context`**: `dashboard`, `features_empty`, `feature:<slug>` or `metric:<id>`, and any other word reads as `dashboard`. On `feature:<slug>` that feature is where a filed doc goes unless his words say another. On `features_empty` it may draft, and on `metric:<id>` it answers and does nothing yet.
 
 **Only on his press.** Fleet never asks the librarian by itself, and nothing here waits on the Operator. **Asks have their own night**: `features.librarianAskShare`, 40 model calls a project as it ships, apart from Catch up's `features.librarianModelShare`. A call that failed is still spent, and its reply says the librarian did not answer. A night is local midnight to midnight, and the count is kept in the store.
 
