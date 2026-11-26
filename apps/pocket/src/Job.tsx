@@ -445,7 +445,7 @@ const ARTIFACTS_ENTRY = {
   icon: Files,
 } as const;
 
-/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, Artifacts where the Job showed any, the model and effort, and End. An ended Job keeps Fork and Artifacts, and a waiting one, which runs nothing, End and Artifacts. */
+/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, Judge…, Artifacts where the Job showed any, the model and effort, and End. An ended Job keeps Fork, Judge… and Artifacts, and a waiting one, which runs nothing, End and Artifacts. */
 function menuOf(
   session: Session,
   models: ModelsBody | undefined,
@@ -453,7 +453,6 @@ function menuOf(
 ): DropdownMenuEntry[] {
   if (session.waits !== undefined)
     return [
-      JUDGE_ENTRY,
       ...(showed
         ? [
             ARTIFACTS_ENTRY,
