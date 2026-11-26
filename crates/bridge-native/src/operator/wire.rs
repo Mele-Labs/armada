@@ -154,6 +154,7 @@ impl Wire {
     /// `POST /operator/talk`. The mock holds its answer until a scene gives one, so the wait is seen.
     pub fn say(&mut self, talk: TalkToOperator, cx: &App) -> Option<Task<Result<OperatorSaid, String>>> {
         if let Wire::Mock(mock) = self {
+            mock.heard_files = talk.attachments.iter().enumerate().map(|(n, one)| ipc::SentFile { id: format!("sent-{}-{n}", mock.heard.len()), name: one.name.clone(), media_type: one.media_type.clone() }).collect();
             mock.heard.push((talk.words, talk.about));
             return None;
         }

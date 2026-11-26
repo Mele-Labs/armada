@@ -120,6 +120,8 @@ pub struct OperatorPageView {
     /// The talk under the card, a list that follows its tail, and the rows it draws.
     pub(super) talk_list: ListState,
     pub(super) talk_said: Vec<super::talk::Said>,
+    /// The pictures under his words in the talk, by the file's id.
+    pub(super) talk_pictures: HashMap<String, super::talk::TalkPicture>,
     /// The talk has overflowed its space: the card in front folds to one line from then on.
     pub(super) talk_long: Rc<Cell<bool>>,
     /// How tall the talk's rows are together, as last drawn.
@@ -235,6 +237,7 @@ impl OperatorPageView {
                 list
             },
             talk_said: Vec::new(),
+            talk_pictures: HashMap::new(),
             talk_long: Rc::new(Cell::new(false)),
             talk_tall: Rc::new(Cell::new(gpui::px(0.))),
             said_tall: Rc::new(Cell::new(gpui::px(0.))),
@@ -1813,6 +1816,23 @@ mod tests {
             assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"), "the card in front stands");
             assert!(page.mock_fleet().expect("the walk's Fleet").pressed.is_empty());
         });
+    }
+
+    #[gpui::test]
+    fn a_picture_he_sends_the_operator_is_drawn_under_his_words_in_the_talk(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let mut talk = said("This toast is wrong", None);
+        talk.attachments = vec![ipc::SessionUpload { name: "Pasted file.png".into(), media_type: "image/png".into(), data: String::new() }];
+        page.update_in(cx, |page, window, cx| page.talk_loose(talk, window, cx));
+        page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            use super::super::talk::Said;
+            assert!(matches!(&page.talk_said[..], [Said::You { files, .. }, ..] if files.len() == 1), "the thread echoes his picture on his row: {:?}", page.talk_said);
+        });
+        assert!(drawn(cx, gpui::Role::Image, "Pasted file.png"), "the picture is drawn under his words");
     }
 
     #[gpui::test]

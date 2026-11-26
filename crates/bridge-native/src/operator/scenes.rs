@@ -17,6 +17,8 @@ pub struct MockFleet {
     pub fronted: usize,
     /// Words sent to the Operator, waiting on a scene to answer them.
     pub heard: Vec<(String, Option<String>)>,
+    /// The files sent with the last words heard, which the thread echoes on his row as Fleet's does.
+    pub heard_files: Vec<ipc::SentFile>,
     /// Every press, as the routes were asked, for a test to read.
     pub pressed: Vec<OperatorAnswerPress>,
     /// Why the next switch is refused, where a test wants it refused.
@@ -100,6 +102,7 @@ impl MockFleet {
             thread: JobThread { items: Vec::new(), ..thread() },
             fronted: 0,
             heard: Vec::new(),
+            heard_files: Vec::new(),
             pressed: Vec::new(),
             refuse_switch: None,
             fail_answer: None,
@@ -229,7 +232,11 @@ impl MockFleet {
             Some(about) => format!("[About card {about} \"{}\"]\n{words}", self.titled(about)),
             None => words,
         };
-        self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &said));
+        let mut his = row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &said);
+        if let ipc::ThreadItem::Row { row: ipc::SessionRow::Message { files, .. } } = &mut his {
+            *files = std::mem::take(&mut self.heard_files);
+        }
+        self.thread.items.push(his);
         let answer = match &about {
             Some(_) => "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files.",
             None => "Pocket, Jobs screens and the desktop_unit fix are running. None of them waits on you.",

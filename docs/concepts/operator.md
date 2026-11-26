@@ -59,7 +59,7 @@ A card never holds a count or a status report.
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer with the tag | His words join the talk under the card as a talk about that card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
 | Send in the composer with no tag | His words are a talk to the Operator about no card (`talk_to_operator` with no `about`). They join the same talk with no `About:` row, and the Operator answers there. No card settles for them. The Operator reads from his words whether it is work: it may start a Job, fold it into a live one, ask on a card or keep it as an idea |
-| Attach, paste or drop a file or a picture, then send | It goes with his words, with or without a tag, and reaches the Operator's session as a Job's message's files reach a Job. The composer has no kind or repository chips: every send is a talk |
+| Attach, paste or drop a file or a picture, then send | It goes with his words, with or without a tag, and reaches the Operator's session as a Job's message's files reach a Job. A picture is drawn under his words in the talk, and any other file is a chip with its name. The composer has no kind or repository chips: every send is a talk |
 | Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |
 | Show (`⌘Enter`) on the new-card strip | The newest card that came comes in front, open, and the strip goes |
 | Snooze (`S`) | The card goes back until its time, hidden until then |

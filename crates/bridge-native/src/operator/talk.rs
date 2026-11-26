@@ -5,14 +5,19 @@
 //!
 //! The rows are the session's messages as Fleet serves them in its thread (`SessionRow::Message`); Fleet's notices to
 //! it are left out. A message he has sent that the thread has not echoed yet is drawn as his, so a send shows at once.
+//! The pictures he sent with his words, pasted or attached, are drawn under his bubble once the thread echoes them, read from
+//! Fleet as a Job's thread reads them (`get_session_file`); a file that is not a picture is a chip with its name.
 
-use gpui::{canvas, div, list, prelude::*, Animation, AnimationExt as _, AnyElement, App, BoxShadow, Context, FontWeight, Role, SharedString, Window};
+use std::sync::Arc;
+
+use gpui::{canvas, div, img, list, prelude::*, px, size, Animation, AnimationExt as _, AnyElement, App, BoxShadow, Context, FontWeight, Image, ObjectFit, Role, SharedString, Size, Window};
 use gpui_component::text::TextView;
-use ipc::{SessionRow, SessionVoice, ThreadItem};
+use ipc::{SentFile, SessionRow, SessionVoice, ThreadItem};
 
 use super::page::OperatorPageView;
 use super::wire::Wire;
 use super::view::{press, pressed, Weight};
+use crate::job_view::pictures::{fitted, format_of, is_picture, mock_picture, natural_size, thumb_most};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook as _, Look};
 use crate::titlebar::parts::{glyph, tip};
@@ -27,13 +32,21 @@ pub(super) fn tag_of(text: &str) -> Option<(&str, &str, &str)> {
     Some((id, title.trim().trim_matches('"'), words.trim_start()))
 }
 
+/// A picture under his words, as far as it has been read.
+pub(super) enum TalkPicture {
+    Reading,
+    Ready { image: Arc<Image>, natural: Size<f32> },
+    /// Fleet would not give it: the file is named in a chip instead.
+    Unread,
+}
+
 /// One row of the talk.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Said {
     /// Where his words turn to a card: "About: <its title>".
     About { key: String, title: SharedString },
-    /// His words. A send the thread has not echoed yet has no time.
-    You { id: String, at: Option<String>, words: SharedString },
+    /// His words, and the files he sent with them. A send the thread has not echoed yet has no time and no files yet.
+    You { id: String, at: Option<String>, words: SharedString, files: Vec<SentFile> },
     /// The Operator's reply.
     Operator { id: String, at: String, text: SharedString },
     /// A card the Operator raised in the talk, by id.
@@ -55,7 +68,7 @@ pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, Option<(&str, &s
     };
     let mut last_words: Option<&str> = None;
     for item in items {
-        let ThreadItem::Row { row: SessionRow::Message { id, at, from, text, notice, .. } } = item else { continue };
+        let ThreadItem::Row { row: SessionRow::Message { id, at, from, text, notice, files, .. } } = item else { continue };
         match from {
             SessionVoice::You if notice.is_none() => {
                 let (card, words) = match tag_of(text) {
@@ -63,7 +76,7 @@ pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, Option<(&str, &s
                     None => (None, text.as_str()),
                 };
                 turned(&mut said, card);
-                said.push(Said::You { id: id.clone(), at: Some(at.as_str().to_string()), words: words.to_string().into() });
+                said.push(Said::You { id: id.clone(), at: Some(at.as_str().to_string()), words: words.to_string().into(), files: files.clone() });
                 last_words = Some(words);
             }
             SessionVoice::Agent if !text.trim().is_empty() => said.push(Said::Operator { id: id.clone(), at: at.as_str().to_string(), text: text.clone().into() }),
@@ -72,7 +85,7 @@ pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, Option<(&str, &s
     }
     if let Some((words, card)) = sent.filter(|(words, _)| last_words.map(str::trim) != Some(words.trim())) {
         turned(&mut said, card);
-        said.push(Said::You { id: "sent".into(), at: None, words: words.to_string().into() });
+        said.push(Said::You { id: "sent".into(), at: None, words: words.to_string().into(), files: Vec::new() });
     }
     said.extend(raised.into_iter().map(Said::Raised));
     said
@@ -171,7 +184,10 @@ impl OperatorPageView {
         let look = cx.look().clone();
         let row = match self.talk_said.get(ix).cloned() {
             Some(Said::About { key, title }) => self.about_row(&key, &title, &look),
-            Some(Said::You { id, at, words }) => self.his_words(&id, &words, at.as_deref(), &look, cx),
+            Some(Said::You { id, at, words, files }) => {
+                self.want_talk_pictures(&files, cx);
+                self.his_words(&id, &words, &files, at.as_deref(), &look, cx)
+            }
             Some(Said::Operator { id, at, text }) => self.its_words(&id, &at, &text, &look, cx),
             Some(Said::Raised(id)) => match self.items().iter().find(|turn| turn.id == id).cloned() {
                 Some(turn) => self.card(&turn, true, window, &look, cx),
@@ -205,8 +221,8 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    /// His words, at the right in the bubble a Job's thread draws them in.
-    fn his_words(&self, id: &str, words: &SharedString, at: Option<&str>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// His words, at the right in the bubble a Job's thread draws them in, and under them what he sent with them.
+    fn his_words(&self, id: &str, words: &SharedString, files: &[SentFile], at: Option<&str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         labelled(
             div()
                 .id(SharedString::from(format!("talk-you:{id}")))
@@ -214,16 +230,106 @@ impl OperatorPageView {
                 .flex_col()
                 .items_end()
                 .gap(look.length(token::SPACE_1))
-                .child(
-                    div()
-                        .max_w(gpui::relative(0.8))
-                        .child(crate::job_view::rows::bubble(look).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(words.clone())),
-                )
+                .when(!words.trim().is_empty(), |row| {
+                    row.child(
+                        div()
+                            .max_w(gpui::relative(0.8))
+                            .child(crate::job_view::rows::bubble(look).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(words.clone())),
+                    )
+                })
+                .children(self.his_files(files, look))
                 .children(at.map(|at| div().px(look.length(token::SPACE_2)).child(self.stamp(at, None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)))),
             Role::ListItem,
             format!("You: {words}"),
         )
         .into_any_element()
+    }
+
+    /// The files under his words: each picture fitted to the thumbnail's box, a blank box while it is read, and a chip with its
+    /// name for a file that is not a picture or that Fleet would not give.
+    fn his_files(&self, files: &[SentFile], look: &Look) -> Option<AnyElement> {
+        if files.is_empty() {
+            return None;
+        }
+        let most = thumb_most(look);
+        let tile = |id: &str| {
+            div()
+                .id(SharedString::from(format!("talk-file:{id}")))
+                .flex_none()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+        };
+        let shown = files.iter().map(|file| {
+            let name = SharedString::from(file.name.clone());
+            match self.talk_pictures.get(&file.id) {
+                Some(TalkPicture::Ready { image, natural }) => {
+                    let fit = fitted(*natural, most);
+                    labelled(tile(&file.id).w(px(fit.width)).h(px(fit.height)).child(img(image.clone()).size_full().object_fit(ObjectFit::Contain)), Role::Image, name).into_any_element()
+                }
+                Some(TalkPicture::Reading) | None if is_picture(file) => tile(&file.id).w(px(most.width)).h(px(most.height)).bg(look.color(token::BG_SUNKEN)).into_any_element(),
+                _ => labelled(
+                    tile(&file.id)
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_1))
+                        .px(look.length(token::SPACE_2))
+                        .py(look.length(token::SPACE_1))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child(glyph("file", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
+                        .child(name.clone()),
+                    Role::Group,
+                    name,
+                )
+                .into_any_element(),
+            }
+        });
+        Some(div().max_w(gpui::relative(0.8)).flex().flex_wrap().justify_end().gap(look.length(token::SPACE_2)).children(shown).into_any_element())
+    }
+
+    /// Read the pictures among `files` not asked for yet, from Fleet; the walk's Fleet draws its own sample.
+    fn want_talk_pictures(&mut self, files: &[SentFile], cx: &mut Context<Self>) {
+        let session = self.page.as_ref().and_then(|page| page.session_id.clone());
+        for file in files.iter().filter(|file| is_picture(file)) {
+            if self.talk_pictures.contains_key(&file.id) {
+                continue;
+            }
+            self.talk_pictures.insert(file.id.clone(), TalkPicture::Reading);
+            let asked = match (&self.wire, &session) {
+                (Wire::Live(_), Some(session)) => self
+                    .wire
+                    .port(cx)
+                    .map(|port| (port, format!("/sessions/file?session_id={}&file={}", crate::job_view::wire::encoded(session.as_str()), crate::job_view::wire::encoded(&file.id)))),
+                _ => None,
+            };
+            let mock = matches!(self.wire, Wire::Mock(_));
+            let (id, media_type, name) = (file.id.clone(), file.media_type.clone(), file.name.clone());
+            // Asked while the list lays out: the answer lands after it, so the row measures again outside it.
+            cx.spawn(async move |this, cx| {
+                let bytes = match asked {
+                    Some((port, path)) => cx.background_executor().spawn(async move { crate::dispatch::live::call(port, path, None).ok().filter(|bytes| !bytes.is_empty()) }).await,
+                    None => mock.then(|| mock_picture(&name)).flatten(),
+                };
+                let _ = this.update(cx, |this, cx| this.keep_talk_picture(id, &media_type, bytes, cx));
+            })
+            .detach();
+        }
+    }
+
+    fn keep_talk_picture(&mut self, id: String, media_type: &str, bytes: Option<Vec<u8>>, cx: &mut Context<Self>) {
+        let picture = match (bytes, format_of(media_type)) {
+            (Some(bytes), Some(format)) => {
+                let natural = natural_size(&bytes).map_or(thumb_most(cx.look()), |(w, h)| size(w as f32, h as f32));
+                TalkPicture::Ready { image: Arc::new(Image::from_bytes(format, bytes)), natural }
+            }
+            _ => TalkPicture::Unread,
+        };
+        self.talk_pictures.insert(id, picture);
+        // His row grows from its blank box to the picture's own shape.
+        self.talk_list.remeasure();
+        cx.notify();
     }
 
     /// The Operator's words: its name and the time over them, as prose with no bubble, as a Job's thread draws an agent's.
@@ -345,6 +451,14 @@ mod tests {
         let items = vec![row("1", "you", "[About card turn:7 \"Main is red\"]\nWhy?"), row("2", "agent", "A flaky test.")];
         let said = said_of(&items, Some(("Which Jobs are running?", None)), Vec::new());
         assert!(matches!(&said[..], [Said::About { .. }, Said::You { .. }, Said::Operator { .. }, Said::You { at: None, .. }]), "{said:?}");
+    }
+
+    #[test]
+    fn the_files_he_sent_stay_with_his_words() {
+        let wire = serde_json::json!({ "kind": "row", "row": { "kind": "message", "id": "1", "at": "2026-11-11T13:09:00-05:00", "from": { "kind": "you" }, "text": "This toast is wrong", "files": [{ "id": "f-1", "name": "Pasted file.png", "media_type": "image/png" }] } });
+        let item = ipc::decode::<ThreadItem>("ThreadItem", wire.to_string().as_bytes()).expect("a row decodes");
+        let said = said_of(&[item], None, Vec::new());
+        assert!(matches!(&said[..], [Said::You { files, .. }] if files.iter().map(|one| one.name.as_str()).collect::<Vec<_>>() == ["Pasted file.png"]), "{said:?}");
     }
 
     #[test]

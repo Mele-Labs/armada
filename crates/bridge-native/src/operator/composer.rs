@@ -711,6 +711,26 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_pasted_picture_goes_with_the_talk_as_an_attached_one_does(cx: &mut TestAppContext) {
+        let (composer, cx) = open(cx);
+        let (heard, _held) = hearing(&composer, cx);
+        composer.update_in(cx, |composer, window, cx| {
+            let picture = gpui::Image::from_bytes(gpui::ImageFormat::Png, b"png".to_vec());
+            assert!(composer.paste(&ClipboardItem::new_image(&picture), cx), "the paste is taken, not typed");
+            composer.attach(window, cx);
+            composer.input.update(cx, |input, cx| input.set_value("Both of these", window, cx));
+            composer.send(window, cx);
+        });
+        cx.run_until_parked();
+        let names = |attachments: &[SessionUpload]| attachments.iter().map(|one| (one.name.clone(), one.media_type.clone())).collect::<Vec<_>>();
+        assert!(
+            matches!(heard.borrow().as_slice(), [Composed::Talk { attachments, .. }] if names(attachments) == [("Pasted file.png".to_string(), "image/png".to_string()), ("sample.rs".to_string(), "text/plain".to_string())]),
+            "the pasted picture, then the attached file: {:?}",
+            heard.borrow()
+        );
+    }
+
+    #[gpui::test]
     fn an_empty_box_sends_nothing(cx: &mut TestAppContext) {
         let (composer, cx) = open(cx);
         let sent = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
