@@ -147,6 +147,7 @@ Q              open the tools menu       (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
+J              judge the pull request a Job holds   (review only)
 l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
 /              search the issues   (issues only)
@@ -271,7 +272,7 @@ Its key is `/` on each page, and on a page with nothing focused the bar takes it
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the tools pane,
 `L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the tools pane's `+` menu, which lists the explanations first, `A` the question box, `D` the
-description and `W` the places changes run.
+description, `W` the places changes run and `J` the Judge of a pull request a Job holds.
 The digits `1` to `9` open the tool in that place of the menu, and the key after the last adds a tool; they are not acts in the registry. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
