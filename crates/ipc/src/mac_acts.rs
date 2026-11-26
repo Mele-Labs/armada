@@ -58,6 +58,12 @@ pub enum JobAct {
     /// His answer on a Ready to try card, sent only where the sending Mac's running build holds the card's branch at
     /// its tip. Since 24 Nov 2026.
     ReadyAnswer(crate::AnswerReadyToTry),
+    /// His comment or reply in a page's margin, sent or held. Since 26 Nov 2026.
+    MarginComment(crate::CommentMargin),
+    /// His Send held on a page's margin. Since 26 Nov 2026.
+    MarginSendHeld(crate::SendHeldMargin),
+    /// His Make this change, Accept, Reject or Settle on a margin thread. Since 26 Nov 2026.
+    MarginAct(crate::ActOnMargin),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -136,6 +142,9 @@ impl JobAct {
             JobAct::ArtifactSeen(one) => Some(&one.session_id),
             JobAct::ArtifactPartAnswer(one) => Some(&one.session_id),
             JobAct::ReadyAnswer(one) => Some(&one.session_id),
+            JobAct::MarginComment(one) => Some(&one.session_id),
+            JobAct::MarginSendHeld(one) => Some(&one.session_id),
+            JobAct::MarginAct(one) => Some(&one.session_id),
             JobAct::ArtifactArchive(one) | JobAct::ArtifactRestore(one) => one.session_id.as_ref(),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
@@ -180,6 +189,9 @@ impl JobAct {
             JobAct::ArtifactRestore(_) => "artifact_restore",
             JobAct::ArtifactPartAnswer(_) => "artifact_part_answer",
             JobAct::ReadyAnswer(_) => "ready_answer",
+            JobAct::MarginComment(_) => "margin_comment",
+            JobAct::MarginSendHeld(_) => "margin_send_held",
+            JobAct::MarginAct(_) => "margin_act",
         }
     }
 }

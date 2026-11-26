@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "No"
 description = "One kept revision of a shared Job's page, sealed, for another Mac reading it through the link"
 notes = """
-`GET /other_mac/artifact_page?session_id=&artifact=&revision=`, the query of `get_artifact_page`. **Answered as `ArtifactPageShared`, JSON** `{ revision, html, policy }`, since a header does not cross the link: the Mac that asked answers its own caller with the page as `get_artifact_page` does, `policy` as the `Content-Security-Policy` header. A Job not shared is refused 404 `fleet.no_such_session`, worded as for a Job that does not exist, and what `get_artifact_page` refuses is refused as it does. Since 18 Nov 2026.
+`GET /other_mac/artifact_page?session_id=&artifact=&revision=&host_kit=`, the query of `get_artifact_page`, `host_kit=true` sealing the page as it does for a host that draws the kit itself (since 26 Nov 2026). **Answered as `ArtifactPageShared`, JSON** `{ revision, html, policy }`, since a header does not cross the link: the Mac that asked answers its own caller with the page as `get_artifact_page` does, `policy` as the `Content-Security-Policy` header. A Job not shared is refused 404 `fleet.no_such_session`, worded as for a Job that does not exist, and what `get_artifact_page` refuses is refused as it does. Since 18 Nov 2026.
 """

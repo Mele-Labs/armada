@@ -22,6 +22,7 @@ mod acting;
 mod artifacts;
 mod job_moves;
 mod kit;
+mod margins;
 mod messages;
 mod moving;
 mod pages;

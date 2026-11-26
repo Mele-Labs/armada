@@ -22,7 +22,7 @@ use crate::stream::Next;
 /// Job list was 5 MB, past axum's 2 MB default, and nothing after it crossed.
 pub(crate) const MOST_A_MAC_LIST_MAY_BE: usize = 64 * 1024 * 1024;
 
-pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
+pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story + crate::daemon::Margins>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))
@@ -45,6 +45,7 @@ pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessi
         .route("/other_mac/session", get(share_job_session::<D>))
         .route("/other_mac/artifacts", get(share_job_artifacts::<D>))
         .route("/other_mac/artifact_page", get(share_job_artifact_page::<D>))
+        .route("/other_mac/margin", get(share_job_margin::<D>))
         .route("/other_mac/page", get(share_job_page::<D>))
         .route("/sessions/other_mac_page", post(open_other_mac_page::<D>))
         .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
@@ -243,18 +244,35 @@ async fn share_job_artifacts<D: OtherMacs>(State(served): State<Served<D>>, Quer
     }
 }
 
-/// `?session_id=`, `?artifact=` and `?revision=` on `share_job_artifact_page`, as on `get_artifact_page`.
+/// `?session_id=`, `?artifact=`, `?revision=` and `?host_kit=` on `share_job_artifact_page`, as on `get_artifact_page`.
 #[derive(Deserialize)]
 struct WhichArtifactPage {
     session_id: String,
     artifact: String,
     revision: Option<u32>,
+    #[serde(default)]
+    host_kit: bool,
 }
 
 async fn share_job_artifact_page<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichArtifactPage>) -> Response {
-    let asked = served.daemon().share_job_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision).await;
-    match asked {
+    let job = ipc::SessionId::carried(which.session_id);
+    match served.daemon().share_job_artifact_page(job, which.artifact, which.revision, which.host_kit).await {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=` and `?document=` on `share_job_margin`, as on `get_margin_threads`.
+#[derive(Deserialize)]
+struct WhichMargin {
+    session_id: String,
+    document: String,
+}
+
+async fn share_job_margin<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichMargin>) -> Response {
+    let get = ipc::GetMarginThreads { session_id: ipc::SessionId::carried(which.session_id), document: which.document };
+    match served.daemon().share_job_margin(get).await {
+        Ok(threads) => answer(StatusCode::OK, &threads, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

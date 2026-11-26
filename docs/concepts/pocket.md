@@ -357,7 +357,8 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET /api/mac/session?session_id=&last=&before=` | Fleet's `GET /other_mac/session`, a `SessionThread`: the Job's row, which Home gives its `mac`, and its rows cut to the window asked |
 | `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
 | `GET /api/mac/artifacts?session_id=` | Fleet's `GET /other_mac/artifacts`, the Job's `JobArtifact` list |
-| `GET /api/mac/artifact_page?session_id=&artifact=&revision=` | Fleet's `GET /other_mac/artifact_page`, an `ArtifactPageShared`: one revision of a page, sealed |
+| `GET /api/mac/artifact_page?session_id=&artifact=&revision=&host_kit=` | Fleet's `GET /other_mac/artifact_page`, an `ArtifactPageShared`: one revision of a page, sealed |
+| `GET /api/mac/margin?session_id=&document=` | Fleet's `GET /other_mac/margin`, the page's `MarginThreads` |
 | `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
 | `GET /api/mac/page?session_id=&port=` | Fleet's `GET /other_mac/page`: 204 where the Job is shared and shows that loopback port, else Fleet's 404 as it came |
 | `GET`, `POST` and any method of `/api/mac/page/<job>/<port>/<path>` | The page itself: Fleet's `/other_mac/page` asked again, then the request sent on to `127.0.0.1:<port>/<path>` with its query, and the page's status, type and body handed back whole. Uncompressed. A Job not shared is Fleet's 404, worded as for a Job that does not exist |

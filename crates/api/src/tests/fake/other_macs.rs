@@ -120,8 +120,12 @@ impl OtherMacs for FakeDaemon {
         Err(no_such_job(&job))
     }
 
-    async fn share_job_artifact_page(&self, job: SessionId, _artifact: String, _revision: Option<u32>) -> Result<ipc::ArtifactPageShared, Refusal> {
+    async fn share_job_artifact_page(&self, job: SessionId, _artifact: String, _revision: Option<u32>, _host_kit: bool) -> Result<ipc::ArtifactPageShared, Refusal> {
         Err(no_such_job(&job))
+    }
+
+    async fn share_job_margin(&self, get: ipc::GetMarginThreads) -> Result<ipc::MarginThreads, Refusal> {
+        Err(no_such_job(&get.session_id))
     }
 
     async fn share_job_page(&self, job: SessionId, _port: u16) -> Result<(), Refusal> {

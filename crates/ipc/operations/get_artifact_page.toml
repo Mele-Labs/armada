@@ -18,5 +18,5 @@ Refused with 422: `fleet.artifact_not_held` for an artifact the Job does not hol
 
 `agent_access` is `Bridge only`: the agent has its own page on disk.
 
-**A Job held from another Mac is read from that Mac's Fleet each time**, as `share_job_artifact_page` answers there, and nothing of it is kept here. What that Mac refuses is passed on as it said it. Since 18 Nov 2026.
+**A Job held from another Mac is read from that Mac's Fleet each time**, as `share_job_artifact_page` answers there, `host_kit` passed on, and nothing of it is kept here. What that Mac refuses is passed on as it said it. Since 18 Nov 2026.
 """
