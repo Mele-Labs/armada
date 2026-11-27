@@ -422,6 +422,7 @@ fn red_main(root: &str, number: u64, branch: &str) -> MergeLineView {
         read_at: None,
         quiet_since: None,
         quiet_reason: None,
+        queue_stuck: None,
     }
 }
 

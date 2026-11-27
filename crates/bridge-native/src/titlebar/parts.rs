@@ -57,11 +57,13 @@ pub struct Btn {
     pub pending: bool,
     /// Fills its row and centres its content, as the Fleet panel's buttons do.
     pub full: bool,
+    /// A status colour as the ground, with the accent's text on it.
+    pub fill: Option<Hsla>,
 }
 
 impl Btn {
     pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>, weight: Weight) -> Btn {
-        Btn { id: id.into(), label: label.into(), icon: None, weight, disabled: false, pending: false, full: false }
+        Btn { id: id.into(), label: label.into(), icon: None, weight, disabled: false, pending: false, full: false, fill: None }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Btn {
@@ -84,13 +86,21 @@ impl Btn {
         self
     }
 
+    pub fn filled(mut self, hue: Hsla) -> Btn {
+        self.fill = Some(hue);
+        self
+    }
+
     /// The element, with its press unset: the caller adds `on_click` and `labelled`. A button that
     /// is off or pending carries no pointer and its caller adds no press.
     pub fn draw(self, look: &Look, cx: &App) -> Stateful<Div> {
-        let (ground, hover, ink, edge) = match self.weight {
+        let (ground, hover, ink, edge) = match self.fill {
+            Some(hue) => (hue, hue.opacity(0.85), look.color(token::TEXT_ON_ACCENT), hue),
+            None => match self.weight {
             Weight::Primary => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
             Weight::Secondary => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_DEFAULT)),
             Weight::Ghost => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), gpui::transparent_black()),
+            },
         };
         let size = look.length(token::SPACE_4);
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);

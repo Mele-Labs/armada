@@ -337,6 +337,12 @@ It is `BoardLayout`, the project board's own shape, so Bridge draws both with on
 `get_home_layout` and `save_home_layout` read and change it alone, and a save publishes `settings.changed` as any key of the file does.
 A user who saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so a kind this build does not know is passed back as it was saved.
+The kinds are `needs-cards`, `floor-plan`, `system-overview` and `system-stats`.
+
+**The Needs you block's scope, Selected project or All projects, is kept in the block's `view` word as `<view>:<scope>`.**
+`cards:all` is the cards across every project; `cards`, with no suffix, is the selected project, the default, so a layout that never touched the scope reads as it always did.
+This keeps the scope in the same layout with no new field, so Fleet, the other Macs and an older Bridge pass it through as the opaque word they already keep.
+An older Bridge reading `cards:all` finds a view it does not know and draws the block's first view.
 
 **It follows him across his Macs, the latest save winning.**
 `HomeLayout` carries an additive `saved_at`, the time of the save that made it, and `bridge.homeLayout` keeps it beside the blocks as `{ saved_at, layout? }`.

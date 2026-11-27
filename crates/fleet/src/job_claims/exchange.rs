@@ -45,53 +45,60 @@ pub(crate) struct Answered {
     pub contested: Vec<(Wanted, Claimant)>,
     /// The call that failed, after which nothing more was asked.
     pub failed: Option<StoreError>,
+    /// How many calls the store was sent.
+    pub calls: usize,
 }
 
 /// Ask `asked` of the store for `claimant` in the repository `slug`. `live_here` is every live Job
 /// on this Mac: **a claim this Mac's own ended Job left is taken over**, never waited on.
 pub(crate) fn exchanged(store: &dyn Store, slug: &str, repository: &RepositoryKey, claimant: &Claimant, asked: Asked, live_here: &BTreeSet<String>) -> Answered {
     let mut answered = Answered::default();
-    let mut calls = 0usize;
     let ours = |held: &Claimant| held.holder.kind == claimant.holder.kind && held.holder.id == claimant.holder.id && held.holder.machine == claimant.holder.machine;
     let left_here = |held: &Claimant| held.holder.machine == claimant.holder.machine && !live_here.contains(&held.holder.id);
-    for wanted in asked.release {
-        if calls >= CALLS_A_PASS {
-            return answered;
-        }
-        let Some(key) = key_of(&wanted, slug) else { continue };
-        calls += 1;
-        match store.release_claim(repository, wanted.kind, &key) {
-            Ok(()) => answered.released.push(wanted),
-            Err(why) => {
-                answered.failed = Some(why);
-                return answered;
+    // **The cap stops the claims, never the renewal.** A pass cut off before it renewed was still due to renew
+    // a minute on, and asked again for the same claims held elsewhere, every minute.
+    let budget = CALLS_A_PASS - usize::from(asked.renew);
+    'asking: {
+        for wanted in asked.release {
+            if answered.calls >= budget {
+                break 'asking;
+            }
+            let Some(key) = key_of(&wanted, slug) else { continue };
+            answered.calls += 1;
+            match store.release_claim(repository, wanted.kind, &key) {
+                Ok(()) => answered.released.push(wanted),
+                Err(why) => {
+                    answered.failed = Some(why);
+                    return answered;
+                }
             }
         }
-    }
-    for wanted in asked.claim {
-        if calls >= CALLS_A_PASS {
-            return answered;
-        }
-        let Some(key) = key_of(&wanted, slug) else { continue };
-        calls += 1;
-        let claimed = match store.claim(repository, wanted.kind, &key, claimant) {
-            Ok(Claimed::Held(held)) if left_here(&held) && !ours(&held) => {
-                calls += 1;
-                store.replace_claim(repository, wanted.kind, &key, claimant)
+        for wanted in asked.claim {
+            if answered.calls >= budget {
+                break 'asking;
             }
-            other => other,
-        };
-        match claimed {
-            Ok(Claimed::Won) => answered.won.push(wanted),
-            Ok(Claimed::Held(held)) if ours(&held) => answered.won.push(wanted),
-            Ok(Claimed::Held(held)) => answered.held.push((wanted, held)),
-            Err(why) => {
-                answered.failed = Some(why);
-                return answered;
+            let Some(key) = key_of(&wanted, slug) else { continue };
+            answered.calls += 1;
+            let claimed = match store.claim(repository, wanted.kind, &key, claimant) {
+                Ok(Claimed::Held(held)) if left_here(&held) && !ours(&held) => {
+                    answered.calls += 1;
+                    store.replace_claim(repository, wanted.kind, &key, claimant)
+                }
+                other => other,
+            };
+            match claimed {
+                Ok(Claimed::Won) => answered.won.push(wanted),
+                Ok(Claimed::Held(held)) if ours(&held) => answered.won.push(wanted),
+                Ok(Claimed::Held(held)) => answered.held.push((wanted, held)),
+                Err(why) => {
+                    answered.failed = Some(why);
+                    return answered;
+                }
             }
         }
     }
     if asked.renew {
+        answered.calls += 1;
         match store.renew(&claimant.holder) {
             Ok(renewed) => {
                 answered.renewed = Some(renewed.claims);
@@ -142,6 +149,23 @@ mod tests {
         let answered = exchanged(&store, "mele-labs/armada", &repository(), &claimant("other", "work"), asked, &live_here);
         assert_eq!(answered.held.len(), 1);
         assert_eq!(answered.held[0].1.holder.id, "new");
+    }
+
+    /// A Job with more files held elsewhere than a pass may ask for still renews, so the next pass
+    /// does not ask for the same files again a minute later.
+    #[test]
+    fn a_pass_that_reaches_its_call_cap_still_renews() {
+        let store = FakeStore::new();
+        let files: Vec<Wanted> = (0..=CALLS_A_PASS).map(|n| Wanted::file(&format!("src/{n}.rs"))).collect();
+        let asked = Asked { claim: files.clone(), ..Asked::default() };
+        exchanged(&store, "mele-labs/armada", &repository(), &claimant("other", "work"), asked, &BTreeSet::new());
+        let store_calls_before = store.calls().len();
+        let asked = Asked { claim: files, renew: true, ..Asked::default() };
+        let answered = exchanged(&store, "mele-labs/armada", &repository(), &claimant("j", "home"), asked, &BTreeSet::new());
+        let calls = store.calls()[store_calls_before..].to_vec();
+        assert_eq!(calls.last(), Some(&"renew"));
+        assert!(calls.len() <= CALLS_A_PASS, "{} calls in one pass", calls.len());
+        assert!(answered.renewed.is_some());
     }
 
     #[test]

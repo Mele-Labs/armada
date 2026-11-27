@@ -232,6 +232,14 @@ pub struct StoryHanded {
     pub at: Instant,
 }
 
+/// One written reply of the Job's, under the ask it came after.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoryReply {
+    /// The Job's words, cut to about 600 characters at a word with an ellipsis.
+    pub words: String,
+    pub at: Instant,
+}
+
 /// One ask in a Job's story.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoryAsk {
@@ -246,6 +254,10 @@ pub struct StoryAsk {
     /// What was handed to other Jobs and what came from them, oldest first.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handed: Vec<StoryHanded>,
+    /// The Job's own written replies in `said_in`'s thread after the ask's first words and before the next ask's, oldest
+    /// first. Absent where it wrote none, and from a Fleet before they existed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replies: Vec<StoryReply>,
     /// Still open: not built, not dropped.
     pub open: bool,
 }

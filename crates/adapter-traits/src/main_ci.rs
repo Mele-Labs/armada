@@ -162,6 +162,10 @@ impl core::fmt::Debug for Oid {
     }
 }
 
+/// How many entries one read of the merge queue holds. **A queue this long may be longer**, so a
+/// caller deciding from what is missing from it decides nothing.
+pub const MOST_QUEUE_ENTRIES: usize = 50;
+
 /// One entry in the base branch's merge queue.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QueueEntry {
@@ -173,6 +177,8 @@ pub struct QueueEntry {
     pub head: Option<Oid>,
     /// When it joined the queue, as the forge wrote it (RFC 3339). `None` where the forge named none.
     pub enqueued_at: Option<FromOutside>,
+    /// The forge's estimate of the seconds until it merges. `None` where the forge named none.
+    pub estimated_seconds: Option<u64>,
 }
 
 /// The merge queue, in order. `None` from the call that returns it is a forge

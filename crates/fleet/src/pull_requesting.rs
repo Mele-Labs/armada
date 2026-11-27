@@ -581,6 +581,8 @@ where
         manifest_id: ManifestId,
         number: u64,
     ) -> Result<PullRequestState, Refusal> {
+        // A person's press: what Fleet put back of its own accord no longer counts against it.
+        self.requeues_forgotten(&manifest_id, number).await;
         let acted = self.auto_merge_acted(&manifest_id, number).await?;
         Ok(self.replied_to(acted))
     }

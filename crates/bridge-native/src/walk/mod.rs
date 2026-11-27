@@ -2397,6 +2397,13 @@ pub static WALKS: &[Walk] = &[
         steps: &strip_marks::STEPS,
     },
     Walk {
+        name: "queue-stuck",
+        title: "A stuck merge queue on main's card",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::QUEUE_STUCK,
+    },
+    Walk {
         name: "merge-strip-live",
         title: "Merge strip on Fleet's live view",
         screen: Screen::Marks,
@@ -2532,11 +2539,11 @@ pub static WALKS: &[Walk] = &[
         steps: cockpit::STEPS,
     },
     Walk {
-        name: "cockpit-floor",
-        title: "The Cockpit with the Operator off: the floor plan in the page's place, and Switch on above it",
+        name: "cockpit-home",
+        title: "The Cockpit with the Operator off: the home of blocks in the page's place, and Switch on above it",
         screen: Screen::Cockpit,
         scenario: "jobs-many",
-        steps: cockpit::FLOOR_STEPS,
+        steps: cockpit::HOME_STEPS,
     },
     Walk {
         name: "operator-page",

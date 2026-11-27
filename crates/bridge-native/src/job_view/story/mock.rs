@@ -61,7 +61,7 @@ pub fn words(id: &str, kind: MessageKind, said: &str, day: u32) -> AskWords {
 }
 
 fn story_ask(ask: Ask, open: bool) -> StoryAsk {
-    StoryAsk { ask, shown: Vec::new(), built: Vec::new(), handed: Vec::new(), open }
+    StoryAsk { ask, shown: Vec::new(), built: Vec::new(), handed: Vec::new(), replies: Vec::new(), open }
 }
 
 fn shown(artifact: &str, title: &str, form: ArtifactForm, state: ArtifactState, said: Option<&str>, day: u32) -> StoryShown {

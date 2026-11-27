@@ -261,6 +261,8 @@ Every claim ends when the Job ends, and lapses 30 minutes after its renewals sto
 **A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
 Nothing is logged to replay: while the store is down the difference waits, the Job carries on, and its record says `claims_unsent` until a pass sends it.
 A pass makes at most 40 calls a Job, so a Job that wrote many files stays under the store's 120 calls a minute.
+**The last of the 40 is kept for a renewal that is due**, so a pass cut short still renews, and the claims held elsewhere are not asked for again until the next one.
+A Job that makes more than 600 store calls in an hour is named in Fleet's log, once that hour.
 
 **One call renews every claim a live Job holds, every five minutes.**
 A renewal that answers `0` means the claims lapsed, say on a Mac that slept, and the next pass takes them again through the same rules as a first take.
@@ -479,7 +481,7 @@ The merged pull requests are the listing already read for the hub.
 |---|---|
 | Checks failed | The check that gates the pull request (`ci` where there is one, else every check) failed on the newest commit |
 | Conflicts | The forge says it cannot merge into the base |
-| Left the queue | It was in the merge queue at the last reading and is not now; it names the checks the queue's last run failed, with the end of a log |
+| Left the queue | It was in the merge queue at the last reading and is not now; it names the checks the queue's last run failed, with the end of a log. A drop for want of a runner is not told: *A stuck merge queue* |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
 | Auto-merge on | Someone asked the forge to merge it once its checks pass; told once a pull request. A place in the queue is nothing to say by itself |
@@ -542,6 +544,34 @@ The job note tells agents not to state it.
 **An ask to try a Job's own change is the Ready to try card's, and `waiting_for` refuses it** in a repository with a preview (`fleet.session_waiting_look`, `session_host/look_asks.rs`).
 An item is one when its `approve_pr` act names one of the Job's pull requests, or its words name one of them or a branch it offered and it is marked `approves` or opens with *Try*, *Look at* or *Test*.
 A kept one comes off Needs you once the Job's branch is on the preview list.
+
+### A stuck merge queue
+
+**On 25 Nov 2026 four pull requests cycled in the merge queue for hours** because the macOS job got no runner or ran past its time limit.
+Each failure rebuilt the groups behind it, and the queue's runs that no entry stood behind kept holding the runners.
+The owner decided Fleet handles this itself, from the forge and never an agent's word.
+
+**A queue run no entry stands behind is stopped, each visit, and told to nobody.**
+It is a run not yet finished on a `gh-readonly-queue/<base>/pr-<n>-…` branch whose pull request has no entry in the queue, or whose entry stands at another commit than the run tests.
+The runs are listed before the queue is read, so an entry made in between is never taken for a missing one.
+**Nothing is stopped when the queue would not answer, when the runs would not be listed, or when the queue is as long as one read holds**, because the entry may be past the cut.
+Stopping a run is the only forge write besides queueing; Fleet posts nothing.
+
+**A drop for want of a runner is put back, once for each time `limits.queueRequeuesPerCommit` allows, and told to nobody.**
+The drop is read as infrastructure when the queue's run for it has failed jobs and every one has an annotation saying no runner took it or it ran past its time limit.
+**A job that failed in its own code makes the drop the Job's**, told as above, and so does a drop with no failed job or a run the forge would not read.
+Each put-back is kept under the pull request's commit, so a new commit starts the count again.
+
+**The queue is stuck when a pull request drops for infrastructure with its put-backs spent, or an entry waited more than twice the forge's estimate and at least an hour since it joined.**
+The merge line then shows `queue_stuck` for the repository, with why, the failed job and its page where there is one, and the pull requests that wait: the dropped ones first, then the queue's.
+The owner gets one line on Needs you, on the Job that holds the first of them, such as *The merge queue is stuck: native got no runner*.
+Nothing is told to any Job: stuck is not their code.
+It is a call as a Fleet rule's is, so the owner can dismiss it, and it is kept across a restart.
+
+**It clears when a pull request merges after it began, or nothing waits**: the queue is empty and no dropped pull request is still open outside it.
+The line comes off the Job's list then.
+An entry that waited before it cleared is not read as past its estimate again, since the queue has moved.
+Stuck is kept in memory and read again from the forge after a restart.
 
 ### Telling the Jobs that read a wire type
 
