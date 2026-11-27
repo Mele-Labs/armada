@@ -51,6 +51,8 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
+/// A note on a screen sent to its features' live Jobs, and the Job that claims it.
+mod note_claims;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
@@ -402,6 +404,7 @@ mod tests;
 pub use annotations::{
     AnnotationMarked, MarkAnnotationDone,
 };
+pub use note_claims::{ClaimNote, NoteClaimed, NotesRouted, SendNotesToFeatures};
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};

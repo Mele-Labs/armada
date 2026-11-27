@@ -159,6 +159,7 @@ where
             | Event::KeepDraftsChanged(_)
             | Event::TimelineAppended(_)
             | Event::LibrarianStep(_)
+            | Event::NoteClaimed(_)
             | Event::QueuedChanged(_)
             | Event::ActFailed(_) => return None,
         };

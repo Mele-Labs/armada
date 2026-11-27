@@ -458,6 +458,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/bug_reports/:report_id/drop", post(crate::sessions::drop_bug_report::<D>))
         .route("/sessions/finish_up", post(crate::sessions::finish_up::<D>))
         .route("/sessions/annotation_done", post(crate::sessions::mark_annotation_done::<D>))
+        .route("/sessions/claim_note", post(crate::sessions::claim_note::<D>))
         .route(
             "/sessions/pull_request_note_resolved",
             post(crate::sessions::resolve_pull_request_note::<D>),
@@ -646,6 +647,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/note",
             post(crate::hosted_sessions::send_session_note::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
+        )
+        .route(
+            "/sessions/notes_to_features",
+            post(crate::hosted_sessions::send_notes_to_features::<D>).layer(
                 axum::extract::DefaultBodyLimit::max(
                     crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
                 ),

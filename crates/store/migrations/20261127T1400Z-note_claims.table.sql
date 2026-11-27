@@ -1,0 +1,15 @@
+-- A note on a screen Fleet sent to every live Job on the screen's features, and the Job that took it. Additive.
+-- docs/concepts/feature-catalog.md, *A note on a screen*.
+--
+-- One row a note. `offered` and `paths` are JSON arrays of strings, `offered` in the order the Jobs were sent it.
+-- `claimed_by` is empty until a Job claims the note or Fleet gives it one; `given` is 1 where Fleet gave it.
+CREATE TABLE note_claims (
+    note_id     TEXT PRIMARY KEY,
+    manifest_id TEXT NOT NULL,
+    paths       TEXT NOT NULL,
+    offered     TEXT NOT NULL,
+    sent_at     TEXT NOT NULL,
+    claimed_by  TEXT NOT NULL DEFAULT '',
+    claimed_at  TEXT NOT NULL DEFAULT '',
+    given       INTEGER NOT NULL DEFAULT 0
+) STRICT;

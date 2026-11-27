@@ -747,6 +747,10 @@ impl Sessions for FakeDaemon {
         Ok(ipc::AnnotationMarked { path: format!("/repo/.armada/annotations/{}.json", mark.note_id) })
     }
 
+    async fn claim_note(self: Arc<Self>, _caller: Option<crate::Caller>, claim: ipc::ClaimNote) -> Result<ipc::NoteClaimed, Refusal> {
+        Ok(ipc::NoteClaimed { note_id: claim.note_id, session_id: ipc::SessionId::carried("s-1"), title: "A Job".to_string(), given: false })
+    }
+
     async fn resolve_pull_request_note(
         &self,
         _caller: Option<crate::Caller>,

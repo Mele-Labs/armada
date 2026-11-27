@@ -226,6 +226,18 @@ pub(crate) async fn send_session_notes<D: HostedSessions + OtherMacs>(
     }
 }
 
+/// **202**: notes on a screen, sent to the live Jobs on the features that own its files, or to a Job started for them.
+pub(crate) async fn send_notes_to_features<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let sent: ipc::SendNotesToFeatures = match ipc::decode_body("notes to a screen's features", &body) {
+        Ok(sent) => sent,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().send_notes_to_features(sent).await {
+        Ok(routed) => answer(StatusCode::ACCEPTED, &routed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn answer_session_ask<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,

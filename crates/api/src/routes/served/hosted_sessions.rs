@@ -59,6 +59,11 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/sessions/notes",
     },
+    Route {
+        operation: "send_notes_to_features",
+        method: "POST",
+        path: "/sessions/notes_to_features",
+    },
     // A Job on your words passing words to a live Job; only its door session is offered it.
     Route {
         operation: "tell_session",
