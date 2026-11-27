@@ -55,6 +55,8 @@ mod librarian;
 mod librarian_asking;
 mod doc_checks;
 mod library_start;
+/// Groups of Jobs the owner named in the Jobs list.
+mod sub_projects;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -403,12 +405,13 @@ pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugRep
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AnswerRetire, AreaSeed, ChangeFeature, DocGist, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
-    FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
+    FeaturePage, FeatureRow, FeatureSection, FeaturesByMeaning, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
+pub use sub_projects::{StartSubProject, SubProject, SubProjects, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};

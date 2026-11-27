@@ -436,6 +436,8 @@ impl Render for OperatorPageView {
         self.reveal_pairing(window, cx);
         let ready = self.ready_card(window, cx);
         *self.ready_drawn.borrow_mut() = ready;
+        let thread = self.operator_pane(cx).and_then(|pane| crate::job_view::operator_thread_on_page(pane, window, cx));
+        *self.thread_drawn.borrow_mut() = thread;
         let look = cx.look();
         let root = div()
             .id("operator-page")
@@ -537,8 +539,8 @@ impl OperatorPageView {
             .min_h_0()
             .flex()
             .flex_col()
-            .child(self.talk(look, cx))
-            .child(div().flex_none().child(self.composer.clone()))
+            .children(self.thread_drawn.borrow_mut().take())
+            .child(self.talk_watch())
             .children(dim.then(|| div().absolute().inset_0().bg(look.color(token::SCRIM))));
         div()
             .flex_1()

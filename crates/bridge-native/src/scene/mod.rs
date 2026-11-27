@@ -55,8 +55,8 @@ const STEP_MS: f32 = 1600.;
 const DOT_MS: f32 = 1200.;
 /// A node that is not in the step playing.
 const DIMMED: f32 = 0.35;
-/// A flow's dash and gap, `--space-2`; the crawl moves the pattern one period per `--duration-pulse`.
-const DASH: f32 = 8.;
+/// A flow's dash and gap, `--space-1`; the crawl moves the pattern one period per `--duration-pulse`.
+const DASH: f32 = 4.;
 /// The chords a rounded corner is cut into for the dashes.
 const CORNER_CUTS: usize = 6;
 /// The chords a curve and a hop are cut into for the dashes.
@@ -65,11 +65,11 @@ const HOP_CUTS: usize = 12;
 /// How far a hop over another arrow stands off the line, in scene units.
 const HOP: f32 = 6.;
 /// An arrowhead's length, and how far a way runs straight into one: two of them, so the head points along its line.
-const HEAD: f32 = 9.;
+const HEAD: f32 = 6.;
 const RUN: f32 = HEAD * 2.;
-/// A dotted line's dots: a round dot as long as nothing, one every `--space-2` over the line's own width.
-const DOT: f32 = 0.5;
-const DOT_PERIOD: f32 = 8.;
+/// A dotted line's dots: a round dot one unit long, then four of nothing.
+const DOT: f32 = 1.;
+const DOT_PERIOD: f32 = 5.;
 
 /// How the scene is drawn: shrunk on a thread card, or read in a sheet of its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -354,10 +354,6 @@ impl Measure<'_> {
             .fold(0., f32::max)
     }
 
-    /// The words in capitals' width with `tile::TRACKING` after each letter, as a browser sets `letter-spacing`.
-    fn tracked(&self, text: &str, at: f32, weight: f32) -> f32 {
-        text.chars().map(|ch| self.width(&ch.to_string(), at, weight, false) + at * tile::TRACKING).sum()
-    }
 
     /// How many lines the text takes, wrapped at `wrap`.
     fn lines(&self, text: &str, at: f32, weight: f32, mono: bool, wrap: f32) -> usize {
@@ -424,7 +420,7 @@ struct Facts {
 
 /// The room at a tile's left for what comes before its words: the outline of what it is, and a registry glyph the node names.
 fn lead_width(node: &SceneNode, facts: Facts) -> f32 {
-    let one = glyph::SIZE + tile::GLYPH_GAP;
+    let one = tile::CHIP + tile::GLYPH_GAP;
     (if facts.mark.is_some() { one } else { 0. }) + if node.icon.is_some() { one } else { 0. }
 }
 
@@ -558,7 +554,7 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let order = arrange(scene, &sizes);
     let mut rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
     let ways = ways(scene, &order, &rects, HOP);
-    let pill_w = measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT);
+    let pill_w = measure.width(start::TAB_WORD, tile::PILL_AT, tile::NAME_WEIGHT, false);
     let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(*rect, pill_w))).collect();
     let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
     let bounds = canvas_of(&rects, &marks, &badges, &ways, scene);
@@ -865,20 +861,6 @@ impl<'a> Ink<'a> {
         down
     }
 
-    /// The words in capitals, one letter at a time with `tile::TRACKING` after each, since gpui's text has no letter-spacing.
-    /// Their line is `lead` tall, from `origin`; the width they took, in scene units.
-    #[allow(clippy::too_many_arguments)]
-    fn caps(&self, text: &str, origin: Pt, at: f32, lead: f32, weight: f32, color: Hsla, window: &mut Window, cx: &mut App) -> f32 {
-        let measure = Measure { window, sans: self.sans.clone(), mono: self.mono.clone() };
-        let widths: Vec<f32> = text.chars().map(|ch| measure.width(&ch.to_string(), at, weight, false) + at * tile::TRACKING).collect();
-        let mut x = origin.x;
-        for (ch, width) in text.chars().zip(&widths) {
-            self.led(&ch.to_string(), Pt { x, y: origin.y }, None, at, lead, weight, false, color, TextAlign::Left, window, cx);
-            x += width;
-        }
-        x - origin.x
-    }
-
     fn icon(&self, name: &str, at: Pt, size: f32, color: Hsla, window: &mut Window, cx: &mut App) {
         let bounds = self.view.rect(Rect { x: at.x, y: at.y, w: size, h: size });
         let _ = window.paint_svg(bounds, crate::assets::icon_path(name), None, TransformationMatrix::unit(), color, cx);
@@ -1016,7 +998,8 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                 continue;
             }
             let dim = (now.is_some() && !lit.contains(node.id.as_str())) || node_change(node) == Some(Change::Same);
-            paint_shadow(&ink, if sheet { sheet_frame(node, *rect) } else { *rect }, if dim { DIMMED } else { 1. }, window);
+            let glow = if sheet { None } else { card_hue(&look, node, laid.marks.get(index).is_some_and(Option::is_some)) };
+            paint_shadow(&ink, if sheet { sheet_frame(node, *rect) } else { *rect }, glow, if dim { DIMMED } else { 1. }, window);
         }
         for (edge, way) in scene.edges.iter().zip(&laid.ways) {
             let Some(way) = way else { continue };
@@ -1119,16 +1102,48 @@ fn sheet_frame(node: &SceneNode, rect: Rect) -> Rect {
     Rect { x: rect.x, y: rect.y + top, w: rect.w, h: rect.h - top }
 }
 
-/// The canvas the drawing stands on: the ground colour in a rounded frame, round everything the drawing holds.
-fn paint_canvas(ink: &Ink, rect: Rect, window: &mut Window) {
-    let (look, view) = (ink.look, ink.view);
-    window.paint_quad(quad(view.rect(rect), view.len(tile::CANVAS_RADIUS), look.color(token::BG_SUNKEN), hair(view, tile::HAIRLINE), look.color(token::BORDER_SUBTLE), BorderStyle::Solid));
+/// `color` a share `by` of the way to white: the outline in its chip reads lighter than the hue it is tinted with.
+fn lightened(color: Hsla, by: f32) -> Hsla {
+    Hsla { l: color.l + (1. - color.l) * by, ..color }
 }
 
-/// The soft drop under a tile, a mock's picture or a screen's sheet, at `alpha` of its strength.
-fn paint_shadow(ink: &Ink, rect: Rect, alpha: f32, window: &mut Window) {
+/// `base` lifted a share `by` toward the text colour: the light end of a card's or the canvas's gradient.
+fn lifted(look: &Look, base: Hsla, by: f32) -> Hsla {
+    base.blend(look.color(token::FG_DEFAULT).opacity(by))
+}
+
+/// The hue a card is framed in and glows with: the start's accent, else its own colour. A card with neither has none.
+fn card_hue(look: &Look, node: &SceneNode, started: bool) -> Option<Hsla> {
+    if started {
+        Some(look.color(token::ACCENT))
+    } else {
+        node.color.map(|color| hue(look, Some(color), SceneColor::Grey))
+    }
+}
+
+/// The tint of the chip the outline and an icon sit in: the card's hue, amber on a decision, else the text colour, faint.
+fn chip_tint(look: &Look, node: &SceneNode, outline: Option<glyph::Mark>, started: bool) -> Hsla {
+    let decision = (outline == Some(glyph::Mark::Decision)).then(|| hue(look, Some(SceneColor::Amber), SceneColor::Amber));
+    match card_hue(look, node, started).or(decision) {
+        Some(color) => color.opacity(tile::CHIP_TINT),
+        None => look.color(token::FG_DEFAULT).opacity(tile::CHIP_PLAIN),
+    }
+}
+
+/// The canvas the drawing stands on: the ground colour, a little lighter toward its top left, in a rounded frame round
+/// everything the drawing holds.
+fn paint_canvas(ink: &Ink, rect: Rect, window: &mut Window) {
+    let (look, view) = (ink.look, ink.view);
+    let base = look.color(token::BG_SUNKEN);
+    let ground = gpui::linear_gradient(tile::CANVAS_ANGLE, gpui::linear_color_stop(lifted(look, base, tile::CANVAS_LIFT), 0.), gpui::linear_color_stop(base, 1.));
+    window.paint_quad(quad(view.rect(rect), view.len(tile::CANVAS_RADIUS), ground, hair(view, tile::HAIRLINE), look.color(token::BORDER_SUBTLE), BorderStyle::Solid));
+}
+
+/// The soft drop under a tile, a mock's picture or a screen's sheet, at `alpha` of its strength, and round a card with a
+/// hue a faint glow of it.
+fn paint_shadow(ink: &Ink, rect: Rect, glow: Option<Hsla>, alpha: f32, window: &mut Window) {
     let view = ink.view;
-    let shadows: Vec<BoxShadow> = ink
+    let mut shadows: Vec<BoxShadow> = ink
         .look
         .shadows(token::SHADOW_CARD)
         .into_iter()
@@ -1140,6 +1155,9 @@ fn paint_shadow(ink: &Ink, rect: Rect, alpha: f32, window: &mut Window) {
             inset: false,
         })
         .collect();
+    if let Some(glow) = glow {
+        shadows.push(BoxShadow { color: glow.opacity(tile::GLOW_ALPHA * alpha), offset: point(px(0.), px(0.)), blur_radius: view.len(tile::GLOW_BLUR), spread_radius: px(0.), inset: false });
+    }
     window.paint_drop_shadows(view.rect(rect), Corners::all(view.len(tile::RADIUS)), &shadows);
 }
 
@@ -1150,8 +1168,8 @@ fn paint_hairline(ink: &Ink, rect: Rect, alpha: f32, window: &mut Window) {
     window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), gpui::transparent_black(), hair(view, tile::HAIRLINE), edge.opacity(edge.a * alpha), BorderStyle::Solid));
 }
 
-/// A group or a lane: a group is a hairline frame round its children and a lane a row of the canvas under a hairline, each
-/// named at its top left in small capitals. Neither has a fill. A change's hue, where there is one, is the frame's and the name's.
+/// A group or a lane: a group is a hairline frame round its children on a faint fill and a lane a row of the canvas under a
+/// hairline, each named at its top left. A change's hue, where there is one, is the frame's and the name's.
 fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, canvas: Rect, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
@@ -1163,27 +1181,32 @@ fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, canvas: Rect, alpha: f3
             window.paint_quad(quad(line, px(0.), edge, px(0.), gpui::transparent_black(), BorderStyle::Solid));
         }
     } else {
-        window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), gpui::transparent_black(), hair(view, tile::HAIRLINE), edge, BorderStyle::Solid));
+        let fill = faded(look.color(token::FG_DEFAULT).opacity(tile::GROUP_FILL));
+        window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), fill, hair(view, tile::HAIRLINE), edge, BorderStyle::Solid));
     }
     let Some(title) = node.title.as_deref() else { return };
     let name = faded(ink.over.unwrap_or_else(|| look.color(token::FG_MUTED)));
-    ink.caps(&title.to_uppercase(), Pt { x: rect.x + tile::GROUND_PAD, y: rect.y + tile::GROUND_PAD - 2. }, tile::KIND_AT, tile::KIND_AT + 4., tile::KIND_WEIGHT, name, window, cx);
+    let at = Pt { x: rect.x + tile::GROUND_PAD, y: rect.y + tile::GROUND_PAD - 2. };
+    ink.led(title, at, None, tile::KIND_AT, tile::KIND_AT + 4., tile::NAME_WEIGHT, false, name, TextAlign::Left, window, cx);
 }
 
-/// The Start pill: the accent with its word on it, above the top left of the node the sketch starts at. It is
-/// drawn at full strength whatever step plays.
+/// The Start pill: its word on a blue to teal chip, above the top left of the node the sketch starts at. It is drawn at full
+/// strength whatever step plays.
 fn paint_mark(ink: &Ink, pill: Rect, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
-    window.paint_quad(quad(view.rect(pill), view.len(tile::PILL_H / 2.), look.color(token::ACCENT), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    ink.caps(&start::TAB_WORD.to_uppercase(), Pt { x: pill.x + tile::PILL_PAD, y: pill.y }, tile::PILL_AT, tile::PILL_H, tile::KIND_WEIGHT, look.color(token::TEXT_ON_ACCENT), window, cx);
+    let fill = gpui::linear_gradient(tile::PILL_ANGLE, gpui::linear_color_stop(look.color(token::SKETCH_BLUE), 0.), gpui::linear_color_stop(look.color(token::SKETCH_TEAL), 1.));
+    window.paint_quad(quad(view.rect(pill), view.len(tile::PILL_H / 2.), fill, px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    let at = Pt { x: pill.x + tile::PILL_PAD, y: pill.y };
+    ink.led(start::TAB_WORD, at, None, tile::PILL_AT, tile::PILL_H, tile::NAME_WEIGHT, false, look.color(token::TEXT_ON_ACCENT), TextAlign::Left, window, cx);
 }
 
-/// A step's badge: a light circle with its number in the ground's dark.
+/// A step's badge: a dark circle in a light hairline, its number in the text colour.
 fn paint_badge(ink: &Ink, rect: Rect, number: &str, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
-    window.paint_quad(quad(view.rect(rect), view.len(tile::BADGE / 2.), faded(look.color(token::FG_DEFAULT)), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    ink.led(number, Pt { x: rect.x, y: rect.y }, Some(rect.w), tile::BADGE_AT, tile::BADGE, tile::BADGE_WEIGHT, false, faded(look.color(token::FG_INVERSE)), TextAlign::Center, window, cx);
+    let ring = faded(look.color(token::FG_DEFAULT).opacity(tile::BADGE_RING));
+    window.paint_quad(quad(view.rect(rect), view.len(tile::BADGE / 2.), faded(look.color(token::BG_SUNKEN)), hair(view, tile::HAIRLINE), ring, BorderStyle::Solid));
+    ink.led(number, Pt { x: rect.x, y: rect.y }, Some(rect.w), tile::BADGE_AT, tile::BADGE, tile::BADGE_WEIGHT, false, faded(look.color(token::FG_DEFAULT)), TextAlign::Center, window, cx);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1207,19 +1230,23 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, outline: Option<glyph::Ma
     }
 }
 
-/// A card: a raised surface in a hairline, the outline of what it is at its left, its title and, under it, its body as a muted
-/// line of sans. A block of code has no outline and keeps its body as mono; its language stands at the top right. The start's
-/// frame is the accent, a change's its hue.
+/// A card: a raised surface, lighter at its top, in a hairline, the outline of what it is in a tinted chip at its left, its
+/// title and, under it, its body as a muted line of sans. A block of code has no outline and keeps its body as mono; its
+/// language stands at the top right. A card with a hue (its colour, the start's accent) is framed in it; a change's frame is
+/// its hue at full strength.
 #[allow(clippy::too_many_arguments)]
 fn paint_tile(ink: &Ink, node: &SceneNode, rect: Rect, outline: Option<glyph::Mark>, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
+    let started = ink.frame.is_some();
     let surface = look.color(token::BG_RAISED);
-    let (edge, width) = match ink.over.or(ink.frame) {
-        Some(color) => (color, tile::FRAME),
-        None => (look.color(token::BORDER_SUBTLE), tile::HAIRLINE),
+    let (edge, width) = match (ink.over, card_hue(look, node, started)) {
+        (Some(color), _) => (color, tile::FRAME),
+        (None, Some(color)) => (color.opacity(tile::FRAME_ALPHA), tile::HAIRLINE),
+        (None, None) => (look.color(token::BORDER_SUBTLE), tile::HAIRLINE),
     };
-    window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), faded(surface), hair(view, width), faded(edge), BorderStyle::Solid));
+    let fill = gpui::linear_gradient(tile::CARD_ANGLE, gpui::linear_color_stop(faded(lifted(look, surface, tile::CARD_LIFT)), 0.), gpui::linear_color_stop(faded(surface), 1.));
+    window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), fill, hair(view, width), faded(edge), BorderStyle::Solid));
     let (lead_w, lang_w, lang_text_w, lines) = {
         let measure = Measure { window: &*window, sans: ink.sans.clone(), mono: ink.mono.clone() };
         let (lead_w, lang_w) = (lead_width(node, Facts { mark: outline }), lang_width(node, &measure));
@@ -1229,14 +1256,23 @@ fn paint_tile(ink: &Ink, node: &SceneNode, rect: Rect, outline: Option<glyph::Ma
     };
     let top = rect.y + tile::PAD_Y;
     let mut x = rect.x + tile::PAD_X;
-    let said = faded(ink.over.unwrap_or_else(|| glyph_hue(look, node, outline, ink.frame.is_some())));
+    let said = faded(ink.over.unwrap_or_else(|| lightened(glyph_hue(look, node, outline, started), tile::LIGHTEN)));
+    let tint = faded(chip_tint(look, node, outline, started));
+    let chip_y = top + (tile::TITLE_LEAD - tile::CHIP) / 2.;
+    let inset = (tile::CHIP - glyph::SIZE) / 2.;
+    let chip = |x: f32, window: &mut Window| {
+        window.paint_quad(quad(view.rect(Rect { x, y: chip_y, w: tile::CHIP, h: tile::CHIP }), view.len(tile::CHIP_RADIUS), tint, px(0.), gpui::transparent_black(), BorderStyle::Solid));
+    };
     if let Some(mark) = outline {
-        paint_glyph(ink, mark, Pt { x, y: top + (tile::TITLE_LEAD - glyph::SIZE) / 2. }, said, window);
-        x += glyph::SIZE + tile::GLYPH_GAP;
+        chip(x, window);
+        paint_glyph(ink, mark, Pt { x: x + inset, y: chip_y + inset }, said, window);
+        x += tile::CHIP + tile::GLYPH_GAP;
     }
     if let Some(icon) = node.icon.as_deref() {
-        ink.icon(icon, Pt { x, y: top + (tile::TITLE_LEAD - glyph::SIZE) / 2. }, glyph::SIZE, faded(look.color(token::FG_MUTED)), window, cx);
-        x += glyph::SIZE + tile::GLYPH_GAP;
+        chip(x, window);
+        let color = faded(lightened(card_hue(look, node, started).unwrap_or_else(|| look.color(token::FG_MUTED)), tile::LIGHTEN));
+        ink.icon(icon, Pt { x: x + inset, y: chip_y + inset }, glyph::SIZE, color, window, cx);
+        x += tile::CHIP + tile::GLYPH_GAP;
     }
     if let Some(lang) = node.lang.as_deref() {
         ink.led(lang, Pt { x: rect.x + rect.w - tile::PAD_X - lang_text_w, y: top }, None, tile::LANG_AT, tile::TITLE_LEAD, tile::KIND_WEIGHT, true, faded(look.color(token::FG_MUTED)), TextAlign::Left, window, cx);
@@ -1334,7 +1370,7 @@ fn paint_wire(ink: &Ink, node: &SceneNode, rect: Rect, alpha: f32, window: &mut 
     }
 }
 
-/// An arrow along its way: 3px, round, in its hue, solid, dashed or dotted, a solid head at the ends that carry one, and its
+/// An arrow along its way: 1.5px, round, in its hue, solid, dashed or dotted, a solid head at the ends that carry one, and its
 /// words in the same hue on a backing the colour of the canvas. A dashed line carries its dashes' phase: how far along the
 /// way they have crawled.
 #[allow(clippy::too_many_arguments)]
@@ -1386,10 +1422,17 @@ fn paint_edge(ink: &Ink, way: &Way, color: SceneColor, pattern: Pattern, phase: 
         }
     }
     if let Some((rect, lines)) = &way.words {
-        window.paint_quad(quad(view.rect(*rect), view.len(4.), look.color(token::BG_SUNKEN), px(0.), gpui::transparent_black(), BorderStyle::Solid));
+        let widest = {
+            let measure = Measure { window: &*window, sans: ink.sans.clone(), mono: ink.mono.clone() };
+            lines.iter().map(|line| measure.width(line, tile::LABEL_AT, tile::LABEL_WEIGHT, false)).fold(0., f32::max)
+        };
+        let chip = tile::label_chip(*rect, widest, lines.len());
+        let backing = look.color(token::BG_SUNKEN).opacity(tile::LABEL_FILL);
+        window.paint_quad(quad(view.rect(chip), view.len(chip.h / 2.), backing, hair(view, tile::HAIRLINE), look.color(token::BORDER_SUBTLE), BorderStyle::Solid));
         let words = if dim { base.opacity(base.a * DIMMED) } else { base };
         for (at, text) in lines.iter().enumerate() {
-            ink.led(text, Pt { x: rect.x, y: rect.y + 4. + at as f32 * tile::LABEL_LEAD }, Some(rect.w), tile::LABEL_AT, tile::LABEL_LEAD, tile::LABEL_WEIGHT, false, words, TextAlign::Center, window, cx);
+            let line_at = Pt { x: chip.x, y: chip.y + tile::LABEL_PAD_Y + at as f32 * tile::LABEL_LEAD };
+            ink.led(text, line_at, Some(chip.w), tile::LABEL_AT, tile::LABEL_LEAD, tile::LABEL_WEIGHT, false, words, TextAlign::Center, window, cx);
         }
     }
 }

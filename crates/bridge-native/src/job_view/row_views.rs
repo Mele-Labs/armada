@@ -22,13 +22,15 @@ pub(super) struct RowView {
     job: WeakEntity<JobView>,
     ix: usize,
     drawn: Rc<Cell<u64>>,
+    /// A row of the Operator's thread, drawn with its parts in place (`beside`).
+    side: bool,
 }
 
 impl Render for RowView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.drawn.set(self.drawn.get() + 1);
-        let ix = self.ix;
-        self.job.update(cx, |job, cx| job.render_entry(ix, window, cx)).unwrap_or_else(|_| div().into_any_element())
+        let (ix, side) = (self.ix, self.side);
+        self.job.update(cx, |job, cx| job.as_side(side, |job| job.render_entry(ix, window, cx))).ok().flatten().unwrap_or_else(|| div().into_any_element())
     }
 }
 
@@ -51,6 +53,8 @@ pub(super) struct Rows {
     whole: bool,
     /// The views of the marks outside the thread that ask for frames of their own (`own_frames`).
     frames: RefCell<HashMap<SharedString, Entity<Frames>>>,
+    /// The Operator's thread's rows (`beside`).
+    pub(super) side: bool,
 }
 
 /// A mark that asks for frames of its own, such as a spinner, drawn as a view so its frames draw it alone.
@@ -65,6 +69,11 @@ impl Render for Frames {
 }
 
 impl Rows {
+    /// The rows of the Operator's thread: each draws with its parts in place.
+    pub(super) fn beside() -> Self {
+        Rows { side: true, ..Rows::default() }
+    }
+
     /// `JobView` was told something changed: its next frame draws the rows whole.
     pub(super) fn changed(&mut self) {
         self.changed = true;
@@ -95,9 +104,14 @@ impl JobView {
         // An overlay's labels cannot be put back from a cache (`JobsScreen::job_area`).
         let overlaid = cx.try_global::<LabelBook>().is_some_and(|book| book.overlaid(window.window_handle().window_id()));
         let job = cx.entity().downgrade();
+        let side = self.rows.side;
+        // A card the Operator raised is the page's, which changes with no word to this view: it is drawn each frame.
+        if side && self.raised_at(ix) {
+            return self.render_entry(ix, window, cx);
+        }
         let row = self.rows.held.entry(ix).or_insert_with(|| {
             let drawn = Rc::new(Cell::new(0));
-            Row { view: cx.new(|_| RowView { job: job.clone(), ix, drawn: drawn.clone() }), kept: Rc::default(), drawn, size: Rc::default() }
+            Row { view: cx.new(|_| RowView { job: job.clone(), ix, drawn: drawn.clone(), side }), kept: Rc::default(), drawn, size: Rc::default() }
         });
         let size = row.size.get();
         let child = match size {

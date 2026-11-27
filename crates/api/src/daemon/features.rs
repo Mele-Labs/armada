@@ -19,6 +19,16 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
+    /// `get_features_by_meaning` — the slugs of the project's features, not pending, that `words` are about by meaning, nearest
+    /// first, at most eight and none under the similarity floor. Placed as `list_features` is. **Empty, never refused, while
+    /// the language model is not loaded** or the words are blank.
+    fn get_features_by_meaning(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        words: String,
+    ) -> impl Future<Output = Result<ipc::FeaturesByMeaning, Refusal>> + Send;
+
     /// `get_feature_page` — one feature whole, or with `section` that one section alone, and with `files` the floor plan's
     /// rooms filled with their files. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project does not hold,
     /// and [`Refusal::Unacceptable`] (`fleet.feature_section_unknown`) for a section that is none of the four.
@@ -123,6 +133,19 @@ pub trait Features: Send + Sync + 'static {
     /// holds a confirmed or seeded feature (`fleet.library_started`), [`Refusal::Unacceptable`] as `get_library_start` is and
     /// where no module is found (`fleet.no_module`).
     fn draft_module_features(&self, caller: Option<crate::Caller>, draft: ipc::DraftModules) -> impl Future<Output = Result<ipc::ModulesDrafted, Refusal>> + Send;
+
+    /// `start_sub_project` — the Jobs the owner picked, kept under a name with the features whose live Jobs hold one of
+    /// them now. [`Refusal::Unacceptable`] for an empty name (`fleet.sub_project_no_name`) or no Jobs
+    /// (`fleet.sub_project_no_jobs`), [`Refusal::NotFound`] for a Job Fleet does not hold (`fleet.no_such_session`),
+    /// [`Refusal::IllegalMove`] for a Job not filed in the project (`fleet.sub_project_across_projects`).
+    fn start_sub_project(&self, start: ipc::StartSubProject) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
+
+    /// `list_sub_projects` — the sub projects of `project`, or of every project where it is `None`, oldest first.
+    fn list_sub_projects(&self, project: Option<String>) -> impl Future<Output = Result<ipc::SubProjects, Refusal>> + Send;
+
+    /// `ungroup_sub_project` — the sub project dropped, its Jobs untouched. [`Refusal::NotFound`] for an unknown id
+    /// (`fleet.no_such_sub_project`).
+    fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> impl Future<Output = Result<(), Refusal>> + Send;
 
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none

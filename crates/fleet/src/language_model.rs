@@ -23,6 +23,8 @@ pub struct LanguageModel {
     loaded: OnceLock<Arc<dyn TextModel>>,
     /// The vectors of the workflows a new Session's request is read against.
     workflows: Arc<crate::session_host::workflow_pick::Vectors>,
+    /// The vectors of the features a project's typed words are read against.
+    features: Arc<crate::feature_library::meaning::Vectors>,
 }
 
 impl LanguageModel {
@@ -33,6 +35,10 @@ impl LanguageModel {
 
     pub(crate) fn workflow_vectors(&self) -> Arc<crate::session_host::workflow_pick::Vectors> {
         Arc::clone(&self.workflows)
+    }
+
+    pub(crate) fn feature_vectors(&self) -> Arc<crate::feature_library::meaning::Vectors> {
+        Arc::clone(&self.features)
     }
 
     /// Put the loaded model in force. A second call changes nothing: the first model stays.
@@ -48,6 +54,7 @@ pub(crate) fn wanted() -> bool {
         crate::session_host::tell_refusal::IN_FORCE,
         crate::session_host::extracting::IN_FORCE,
         crate::session_host::workflow_pick::IN_FORCE,
+        crate::feature_library::meaning::IN_FORCE,
     ])
 }
 
