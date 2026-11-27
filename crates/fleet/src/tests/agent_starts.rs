@@ -1013,19 +1013,17 @@ async fn a_hosted_jobs_reasoning_is_a_row_in_its_thread() {
 
 // ---- A start that names a story kind follows that kind's workflow, as the dispatch sheet's does ----
 
-/// A repository whose one workflow is `bug`, which the `bug` and `investigate` kinds both start on.
-fn bug_workflow() -> config::ResolvedWorkflow {
-    let text = "version: 1\nworkflow_id: bug\nname: Bug\nsteps:\n  \
-        - id: fix\n    label: \"Fix it\"\n    delivers: true\n    advance_gate: auto\n";
-    let def = config::WorkflowDef::parse(std::path::Path::new("bug.yml"), text, &config::Roster::offering_nothing())
-        .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
-    config::ResolvedWorkflow::resolve(&def, &crate::tests::daemon::manifest())
-        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+/// A repository holding `bug`, which the `bug` and `investigate` kinds start on, and `chore`, which no kind names, so
+/// a proposer's reading and a kind's pick come out apart.
+fn two_workflows(fittings: &mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>) {
+    let mut held = crate::tests::daemon::one(crate::tests::daemon::workflow_named("bug"));
+    held.extend(crate::tests::daemon::one(crate::tests::daemon::workflow_named("chore")));
+    fittings.starting().workflows = held;
 }
 
 /// A Job an agent started with `kind`, once its brief is read by a proposer that answers `reading` to every brief.
 async fn started_as(reading: &str, kind: Option<&str>) -> (Rig, SessionRecord) {
-    let rig = rigged(None, Some(Arc::new(FakeJudge::saying(reading))), Some(bug_workflow()));
+    let rig = rigged_fitted(None, Some(Arc::new(FakeJudge::saying(reading))), None, two_workflows);
     let agent = rig.an_agent().await;
     eventually_read(&rig, &agent).await;
     let start = StartAnotherSession { kind: kind.map(str::to_string), ..begins(&rig, "Check the reader", FIRST) };
@@ -1035,13 +1033,13 @@ async fn started_as(reading: &str, kind: Option<&str>) -> (Rig, SessionRecord) {
     (rig, record)
 }
 
-/// **The kind's workflow is the person's pick**: the proposer reads the brief as none, and the Job stays on the
+/// **The kind's workflow is the person's pick**: the proposer reads the brief as `chore`, and the Job stays on the
 /// workflow the kind names in `story_kinds.toml`, `investigate` on `bug` as much as `bug` itself.
 #[tokio::test]
 async fn a_job_started_on_a_story_kind_follows_that_kinds_workflow_over_the_proposers_reading() {
     for kind in ["bug", "investigate"] {
         assert_eq!(ipc::story_kinds::story_kind(kind).and_then(|one| one.workflow), Some("bug"), "the file maps {kind}");
-        let (_rig, record) = started_as("workflow: none\ntitle: Why the reader drops lines", Some(kind)).await;
+        let (_rig, record) = started_as("workflow: chore\ntitle: Why the reader drops lines", Some(kind)).await;
         assert_eq!(record.workflow.as_deref(), Some("bug"), "{kind} starts on its workflow");
     }
 }
@@ -1062,7 +1060,7 @@ async fn an_idea_starts_on_no_workflow_and_the_proposer_does_not_fill_one_in() {
 
 #[tokio::test]
 async fn a_kind_the_file_does_not_hold_is_refused_and_starts_nothing() {
-    let rig = rigged(None, None, Some(bug_workflow()));
+    let rig = rigged_fitted(None, None, None, two_workflows);
     let agent = rig.an_agent().await;
     let before = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len();
     let start = StartAnotherSession { kind: Some("chore".into()), ..begins(&rig, "Check the reader", FIRST) };
