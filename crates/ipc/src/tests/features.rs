@@ -123,3 +123,13 @@ fn a_library_start_says_its_shape_and_a_draft_names_what_it_kept_and_passed_over
     assert_eq!(shape::of::<crate::DraftModules>(), "{project: string}");
     assert_eq!(shape::of::<crate::ModulesDrafted>(), "{project: string, drafted: [string], held?: [string]}");
 }
+
+#[test]
+fn a_sub_project_says_its_shape() {
+    assert_eq!(
+        shape::of::<crate::SubProject>(),
+        "{id: string, project: string, name: string, jobs: [string], features: [string], started_at: string}"
+    );
+    assert_eq!(shape::of::<crate::StartSubProject>(), "{project: string, name: string, jobs: [string]}");
+    assert_eq!(shape::of::<crate::UngroupSubProject>(), "{id: string}");
+}

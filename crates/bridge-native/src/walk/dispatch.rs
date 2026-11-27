@@ -114,25 +114,6 @@ pub static OPERATOR_FLOW: [Step; 21] = [
     step("The Operator's page is in front", Verb::Look, "status", "The Operator's page is in front"),
 ];
 
-/// The box at the Operator page's foot: an idea sent with no chip, a bug sent with one, and ideas the Operator kept, which are rows of Next up.
-pub static COMPOSER_FLOW: [Step; 15] = [
-    step("The Operator's page: the card in front, the message box right under it, and Next up at the top of the right column, with the ideas the Operator kept in it", Verb::Look, "group", "Message box"),
-    step("⌥M puts the caret in the box from anywhere on the page", Verb::Key("alt-m"), "textbox", "Message"),
-    step("An idea typed, with no chip picked: Send is lit", Verb::Typed("Let the sheet remember its last model"), "button", "Send"),
-    step("⌘↩ sends it as a dispatch. The box empties, and the Operator keeps it as an idea: Next up counts it, so no toast stands over it", Verb::Key("cmd-enter"), "button", "Next up 8"),
-    answer("The page scrolls to the box", "rest", "group", "Message box"),
-    step("Next up opens, and the idea is the first of the ideas in it, newest first, with its kind chip and its age", Verb::Open("button", "Next up 8"), "button", "Let the sheet remember its last model"),
-    step("A second thought, which is a bug", Verb::Typed("The slot meter jumps when a Job ends"), "checkbox", "Bug"),
-    step("Bug is picked, filled in its hue; a second press unpicks it", Verb::Press, "checkbox", "Bug"),
-    press_on("Send posts it with the kind Bug. The Operator started a Job at once, and the box is empty", "button", "Send", "checkbox", "Idea"),
-    step("The box is empty and no chip is picked", Verb::Look, "checkbox", "Idea"),
-    step("A press on a kept idea brings it to the front as a card: its kind, its words, its repository and when it was kept, and two options", Verb::Open("button", "Keep the scrollback between terminal runs"), "article", "Keep the scrollback between terminal runs"),
-    press_on("Start it sends it as a dispatch, unheld, and the Operator's own card is back in front", "button", "Start it, A Job in armada", "article", "Two Jobs are changing paging.rs"),
-    step("It left Next up once Fleet had it; the rest stand", Verb::Look, "button", "Group the palette's recent rows by project"),
-    step("Another idea in front", Verb::Open("button", "Group the palette's recent rows by project"), "article", "Group the palette's recent rows by project"),
-    step("Remove lets it go", Verb::Gone, "button", "Remove, The idea is dropped"),
-];
-
 /// A sentence written into the box: the openings, an opening taken, its blanks filled from the keyboard, and the feature list.
 pub static STORY: [Step; 22] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),

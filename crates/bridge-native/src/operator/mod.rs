@@ -1,4 +1,4 @@
-//! The Operator's page: one card in front, the box under it with a Discuss tag, Next up and the feed Since you
+//! The Operator's page: one card in front, the talk and box under it with a Discuss tag, Next up and the feed Since you
 //! last looked (`docs/concepts/operator.md`). The Operator is one long-running session that writes the cards; the page
 //! draws what `operator_page` serves and derives nothing. `docs/practices/protocol/the-operators-page-fleet-keeps.md`
 //! is the wire.
@@ -11,9 +11,8 @@
 //! | The card in front, its options and footer, a card that did not settle, a picked card read only with its steps, and the card folded to a line; a Job's Needs you draws the same card | `card.rs` |
 //! | Next up: the cards behind the front one, then the kept ideas, folded in the right column | `next_up.rs` |
 //! | A kept idea brought to the front, drawn as a card with Start it and Remove | `idea.rs` |
-//! | The talk under the card, the Operator's own thread with its About rows and the cards it raises, and the new-card strip | `talk.rs` |
+//! | What the page keeps of the talk under the card: the tag on his words, the watch that folds the card, and the new-card strip. The Operator's thread and box are a Job's, drawn by `crate::job_view` (`beside.rs`) | `talk.rs` |
 //! | The feed Since you last looked, under Working: the cards the Operator is working on | `feed.rs` |
-//! | The box under the card, whose send is a dispatch or, tagged, a talk about a card | `composer.rs` |
 //! | The ideas the Operator kept for later: what Next up and the idea card read | `parked.rs` |
 //! | Another Mac waiting for his Confirm to pair, as a card atop the page | `pairing.rs` |
 //! | The routes, live or mock | `wire.rs` |
@@ -28,7 +27,6 @@
 //! its change at once and reads nothing itself; the walk's mock sends no event, so there it reads the page in its place.
 
 pub(crate) mod card;
-pub mod composer;
 pub mod face;
 mod feed;
 mod idea;
@@ -39,7 +37,7 @@ mod parked;
 pub mod scenes;
 pub mod screen;
 pub mod status;
-mod talk;
+pub(crate) mod talk;
 pub(crate) mod view;
 mod wire;
 

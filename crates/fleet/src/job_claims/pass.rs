@@ -34,6 +34,16 @@ fn holder_key(holder: &Holder) -> String {
     format!("{}/{}", holder.machine, holder.id)
 }
 
+/// Who is told that `job` reached files `by` holds: `job` itself, and nobody where `by` is its own
+/// parent or child. **The one place a shared file's recipients are chosen**; `by` hears the same
+/// through its own pass, as a contest at its renewal.
+fn shared_told_to(job: &JobRead, by: &Claimant) -> Vec<String> {
+    match job.kin.contains(&by.holder.id) {
+        true => Vec::new(),
+        false => vec![job.id.clone()],
+    }
+}
+
 /// What a Job's wait word does to what the store keeps it was told, so a restart says it once.
 #[derive(Debug, PartialEq, Eq)]
 enum Keeps {
@@ -238,9 +248,23 @@ where
             if let Some(calls) = over {
                 self.session_warned(&job.id, "a Job made more store calls this hour than it should", format!("{calls} calls since the hour began"));
             }
-            let words = self.claims_unrepeated(&job.id, words, shared).await;
-            if !words.is_empty() {
-                said.told.entry(job.id.clone()).or_default().extend(words);
+            // The Job's own waits go to it alone; a shared file goes to whoever `shared_told_to` names.
+            let mut routed: BTreeMap<String, Vec<(Vec<Wanted>, Claimant)>> = BTreeMap::from([(job.id.clone(), Vec::new())]);
+            for (files, by) in shared {
+                for to in shared_told_to(&job, &by) {
+                    routed.entry(to).or_default().push((files.clone(), by.clone()));
+                }
+            }
+            let mut waits = Some(words);
+            for (to, shared) in routed {
+                let waits = match to == job.id {
+                    true => waits.take().unwrap_or_default(),
+                    false => Vec::new(),
+                };
+                let words = self.claims_unrepeated(&to, waits, shared).await;
+                if !words.is_empty() {
+                    said.told.entry(to).or_default().extend(words);
+                }
             }
         }
         self.claims_said(said).await;
@@ -386,6 +410,21 @@ mod tests {
         let mut again = Vec::new();
         answered_in(&mut held, Some(retaken), &wanted, 0, &mut again);
         assert!(again.is_empty(), "the same Job retaking a file is not news");
+    }
+
+    #[test]
+    fn a_file_held_by_the_jobs_own_parent_or_child_is_told_to_nobody() {
+        let job = JobRead { id: "j1".into(), kin: BTreeSet::from(["j2".to_string()]), ..JobRead::default() };
+        assert!(shared_told_to(&job, &other()).is_empty(), "j2 is its parent or child");
+        let stranger = Claimant::new(Holder::new(HolderKind::Session, "j3", "work", 0).expect("a holder"), "nick", "Quiet the log");
+        assert_eq!(shared_told_to(&job, &stranger), vec!["j1".to_string()]);
+    }
+
+    #[test]
+    fn a_job_that_started_others_claims_what_it_writes_and_not_its_plans_paths() {
+        let job = JobRead { planned: BTreeSet::from(["crates/ipc".to_string()]), written: BTreeSet::from(["src/a.rs".to_string()]), started_others: true, ..JobRead::default() };
+        let (asked, _) = asked_of(&job, &mut JobHeld::default(), &BTreeMap::new(), 0);
+        assert_eq!(asked.claim, vec![Wanted::file("src/a.rs")]);
     }
 
     #[test]

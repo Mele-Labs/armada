@@ -5,8 +5,24 @@
 use ipc::{Scene, SceneColor, SceneEdge, SceneKind, SceneNode};
 
 /// The card's corner, and its frame: one hairline.
-pub(super) const RADIUS: f32 = 10.;
+pub(super) const RADIUS: f32 = 12.;
 pub(super) const HAIRLINE: f32 = 1.;
+/// A card with a hue (its colour, or the start's accent): the hairline in that hue at this strength, and a glow of it round
+/// the card, kept faint (owner, 26 Nov: the mock's glow was too strong).
+pub(super) const FRAME_ALPHA: f32 = 0.45;
+pub(super) const GLOW_ALPHA: f32 = 0.08;
+pub(super) const GLOW_BLUR: f32 = 16.;
+/// How much lighter the card's fill is at its top than at its foot, and the canvas's at its top left: a share of the way to
+/// the text colour.
+pub(super) const CARD_LIFT: f32 = 0.05;
+pub(super) const CANVAS_LIFT: f32 = 0.035;
+/// A group's faint fill, as a share of the text colour.
+pub(super) const GROUP_FILL: f32 = 0.015;
+/// The way each gradient runs, in degrees clockwise from the top as CSS reads them: the card's down and a little right, the
+/// canvas's from its top left, the Start pill's from left to right.
+pub(super) const CARD_ANGLE: f32 = 160.;
+pub(super) const CANVAS_ANGLE: f32 = 135.;
+pub(super) const PILL_ANGLE: f32 = 90.;
 /// A frame that says something (the start, a change): a little heavier than the hairline.
 pub(super) const FRAME: f32 = 1.5;
 /// The canvas a drawing stands on: its corner, and the air kept round what it holds.
@@ -19,10 +35,11 @@ pub(super) const EDGE: f32 = 4.;
 pub(super) const GAP_X: f32 = 64.;
 pub(super) const GAP_Y: f32 = 80.;
 
-/// A group's and a lane's name: 10px, tracked at `.09em`, and the room it keeps from the frame.
+/// A group's and a lane's name, in normal case, and the room it keeps from the frame. A block of code's language is set at
+/// `KIND_WEIGHT`.
 pub(super) const KIND_AT: f32 = 10.;
 pub(super) const KIND_WEIGHT: f32 = 700.;
-pub(super) const TRACKING: f32 = 0.09;
+pub(super) const NAME_WEIGHT: f32 = 600.;
 pub(super) const GROUND_PAD: f32 = 12.;
 /// A block of code's language, at its top right.
 pub(super) const LANG_AT: f32 = 10.;
@@ -42,12 +59,24 @@ pub(super) const CODE_AT: f32 = 11.;
 pub(super) const CODE_LEAD: f32 = 16.;
 /// What the outline keeps from the words.
 pub(super) const GLYPH_GAP: f32 = 8.;
+/// The rounded square the outline and an icon each sit in: its side, its corner, and its tint, the card's hue at
+/// `CHIP_TINT` or the text colour at `CHIP_PLAIN` where it has none. The outline in it is its hue lightened by `LIGHTEN`.
+pub(super) const CHIP: f32 = 20.;
+pub(super) const CHIP_RADIUS: f32 = 6.;
+pub(super) const CHIP_TINT: f32 = 0.15;
+pub(super) const CHIP_PLAIN: f32 = 0.06;
+pub(super) const LIGHTEN: f32 = 0.3;
 
-/// The step's badge: a circle on the tile's top right corner, standing out past it.
-pub(super) const BADGE: f32 = 20.;
+/// The step's badge: a dark circle on the tile's top right corner, standing out past it, in a light hairline.
+pub(super) const BADGE: f32 = 18.;
 pub(super) const BADGE_OUT: f32 = 6.;
-pub(super) const BADGE_AT: f32 = 11.;
-pub(super) const BADGE_WEIGHT: f32 = 800.;
+pub(super) const BADGE_AT: f32 = 10.;
+pub(super) const BADGE_WEIGHT: f32 = 600.;
+pub(super) const BADGE_RING: f32 = 0.22;
+
+/// How far below the middle of a chip the baseline of its words sits, as a share of their size: half the height of a capital,
+/// so a picture centres the words in a chip as the app's text, centred on its line, does.
+pub(super) const CAP_MID: f32 = 0.35;
 
 /// The Start pill: its height, the size of its word, and the room each side of the word.
 pub(super) const PILL_H: f32 = 16.;
@@ -56,11 +85,21 @@ pub(super) const PILL_PAD: f32 = 6.;
 /// The gap the pill keeps above the top edge of the node it marks.
 pub(super) const PILL_RISE: f32 = 4.;
 
-/// An arrow: its width, its head, and its words.
-pub(super) const ARROW: f32 = 3.;
+/// An arrow: its width, and its words on a chip the colour of the canvas, in a hairline, `LABEL_PAD_X` by `LABEL_PAD_Y` round them.
+pub(super) const ARROW: f32 = 1.5;
 pub(super) const LABEL_AT: f32 = 11.;
-pub(super) const LABEL_WEIGHT: f32 = 600.;
+pub(super) const LABEL_WEIGHT: f32 = 500.;
 pub(super) const LABEL_LEAD: f32 = 15.;
+pub(super) const LABEL_PAD_X: f32 = 7.;
+pub(super) const LABEL_PAD_Y: f32 = 2.;
+pub(super) const LABEL_FILL: f32 = 0.9;
+
+/// The chip an arrow's words sit on: `widest` of their lines with the chip's padding round them, centred where the words
+/// were laid.
+pub(super) fn label_chip(rect: super::geometry::Rect, widest: f32, lines: usize) -> super::geometry::Rect {
+    let (w, h) = (widest + 2. * LABEL_PAD_X, lines as f32 * LABEL_LEAD + 2. * LABEL_PAD_Y);
+    super::geometry::Rect { x: rect.x + (rect.w - w) / 2., y: rect.y + (rect.h - h) / 2., w, h }
+}
 
 /// Whether a node is drawn as a tile: a box or a block of code.
 pub(super) fn is_tile(node: &SceneNode) -> bool {

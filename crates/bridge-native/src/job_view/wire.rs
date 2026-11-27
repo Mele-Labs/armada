@@ -79,6 +79,8 @@ impl JobView {
             }
         }
         if self.fleet.is_none() {
+            #[cfg(test)]
+            self.mock_posted.push((path.clone(), body.clone().unwrap_or_default()));
             if let (Some(id), Some(body)) = (self.shown.clone(), body.as_deref()) {
                 self.mock_keep(&id, &path, body, cx);
             }
