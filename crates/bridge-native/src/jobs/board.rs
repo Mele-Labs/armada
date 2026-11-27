@@ -14,6 +14,8 @@ struct Holding {
     hue: crate::look::Token,
     state: SharedString,
     holds: SharedString,
+    /// The why of a clash this Job waits on, for its second line's tooltip.
+    why: SharedString,
 }
 
 /// What stands in the board's place of the Jobs: them, grey shapes while the feature's library is not held yet, or a line
@@ -42,6 +44,8 @@ pub(crate) struct LeadBoard {
     /// The heading's words when it was pressed: all the board has to say of a feature its library does not hold yet.
     title: SharedString,
     focus: FocusHandle,
+    /// The card's body, which scrolls: a row the keys move to is brought into view.
+    scroll: ScrollHandle,
     /// The stop the keys are on: each row's Open by its place, then Ungroup.
     cursor: usize,
     refused: Option<SharedString>,
@@ -52,7 +56,7 @@ pub(crate) struct LeadBoard {
 impl LeadBoard {
     pub(super) fn new(list: &Entity<JobsList>, lead: Lead, title: SharedString, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(list, |_, _, cx| cx.notify());
-        LeadBoard { list: list.downgrade(), lead, title, focus: cx.focus_handle(), cursor: 0, refused: None, sending: false, _watch: watch }
+        LeadBoard { list: list.downgrade(), lead, title, focus: cx.focus_handle(), scroll: ScrollHandle::new(), cursor: 0, refused: None, sending: false, _watch: watch }
     }
 
     pub(super) fn focus(&self) -> &FocusHandle {
@@ -64,19 +68,31 @@ impl LeadBoard {
         &self.lead
     }
 
+    #[cfg(test)]
+    pub(super) fn scroll(&self) -> &ScrollHandle {
+        &self.scroll
+    }
+
     fn read(&self, cx: &App) -> Option<Read> {
         let list = self.list.upgrade()?;
         let list = list.read(cx);
         let live: Vec<&SessionRecord> = list.jobs.iter().filter(|job| job.state == SessionState::Live).collect();
-        let holding = |job: &SessionRecord| {
+        let holding = |job: &SessionRecord, clashes: &[super::board_clashes::Clash]| {
             let (glyph, state) = mark_of(job).map(|mark| glyph_of(mark.state, None)).unwrap_or(("circle-dot", SharedString::default()));
+            let held = leads::holds(job);
+            let (holds, why) = match super::board_clashes::folded(clashes, job.id.as_str()) {
+                Some((line, why)) if held.is_empty() => (line, why),
+                Some((line, why)) => (format!("{held} \u{b7} {line}"), why),
+                None => (held, String::new()),
+            };
             Holding {
                 id: job.id.as_str().to_string().into(),
                 title: title_of(job),
                 glyph,
                 hue: mark_of(job).map_or(token::FG_MUTED, |mark| hue_of(mark.state)),
                 state,
-                holds: leads::holds(job).into(),
+                holds: holds.into(),
+                why: why.into(),
             }
         };
         match &self.lead {
@@ -88,15 +104,15 @@ impl LeadBoard {
                 };
                 let chips = list.leads.subs.iter().filter(|sub| sub.project == *project && sub.features.iter().any(|one| one == slug)).map(|sub| sub.name.clone().into()).collect();
                 let jobs: Vec<&SessionRecord> = feature.jobs_now.iter().filter_map(|one| live.iter().find(|job| job.id == one.session_id).copied()).collect();
-                let rows = jobs.iter().map(|job| holding(job)).collect();
                 let clashes = super::board_clashes::clashes_of(&jobs);
+                let rows = jobs.iter().map(|job| holding(job, &clashes)).collect();
                 Some(Read { stand: Fill::Rows, title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false, clashes })
             }
             Lead::SubProject { id } => {
                 let sub = list.leads.subs.iter().find(|sub| sub.id == *id)?;
                 let titles = list.leads.feature_titles(sub);
                 let line = if titles.is_empty() { "Sub project".to_string() } else { format!("Sub project \u{b7} {}", titles.join(", ")) };
-                let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job)).collect();
+                let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job, &[])).collect();
                 Some(Read { stand: Fill::Rows, title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true, clashes: Vec::new() })
             }
             Lead::Area | Lead::NoFeature => None,
@@ -143,7 +159,7 @@ impl LeadBoard {
         if event.keystroke.modifiers.modified() {
             return;
         }
-        let stops = self.read(cx).map_or(0, |read| read.rows.len() + usize::from(read.ungroup));
+        let (rows, stops) = self.read(cx).map_or((0, 0), |read| (read.rows.len(), read.rows.len() + usize::from(read.ungroup)));
         match event.keystroke.key.as_str() {
             "down" | "j" => self.cursor = (self.cursor + 1).min(stops.saturating_sub(1)),
             "up" | "k" => self.cursor = self.cursor.saturating_sub(1),
@@ -154,6 +170,10 @@ impl LeadBoard {
                 }
             }
             _ => return,
+        }
+        // The row under the keys comes into view; Ungroup stands above the card and needs no scrolling.
+        if matches!(event.keystroke.key.as_str(), "down" | "j" | "up" | "k") && self.cursor < rows {
+            self.scroll.scroll_to_item(self.cursor);
         }
         cx.stop_propagation();
         cx.notify();
@@ -182,7 +202,7 @@ impl Render for LeadBoard {
                 "Ungroup",
             )
         });
-        let refusal = self.refused.clone().map(|why| labelled(div().id("board-refused").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why));
+        let refusal = self.refused.clone().map(|why| labelled(div().id("board-refused").flex_none().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why));
         let holds = read.rows.into_iter().enumerate().map(|(at, row)| {
             let open = labelled(
                 button(look, ("board-open", at), Kind::Secondary, None, "Open", false)
@@ -192,9 +212,11 @@ impl Render for LeadBoard {
                 format!("Open {}", row.title),
             );
             let state = row.state.clone();
+            let why = row.why.clone();
             labelled(
                 div()
                     .id(("board-row", at))
+                    .flex_none()
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_3))
@@ -217,7 +239,15 @@ impl Render for LeadBoard {
                             .flex_col()
                             .gap(look.length(token::SPACE_1))
                             .child(div().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(row.title.clone()))
-                            .child(div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(row.holds.clone())),
+                            .child(
+                                div()
+                                    .id(("board-holds", at))
+                                    .truncate()
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .text_color(look.color(token::FG_MUTED))
+                                    .child(row.holds.clone())
+                                    .when(!why.is_empty(), |line| line.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx))),
+                            ),
                     )
                     .child(open),
                 Role::Row,
@@ -230,6 +260,7 @@ impl Render for LeadBoard {
             let row = |at: usize| {
                 div()
                     .id(("board-bone", at))
+                    .flex_none()
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_3))
@@ -245,12 +276,23 @@ impl Render for LeadBoard {
                             .child(crate::settings::view::bone(look, look.length(token::SPACE_12) * 2., look.length(token::SPACE_3))),
                     )
             };
-            labelled(div().id("board-loading").flex().flex_col().children((0..3).map(row)), Role::Image, "Loading")
+            labelled(div().id("board-loading").flex_none().flex().flex_col().children((0..3).map(row)), Role::Image, "Loading")
         });
         let card = (!gone).then(|| {
+            // The card keeps the space the window leaves it and its head stays put; its body scrolls.
             crate::parts::card::card(look, "what-holds-what", None)
+                .min_h_0()
                 .child(crate::parts::card::head(look, "what-holds-what-head", None, "What holds what"))
-                .child(crate::parts::card::body(look, "what-holds-what-body").gap(look.length(token::SPACE_1)).children(holds).children(read.clashes.iter().enumerate().map(|(at, clash)| super::board_clashes::clash_row(look, at, clash))).children(bones))
+                .child(
+                    crate::parts::card::body(look, "what-holds-what-body")
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.scroll)
+                        .gap(look.length(token::SPACE_1))
+                        .children(holds)
+                        .children(read.clashes.iter().filter(|clash| clash.open()).enumerate().map(|(at, clash)| super::board_clashes::clash_row(look, at, clash)))
+                        .children(bones),
+                )
         });
         let line = div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(read.line.clone());
         let line = if gone { labelled(line.id("board-gone"), Role::Label, read.line.clone()).into_any_element() } else { line.into_any_element() };
@@ -261,7 +303,6 @@ impl Render for LeadBoard {
                 .track_focus(&self.focus)
                 .on_key_down(cx.listener(Self::on_key))
                 .size_full()
-                .overflow_y_scroll()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))
@@ -270,6 +311,7 @@ impl Render for LeadBoard {
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(
                     div()
+                        .flex_none()
                         .flex()
                         .flex_col()
                         .gap(look.length(token::SPACE_2))
@@ -281,7 +323,7 @@ impl Render for LeadBoard {
                         .child(line)
                         .children(chips),
                 )
-                .children(ungroup.map(|button| div().flex().child(button)))
+                .children(ungroup.map(|button| div().flex_none().flex().child(button)))
                 .children(refusal)
                 .children(card),
             Role::Region,
