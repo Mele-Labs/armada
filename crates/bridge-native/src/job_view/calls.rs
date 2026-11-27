@@ -72,6 +72,10 @@ fn tool_of(text: &str) -> Call<'_> {
 fn shell_doing(line: &str) -> Option<(Family, &str)> {
     let words = body_of(line);
     let words = &words[..words.iter().position(|word| *word == "|").unwrap_or(words.len())];
+    // `cat > file <<EOF` writes: a line that sends its output to a file is no read.
+    if words.iter().any(|word| word.contains('>') && !word.starts_with("2>")) {
+        return None;
+    }
     let name = words.first()?.rsplit('/').next().unwrap_or("");
     let family = match name {
         "grep" | "rg" | "find" => Family::Search,
