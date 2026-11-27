@@ -206,15 +206,22 @@ impl JobView {
 
     fn fork_menu(&mut self, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator's thread offers Reply and Teach only.
+        let side = self.beside_in();
         let mut entries = vec![Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false }];
         if live {
             entries.push(Entry::Act { id: "reply", label: "Reply".into(), icon: Some("reply"), danger: false });
         }
-        entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
-        entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
-        entries.push(Entry::Act { id: "judge", label: "Judge".into(), icon: Some("scale"), danger: false });
+        if !side {
+            entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
+            entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
+            entries.push(Entry::Act { id: "judge", label: "Judge".into(), icon: Some("scale"), danger: false });
+        }
         let back = self.focus.clone();
-        self.open_pop("Selection", entries, at, from_keys, Some(back), |this, id, window, cx| this.fork_act(id, window, cx), window, cx);
+        self.open_pop("Selection", entries, at, from_keys, Some(back), move |this, id, window, cx| {
+            // The pick answers on the side the menu was opened on.
+            this.as_side(side, |this| this.fork_act(id, window, cx));
+        }, window, cx);
     }
 
     /// The words selected in the thread, taken for the side chat to quote: the bar and the selection go.
@@ -228,6 +235,10 @@ impl JobView {
     fn fork_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         if act == "judge" {
             self.judge_selected(window, cx);
+            return;
+        }
+        // The Operator's thread offers Reply and Teach only.
+        if self.beside_in() && !matches!(act, "reply" | "teach") {
             return;
         }
         let Some(picked) = self.fork.shown.take() else { return };
@@ -357,6 +368,7 @@ impl JobView {
         }
         let look = cx.look();
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        let side = self.beside_in();
         let act = |id: &'static str, said: &'static str, icon: &'static str| {
             labelled(
                 div()
@@ -397,10 +409,10 @@ impl JobView {
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .occlude()
                 .children(live.then(|| act("reply", "Reply", "reply")))
-                .child(act("fork", "Fork from here", "git-fork"))
+                .children((!side).then(|| act("fork", "Fork from here", "git-fork")))
                 .child(act("teach", "Teach", "graduation-cap"))
-                .child(self.selection_ask(look, cx))
-                .child(self.selection_judge(&picked.row, &picked.words, look, cx)),
+                .children((!side).then(|| self.selection_ask(look, cx)))
+                .children((!side).then(|| self.selection_judge(&picked.row, &picked.words, look, cx))),
             Role::Toolbar,
             "Selection",
         );

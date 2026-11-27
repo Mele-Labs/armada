@@ -45,6 +45,8 @@ struct Held {
     pane_height: Option<Pixels>,
     pop: Option<super::pop::Pop>,
     find: Option<super::find::Find>,
+    /// The words selected in its thread, so a selection in one thread never shows in the other.
+    fork: super::fork::Fork,
 }
 
 pub(super) struct Beside {
@@ -120,6 +122,7 @@ impl JobView {
         std::mem::swap(&mut self.pane_height, &mut held.pane_height);
         std::mem::swap(&mut self.pop, &mut held.pop);
         std::mem::swap(&mut self.find, &mut held.find);
+        std::mem::swap(&mut self.fork, &mut held.fork);
         beside.inside = !beside.inside;
     }
 
@@ -270,6 +273,7 @@ impl JobView {
                 pane_height: None,
                 pop: None,
                 find: None,
+                fork: super::fork::Fork::default(),
             },
             inside: false,
             root: cx.focus_handle(),
@@ -463,10 +467,15 @@ impl JobView {
         let body = if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
-                div()
-                    .id("operator-thread")
+                // Selected words offer Reply and Teach here, as a Job's thread offers its own acts.
+                self.fork_hooks(div().id("operator-thread"), cx)
                     .key_context("thread_scroll")
                     .track_focus(&self.focus)
+                    .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| {
+                        if !this.focus.contains_focused(window, cx) {
+                            window.focus(&this.focus, cx);
+                        }
+                    }))
                     .on_action(cx.listener(Self::on_page_up))
                     .on_action(cx.listener(Self::on_page_down))
                     .on_action(cx.listener(Self::on_to_start))
@@ -490,6 +499,7 @@ impl JobView {
         let mut popups: Vec<AnyElement> = Vec::new();
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(true, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         div()
             .id("operator-talk")

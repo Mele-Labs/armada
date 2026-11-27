@@ -32,6 +32,8 @@ pub(crate) struct Row {
     pub glyph: &'static str,
     pub name: String,
     pub says: String,
+    /// The project an issue is from, where the list reads several projects' trackers: drawn at the row's right.
+    pub project: Option<String>,
     pub pick: Pick,
 }
 
@@ -99,7 +101,7 @@ pub(super) fn commands_for(commands: &[String], query: &str) -> Vec<Row> {
         .chain(contains)
         .map(|name| {
             let bare = name.trim_start_matches('/').to_string();
-            Row { group: None, glyph: "slash", name: format!("/{bare}"), says: String::new(), pick: Pick::Command(bare) }
+            Row { group: None, glyph: "slash", name: format!("/{bare}"), says: String::new(), project: None, pick: Pick::Command(bare) }
         })
         .collect()
 }
@@ -121,6 +123,7 @@ pub(crate) fn numbers_for(mut numbered: Vec<(bool, String, String, Option<String
                 glyph: if pull { "git-pull-request" } else { "ticket" },
                 name: reference.clone(),
                 says: title.clone(),
+                project: None,
                 pick: Pick::Tag {
                     kind: if pull { TagKind::PullRequest } else { TagKind::Issue },
                     id,
@@ -130,6 +133,42 @@ pub(crate) fn numbers_for(mut numbered: Vec<(bool, String, String, Option<String
             }
         })
         .collect()
+}
+
+/// The issues of every project's tracker the query names, newest first, at most six, each row naming its project.
+pub(crate) fn project_numbers(held: &[(&str, &[ipc::TrackedIssue])], query: &str) -> Vec<Row> {
+    let query = query.to_lowercase();
+    let mut found: Vec<(&str, &ipc::TrackedIssue)> = held
+        .iter()
+        .flat_map(|(project, issues)| issues.iter().map(move |issue| (*project, issue)))
+        .filter(|(_, issue)| {
+            query.is_empty()
+                || issue.reference.trim_start_matches('#').starts_with(&query)
+                || issue.reference.to_lowercase().contains(&query)
+                || issue.title.to_lowercase().contains(&query)
+        })
+        .collect();
+    found.sort_by(|(_, a), (_, b)| b.updated_at.cmp(&a.updated_at));
+    found.truncate(6);
+    found
+        .into_iter()
+        .map(|(project, issue)| {
+            let id = issue.reference.trim_start_matches('#').to_string();
+            Row {
+                group: None,
+                glyph: "ticket",
+                name: issue.reference.clone(),
+                says: issue.title.clone(),
+                project: Some(project.to_string()),
+                pick: Pick::Tag { kind: TagKind::Issue, id, title: format!("{} {}", issue.reference, issue.title), url: Some(issue.url.clone()) },
+            }
+        })
+        .collect()
+}
+
+/// The key a project's issues are held under in the catalog: no manifest id holds a unit separator, so it clashes with none.
+fn project_key(project: &str) -> String {
+    format!("\u{1f}project\u{1f}{project}")
 }
 
 /// A tag as the text holds it: `@<title>`, with the kind and id kept in the chip's own id.
@@ -182,6 +221,7 @@ pub(crate) fn at_rows(jobs: &[(String, String)], found: Vec<String>, query: &str
             glyph: "square-terminal",
             name: title.clone(),
             says: String::new(),
+            project: None,
             pick: Pick::Tag { kind: TagKind::Session, id: job.clone(), title: title.clone(), url: None },
         })
         .collect();
@@ -191,7 +231,7 @@ pub(crate) fn at_rows(jobs: &[(String, String)], found: Vec<String>, query: &str
     let before = rows.len();
     rows.extend(found.into_iter().take(5).map(|path| {
         let (folder, name) = path.rsplit_once('/').map_or(("", path.as_str()), |(folder, name)| (folder, name));
-        Row { group: None, glyph: "file", name: name.to_string(), says: folder.to_string(), pick: Pick::File(path.clone()) }
+        Row { group: None, glyph: "file", name: name.to_string(), says: folder.to_string(), project: None, pick: Pick::File(path.clone()) }
     }));
     if let Some(first) = rows.get_mut(before) {
         first.group = Some("Files");
@@ -265,7 +305,17 @@ impl JobView {
                     }
                 }
                 self.want_issues(&id, cx);
-                ("Tag an issue or pull request", numbers_for(numbered, &query))
+                let mut rows = numbers_for(numbered, &query);
+                // The Operator has no repository: it reads the issues of every project's tracker, each row naming its project.
+                if self.is_beside(&id) {
+                    let projects = self.own_projects(cx);
+                    self.want_project_issues(&projects, window, cx);
+                    let kept: Vec<_> = projects.iter().filter_map(|(project, name)| Some((name.as_str(), self.composer.catalog.issues.get(&project_key(project))?.as_slice()))).collect();
+                    let mut issues = project_numbers(&kept, &query);
+                    issues.append(&mut rows);
+                    rows = issues;
+                }
+                ("Tag an issue or pull request", rows)
             }
             _ => {
                 let jobs: Vec<(String, String)> = self
@@ -352,6 +402,45 @@ impl JobView {
             });
         })
         .detach();
+    }
+
+    /// Read each project's issues once, for the Operator's `#`: the tracker the project names, as `list_project_issues` answers.
+    fn want_project_issues(&mut self, projects: &[(String, String)], window: &mut Window, cx: &mut Context<Self>) {
+        if self.fleet.is_none() {
+            return;
+        }
+        let Some(port) = self.port(cx) else { return };
+        for (project, _) in projects {
+            let key = project_key(project);
+            if !self.composer.catalog.issues_asked.insert(key.clone()) {
+                continue;
+            }
+            let path = format!("/projects/project/{}/issues", super::wire::encoded(project));
+            cx.spawn_in(window, async move |this, cx| {
+                let answer = cx
+                    .background_executor()
+                    .spawn(async move {
+                        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                        let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                        if !(200..300).contains(&status) {
+                            return Err(super::wire::reason(status, &bytes));
+                        }
+                        ipc::decode::<ipc::ProjectIssueList>("ProjectIssueList", &bytes).map_err(|why| why.to_string())
+                    })
+                    .await;
+                let _ = this.update_in(cx, |this, window, cx| {
+                    if let Ok(list) = answer {
+                        this.composer.catalog.issues.insert(key, list.issues);
+                        // The list the person is looking at takes the rows that came in.
+                        if this.beside_has_keys(window, cx) {
+                            this.on_beside(|this| this.refresh_offer(window, cx));
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
+        }
     }
 
     /// A key while a list is open: it is the list's, and the box does not see it. True where taken.
@@ -488,6 +577,11 @@ pub(crate) fn offer_list_at(
             (None, true) => row.name.clone().into(),
             (None, false) => format!("{} {}", row.name, row.says).into(),
         };
+        // An issue read from a project's tracker names the project.
+        let name: SharedString = match &row.project {
+            Some(project) => format!("{name} {project}").into(),
+            None => name,
+        };
         // A tool's glyph takes its hue and its name the box's own face; a command's or a file's name is code.
         let hue = match &row.pick {
             Pick::Tag { kind: TagKind::Tool, id, .. } => super::ask_tools::hue(id),
@@ -530,6 +624,9 @@ pub(crate) fn offer_list_at(
                             .when(offer.within.is_none(), |says| says.text_color(look.color(token::FG_MUTED)))
                             .child(row.says.clone()),
                     )
+                    .children(row.project.clone().map(|project| {
+                        div().flex_none().max_w(gpui::relative(0.4)).truncate().ml(look.length(token::SPACE_3)).text_color(look.color(token::FG_SUBTLE)).child(project)
+                    }))
                     .when(opens, |row| {
                         row.child(
                             div()
