@@ -335,7 +335,23 @@ A page handed to a Job names each open pull request by someone else that changes
 Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
 The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
 
-## Ranking the issues he might pick up
+## Sub projects
+
+A sub project is a group of Jobs the owner picked in the Jobs list and named.
+He picks them with ⌘-click or a right click and Start a sub project, and gives it a name.
+The Jobs list draws it as a heading on top of the list, with its Jobs nested under it.
+
+`start_sub_project` keeps his name, trimmed, and the Jobs in his order.
+It also keeps the slugs of the features whose `jobs_now` holds one of those Jobs at the press, read as `list_features` reads them.
+Those features are not read again.
+Every picked Job must be filed in the sub project's project, so a sub project never spans two.
+
+> **Rule.** Fleet keeps only what he picked.
+> Why: a live Job that later writes a file of one of the features is already in `list_features`, and the Jobs list adds it to the group from there.
+
+`list_sub_projects` answers them oldest first, for one project or for all.
+`ungroup_sub_project` drops one, and each of its Jobs goes back to its own row untouched.
+
 
 The project's Dashboard lists the open issues nobody is assigned to, that no Job holds and that no pull request already closes, as the ones he might pick up.
 `list_ranked_issues` maps each to the features it touches, three ways, and uses no model and asks the forge for nothing: it reads the issue lists Fleet holds, the open pull requests the Reviews lists left with their files, and the Jobs the library recorded.
@@ -670,6 +686,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them or in the order the librarian holds |
 | `get_features_of_path` | The features a file belongs to |
+| `get_features_by_meaning` | The features of a project that some typed words are about, read by meaning with the local language model, for the dispatch sentence's feature blank |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature, the glossary terms it introduced and its gists of the docs it read |
@@ -689,6 +706,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
 | `get_library_start` | The modules a project's build files name and the docs at the top of its repositories, for the start panel |
 | `draft_module_features` | The owner's Draft as Pending, or the Operator, keeps each module of a project with no feature of its own as a pending feature |
+| `start_sub_project` | The owner groups the Jobs he picked under a name, with the features they are on now |
+| `list_sub_projects` | The sub projects of a project, or of every project, oldest first |
+| `ungroup_sub_project` | The owner's Ungroup drops a sub project and leaves its Jobs |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |

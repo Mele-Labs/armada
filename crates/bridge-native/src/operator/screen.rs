@@ -360,24 +360,15 @@ impl OperatorScreen {
     }
 
     /// The page's box offers the Jobs the list holds, but those that have ended.
+    /// That box is the Job view's now and reads them itself; this gives the cards' chips every Job's title.
     fn name_jobs(&mut self, cx: &mut Context<Self>) {
         let list = self.jobs.read(cx).list.clone();
-        let named: Vec<(String, String)> = list
-            .read(cx)
-            .records()
-            .iter()
-            .filter(|job| job.state != ipc::SessionState::Ended)
-            .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
-            .collect();
         // A card's chips name every Job it is about, ended ones too.
         let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
         if let Some(usage) = &self.usage {
             usage.update(cx, |usage, cx| usage.set_titles(&titles, cx));
         }
-        self.page.update(cx, |page, cx| {
-            page.set_jobs(named, cx);
-            page.set_titles(titles, cx);
-        });
+        self.page.update(cx, |page, cx| page.set_titles(titles, cx));
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.
@@ -1067,10 +1058,11 @@ mod tests {
         cx.update(|window, cx| {
             screen.update(cx, |screen, cx| {
                 screen.bring(Some(Front::Operator), window, cx);
-                let composer = screen.page.read(cx).composer.clone();
-                composer.update(cx, |composer, cx| composer.focus(window, cx));
             })
         });
+        cx.run_until_parked();
+        // The box is the Job view's, made as the page first draws it.
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
         cx.run_until_parked();
         cx.update(|_, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(PASTED.to_string())));
         cx.simulate_keystrokes("cmd-v");
@@ -1246,6 +1238,22 @@ mod tests {
         assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the box is on the page");
     }
 
+    #[gpui::test]
+    fn a_send_dispatched_from_the_window_goes_to_the_operator_and_never_to_the_job_open_behind_the_page(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        redraw(cx);
+        let lent = cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        cx.simulate_input("Which Jobs are running now?");
+        // As the palette and the menus send it: dispatched from the window after their own press.
+        cx.update(|window, cx| window.dispatch_action(Box::new(crate::keymap::Act { id: "send_message", slot: 0, digit: None }), cx));
+        redraw(cx);
+        page.update(cx, |page, _| assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)], "the words went to the Operator"));
+        assert_eq!(cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx)), lent, "nothing went to the Job open behind the page");
+    }
+
     // -- the Cockpit ---------------------------------------------------------------------------------------------
 
     fn cockpit_screen(cx: &mut TestAppContext) -> (Entity<OperatorScreen>, &mut VisualTestContext) {
@@ -1272,9 +1280,8 @@ mod tests {
         assert!(!home(screen, cx), "the Job is open over the page");
     }
 
-    fn box_has_keys(screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
-        let composer = screen.read_with(cx, |screen, cx| screen.page.read(cx).composer.clone());
-        cx.update(|window, cx| composer.read(cx).has_keys(window, cx))
+    fn box_has_keys(_: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx))
     }
 
     #[test]

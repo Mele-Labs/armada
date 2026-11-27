@@ -25,6 +25,9 @@ pub struct FleetNotice {
     pub fault: bool,
     /// What the toast offers, where it is a state he can end himself.
     pub act: Option<NoticeAct>,
+    /// A state he may leave as it is, such as two Macs on different builds: it draws a close, and once closed
+    /// stays gone until its words change.
+    pub closable: bool,
 }
 
 /// A press a held state's toast offers.
