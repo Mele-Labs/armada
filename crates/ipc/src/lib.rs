@@ -183,6 +183,8 @@ pub mod ask_tools;
 pub mod story_kinds;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
+/// A graph a Job puts in its thread, as a subset of Vega-Lite, and the one reader of it.
+pub mod graph;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
 pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
