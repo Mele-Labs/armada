@@ -18,7 +18,9 @@ pub(crate) const IN_FORCE: bool = true;
 
 /// The cosine similarity at and above which a feature is about the words. Measured on this library's 85 features (`title: summary`)
 /// against 13 short queries, 26 Nov 2026: the feature meant scored 0.73 to 0.91, the nearest wrong one 0.58 to 0.74 and words
-/// about nothing at most 0.59. At 0.70 every feature meant is kept and each query names one or two.
+/// about nothing at most 0.59. At 0.70 every feature meant is kept and each query names one or two. Read with the first
+/// paragraph of its Runs section joined to the summary (40 of the 85 have one), the feature meant fell under 0.70 on 3 of the 13
+/// queries (`alerts and banners` 0.91 to 0.68, `phone` 0.76 to 0.58, `my teammate's claims` 0.76 to under 0.64).
 pub(crate) const NEAR_AT: f32 = 0.70;
 
 /// The most features it names.
@@ -34,25 +36,34 @@ fn similarity(one: &[f32], other: &[f32]) -> f32 {
     one.iter().zip(other).map(|(a, b)| a * b).sum()
 }
 
-/// What a feature is read by: its title and what it does.
-fn text_of(title: &str, summary: &str) -> String {
-    match summary.trim() {
+/// The longest first paragraph of a Runs section read, in characters, so one long paragraph does not outweigh the title.
+const MOST_RUNS: usize = 600;
+
+/// What a feature is read by: its title and what it does, and where it has a Runs section its title and the first paragraph of
+/// it. **Each is read alone and the nearer counts**: a Runs paragraph is a note on the code, and joined to the summary it took a
+/// feature the words describe out of reach (measured 26 Nov 2026, below), where read beside it, it only adds a way in.
+fn texts_of(title: &str, summary: &str, runs: Option<&str>) -> Vec<String> {
+    let mut texts = vec![match summary.trim() {
         "" => title.to_string(),
         summary => format!("{title}: {summary}"),
+    }];
+    let first = runs.and_then(|runs| runs.split("\n\n").map(str::trim).find(|paragraph| !paragraph.is_empty()));
+    if let Some(first) = first {
+        texts.push(format!("{title}: {}", first.chars().take(MOST_RUNS).collect::<String>()));
     }
+    texts
 }
 
-/// The slugs of `features` (slug, title, summary) that `words` are about, nearest first, at most [`MOST`], none under
-/// [`NEAR_AT`]. Blocking: it embeds.
-pub(crate) fn nearest(model: &dyn TextModel, vectors: &Vectors, words: &str, features: &[(String, String, String)]) -> Vec<String> {
+/// The slugs of `features` (slug, texts as [`texts_of`] makes them) that `words` are about, nearest first, at most [`MOST`], none
+/// under [`NEAR_AT`]. A feature scores as its nearest text does. Blocking: it embeds.
+pub(crate) fn nearest(model: &dyn TextModel, vectors: &Vectors, words: &str, features: &[(String, Vec<String>)]) -> Vec<String> {
     let words = words.split_whitespace().collect::<Vec<_>>().join(" ");
     if words.is_empty() || features.is_empty() {
         return Vec::new();
     }
-    let texts: Vec<String> = features.iter().map(|(_, title, summary)| text_of(title, summary)).collect();
     let missing: Vec<&str> = {
         let kept = vectors.kept.lock().expect("never poisoned");
-        let mut missing: Vec<&str> = texts.iter().filter(|text| !kept.contains_key(*text)).map(String::as_str).collect();
+        let mut missing: Vec<&str> = features.iter().flat_map(|(_, texts)| texts).filter(|text| !kept.contains_key(*text)).map(String::as_str).collect();
         missing.sort_unstable();
         missing.dedup();
         missing
@@ -67,8 +78,7 @@ pub(crate) fn nearest(model: &dyn TextModel, vectors: &Vectors, words: &str, fea
     kept.extend(missing.into_iter().map(str::to_string).zip(embedded));
     let mut scored: Vec<(&str, f32)> = features
         .iter()
-        .zip(&texts)
-        .filter_map(|((slug, _, _), text)| kept.get(text).map(|one| (slug.as_str(), similarity(&words, one))))
+        .filter_map(|(slug, texts)| texts.iter().filter_map(|text| kept.get(text)).map(|one| similarity(&words, one)).max_by(f32::total_cmp).map(|score| (slug.as_str(), score)))
         .filter(|(_, score)| *score >= NEAR_AT)
         .collect();
     scored.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -98,13 +108,12 @@ where
                     break;
                 }
             }
-            let features: Vec<(String, String, String)> = store
-                .features_in(&chosen)
-                .map_err(|why| self.ledger_fault(why))?
-                .into_iter()
-                .filter(|feature| feature.state != store::feature_state::PENDING)
-                .map(|feature| (feature.slug, feature.title, feature.summary))
-                .collect();
+            let mut features = Vec::new();
+            for feature in store.features_in(&chosen).map_err(|why| self.ledger_fault(why))?.into_iter().filter(|feature| feature.state != store::feature_state::PENDING) {
+                let sections = store.feature_sections(&feature.id).map_err(|why| self.ledger_fault(why))?;
+                let runs = sections.iter().find(|section| section.section == "runs").map(|section| section.text.as_str());
+                features.push((feature.slug.clone(), texts_of(&feature.title, &feature.summary, runs)));
+            }
             (chosen, features)
         };
         let none = FeaturesByMeaning { project: chosen.clone(), slugs: Vec::new() };

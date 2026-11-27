@@ -119,3 +119,56 @@ async fn blank_words_name_nothing_and_a_feature_is_embedded_once() {
     matched(&rig, &project, "invoice").await;
     assert_eq!(model.texts.load(Ordering::SeqCst), 1 + 3 + 1, "the second read embeds only its words");
 }
+
+/// A Runs section kept under `slug`, as a Job's write would keep it.
+async fn runs_written(rig: &Rig, project: &str, slug: &str, text: &str) {
+    let mut store = rig.fleet.store().lock().await;
+    let feature = store.feature_named(project, slug).expect("read").expect("held");
+    store
+        .put_feature_section(&store::KeptSection { feature_id: feature.id, section: "runs".into(), text: text.into(), job: "job".into(), written_at: "2026-11-26T00:00:00Z".into(), at_commit: String::new() })
+        .expect("kept");
+}
+
+fn claims() -> Vec<FeatureSeed> {
+    vec![
+        seed("claims-store", "Claims store", "What each Mac and teammate holds", None),
+        seed("edge-billing", "Edge billing", "Cloudflare charges and the invoice for them", None),
+        seed("sign-in", "Sign in", "Letting a person in with a password", None),
+    ]
+}
+
+#[tokio::test]
+async fn a_feature_whose_runs_section_names_the_words_ranks_first_though_its_summary_does_not() {
+    let rig = rig();
+    rig.fleet.language_model().loaded(Arc::new(Topics { texts: AtomicUsize::new(0) }));
+    let project = project_of(&rig, claims()).await;
+    assert_eq!(matched(&rig, &project, "cloudflare writes").await, ["edge-billing"], "no Runs section yet: the title and summary alone");
+    runs_written(&rig, &project, "claims-store", "A Job that writes to Cloudflare is held back once the store's writes are used up.\n\nSecond paragraph about invoices.").await;
+    assert_eq!(matched(&rig, &project, "cloudflare writes").await, ["claims-store", "edge-billing"], "its first paragraph ranks it first, and a feature with none still matches by its summary");
+    assert_eq!(matched(&rig, &project, "invoice").await, ["edge-billing"], "only the first paragraph is read");
+}
+
+#[tokio::test]
+async fn an_edited_runs_section_is_embedded_again_and_one_unchanged_is_not() {
+    let rig = rig();
+    let model = Arc::new(Topics { texts: AtomicUsize::new(0) });
+    rig.fleet.language_model().loaded(Arc::clone(&model) as Arc<dyn TextModel>);
+    let project = project_of(&rig, claims()).await;
+    runs_written(&rig, &project, "claims-store", "Cloudflare writes are claimed here.").await;
+    matched(&rig, &project, "cloudflare").await;
+    assert_eq!(model.texts.load(Ordering::SeqCst), 1 + 4, "the words, the three features and the Runs paragraph");
+    matched(&rig, &project, "cloudflare").await;
+    assert_eq!(model.texts.load(Ordering::SeqCst), 1 + 4 + 1, "unchanged: only the words");
+    runs_written(&rig, &project, "claims-store", "Invoices are claimed here.").await;
+    matched(&rig, &project, "cloudflare").await;
+    assert_eq!(model.texts.load(Ordering::SeqCst), 1 + 4 + 1 + 1 + 1, "the edited paragraph embeds again");
+}
+
+#[tokio::test]
+async fn a_runs_section_on_other_things_leaves_a_feature_its_summary_names_in_reach() {
+    let rig = rig();
+    rig.fleet.language_model().loaded(Arc::new(Topics { texts: AtomicUsize::new(0) }));
+    let project = project_of(&rig, claims()).await;
+    runs_written(&rig, &project, "edge-billing", "A password login is checked against the invoice.").await;
+    assert_eq!(matched(&rig, &project, "cloudflare").await, ["edge-billing"], "the summary is read alone as well as beside the section");
+}

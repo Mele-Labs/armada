@@ -6,7 +6,7 @@ description = "Read which features of a project some typed words are about, by m
 notes = """
 `GET /features/match?project=&words=`, answered with `FeaturesByMeaning`: `project` and `slugs`, the slugs of the project's features that are not pending, the nearest first, at most 8, each at or above the similarity floor of 0.70.
 
-**It reads each feature as `title: summary` against the words with Fleet's local language model**, the vector of each text kept so a feature is embedded once. The model embeds on a thread of its own.
+**It reads each feature as `title: summary` and, where it has a written `runs` section, as its title and that section's first paragraph, each against the words and the nearer counts with Fleet's local language model**, the vector of each text kept so a feature is embedded once. The model embeds on a thread of its own.
 
 **It never refuses for want of the model.** Where the model is not loaded yet, or the words are blank, or the model could not read, the answer is an empty `slugs`. Bridge's own word match stands without it.
 
