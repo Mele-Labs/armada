@@ -646,5 +646,6 @@ pub(crate) fn sketch_items<'a>(
         create_refused: None,
         operator_read: None,
         artifact: Some(one.target.clone()),
+        goal_met: None,
     })
 }

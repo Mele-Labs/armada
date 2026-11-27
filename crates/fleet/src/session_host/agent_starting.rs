@@ -75,6 +75,7 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

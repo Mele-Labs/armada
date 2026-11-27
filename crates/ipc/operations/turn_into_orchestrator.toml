@@ -1,0 +1,16 @@
+[operations.turn_into_orchestrator]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Turn a running Job into the orchestrator of a new sub project. Its own work moves to a new first child Job. Give the project, the Job and the owner's goal"
+notes = """
+`POST /sub_projects/orchestrator`, body `TurnIntoOrchestrator`: `project`, a project id as `list_features` takes it; `session_id`, the running Job; and `goal`, his words. Answered with the `SubProject` kept: `name` is the Job's title, `goal` his words trimmed, `orchestrator` the Job, and `jobs` the one new child.
+
+**The Job's own work moves to the child first.** Fleet starts a Job of the same project and repository, titled with the Job's title, hands it the Job's standing slot, branch and pull requests as `release_session_holds` does, links it under the Job as `started_to`, and sends it a first message: the handoff a context handoff carries (`handoff_of`: the Job's title and id, where it works, its open pull requests and the last of its thread) and the Job's first message, its brief. Then the Job itself is sent its orchestrator brief: the sub project, the goal and the child by title and id.
+
+**`features` is read once, at the press**, from the Job's own `jobs_now`, as `start_sub_project` reads it.
+
+Refused 422 `fleet.sub_project_no_goal` for a goal empty once trimmed, 404 `fleet.no_such_session` for a Job Fleet does not hold, 409 `fleet.sub_project_not_turnable` for a Job that has ended, runs in a terminal or orchestrates a sub project already, and 409 `fleet.sub_project_across_projects` for a Job not filed in `project`. A hand of its holds that is refused is answered with that refusal and closes the child; nothing is kept.
+
+`agent_access` is `Bridge only`: the sub project is his.
+"""

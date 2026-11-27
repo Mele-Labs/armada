@@ -213,6 +213,7 @@ fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingIt
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

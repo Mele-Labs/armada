@@ -290,7 +290,8 @@ impl JobsList {
     /// What Start it sends: the project of the first Job, the name, and the Jobs in his order.
     pub(super) fn sub_project_body(&self, ids: &[SharedString], name: &str) -> ipc::StartSubProject {
         let project = ids.iter().filter_map(|id| self.record(id)).find_map(|job| self.names.project_of(job)).unwrap_or_default().to_string();
-        ipc::StartSubProject { project, name: name.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
+        // The sheet asks no goal yet, so the name stands for it.
+        ipc::StartSubProject { project, name: name.trim().to_string(), goal: name.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
     }
 
     /// Start a sub project of these Jobs. A live Fleet keeps it and the heading stands on its answer; a refusal comes back in
@@ -303,9 +304,12 @@ impl JobsList {
                 id: format!("mock-sub-{}", self.leads.subs.len() + 1),
                 project: body.project,
                 name: body.name,
+                goal: body.goal,
                 jobs: body.jobs,
                 features,
+                orchestrator: None,
                 started_at: ipc::Instant::carried(chrono::Utc::now().to_rfc3339()),
+                ended_at: None,
             };
             self.hold_sub(sub, cx);
             self.clear_selection(cx);

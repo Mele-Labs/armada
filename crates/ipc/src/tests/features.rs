@@ -128,8 +128,10 @@ fn a_library_start_says_its_shape_and_a_draft_names_what_it_kept_and_passed_over
 fn a_sub_project_says_its_shape() {
     assert_eq!(
         shape::of::<crate::SubProject>(),
-        "{id: string, project: string, name: string, jobs: [string], features: [string], started_at: string}"
+        "{id: string, project: string, name: string, goal: string, jobs: [string], features: [string], orchestrator?: string, started_at: string, ended_at?: string}"
     );
-    assert_eq!(shape::of::<crate::StartSubProject>(), "{project: string, name: string, jobs: [string]}");
+    assert_eq!(shape::of::<crate::StartSubProject>(), "{project: string, name: string, goal: string, jobs: [string]}");
+    assert_eq!(shape::of::<crate::TurnIntoOrchestrator>(), "{project: string, session_id: string, goal: string}");
     assert_eq!(shape::of::<crate::UngroupSubProject>(), "{id: string}");
+    assert_eq!(shape::of::<crate::GoalMet>(), "{sub_project: string, goal: string, landed?: [{number: number, title: string}]}");
 }

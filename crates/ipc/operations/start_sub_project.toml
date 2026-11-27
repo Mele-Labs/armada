@@ -2,15 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "Group the Jobs the owner picked in the Jobs list under a name he gives, as a sub project of their project. Give the project, the name and the Jobs in his order"
+description = "Group the Jobs the owner picked in the Jobs list under a name and a goal he gives, as a sub project of their project, and start its orchestrator Job. Give the project, the name, the goal and the Jobs in his order"
 notes = """
-`POST /sub_projects`, body `StartSubProject`: `project`, a project id as `list_features` takes it; `name`; and `jobs`, the session ids he picked, in his order. Answered with the `SubProject` kept: `id`, a ulid; `project`; `name`, trimmed; `jobs`, as sent; `features`; and `started_at`.
+`POST /sub_projects`, body `StartSubProject`: `project`, a project id as `list_features` takes it; `name`; `goal`, his words; and `jobs`, the session ids he picked, in his order. Answered with the `SubProject` kept: `id`, a ulid; `project`; `name` and `goal`, trimmed; `jobs`, as sent; `features`; `orchestrator`; and `started_at`.
+
+**Every sub project has an orchestrator**, an ordinary Job with a thread that he talks to as to any Job. Fleet starts it in the project, in the repository of the first picked Job, titled with the goal, before the sub project is kept, and sends it its brief as its first message: the sub project's name, the goal, and each picked Job's title and id. It is not one of `jobs`. A start Fleet refuses is the answer, and nothing is kept.
 
 **`features` is read once, at the press**: the slug of every feature of the project whose `jobs_now`, as `list_features` computes it, holds one of `jobs`. It is not read again. A picked Job that has written no file of a feature adds none.
 
 **Fleet keeps only what he picked.** A live Job that writes to one of `features` later is not added; the Jobs list adds it itself from `list_features`.
 
-Refused 422 `fleet.sub_project_no_name` for a name empty once trimmed, 422 `fleet.sub_project_no_jobs` for no Jobs, 404 `fleet.no_such_session` for a Job Fleet does not hold, and 409 `fleet.sub_project_across_projects` where a Job is filed in no project or in another project than `project`. Nothing is kept on a refusal.
+Refused 422 `fleet.sub_project_no_name` for a name empty once trimmed, 422 `fleet.sub_project_no_goal` for a goal empty once trimmed, 422 `fleet.sub_project_no_jobs` for no Jobs, 404 `fleet.no_such_session` for a Job Fleet does not hold, and 409 `fleet.sub_project_across_projects` where a Job is filed in no project or in another project than `project`. Nothing is kept on a refusal.
 
 `agent_access` is `Bridge only`: the group is his, picked with ⌘-click or a right click in the Jobs list.
 """

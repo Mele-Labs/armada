@@ -107,6 +107,7 @@ pub(crate) fn document_items<'a>(
             create_refused: None,
             operator_read: None,
             artifact: None,
+            goal_met: None,
         })
 }
 

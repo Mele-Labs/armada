@@ -40,6 +40,15 @@ pub(crate) struct OfProject {
     project: Option<String>,
 }
 
+/// `?project=&ended=` on `list_sub_projects`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfSubProjects {
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    ended: bool,
+}
+
 /// `?project=&words=` on `get_features_by_meaning`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfWords {
@@ -234,15 +243,27 @@ pub(crate) async fn start_sub_project<D: Features>(State(served): State<Served<D
         Ok(start) => start,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().start_sub_project(start).await {
+    match served.shared().start_sub_project(start).await {
         Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-pub(crate) async fn list_sub_projects<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
-    match served.daemon().list_sub_projects(asked.project).await {
+pub(crate) async fn list_sub_projects<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfSubProjects>) -> Response {
+    match served.shared().list_sub_projects(asked.project, asked.ended).await {
         Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner turns a running Job into a sub project's orchestrator.
+pub(crate) async fn turn_into_orchestrator<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let turn: ipc::TurnIntoOrchestrator = match ipc::decode_body("a Job to turn into a sub project's orchestrator and a goal", &body) {
+        Ok(turn) => turn,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().turn_into_orchestrator(turn).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
