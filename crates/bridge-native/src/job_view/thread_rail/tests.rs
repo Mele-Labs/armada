@@ -401,6 +401,17 @@ fn a_thread_with_the_rail_is_narrower_by_its_width_on_each_side_and_no_card_sits
 }
 
 #[gpui::test]
+fn the_rail_at_rest_takes_a_few_pixels_of_the_thread_and_its_column_stays_one_width_open_or_not(cx: &mut TestAppContext) {
+    let (_view, cx) = job(cx, 2400.);
+    assert!(super::RAIL_WIDTH <= 16., "the thread gives up at most 16px on a side at rest");
+    let rest = f32::from(bounds(cx, Role::Region, NAME).expect("the rail is drawn").size.width);
+    hover_rail(cx);
+    let open = f32::from(bounds(cx, Role::Region, NAME).expect("the rail is drawn").size.width);
+    assert_eq!(rest, open, "the column the pointer finds does not move as the bars grow");
+    assert!(rest <= super::RAIL_WIDTH, "the column is inside the room the thread keeps for it");
+}
+
+#[gpui::test]
 fn a_press_on_an_item_that_is_not_an_ask_opens_the_story_on_its_row_unfolded(cx: &mut TestAppContext) {
     let (view, cx) = job(cx, 500.);
     let (before, _) = scroll(&view, cx);
