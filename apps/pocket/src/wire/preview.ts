@@ -104,4 +104,11 @@ export type ReadyAnswer =
   | {
       kind: "remind";
       until: Instant;
+    }
+  /**
+   * Skip: he approved the look on the walk and lands it untried. Closes the step as Looks good does,
+   * and the Job is told to land.
+   */
+  | {
+      kind: "skip";
     };

@@ -407,6 +407,26 @@ export type MessagePeer = {
   title?: string;
 };
 
+/** A native walk built from the Job's commit, so a screen he approves is the Job's own build. */
+export type WalkBuild = {
+  state: WalkBuildState;
+  /** The Job's commit the build is of. */
+  commit: string;
+  /** When the state was last set. */
+  at: Instant;
+  /** Why it failed, for the Job: the build's last lines, or the walk the build does not play. */
+  why?: string;
+};
+
+/** Where a walk's build stands. */
+export type WalkBuildState =
+  /** Waiting its turn or building: the row says Building and nothing asks him. */
+  | "building"
+  /** Built and plays the walk: the Needs you item appears and one press opens it. */
+  | "ready"
+  /** The build failed or does not play the walk: the Job is told, never him. */
+  | "failed";
+
 /** One row of a hosted session's thread. */
 export type SessionRow =
   | {
@@ -550,6 +570,12 @@ export type SessionRow =
        * closes on his Approve of the walks shown for it. **Kept when the walk ends.**
        */
       group?: string;
+      /**
+       * A native walk's build from the Job's commit: **no Needs you item while it builds or
+       * failed**, and a moved branch builds again. Absent on a web page, and on a row written before
+       * walks were built from a Job's branch. **The row is replaced by id** when it changes.
+       */
+      build?: WalkBuild;
       /**
        * When the walk ended: the person approved the page or closed its window. Absent while
        * it is open. **The row is replaced by id** when it is set.

@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "No"
-description = "Answer a Ready to try card in a Job's thread: Looks good, Needs rework with his words, or Remind me at a time"
+description = "Answer a Ready to try card in a Job's thread: Looks good, Skip, Needs rework with his words, or Remind me at a time"
 notes = """
 `POST /sessions/ready_to_try/answer`, body `AnswerReadyToTry {session_id, branch, tip, answer}`, the `session_id`, `branch` and `tip` of a `ready_to_try` item of the Job's thread (`get_job_thread`). Answered with the card as it stands after, `ThreadReadyToTry`, and the thread moves as `job_thread.tail`.
 
@@ -10,6 +10,7 @@ notes = """
 
 - `looks_good`: the note's verdict is `good`, kept as `mark_build_note_looked_at` keeps it, and the Job, where it is live, is told the owner tried the branch at that tip and it looks good, so land it. **It is also his Approve**: Fleet keeps it as it keeps his Approve of an item the Job raised with `approves: true`, and it closes the Job's first open `you_approved` gate, once, where the plan was recorded before he answered. No plan group is tied to a preview, so it is never a particular group's; `needs_rework` and `remind` close no gate.
 - `needs_rework` with `words`: the note's verdict is `needs_work`, and his words go as `send_build_note_feedback` sends them: to the Job's thread as his message, or to a new Job started at once where that one has ended.
+- `skip`: he approved the look on the walk and lands the change untried. It settles the card and closes the Job's first open `you_approved` gate exactly as `looks_good` does, with the verdict `good`, and the Job is told he skipped the preview and to land it. The gate's fact and the feature decision say `skipped`.
 - `remind` with `until`, the instant the card comes back: **Bridge works out `until`** from the Later choice he pressed (an hour, three hours, tomorrow morning, next week), as `operator_later` does. The card is `later` until then, and at `until` it comes back, `open`, drawn at that instant, which is the end of the thread. A second `remind` moves the time.
 
 **A Job with an `open` card has one row in its Needs you**, a `ready_to_try` item, id and `artifact` `try:<session_id>` and text `Ready to try`, however many cards are open: it goes once none is, each answered, withdrawn, replaced or held by a `remind`, and comes back when a reminder comes due. `answer_waiting` refuses it, a dismissal puts away only the cards open then, so a card offered later raises it again, and Approve all passes it by.

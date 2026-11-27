@@ -1,0 +1,473 @@
+//! A native walk built from the Job's own commit, so the screen he is asked about is the one the
+//! Job made. `docs/concepts/session/showing-a-window.md`, *A native walk*.
+//!
+//! **One warm tree per repository**, a detached `git worktree` under Fleet's support folder
+//! checked out at each commit in turn, and its `target` first cloned from the preview checkout's so
+//! the first build compiles the Job's crates and not the world's. **One build at a time across
+//! Fleet**, in a queue that keeps one ask for each Job and address: a newer commit replaces a queued
+//! older one. The compilers carry the Job's `ARMADA_SESSION`, so a loaded machine holds them in the
+//! turns `crate::build_turns` takes.
+//!
+//! **Each build's binary is copied out to `bins/<commit>`**, the last [`KEPT`] of a repository, so a
+//! walk that is running is never written over by the next build.
+//!
+//! **The row carries where it stands** (`ipc::WalkBuild`). Building and Failed ask him nothing,
+//! and a Failed one is told to the Job, never to him.
+
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapters::leasing::Holder;
+use ipc::{SessionRow, WalkBuild, WalkBuildState};
+
+use crate::daemon::Fleet;
+
+/// Under Fleet's support folder: `<repository key>/tree` and `<repository key>/bins/<commit>`.
+pub(crate) const DIR: &str = "walk-builds";
+
+/// How many builds of a repository are kept.
+const KEPT: usize = 3;
+
+/// The native Bridge's binary, as cargo names it.
+pub(crate) const BINARY: &str = "bridge-native";
+
+/// Where cargo puts it under a tree.
+const BUILT: &str = "crates/bridge-native/target/release/bridge-native";
+
+/// What a build may take, held turns included: a cold build on a loaded machine is long.
+const BUDGET: Duration = Duration::from_secs(90 * 60);
+
+/// How many of the build's last lines the Job is given.
+const TAIL: usize = 20;
+
+/// Where one repository's walk builds are kept.
+fn root_of(home: &str, key: &str) -> PathBuf {
+    crate::runtime::support_dir(home).join(DIR).join(key)
+}
+
+/// The binary of `commit`'s build, where it is kept.
+pub(crate) fn binary_of(home: &str, key: &str, commit: &str) -> PathBuf {
+    root_of(home, key).join("bins").join(commit).join(BINARY)
+}
+
+/// A repository's name for a folder: its Manifest's id, with anything a path would read as more kept out.
+pub(crate) fn key_of(manifest: &str) -> String {
+    manifest.chars().map(|one| if one.is_ascii_alphanumeric() || one == '-' || one == '_' { one } else { '_' }).collect()
+}
+
+/// The command that builds a tree, run in it. **A value, so a test builds with a script.**
+#[derive(Clone, Debug)]
+pub(crate) struct Program {
+    pub(crate) program: String,
+    pub(crate) args: Vec<String>,
+}
+
+impl Program {
+    /// The native Bridge as a restart builds it: incremental, which the shipped app is not.
+    fn cargo() -> Program {
+        let words = ["build", "--release", "--manifest-path", "crates/bridge-native/Cargo.toml", "--target-dir", "crates/bridge-native/target"];
+        Program { program: "cargo".into(), args: words.map(String::from).to_vec() }
+    }
+}
+
+/// Where a Job's commit is, and where its repository's builds are kept.
+#[derive(Clone, Debug)]
+pub(crate) struct Place {
+    pub(crate) key: String,
+    /// The Job's slot: git runs there, so the tree is a worktree of the Job's own repository.
+    pub(crate) slot: PathBuf,
+    /// The checkout whose `target` seeds a new tree's.
+    pub(crate) preview: PathBuf,
+}
+
+/// One build asked for: the Job's walk at one commit.
+#[derive(Clone, Debug)]
+pub(crate) struct Ask {
+    pub(crate) session: String,
+    pub(crate) url: String,
+    pub(crate) commit: String,
+    pub(crate) place: Place,
+}
+
+#[derive(Default)]
+struct Queue {
+    waiting: Vec<Ask>,
+    running: Option<Ask>,
+    /// What a Job is owed telling, where it could not be told as it happened.
+    owed: Vec<(String, String)>,
+}
+
+/// Every walk build Fleet owes and the one it is making. Never written down: a Fleet that starts
+/// finds each Building row at its Job's next turn end.
+pub(crate) struct WalkBuilds {
+    queue: Mutex<Queue>,
+    program: Mutex<Program>,
+}
+
+impl Default for WalkBuilds {
+    fn default() -> WalkBuilds {
+        WalkBuilds { queue: Mutex::default(), program: Mutex::new(Program::cargo()) }
+    }
+}
+
+impl WalkBuilds {
+    /// Ask for a build. **A newer commit of the same Job and address replaces one waiting**, and the
+    /// one running is left to end: its row is no longer the commit wanted, so its result is dropped.
+    pub(crate) fn asked(&self, ask: Ask) {
+        let mut queue = self.queue.lock().expect("not poisoned");
+        queue.waiting.retain(|one| !(one.session == ask.session && one.url == ask.url));
+        let running = queue.running.as_ref().is_some_and(|one| one.session == ask.session && one.url == ask.url && one.commit == ask.commit);
+        if !running {
+            queue.waiting.push(ask);
+        }
+    }
+
+    /// The next to build, once none is.
+    fn next(&self) -> Option<Ask> {
+        let mut queue = self.queue.lock().expect("not poisoned");
+        if queue.running.is_some() || queue.waiting.is_empty() {
+            return None;
+        }
+        let ask = queue.waiting.remove(0);
+        queue.running = Some(ask.clone());
+        Some(ask)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn next_for_test(&self) -> Option<Ask> {
+        self.next()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn done_for_test(&self) {
+        self.done();
+    }
+
+    fn done(&self) {
+        self.queue.lock().expect("not poisoned").running = None;
+    }
+
+    /// A Job to tell at the next look, for a failure found where Fleet holds no `Arc` of itself.
+    pub(crate) fn owed(&self, session: &str, text: String) {
+        self.queue.lock().expect("not poisoned").owed.push((session.to_string(), text));
+    }
+
+    fn owed_taken(&self) -> Vec<(String, String)> {
+        std::mem::take(&mut self.queue.lock().expect("not poisoned").owed)
+    }
+
+    /// Whether this Job and address has a build waiting or running.
+    #[cfg(test)]
+    pub(crate) fn busy(&self) -> bool {
+        let queue = self.queue.lock().expect("not poisoned");
+        queue.running.is_some() || !queue.waiting.is_empty()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn built_by(&self, program: Program) {
+        *self.program.lock().expect("not poisoned") = program;
+    }
+
+    fn program(&self) -> Program {
+        self.program.lock().expect("not poisoned").clone()
+    }
+}
+
+/// `git <args>` in `at`, at utility priority; its trimmed output, or what it said where it failed.
+fn git(at: &Path, args: &[&str]) -> Result<String, String> {
+    let done = checks_runner::Priority::Low
+        .spawning("git")
+        .args(args)
+        .current_dir(at)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(|why| format!("git could not run: {why}"))?;
+    if done.status.success() {
+        return Ok(String::from_utf8_lossy(&done.stdout).trim().to_string());
+    }
+    Err(format!("git {} said: {}", args.join(" "), String::from_utf8_lossy(&done.stderr).trim()))
+}
+
+/// The commit a slot stands on.
+pub(crate) fn head_of(slot: &Path) -> Result<String, String> {
+    git(slot, &["rev-parse", "HEAD"])
+}
+
+/// The repository's tree at `commit`, made as a worktree the first time. **A new tree's `target` is
+/// an APFS clone of the preview checkout's**, where it has one: a clone costs no copying, and what it
+/// holds of the dependencies is not built again.
+fn tree_at(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> {
+    let tree = root.join("tree");
+    if tree.join(".git").exists() {
+        git(&tree, &["checkout", "--detach", "--force", "--quiet", commit])?;
+        return Ok(tree);
+    }
+    std::fs::create_dir_all(root).map_err(|why| format!("{} could not be made: {why}", root.display()))?;
+    let _ = std::fs::remove_dir_all(&tree);
+    let held = tree.display().to_string();
+    git(&place.slot, &["worktree", "prune"])?;
+    git(&place.slot, &["worktree", "add", "--detach", "--force", &held, commit])?;
+    let seed = place.preview.join("crates/bridge-native/target");
+    let into = tree.join("crates/bridge-native/target");
+    if seed.is_dir() && !into.exists() {
+        // A volume that cannot clone leaves the tree to build cold, which is slow and not wrong.
+        let _ = std::fs::create_dir_all(into.parent().expect("inside the tree"));
+        let _ = checks_runner::Priority::Low.spawning("cp").args(["-c", "-R"]).arg(&seed).arg(&into).status();
+    }
+    Ok(tree)
+}
+
+/// The last [`TAIL`] lines of what a failed build printed: cargo prints on stderr.
+fn tail_of(stderr: &str, stdout: &str) -> String {
+    let text = if stderr.trim().is_empty() { stdout } else { stderr };
+    let lines: Vec<&str> = text.lines().collect();
+    lines[lines.len().saturating_sub(TAIL)..].join("\n")
+}
+
+/// [`tree_at`] for a test of it.
+#[cfg(test)]
+pub(crate) fn tree_at_for_test(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> {
+    tree_at(root, place, commit)
+}
+
+/// [`pruned`] for a test of it.
+#[cfg(test)]
+pub(crate) fn pruned_for_test(bins: &Path, just: &str) {
+    pruned(bins, just);
+}
+
+/// Keep the newest [`KEPT`] builds of a repository, and `just` whatever its age.
+fn pruned(bins: &Path, just: &str) {
+    let Ok(read) = std::fs::read_dir(bins) else { return };
+    let mut made: Vec<(std::time::SystemTime, PathBuf)> = read
+        .filter_map(Result::ok)
+        .filter(|one| one.file_name() != just)
+        .filter_map(|one| Some((one.metadata().ok()?.modified().ok()?, one.path())))
+        .collect();
+    made.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, path) in made.into_iter().skip(KEPT - 1) {
+        let _ = std::fs::remove_dir_all(path);
+    }
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// Where the Job's commit is and where its repository's builds are kept, or why it has none:
+    /// **committed work only**, so a Job that holds no slot has no commit of its own.
+    pub(crate) async fn walk_place(&self, session: &str) -> Result<(Place, String), String> {
+        let (_, hosting) = self.session_and_hosting(session).await.map_err(|_| "Fleet hosts no such Job".to_string())?;
+        if hosting.lease_slot.is_none() {
+            return Err("this Job holds no slot, so it has no commit of its own to build: write and commit its change in a slot first".to_string());
+        }
+        let served = self
+            .repositories()
+            .serving(&hosting.manifest_id)
+            .ok_or_else(|| "this Job's repository is not served, so there is nothing to build it from".to_string())?;
+        let slot = PathBuf::from(Self::directory_of(&served, &hosting));
+        let commit = tokio::task::spawn_blocking({
+            let slot = slot.clone();
+            move || head_of(&slot)
+        })
+        .await
+        .map_err(|why| why.to_string())??;
+        let preview = Path::new(served.root()).join(".armada/preview");
+        Ok((Place { key: key_of(&hosting.manifest_id), slot, preview }, commit))
+    }
+
+    /// The build to write on a walk's row now, and the ask that makes it, **to queue once the row
+    /// is out**: a build that ends before its row exists finds no walk wanting it.
+    pub(crate) async fn walk_build_wanted(&self, session: &str, url: &str) -> (WalkBuild, Option<Ask>) {
+        match self.walk_place(session).await {
+            Ok((place, commit)) => {
+                let build = WalkBuild { state: WalkBuildState::Building, commit: commit.clone(), at: self.instant(), why: None };
+                (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place }))
+            }
+            Err(why) => {
+                let text = format!("Your native walk {url} cannot be built: {why}. The person is not asked about it until it builds.");
+                self.walk_builds().owed(session, text);
+                (WalkBuild { state: WalkBuildState::Failed, commit: String::new(), at: self.instant(), why: Some(why) }, None)
+            }
+        }
+    }
+
+    /// The newest open native walk row on `url`, with the build it carries.
+    async fn walk_row_of(&self, session: &str, url: &str) -> Option<(SessionRow, Vec<String>)> {
+        let rows = self.rows_of(session).await.ok()?;
+        let row = rows.into_iter().rev().find(|row| matches!(row, SessionRow::Window { url: shown, ended_at: None, build: Some(_), .. } if shown == url))?;
+        let names = match &row {
+            SessionRow::Window { url, variations, .. } => std::iter::once(url.as_str())
+                .chain(variations.iter().map(|take| take.url.as_str()))
+                .filter_map(crate::native_walks::walk_name)
+                .map(str::to_string)
+                .collect(),
+            _ => Vec::new(),
+        };
+        Some((row, names))
+    }
+
+    /// Set the build on the open row of `url`, **where it is still the build of `commit`**: a row that
+    /// moved on to a newer commit is not written over by an older one's end.
+    async fn walk_build_set(&self, session: &str, url: &str, was: Option<&str>, build: WalkBuild) -> bool {
+        let Some((SessionRow::Window { id, at, title, url, variations, steps, origins, brief, group, build: held, ended_at }, _)) =
+            self.walk_row_of(session, url).await
+        else {
+            return false;
+        };
+        if was.is_some_and(|commit| held.as_ref().map(|one| one.commit.as_str()) != Some(commit)) {
+            return false;
+        }
+        let row = SessionRow::Window { id, at, title, url, variations, steps, origins, brief, group, build: Some(build), ended_at };
+        self.row_put(session, row).await;
+        let _ = self.published_hosted(session).await;
+        true
+    }
+
+    /// Every open native walk of the Job whose build is not of the commit its slot stands on now is
+    /// Building at that one, and asked for. **Run where its turn ends and where each build ends**, so
+    /// no Job has to ask for a walk to be built again after it commits.
+    pub(crate) async fn walk_builds_moved(&self, session: &str) {
+        let Ok(rows) = self.rows_of(session).await else { return };
+        let open: Vec<String> = rows
+            .iter()
+            .filter_map(|row| match row {
+                SessionRow::Window { url, ended_at: None, build: Some(build), .. } if !build.commit.is_empty() => Some(url.clone()),
+                _ => None,
+            })
+            .collect();
+        if open.is_empty() {
+            return;
+        }
+        let Ok((place, head)) = self.walk_place(session).await else { return };
+        for url in open {
+            let Some((SessionRow::Window { build: Some(held), .. }, _)) = self.walk_row_of(session, &url).await else { continue };
+            if held.commit == head {
+                continue;
+            }
+            let building = WalkBuild { state: WalkBuildState::Building, commit: head.clone(), at: self.instant(), why: None };
+            if self.walk_build_set(session, &url, None, building).await {
+                self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+            }
+        }
+    }
+
+    /// The walk's build is asked for again at the commit its slot stands on: its kept binary was pruned.
+    pub(crate) async fn walk_rebuild_asked(&self, session: &str, url: &str) {
+        let (build, ask) = self.walk_build_wanted(session, url).await;
+        if self.walk_build_set(session, url, None, build).await {
+            if let Some(ask) = ask {
+                self.walk_builds().asked(ask);
+            }
+        }
+    }
+
+    /// One look of the notice loop: tell what is owed, and start the next build once none is going.
+    pub(crate) async fn walk_builds_driven(self: &Arc<Self>) {
+        for (session, text) in self.walk_builds().owed_taken() {
+            let _ = self.told_by_fleet(&session, &text, ipc::Notice::WalkFailed).await;
+        }
+        let Some(ask) = self.walk_builds().next() else { return };
+        let fleet = Arc::clone(self);
+        tokio::spawn(async move {
+            fleet.walk_built(&ask).await;
+            // Before the turn is given up, so what moved while it built is asked for as this one ends.
+            fleet.walk_builds_moved(&ask.session).await;
+            fleet.walk_builds().done();
+        });
+    }
+
+    /// Build one ask, and write how it went on the walk's row. A walk that has gone, or moved to a
+    /// newer commit, since it was asked for is not built.
+    async fn walk_built(self: &Arc<Self>, ask: &Ask) {
+        let Some((SessionRow::Window { build: Some(held), .. }, names)) = self.walk_row_of(&ask.session, &ask.url).await else { return };
+        if held.commit != ask.commit || held.state != WalkBuildState::Building {
+            return;
+        }
+        let short = ask.commit.get(..7).unwrap_or(&ask.commit).to_string();
+        let result = match self.walk_compiled(ask).await {
+            Ok(binary) => match crate::native_walks::walks_of(&binary).await {
+                Ok(known) => match names.iter().find(|name| !known.contains(name)) {
+                    Some(name) => Err(format!("the build of {short} has no walk named {name}: add its walk file to crates/bridge-native and commit it")),
+                    None => Ok(()),
+                },
+                Err(why) => Err(why),
+            },
+            Err(why) => Err(why),
+        };
+        let (state, why) = match result {
+            Ok(()) => (WalkBuildState::Ready, None),
+            Err(why) => (WalkBuildState::Failed, Some(why)),
+        };
+        let build = WalkBuild { state, commit: ask.commit.clone(), at: self.instant(), why: why.clone() };
+        if !self.walk_build_set(&ask.session, &ask.url, Some(&ask.commit), build).await {
+            return;
+        }
+        if let Some(why) = why {
+            let text = format!(
+                "Your native walk {} did not build at {short}: {why}. The person is not asked about it until it builds. \
+                 Fix it and commit: it builds again from your branch.",
+                ask.url
+            );
+            let _ = self.told_by_fleet(&ask.session, &text, ipc::Notice::WalkFailed).await;
+        }
+    }
+
+    /// The binary of the ask's commit: kept already, or built in the repository's tree and copied out.
+    async fn walk_compiled(&self, ask: &Ask) -> Result<PathBuf, String> {
+        let home = self.host().home.clone();
+        let binary = binary_of(&home, &ask.place.key, &ask.commit);
+        if binary.is_file() {
+            return Ok(binary);
+        }
+        let root = root_of(&home, &ask.place.key);
+        let (place, commit) = (ask.place.clone(), ask.commit.clone());
+        let tree = tokio::task::spawn_blocking({
+            let root = root.clone();
+            move || tree_at(&root, &place, &commit)
+        })
+        .await
+        .map_err(|why| why.to_string())??;
+        let program = self.walk_builds().program();
+        let env = [
+            ("PATH".to_string(), self.host().path.clone()),
+            ("HOME".to_string(), home),
+            ("CARGO_PROFILE_RELEASE_INCREMENTAL".to_string(), "true".to_string()),
+            // What a loaded machine reads to hold this Job's compilers in their turn.
+            (Holder::SESSION_ENV.to_string(), ask.session.clone()),
+        ];
+        let attempt = checks_runner::run_words(
+            program.program,
+            program.args,
+            &tree,
+            BUDGET,
+            checks_runner::Writing::Nowhere,
+            &env,
+            std::future::pending::<checks_runner::Stop>(),
+            checks_runner::Priority::Low,
+            checks_runner::GRACE,
+        )
+        .await;
+        if attempt.exit != verification::Exit::Code(0) {
+            return Err(format!("the build failed ({:?}): {}", attempt.exit, tail_of(&attempt.output.stderr, &attempt.output.stdout)));
+        }
+        let made = tree.join(BUILT);
+        let bins = root.join("bins");
+        let held = bins.join(&ask.commit);
+        std::fs::create_dir_all(&held).map_err(|why| format!("{} could not be made: {why}", held.display()))?;
+        // Written under another name and moved in, so a binary is never seen half copied.
+        let partial = held.join(format!("{BINARY}.partial"));
+        std::fs::copy(&made, &partial).map_err(|why| format!("the build left no native Bridge at {}: {why}", made.display()))?;
+        std::fs::rename(&partial, &binary).map_err(|why| format!("{} could not be kept: {why}", binary.display()))?;
+        pruned(&bins, &ask.commit);
+        Ok(binary)
+    }
+}
