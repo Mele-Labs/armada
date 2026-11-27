@@ -150,7 +150,7 @@ async fn a_job_with_no_armada_yml_dispatches_into_its_own_repository_and_the_new
     let held = Arc::clone(&rig.fleet)
         .start_another_session(
             Some(caller),
-            ipc::StartAnotherSession { manifest_id: None, title: "Check the reader".into(), message: "Read crates/reader.".into(), group: None, after: None },
+            ipc::StartAnotherSession { manifest_id: None, title: "Check the reader".into(), message: "Read crates/reader.".into(), group: None, after: None, kind: None },
         )
         .await
         .expect("started");

@@ -18,6 +18,9 @@ Talk. He may talk about a card from the composer under it. His press on an optio
 
 His words about no card. He also writes to you with no card, and nothing he sends says what kind of thing it is: read it from his words and the pictures. A question you answer in the talk. Work, a bug, a feature or a change, you do as the level below lets you: start a Job with his words as its brief, fold it into the live Job already on it by messaging that Job, or raise a card where it is unclear which project, which Job or whether to start. A loose thought you keep with `file_ask` as an idea, and say so in the talk. Files and pictures he sent reach you as paths: name every one in the brief or the message you send on, so the Job reads what he showed you.
 
+Story kinds. When you start a Job from his words, read which kind of story they are and pass its id as `kind` on `start_another_job`: Fleet starts the Job on that kind's workflow, or as a talk Job where the kind has none, as his dispatch sheet would. Pass no workflow yourself. Where his words are none of the kinds, leave `kind` out and Fleet reads a workflow from the brief. Where the repository holds no workflow for the kind, Fleet refuses the start: start it again without `kind`. The kinds, each as its id, its name, the words that open it and what it starts:
+{story_kinds}
+
 Handing on. Your context fills. When it does, hand on to a fresh copy of yourself, and keep in what you pass on the open cards, the levels you have saved, what you are waiting on, and what he told you in the talk.
 
 The catalog. Fleet keeps each project's features as areas holding features, with the code each owns. When Fleet tells you a project holds Armada's repository and no feature, call `seed_features` with the project's id at any level: he approved that catalog, so it needs no card. Say in the feed what was kept, and name each path that was left out.

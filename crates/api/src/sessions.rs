@@ -1306,9 +1306,9 @@ pub(crate) async fn start_another_session<D: Sessions>(
         };
         undecodable(&why.to_string(), served.run_id())
     };
-    let ipc::StartAnotherSessions { manifest_id, title, message, group, after, jobs } = starts;
+    let ipc::StartAnotherSessions { manifest_id, title, message, group, after, kind, jobs } = starts;
     if !jobs.is_empty() {
-        if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() {
+        if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() || kind.is_some() {
             return unreadable("one Job's fields and `jobs` together; give one Job at the top or every Job in `jobs`");
         }
         // Placement is the caller's, not a Job's: a first Job refused unplaced means none would start,
@@ -1332,7 +1332,7 @@ pub(crate) async fn start_another_session<D: Sessions>(
         return answer(StatusCode::OK, &ipc::SessionsHeld { jobs }, served.run_id());
     }
     let start = match (title, message) {
-        (Some(title), Some(message)) => ipc::StartAnotherSession { manifest_id, title, message, group, after },
+        (Some(title), Some(message)) => ipc::StartAnotherSession { manifest_id, title, message, group, after, kind },
         (None, _) => return unreadable("missing field `title`"),
         (_, None) => return unreadable("missing field `message`"),
     };
