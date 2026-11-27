@@ -477,7 +477,7 @@ fn fleet_places(sessions: &mut [SessionRecord]) {
         let named = |item: &WaitingItem| if one.id.as_str() == "mock-01" { JOB_PLACES.iter().position(|(id, _)| *id == item.id) } else { None };
         let band = |item: &WaitingItem| match item.source {
             WaitingSource::Document => (2, "A page to read"),
-            WaitingSource::ReadyToTry => (3, "Try it once the asks above are answered"),
+            WaitingSource::ReadyToTry => (3, "The work is ready to try"),
             WaitingSource::Done => (4, "The work is done"),
             _ => (1, "The work waits on your answer"),
         };

@@ -1151,7 +1151,7 @@ impl JobView {
             .chain(self.record(id, cx).into_iter().flat_map(|record| record.answers.iter().map(ask_line::answer_key)))
             .collect();
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
-        if ready_compact::asks(&held.items) {
+        if ready_compact::asks(&held.items) && !first.as_ref().is_some_and(|first| first.kind == review::Kind::Build) {
             cards.push(Extra::Ready);
         }
         // Words the Judge is reading stand at the thread's end as the card their reading will be, ahead of the builds.
