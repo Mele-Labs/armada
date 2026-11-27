@@ -20,9 +20,14 @@ pub struct KeptNoteClaim {
     pub claimed_by: String,
     pub claimed_at: String,
     pub given: bool,
+    /// What starts a Job for it, where every Job it was sent to has ended: the project, his words, and the note as
+    /// sent, as JSON.
+    pub project: String,
+    pub words: String,
+    pub note: String,
 }
 
-const COLUMNS: &str = "note_id, manifest_id, paths, offered, sent_at, claimed_by, claimed_at, given";
+const COLUMNS: &str = "note_id, manifest_id, paths, offered, sent_at, claimed_by, claimed_at, given, project, words, note";
 
 fn row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptNoteClaim> {
     let list = |raw: String| serde_json::from_str::<Vec<String>>(&raw).unwrap_or_default();
@@ -35,6 +40,9 @@ fn row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptNoteClaim> {
         claimed_by: row.get(5)?,
         claimed_at: row.get(6)?,
         given: row.get::<_, i64>(7)? != 0,
+        project: row.get(8)?,
+        words: row.get(9)?,
+        note: row.get(10)?,
     })
 }
 
@@ -44,8 +52,8 @@ impl Store {
         let json = |list: &[String]| serde_json::to_string(list).unwrap_or_else(|_| String::from("[]"));
         self.conn
             .execute(
-                &format!("INSERT OR REPLACE INTO note_claims ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"),
-                params![note.note_id, note.manifest_id, json(&note.paths), json(&note.offered), note.sent_at, note.claimed_by, note.claimed_at, i64::from(note.given)],
+                &format!("INSERT OR REPLACE INTO note_claims ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"),
+                params![note.note_id, note.manifest_id, json(&note.paths), json(&note.offered), note.sent_at, note.claimed_by, note.claimed_at, i64::from(note.given), note.project, note.words, note.note],
             )
             .map(drop)
             .map_err(fault("keeping a note sent to a feature's Jobs"))
@@ -82,15 +90,6 @@ impl Store {
             )
             .map(|changed| changed == 1)
             .map_err(fault("taking a note for a Job"))
-            .map_err(WriteError::Database)
-    }
-
-    /// Forget the note: none of the Jobs it was sent to is live to be given it.
-    pub fn drop_note_claim(&mut self, note_id: &str) -> Result<(), WriteError> {
-        self.conn
-            .execute("DELETE FROM note_claims WHERE note_id = ?1", [note_id])
-            .map(drop)
-            .map_err(fault("forgetting a note no Job is live to take"))
             .map_err(WriteError::Database)
     }
 }

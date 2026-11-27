@@ -27,7 +27,8 @@ pub struct SendNotesToFeatures {
 pub struct NotesRouted {
     /// The features the paths map to, by title, the longest prefix first.
     pub features: Vec<String>,
-    /// The live Jobs the notes went to. The first to claim a note takes it. Empty where a Job was started.
+    /// The live Jobs the notes went to. The first to claim a note takes it; one Job alone was given them at once.
+    /// Empty where a Job was started.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub offered: Vec<FeatureJob>,
     /// The Job started for the notes, where no Job was live on the features. It holds them from the start.
@@ -53,7 +54,7 @@ pub struct NoteClaimed {
     pub session_id: SessionId,
     /// The Job's title.
     pub title: String,
-    /// Fleet gave it the note: no Job claimed it in time, or Fleet started the Job for it.
+    /// Fleet gave it the note: no Job claimed it in time, or Fleet started the Job for it because none was live.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub given: bool,
 }

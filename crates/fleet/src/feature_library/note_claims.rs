@@ -2,15 +2,16 @@
 //! Job's change a note is, the Jobs decide. `docs/concepts/feature-catalog.md`, *A note on a screen*.
 //!
 //! The paths that draw the screen map to features as any file does (`mapping`), and the Jobs on those features are the
-//! ones `list_features` names. Unclaimed after [`UNCLAIMED_AFTER`], a note goes to the Job that last wrote one of the
-//! paths, else to the first it was sent to. With no Job live on the features, Fleet starts one with his words.
+//! ones `list_features` names. One Job alone on them is given the note at once. Unclaimed after [`UNCLAIMED_AFTER`], a
+//! note goes to the Job that last wrote one of the paths, else to the first it was sent to. With no Job live on the
+//! features, or none of those it was sent to live when the wait is over, Fleet starts one with his words.
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{ClaimNote, DispatchJob, DispatchThen, FeatureJob, NoteClaimed, NotesRouted, SendNotesToFeatures, SendSessionNotes, SessionId, StartSession, WireError};
+use ipc::{ClaimNote, DispatchJob, DispatchThen, FeatureJob, ManifestId, NoteClaimed, NotesRouted, SendNotesToFeatures, SendSessionNotes, SessionId, SessionNote, StartSession, WireError};
 use store::KeptNoteClaim;
 
 use super::mapping::owns;
@@ -56,6 +57,26 @@ fn listed(names: &[&str]) -> String {
         [one] => one.to_string(),
         [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
+}
+
+/// The claim row of each of `sent`'s notes, sent to `offered` at `at` and held by `holder` where Fleet gave it one.
+fn kept_rows(sent: &SendNotesToFeatures, project: &str, offered: &[String], holder: Option<&str>, at: &str) -> Vec<KeptNoteClaim> {
+    sent.notes
+        .iter()
+        .map(|note| KeptNoteClaim {
+            note_id: note.note_id.clone().unwrap_or_default(),
+            manifest_id: sent.manifest_id.as_str().to_string(),
+            paths: sent.paths.clone(),
+            offered: offered.to_vec(),
+            sent_at: at.to_string(),
+            claimed_by: holder.unwrap_or_default().to_string(),
+            claimed_at: holder.map(|_| at.to_string()).unwrap_or_default(),
+            given: holder.is_some(),
+            project: project.to_string(),
+            words: sent.words.clone(),
+            note: ipc::encode(note).unwrap_or_default(),
+        })
+        .collect()
 }
 
 /// The line each Job reads under a note it was sent with other Jobs.
@@ -121,56 +142,32 @@ where
             }
             found.ok_or_else(|| Refusal::Unacceptable(self.note_refusal(NO_FEATURE, format!("no feature owns {}", sent.paths.join(", ")))))?
         };
-        let ids: Vec<String> = sent.notes.iter().filter_map(|note| note.note_id.clone()).collect();
         let at = self.now().as_str().to_string();
-        if jobs.is_empty() {
-            let start = StartSession {
-                manifest_id: sent.manifest_id.clone(),
-                title: Some(titled(&sent.words)),
-                model: None,
-                effort: None,
-                mode: None,
-                fork: None,
-                root: None,
-                request: Some(sent.words.clone()),
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                project: Some(project),
-                on_your_words: None,
-                workflow: None,
-            };
-            let record = self.dispatch_started(DispatchJob { start, kind: None, then: vec![DispatchThen::Notes(sent.notes)] }).await?;
-            let started = FeatureJob { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| titled(&sent.words)) };
+        let ids: Vec<String> = jobs.iter().map(|job| job.session_id.as_str().to_string()).collect();
+        if let [only] = jobs.as_slice() {
+            // One Job on the features: the note is its own, with nobody to claim it from.
+            match Arc::clone(self).notes_sent(SendSessionNotes { session_id: only.session_id.clone(), notes: sent.notes.clone() }).await {
+                Ok(_) => {
+                    let mut store = self.store().lock().await;
+                    for kept in kept_rows(&sent, &project, &ids, Some(only.session_id.as_str()), &at) {
+                        store.keep_note_offered(&kept).map_err(|why| self.ledger_fault(why))?;
+                    }
+                    return Ok(NotesRouted { features, offered: jobs, started: None });
+                }
+                Err(why) => eprintln!("job {}: notes on {} were not sent, so a Job is started for them: {}", only.session_id.as_str(), features.join(", "), why.error().message),
+            }
+        }
+        if jobs.len() < 2 {
+            let started = self.started_for_notes(sent.manifest_id.clone(), &project, &sent.words, sent.notes.clone()).await?;
             let mut store = self.store().lock().await;
-            for id in &ids {
-                let kept = KeptNoteClaim {
-                    note_id: id.clone(),
-                    manifest_id: sent.manifest_id.as_str().to_string(),
-                    paths: sent.paths.clone(),
-                    offered: vec![started.session_id.as_str().to_string()],
-                    sent_at: at.clone(),
-                    claimed_by: started.session_id.as_str().to_string(),
-                    claimed_at: at.clone(),
-                    given: true,
-                };
+            for kept in kept_rows(&sent, &project, &[started.session_id.as_str().to_string()], Some(started.session_id.as_str()), &at) {
                 store.keep_note_offered(&kept).map_err(|why| self.ledger_fault(why))?;
             }
             return Ok(NotesRouted { features, offered: Vec::new(), started: Some(started) });
         }
         {
             let mut store = self.store().lock().await;
-            for id in &ids {
-                let kept = KeptNoteClaim {
-                    note_id: id.clone(),
-                    manifest_id: sent.manifest_id.as_str().to_string(),
-                    paths: sent.paths.clone(),
-                    offered: jobs.iter().map(|job| job.session_id.as_str().to_string()).collect(),
-                    sent_at: at.clone(),
-                    claimed_by: String::new(),
-                    claimed_at: String::new(),
-                    given: false,
-                };
+            for kept in kept_rows(&sent, &project, &ids, None, &at) {
                 store.keep_note_offered(&kept).map_err(|why| self.ledger_fault(why))?;
             }
         }
@@ -187,6 +184,28 @@ where
             }
         }
         Ok(NotesRouted { features, offered: jobs, started: None })
+    }
+
+    /// A Job started with his words that holds `notes` from the start, titled with them and not held for his press.
+    async fn started_for_notes(self: &Arc<Self>, manifest_id: ManifestId, project: &str, words: &str, notes: Vec<SessionNote>) -> Result<FeatureJob, Refusal> {
+        let start = StartSession {
+            manifest_id,
+            title: Some(titled(words)),
+            model: None,
+            effort: None,
+            mode: None,
+            fork: None,
+            root: None,
+            request: Some(words.to_string()),
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+            project: Some(project.to_string()),
+            on_your_words: None,
+            workflow: None,
+        };
+        let record = self.dispatch_started(DispatchJob { start, kind: None, then: vec![DispatchThen::Notes(notes)] }).await?;
+        Ok(FeatureJob { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| titled(words)) })
     }
 
     /// `claim_note`.
@@ -250,7 +269,7 @@ where
     }
 
     /// Each note no Job claimed within `after`, given to the live Job that last wrote one of its paths, else to the first
-    /// live one it was sent to. One none of them is live to take is forgotten, and stays in its file sent to nobody.
+    /// live one it was sent to. Notes none of them is live to take start a Job, one for the notes sent together.
     pub(crate) async fn notes_unclaimed_given(self: &Arc<Self>, after: Duration) {
         let now = self.now();
         let waiting = match self.store().lock().await.notes_unclaimed() {
@@ -263,6 +282,7 @@ where
         }
         self.feature_writes_filed().await;
         let at = now.as_str().to_string();
+        let mut orphans: Vec<KeptNoteClaim> = Vec::new();
         for mut kept in due {
             let picked = {
                 let mut store = self.store().lock().await;
@@ -288,7 +308,7 @@ where
                     }
                     Some(_) => None,
                     None => {
-                        let _ = store.drop_note_claim(&kept.note_id);
+                        orphans.push(kept.clone());
                         None
                     }
                 }
@@ -296,6 +316,36 @@ where
             if let Some((job, title, why)) = picked {
                 kept.given = true;
                 self.note_taken(&kept, &job, &title, Some(why)).await;
+            }
+        }
+        self.orphans_started(orphans, &at).await;
+    }
+
+    /// One Job started for each group of notes sent together whose Jobs have all ended. A start that fails leaves the
+    /// notes unclaimed, to be tried on the next tick.
+    async fn orphans_started(self: &Arc<Self>, mut orphans: Vec<KeptNoteClaim>, at: &str) {
+        while let Some(first) = orphans.first().cloned() {
+            let together = |kept: &KeptNoteClaim| kept.sent_at == first.sent_at && kept.offered == first.offered && kept.manifest_id == first.manifest_id;
+            let (group, rest): (Vec<KeptNoteClaim>, Vec<KeptNoteClaim>) = orphans.into_iter().partition(together);
+            orphans = rest;
+            let notes: Vec<SessionNote> = group.iter().filter_map(|kept| ipc::decode::<SessionNote>("a note kept for its Jobs", kept.note.as_bytes()).ok()).collect();
+            if notes.is_empty() {
+                continue;
+            }
+            let started = match self.started_for_notes(ManifestId::carried(&first.manifest_id), &first.project, &first.words, notes).await {
+                Ok(started) => started,
+                Err(why) => {
+                    eprintln!("notes {}: their Jobs have ended and no Job was started for them: {}", group.iter().map(|kept| kept.note_id.as_str()).collect::<Vec<_>>().join(", "), why.error().message);
+                    continue;
+                }
+            };
+            let job = started.session_id.as_str();
+            for kept in &group {
+                if !self.store().lock().await.take_note(&kept.note_id, job, at, true).unwrap_or(false) {
+                    continue;
+                }
+                self.note_moved_to(&kept.note_id, job, &started.title, &kept.offered).await;
+                self.publish(ipc::Event::NoteClaimed(NoteClaimed { note_id: kept.note_id.clone(), session_id: started.session_id.clone(), title: started.title.clone(), given: true }));
             }
         }
     }

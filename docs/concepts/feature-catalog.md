@@ -159,15 +159,17 @@ Those paths map to features as any file does, by [Which feature owns a file](#wh
 
 | What Fleet finds | What happens to the note |
 |---|---|
+| One live Job on the feature | It is given the note at once, with nothing to claim |
 | Live Jobs on the feature | Each is sent the note, with a line naming the others and asking it to call `claim_note` with the note's id if the change is its own |
 | A Job claims it | It holds the note, whose file names it so its `mark_annotation_done` is served; the others are told which Job took it, and drop it; a later claim is refused, naming that Job |
 | No claim within three minutes | Fleet gives it to the live Job that last wrote one of the screen's files, else to the first Job on the feature, and tells both |
 | No live Job on the feature | Fleet starts one at once, titled with his words, with the notes as its first turn, and it holds them |
+| Every Job it was sent to ended before the wait is over | Fleet starts a Job for it as it does where none is live: a note is never dropped |
 | The paths map to no feature | Bridge offers its Job picker, as before |
 
-In the note's card the first choice, and the one Enter takes, is "<Feature>'s Jobs", with the Jobs named under it and "The first to claim it takes it."; with no Job live it reads "Start a Job for <Feature>".
+In the note's card the first choice, and the one Enter takes, is "<Feature>'s Jobs", with the Jobs named under it and "The first to claim it takes it."; with one Job live the line reads "<Job> gets it.", and with none the choice reads "Start a Job for <Feature>".
 The Job picker and Start job stay beside it.
-After the send the card reads "Sent to <Feature>'s Jobs", and "<Job> took it" once Fleet publishes `note.claimed`.
+After the send the card reads "Sent to <Feature>'s Jobs", and "<Job> took it" once Fleet publishes `note.claimed`; sent to one Job, it reads "Sent to Job <Job>", as a send from the picker does.
 The wait is `note_claims::UNCLAIMED_AFTER`, chosen and not measured.
 
 ## Docs and tickets a Job read

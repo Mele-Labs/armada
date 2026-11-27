@@ -1359,6 +1359,8 @@ impl Layer {
         let named: Vec<&str> = feature.jobs.iter().map(|job| job.title.trim()).filter(|title| !title.is_empty()).collect();
         let (label, icon, said) = if feature.jobs.is_empty() {
             (format!("Start a Job for {}", feature.title), "square-plus", format!("Starts a Job for {} with this note", feature.title))
+        } else if let [one] = named.as_slice() {
+            (format!("{}'s Jobs", feature.title), "users", format!("Sends this note to {one}, the one Job on {}", feature.title))
         } else {
             (format!("{}'s Jobs", feature.title), "users", format!("Sends this note to every Job on {}", feature.title))
         };
@@ -1368,7 +1370,8 @@ impl Layer {
         let who = (!feature.jobs.is_empty()).then(|| {
             let line = match named.as_slice() {
                 [] => "The first to claim it takes it.".to_string(),
-                [one] => format!("{one}. The first to claim it takes it."),
+                // One Job alone is given the note: there is nobody to claim it from.
+                [one] => format!("{one} gets it."),
                 [rest @ .., last] => format!("{} and {last}. The first to claim it takes it.", rest.join(", ")),
             };
             div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(line)

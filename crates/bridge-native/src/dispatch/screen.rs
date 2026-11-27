@@ -1038,6 +1038,11 @@ impl DispatchScreen {
                     });
                     list.update(cx, |list, cx| list.open(session.into(), cx));
                 }
+                // The one Job on the feature is given it at once.
+                Ok(ipc::NotesRouted { offered, .. }) if offered.len() == 1 => layer.update(cx, |layer, cx| {
+                    layer.sending_to(offered[0].session_id.as_str().to_string().into());
+                    layer.sent(&offered[0].title, false, cx);
+                }),
                 // He stays where he was: which Job takes the note is theirs to say, and the card says it when one does.
                 Ok(_) => layer.update(cx, |layer, cx| layer.sent_to_feature(&feature, cx)),
                 Err(why) => {

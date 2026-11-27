@@ -1,5 +1,6 @@
-//! A note on a screen goes to every live Job on the screen's features, and the first claim takes it; unclaimed, it goes
-//! to the Job that last wrote the screen's files; with no Job live on the feature, Fleet starts one with his words.
+//! A note on a screen goes to every live Job on the screen's features, and the first claim takes it; one Job alone is
+//! given it at once; unclaimed, it goes to the Job that last wrote the screen's files; with no Job live on the feature,
+//! or none of those it went to live when the wait is over, Fleet starts one with his words.
 //! `docs/concepts/feature-catalog.md`, *A note on a screen*.
 
 use std::sync::Arc;
@@ -7,6 +8,8 @@ use std::time::Duration;
 
 use api::{Features, HostedSessions, Sessions};
 use ipc::{ClaimNote, NoteElement, NotePlace, NoteState, SendNotesToFeatures, SessionId, SessionNote, SessionRow, StartSession};
+
+use store::SessionState;
 
 use super::agent_starts::{rig, Rig};
 use super::feature_library::{a_project, held_slot, seeded, SOMEWHERE, VOTING};
@@ -126,6 +129,52 @@ async fn a_note_nobody_claims_goes_to_the_job_that_last_wrote_the_screens_files(
 
     let late = Arc::clone(&rig.fleet).claim_note(None, claim(&rail)).await.expect_err("taken");
     assert!(late.error().message.contains("Fleet gave it to Add rank votes"), "{}", late.error().message);
+}
+
+#[tokio::test]
+async fn a_note_on_a_feature_one_job_is_on_is_that_jobs_at_once_with_no_claim_to_make() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+    let (rail, rail_process) = a_job_called(&rig, &project, "Fix the rail").await;
+    wrote(&rig, &project, &rail, &format!("{SOMEWHERE}/rail.rs"), "2026-11-27T09:00:00.000Z").await;
+
+    let routed = Arc::clone(&rig.fleet).send_notes_to_features(sent(&project, &rig)).await.expect("routed");
+
+    assert_eq!((routed.offered.iter().map(|job| job.title.as_str()).collect::<Vec<_>>(), routed.started), (vec!["Fix the rail"], None));
+    let read = rig.sent_to(rail_process).join("\n");
+    assert!(read.contains("The rank chip clips") && !read.contains("claim_note"), "{read}");
+    let kept = rig.fleet.store().lock().await.note_claim(NOTE).expect("read").expect("kept");
+    assert_eq!((kept.claimed_by.as_str(), kept.given), (rail.as_str(), true), "the note is the Job's from the start");
+    let own = Arc::clone(&rig.fleet).claim_note(None, claim(&rail)).await.expect("its own note claimed again answers the same");
+    assert_eq!(own.session_id, rail);
+}
+
+/// End the Job, as Fleet keeps one that stopped.
+async fn ended(rig: &Rig, id: &SessionId) {
+    let mut store = rig.fleet.store().lock().await;
+    let mut kept = store.session(id.as_str()).expect("read").expect("kept");
+    kept.state = SessionState::Ended;
+    store.keep_session(&kept).expect("kept");
+}
+
+#[tokio::test]
+async fn a_note_whose_jobs_all_ended_before_the_wait_is_over_starts_a_job_that_holds_it() {
+    let rig = rig(None);
+    let (project, (rail, _), (ranks, _)) = two_on_voting(&rig).await;
+    Arc::clone(&rig.fleet).send_notes_to_features(sent(&project, &rig)).await.expect("routed");
+    ended(&rig, &rail).await;
+    ended(&rig, &ranks).await;
+    let before = rig.stand_in.starts().len();
+
+    rig.fleet.notes_unclaimed_given(Duration::ZERO).await;
+
+    let kept = rig.fleet.store().lock().await.note_claim(NOTE).expect("read").expect("kept, never dropped");
+    assert!(kept.given && ![rail.as_str(), ranks.as_str(), ""].contains(&kept.claimed_by.as_str()), "a new Job holds it: {kept:?}");
+    let started = SessionId::carried(&kept.claimed_by);
+    assert_eq!(rig.record(&started).await.title.as_deref(), Some("The rank chip clips"), "titled with his words");
+    super::session_host::eventually(|| async { rig.stand_in.starts().len() > before }).await;
+    assert!(rig.card_message(&started).await.is_none(), "started at once, with no start card held");
 }
 
 #[tokio::test]
