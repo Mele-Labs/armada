@@ -171,7 +171,15 @@ impl DispatchSheet {
                             .children(on.then(|| div().absolute().top(line_h * 0.1).left_0().child(caret())))
                             .into_any_element()
                     } else {
-                        div().flex().items_center().text_color(ink).child(SharedString::from(value.clone())).children(on.then(caret)).into_any_element()
+                        // A long answer wraps inside the box's width instead of running past it.
+                        div()
+                            .flex()
+                            .items_end()
+                            .min_w_0()
+                            .text_color(ink)
+                            .child(div().min_w_0().child(SharedString::from(value.clone())))
+                            .children(on.then(caret))
+                            .into_any_element()
                     };
                     let under = if listed {
                         Some(self.feature_list(story.list(catalog).unwrap_or_default(), story.row, look, cx))
@@ -184,7 +192,9 @@ impl DispatchSheet {
                         div()
                             .id(("dispatch-blank", at))
                             .relative()
-                            .flex_none()
+                            .flex_shrink(1.)
+                            .min_w_0()
+                            .max_w_full()
                             .border_b(look.length(token::BORDER_WIDTH) * 2.)
                             .border_color(edge)
                             .bg(if on { look.color(token::ACCENT).opacity(0.08) } else { gpui::transparent_black() })
@@ -211,10 +221,11 @@ impl DispatchSheet {
                 .relative()
                 .flex_1()
                 .min_w_0()
-                .h(line_h * 5.)
+                // Five lines at least; a long sentence grows the box, and the footer keeps its room below it.
+                .min_h(line_h * 5.)
                 .px(gpui_component::Size::Medium.input_px())
                 .py(gpui_component::Size::Medium.input_py())
-                .child(sentence)
+                .child(sentence.pb(line_h * 1.5))
                 .child(self.story_footer(window, cx)),
             Role::Group,
             "Request sentence",
