@@ -620,9 +620,12 @@ impl JobView {
                 items.push(item);
             }
         }
+        // Fleet took his answer and puts the ask to him still, as a plan he sent back the Job kept: Fleet's list wins over the
+        // answer held here (his note of 27 Nov: the plan lost its card and its row in Needs you).
+        let asks_still = |item: &Item| record.answers.iter().any(|one| one.item == item.id && instant(one.at.as_str()) >= instant(&item.since));
         // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
         if let Some(dock) = self.dock_of(id) {
-            items.retain(|item| !dock.hidden.contains(&item.id));
+            items.retain(|item| asks_still(item) || !dock.hidden.contains(&item.id));
         }
         // So does one answered on its thread card, in the frame the card takes the answer.
         if let Some(page) = self.pages.get(id).filter(|page| page.cards.answers.values().any(settles)) {
@@ -630,7 +633,7 @@ impl JobView {
             let drawn_since = |key: &str| {
                 page.cards.answered_on.get(key).is_some_and(|on| super::sketch_read::card_of(&held.head, &held.items, key.strip_prefix("pin:").unwrap_or(key)).map(super::cards::newest_of).is_some_and(|now| now != *on))
             };
-            items.retain(|item| !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
+            items.retain(|item| asks_still(item) || !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
         }
         items.sort_by_key(|item| instant(&item.since));
         items

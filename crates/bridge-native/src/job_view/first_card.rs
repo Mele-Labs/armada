@@ -473,6 +473,57 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_plan_sent_back_that_fleet_still_puts_takes_the_first_card_again(cx: &mut gpui::TestAppContext) {
+        let unasked = |jobs: &mut Vec<ipc::SessionRecord>| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+            job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+        };
+        let quiet = |threads: &mut std::collections::HashMap<String, ipc::JobThread>| {
+            if let Some(thread) = threads.get_mut("mock-01") {
+                thread.head.asked = None;
+            }
+        };
+        let (view, cx) = crate::job_view::parts_fold::rooted_job_with(cx, "job-view", "mock-01", size(px(1440.), px(900.)), unasked, quiet);
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let plan = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("an ask is open");
+        assert_eq!(plan.kind, Kind::Plan);
+        // He asks for changes: the answer is held here until Fleet's list says so.
+        view.update(cx, |view, _| {
+            let page = view.pages.get_mut("mock-01").expect("the Job is shown");
+            page.dock.hidden.insert(plan.id.clone());
+            page.cards.answers.insert(format!("plan:v{}", plan.id.trim_start_matches("plan:")), super::super::acts::Answer::SentBack("Add drag".into()));
+        });
+        redraw(cx);
+        assert!(view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).is_none_or(|one| one.kind != Kind::Plan), "sent, it leaves at once");
+        // Fleet took it and the Job kept the plan: Fleet still puts it, so it asks again.
+        let since = view.read_with(cx, |view, cx| view.record("mock-01", cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == plan.id).map(|one| one.since.clone()))).expect("Fleet still lists the plan");
+        let later = chrono::DateTime::parse_from_rfc3339(since.as_str()).expect("an instant") + chrono::Duration::minutes(1);
+        view.update(cx, |view, cx| {
+            view.list.update(cx, |list, _| {
+                let record = list.record_mut("mock-01").expect("mock-01 is listed");
+                record.answers.push(ipc::AnsweredAsk {
+                    item: plan.id.clone(),
+                    question: "Approve this plan?".into(),
+                    how: ipc::AnswerHow::AskedForChanges,
+                    words: Some("Add drag".into()),
+                    pick: None,
+                    artifact: None,
+                    part: None,
+                    notes: Default::default(),
+                    extras: Default::default(),
+                    at: ipc::Instant::carried(&later.to_rfc3339()),
+                });
+            })
+        });
+        redraw(cx);
+        let first = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("the plan asks again");
+        assert_eq!(first.kind, Kind::Plan, "Fleet's list wins over the answer held here");
+        assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "the first card stands for it");
+        assert!(drawn(cx, Role::Button, "Approve"), "with its Approve");
+    }
+
+    #[gpui::test]
     fn the_step_bar_names_the_ask_now_the_next_and_how_many_more(cx: &mut gpui::TestAppContext) {
         let (view, cx) = thread_shown(cx);
         let open = ask_ids(&view, cx);

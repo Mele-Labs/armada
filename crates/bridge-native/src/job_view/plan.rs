@@ -456,9 +456,6 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(SharedString::from(group.title.clone())),
             )
-            .when(plain, |row| {
-                row.child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).children(group.paths.iter().map(|path| div().child(path.clone()))))
-            })
             .children((!approved).then(|| div().flex().flex_wrap().justify_end().max_w(look.length(token::SPACE_12) * 4.).gap(look.length(token::SPACE_1)).children(marks)))
             .child(
                 div()
@@ -472,11 +469,24 @@ impl JobView {
                     .child(glyph(look, "bot", Size::Small, look.color(token::FG_MUTED)))
                     .child(div().font_family(mono(look)).child(SharedString::from(group.agent.clone()))),
             );
+        // Its paths take a line of their own under the title: beside it they squeezed the title a letter to a line (his note
+        // of 27 Nov).
+        let paths = (plain && !group.paths.is_empty()).then(|| {
+            div()
+                .flex()
+                .flex_wrap()
+                .gap_x(look.length(token::SPACE_3))
+                .text_size(look.length(token::TEXT_XS))
+                .font_family(mono(look))
+                .text_color(look.color(token::FG_SUBTLE))
+                .children(group.paths.iter().map(|path| div().child(path.clone())))
+        });
         // The Judge's notes on the group open under its line; the plain view draws them under what the group gives.
-        match Some(pinned).filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx)) {
-            None => row.into_any_element(),
-            Some(notes) => div().flex().flex_col().child(row).child(notes).into_any_element(),
+        let notes = Some(pinned).filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx));
+        if paths.is_none() && notes.is_none() {
+            return row.into_any_element();
         }
+        div().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(paths).children(notes).into_any_element()
     }
 
     /// The plan read against the version before it (B2.5): what changed in the open, the rest folded. With
