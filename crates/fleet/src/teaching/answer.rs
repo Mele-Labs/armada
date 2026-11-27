@@ -65,6 +65,16 @@ pub(crate) struct Allowed {
     pub(crate) rule: bool,
 }
 
+/// What may be proposed for a source at a reach. **A project keeps a note and nothing else**: a mod, a rule or a
+/// layout has no place to be kept for one project.
+pub(crate) fn allowed_at(kind: TeachingSourceKind, reach: TeachingReach) -> Allowed {
+    let may = allowed(kind);
+    match reach {
+        TeachingReach::Project => Allowed { note: may.note, words: false, fleet: false, tweak: false, layout: false, rule: false },
+        TeachingReach::Repository | TeachingReach::Everywhere => may,
+    }
+}
+
 pub(crate) fn allowed(kind: TeachingSourceKind) -> Allowed {
     let bridge = kind.is_bridge();
     Allowed {
@@ -171,7 +181,7 @@ struct LayoutFile<'a> {
 pub(crate) fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> {
     let json = crate::review_runs::object_in(said).map_err(Unfit::Unread)?;
     let said: Said = crate::review_runs::said(json).map_err(Unfit::Unread)?;
-    let may = allowed(at.kind);
+    let may = allowed_at(at.kind, at.reach);
     let proposal = TeachingProposal {
         note: said.note.filter(|_| may.note).map(|one| note(one, at.reach)).transpose()?,
         words: said.words.filter(|_| may.words).map(|one| words(one, at.subject)).transpose()?,
@@ -195,14 +205,20 @@ pub(crate) fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> 
 /// A note as a Logbook entry takes it, for the reach the person chose.
 pub(crate) fn note_fault(section: LogbookSection, kind: LogbookKind, text: &str, reach: TeachingReach) -> Option<String> {
     let fits = match section {
-        LogbookSection::Repo => matches!(kind, LogbookKind::Command | LogbookKind::Gotcha | LogbookKind::Convention),
+        LogbookSection::Repo | LogbookSection::Project => matches!(kind, LogbookKind::Command | LogbookKind::Gotcha | LogbookKind::Convention),
         LogbookSection::Machine => kind == LogbookKind::Environment,
         LogbookSection::Habits => kind == LogbookKind::Habit,
     };
     if !fits {
         return Some("the kind does not belong in that section".to_string());
     }
-    if (section == LogbookSection::Repo) != (reach == TeachingReach::Repository) {
+    // A project's reach takes a repository-kind note as `repo`, which is kept as the project's, and the owner's own sections as they are.
+    let placed = match reach {
+        TeachingReach::Repository => section == LogbookSection::Repo,
+        TeachingReach::Project => true,
+        TeachingReach::Everywhere => !matches!(section, LogbookSection::Repo | LogbookSection::Project),
+    };
+    if !placed {
         return Some("the section does not match where the person said it applies".to_string());
     }
     let lines = text.lines().filter(|line| !line.trim().is_empty()).count();
