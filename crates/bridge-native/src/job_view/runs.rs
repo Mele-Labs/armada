@@ -190,14 +190,14 @@ fn headline_said(latest: Option<&str>, seen: &[Seen]) -> String {
     latest.map(str::to_string).or_else(|| seen.iter().find(|one| one.running).or(seen.last()).map(|one| one.phrase.clone())).unwrap_or_default()
 }
 
-/// The card's headline (take A): one line, 14 at 600. A newer one slides in from below while the old goes up; while the
+/// The card's headline (take A): 14 at 600, wrapping. A newer one slides in from below while the old goes up; while the
 /// agent thinks it pulses in opacity, where the mock's shimmer needs a gradient clipped to text.
 fn headline(look: &Look, key: &str, text: &str, before: Option<&str>, thinking: bool) -> AnyElement {
     let lift = look.length(token::SPACE_3) + look.length(token::SPACE_1) * 0.5;
     let line = |text: &str| {
         div()
             .w_full()
-            .truncate()
+            .min_w_0()
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
@@ -213,11 +213,12 @@ fn headline(look: &Look, key: &str, text: &str, before: Option<&str>, thinking: 
     } else {
         line(text).into_any_element()
     };
+    // Settled, the headline sits in the flow and wraps to as many lines as it needs; sliding in, it is clipped to one.
+    if slide_phase(key) >= 1. {
+        return div().flex_1().min_w_0().child(now).into_any_element();
+    }
     let layer = |inner: AnyElement| div().absolute().left_0().w_full().child(inner);
     let stack = div().relative().flex_1().min_w_0().h(look.length(token::LEADING_SM)).overflow_hidden();
-    if slide_phase(key) >= 1. {
-        return stack.child(layer(now).top(gpui::px(0.))).into_any_element();
-    }
     let (coming, going) = (key.to_string(), key.to_string());
     stack
         .children(before.map(|old| {
@@ -253,6 +254,7 @@ fn thought_line(id: &str, text: &str, look: &Look) -> AnyElement {
     labelled(
         div()
             .id(SharedString::from(format!("thought:{id}")))
+            .min_w_0()
             .pt(look.length(token::SPACE_2))
             .pb(look.length(token::SPACE_1) * 0.5)
             .text_size(look.length(token::TEXT_2XS) + gpui::px(0.5))
@@ -274,9 +276,11 @@ fn call_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
     // A brief is not a verb, so a running agent's row says it runs.
     let said = if running && kind == Kind::Agent { format!("{phrase}, running") } else { phrase.clone() };
     let said = named.map_or(said.clone(), |named| format!("{said} {named}"));
+    // The tile and the time stay at the top while the phrase wraps; a one-line phrase is centred on the tile.
+    let side = look.length(token::SPACE_4) + look.length(token::SPACE_1);
     let first = div()
         .flex()
-        .items_center()
+        .items_start()
         .gap(look.length(token::SPACE_2))
         .min_w_0()
         .child(tile(look, kind, running, key))
@@ -284,14 +288,16 @@ fn call_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
             div()
                 .when(peer.is_none(), |words| words.flex_1())
                 .min_w_0()
-                .truncate()
+                .min_h(side)
+                .flex()
+                .items_center()
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
                 .child(gpui::StyledText::new(SharedString::from(phrase)).with_highlights(marks)),
         )
-        .children(peer.map(|peer| div().flex_1().min_w_0().flex().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).child(peer)))
-        .child(timer(job, key, at, end, running, look));
+        .children(peer.map(|peer| div().flex_1().min_w_0().min_h(side).flex().items_center().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).child(peer)))
+        .child(div().flex_none().h(side).flex().items_center().child(timer(job, key, at, end, running, look)));
     let under = look.length(token::SPACE_4) + look.length(token::SPACE_1) + look.length(token::SPACE_2);
     let note = note.map(|line| div().pl(under).min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(line));
     let below = below.map(|below| div().pl(under).pt(look.length(token::SPACE_1)).min_w_0().child(below));
@@ -654,7 +660,7 @@ impl JobView {
                         div()
                             .id(SharedString::from(format!("calls-running:{id}")))
                             .flex()
-                            .items_center()
+                            .items_start()
                             .gap(look.length(token::SPACE_2))
                             .min_w_0()
                             .pl(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
@@ -667,8 +673,8 @@ impl JobView {
                             .font_family(mono(look))
                             .text_size(look.length(token::TEXT_2XS))
                             .line_height(look.length(token::LEADING_SM))
-                            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(doing.clone()))
-                            .child(timer(&job, &format!("box:{id}"), since, None, true, look))
+                            .child(div().flex_1().min_w_0().min_h(look.length(token::H_CONTROL_SM)).flex().items_center().text_color(look.color(token::FG_DEFAULT)).child(div().min_w_0().child(doing.clone())))
+                            .child(div().flex_none().h(look.length(token::H_CONTROL_SM)).flex().items_center().child(timer(&job, &format!("box:{id}"), since, None, true, look)))
                             .child(self.stop_button(look, cx)),
                         Role::Status,
                         doing,
