@@ -277,6 +277,12 @@ impl ProjectScreen {
         }
     }
 
+    /// A feature pressed outside the board, such as in the Cockpit's home: the Features tab opens it.
+    pub fn show_feature(&mut self, slug: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.show(Tab::Features, window, cx);
+        self.features.update(cx, |features, cx| features.open_feature(slug.to_string(), window, cx));
+    }
+
     fn show(&mut self, tab: Tab, window: &mut Window, cx: &mut Context<Self>) {
         self.menu = None;
         self.adding = None;

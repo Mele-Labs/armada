@@ -733,7 +733,7 @@ pub use session_import::{
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
     Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobFeature, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
-    StoryBuilt, StoryChanged, StoryHanded, StoryShown,
+    StoryBuilt, StoryChanged, StoryHanded, StoryReply, StoryShown,
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{

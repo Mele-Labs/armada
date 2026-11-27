@@ -23,15 +23,25 @@ pub static STEPS: &[Step] = &[
 const WORKING: &str = "Native Bridge foundation, Working";
 const NEEDS: &str = "Fix the merge line freshness chip, Needs you";
 
-/// The Cockpit with the Operator switched off: a floor plan in the page's place, under a Switch on that is the page's own.
-/// The library is the mock's (`features/mock.rs`, `floor_library`), its Jobs the list's.
-pub static FLOOR_STEPS: &[Step] = &[
-    answer("The Operator is off: the Cockpit's right side is the Floor, with its title, that the Operator is off, the colours of the Job chips and a Switch on, over the feature map", "off", "region", "Floor"),
-    step("Each area is a card with a header band in its own hue, and each feature a row. A chip at the right of a feature is a Job working on it, filled in the colour its group wears in the list", Verb::Look, "button", WORKING),
-    step("A Job that needs you wears that group's colour, so what to open first reads off the map", Verb::Look, "button", NEEDS),
-    press_on("A project's chip shows that project's map", "button", "Pocket", "heading", "Sync and pairing"),
-    press_on("The first project's chip brings its areas back", "button", "Armada", "heading", "Running a Job"),
-    step("A press on a Job's chip opens that Job over the whole right side, and the floor is gone", Verb::Open("button", NEEDS), "row", THREAD),
-    step("Esc with the keys in the Job's box gives them to the list, and Esc again brings the floor back", Verb::Keys(&["escape", "escape"]), "region", "Floor"),
+/// The Cockpit with the Operator switched off: the home in the page's place, a slim strip over it holding Switch on.
+/// The blocks are the preset's, as Fleet keeps no layout on the mock; the library is the mock's (`features/mock.rs`,
+/// `floor_library`), its Jobs the list's.
+pub static HOME_STEPS: &[Step] = &[
+    answer("The Operator is off: the Cockpit's right side is the home, under a strip that says the Operator is off, with Edit and Switch on. The first block is Needs you", "off", "region", "Needs you"),
+    step("System overview is the second block, across the whole width as it is on the Project board, with the panel of the part beside its graph", Verb::Look, "region", "System overview"),
+    step("Floor plan is the third: the feature map as one block, each area a card with a header band in its own hue, each feature a row. The home scrolls to it", Verb::Wheel("group", "Home", 700), "region", "Floor plan"),
+    step("A chip at the right of a feature is a Job working on it, filled in the colour its group wears in the list", Verb::Look, "button", WORKING),
+    step("A press on a Job's chip opens that Job over the whole right side, and the home is gone", Verb::Open("button", NEEDS), "row", THREAD),
+    step("Esc with the keys in the Job's box gives them to the list, and Esc again brings the home back", Verb::Keys(&["escape", "escape"]), "region", "Needs you"),
+    step("Edit puts the blocks in edit mode: each header can be dragged, each block resized, and Add block appears in the strip", Verb::Open("button", "Edit"), "button", "Done"),
+    step("Hide takes a block off the home", Verb::Gone, "button", "Hide Floor plan"),
+    step("Add block lists the kinds that are off", Verb::Open("button", "Add block"), "menu", "Blocks to add"),
+    step("A pick puts that block back", Verb::Open("menuitem", "Floor plan"), "region", "Floor plan"),
+    step("Hide each block in turn", Verb::Gone, "button", "Hide Needs you"),
+    step("The last one", Verb::Gone, "button", "Hide Floor plan"),
+    step("And the last", Verb::Gone, "button", "Hide System overview"),
+    step("With every block hidden the home says Nothing here yet, with Add block beside it", Verb::Look, "status", "Nothing here yet"),
+    step("Add block brings the kinds back", Verb::Open("button", "Add block"), "menu", "Blocks to add"),
+    step("Needs you comes back at the top", Verb::Open("menuitem", "Needs you"), "region", "Needs you"),
     press_on("Switch on turns the Operator on and its page is at the right again, with no restart", "button", "Switch the Operator on", "textbox", "Message"),
 ];

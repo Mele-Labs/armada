@@ -261,6 +261,8 @@ Every claim ends when the Job ends, and lapses 30 minutes after its renewals sto
 **A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
 Nothing is logged to replay: while the store is down the difference waits, the Job carries on, and its record says `claims_unsent` until a pass sends it.
 A pass makes at most 40 calls a Job, so a Job that wrote many files stays under the store's 120 calls a minute.
+**The last of the 40 is kept for a renewal that is due**, so a pass cut short still renews, and the claims held elsewhere are not asked for again until the next one.
+A Job that makes more than 600 store calls in an hour is named in Fleet's log, once that hour.
 
 **One call renews every claim a live Job holds, every five minutes.**
 A renewal that answers `0` means the claims lapsed, say on a Mac that slept, and the next pass takes them again through the same rules as a first take.
