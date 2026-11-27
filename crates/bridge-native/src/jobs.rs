@@ -102,7 +102,7 @@ pub enum Group {
     /// Headed by the state a Job stands in: Needs you, Ready to try, Working, Waiting on ci.
     #[default]
     State,
-    /// Headed by each feature a Job writes to now, as `list_features` reads it: a Job stands under each one.
+    /// Headed by each feature a Job writes to now, as its row's `features` names it: a Job stands under each one.
     Feature,
     /// Headed by each area a Job writes to a feature of, once an area.
     Area,
@@ -788,8 +788,8 @@ fn lines_grouped(
     lines_led(jobs, ideas, scope, query, order, names, project, asleep, group, hide_done, &leads::Leads::default())
 }
 
-/// [`lines_grouped`] with the libraries the feature groupings read: by feature a Job stands under each feature whose
-/// `jobs_now` holds it, by area once under each area, and a Job under none stands under No feature, last.
+/// [`lines_grouped`] with the sub projects: by feature a Job stands under each feature its row's `features` names, by area
+/// once under each area, and a Job under none stands under No feature, last.
 #[allow(clippy::too_many_arguments)]
 fn lines_led(
     jobs: &[SessionRecord],
@@ -870,7 +870,7 @@ fn lines_led(
     let mut projects: Vec<(String, String, Option<Stand>, Vec<&SessionRecord>)> = Vec::new();
     // What each feature, area and No feature heading leads to, by its key.
     let mut led: HashMap<String, leads::Lead> = HashMap::new();
-    let shelves = leads.shelves();
+    let shelves = leads::shelves(jobs);
     match group {
         Group::Feature | Group::Area => {
             let mut none = Vec::new();
@@ -1111,7 +1111,7 @@ fn lines_led(
         if group == Group::Feature && led.get(&key).is_some_and(|lead| matches!(lead, leads::Lead::Feature { .. })) {
             for line in &mut lines[from..] {
                 if let Line::Job(row) = line {
-                    row.aside = leads::also_under(&leads.titles_of(&row.id), &name);
+                    row.aside = leads::also_under(&leads::titles_of(&shelves, &row.id), &name);
                 }
             }
         }
