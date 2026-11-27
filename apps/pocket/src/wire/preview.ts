@@ -50,6 +50,11 @@ export type ThreadReadyToTry = {
   state: ReadyState;
   /** What he said, on an `answered` card. The build note's verdict, so a mark from the notes answers it too. */
   verdict?: NoteVerdict;
+  /**
+   * He pressed Skip: approved on the walk, landed untried. The verdict is still `good`; this is what
+   * a card read again says he did.
+   */
+  skipped?: boolean;
   /** When it comes back, on a `later` card. */
   later_until?: Instant;
 };

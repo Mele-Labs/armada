@@ -285,6 +285,10 @@ pub struct ThreadReadyToTry {
     /// What he said, on an `answered` card. The build note's verdict, so a mark from the notes answers it too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict: Option<NoteVerdict>,
+    /// He pressed Skip: approved on the walk, landed untried. The verdict is still `good`; this is what
+    /// a card read again says he did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub skipped: bool,
     /// When it comes back, on a `later` card.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub later_until: Option<Instant>,

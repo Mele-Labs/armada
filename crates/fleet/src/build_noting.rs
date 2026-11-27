@@ -134,6 +134,7 @@ fn cards_of(notes: Vec<KeptBuildNote>, in_build: &dyn Fn(&str, &str) -> bool, no
                 offered_at: Instant::carried(&note.offered_at),
                 in_build: in_build(&note.branch, &note.tip),
                 verdict: verdict_read(note.verdict.as_deref()),
+                skipped: note.verdict.as_deref() == Some(SKIPPED_KEPT),
                 later_until: note.later_until.as_deref().filter(|_| state == ReadyState::Later).map(Instant::carried),
                 state,
                 look: note.look,
@@ -178,9 +179,12 @@ fn verdict_kept(verdict: NoteVerdict) -> &'static str {
     }
 }
 
+/// What the note keeps for his Skip: a `good` that was landed untried, read as `good` everywhere but the card.
+const SKIPPED_KEPT: &str = "good_skipped";
+
 fn verdict_read(kept: Option<&str>) -> Option<NoteVerdict> {
     match kept? {
-        "good" => Some(NoteVerdict::Good),
+        "good" | SKIPPED_KEPT => Some(NoteVerdict::Good),
         "needs_work" => Some(NoteVerdict::NeedsWork),
         _ => None,
     }
@@ -343,7 +347,7 @@ where
                 let skipped = matches!(asked.answer, ReadyAnswer::Skip);
                 let note = self.store().lock().await.build_note_of(&asked.branch, &asked.tip).map_err(|why| self.ledger_fault(why))?;
                 let note = note.ok_or_else(|| self.card_unknown(&asked.branch, &asked.tip))?;
-                self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at, Some(verdict_kept(NoteVerdict::Good))).map_err(|why| self.ledger_fault(why))?;
+                self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at, Some(if skipped { SKIPPED_KEPT } else { verdict_kept(NoteVerdict::Good) })).map_err(|why| self.ledger_fault(why))?;
                 self.looked_good(session, &asked.branch, &asked.tip, &note.about, &at, skipped).await;
                 // His looks-good is his Approve, as an item the Job raised asking for it is: it closes the Job's first
                 // open `you_approved` gate. A preview names no plan group, so no group is picked for it. His Skip is the same.
@@ -402,7 +406,7 @@ where
         }
         // The note's Job is told the first mark and each change of verdict, where it is live, as it is told the rest
         // of its preview news. A mark that says nothing new tells it nothing.
-        let news = before.clone().filter(|note| note.looked_at.is_none() || (verdict.is_some() && note.verdict.as_deref() != verdict));
+        let news = before.clone().filter(|note| note.looked_at.is_none() || (verdict.is_some() && verdict_read(note.verdict.as_deref()) != asked.verdict));
         if let (Some(note), Some(NoteVerdict::Good)) = (&before, asked.verdict) {
             self.looked_good(&note.session_id, &asked.branch, &asked.tip, &note.about, &at, false).await;
         }
