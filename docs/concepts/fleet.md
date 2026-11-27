@@ -251,11 +251,13 @@ The store and its wire are [Central store](../contracts/central-store.md).
 | Claim | Taken from | Ends |
 |---|---|---|
 | Tracker item | Each open issue row on the Job's ledger | The item closes, or the row is given back |
-| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*) | A pull request of the Job's merges or closes |
+| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*). A Job that started another claims only the files it writes | A pull request of the Job's merges or closes |
 | Pull request | Each open pull request the Job holds | It merges or closes |
 | Failing test | A test Fleet started the Job to fix (*A test that fails the merge queue*) | The Job's fix merges and main reads green after it |
 
 A plan group with no paths claims no file.
+**A Job that started other Jobs hands its plan's paths to them**, so it is told of a file only once it writes there.
+Confirmed 25-26 Nov 2026: a Job that wrote nothing was told four times that another Job "also writes" a folder its plan named, once naming its own child.
 Every claim ends when the Job ends, and lapses 30 minutes after its renewals stop.
 
 **A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
@@ -272,7 +274,7 @@ A claim another holds is asked for again at each renewal.
 |---|---|
 | Another Job, an item | Waits. Its record carries a `claim_waits` line naming the holder's person, Mac and Job title, and the Job is told. When Fleet wins the claim, the line goes and the Job is woken to carry on |
 | A person in beads, an item | Waits the same way, and no claim is made. The line ends when the item is unassigned. Autopilot never picks such an item |
-| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal |
+| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal. **Its own parent or child is no other side**: neither is told |
 
 A beads assignee is a person where it is a bare name; a Job claims as `<Mac>/<job>`.
 Other trackers' assignees are not read.
@@ -284,6 +286,7 @@ A wait that ends forgets its item, so a later wait on it is told.
 Everything a pass has for one Job goes as one notice.
 Confirmed 16 Nov 2026: each restart told every Job again of every file another Job writes, one notice for each.
 A wait read from a Job on another Mac is told only to the Job that waits.
+Who is told of a shared file is chosen in one place, `shared_told_to` in `crates/fleet/src/job_claims/pass.rs`.
 `crates/fleet/src/job_claims.rs`.
 
 **The claims list on a project's page is grouped by who holds each claim** (`GET /projects/project/{project}/claims`).
