@@ -606,6 +606,9 @@ where
         };
         let agent_listed = items.iter().any(|one| one.source == WaitingSource::Agent);
         let reads_replies = self.reads_replies_on();
+        // One row for the Job while any Ready to try card is open. The card asks him itself, so a line of the reply
+        // that only points at it asks nothing more.
+        let try_card = crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed);
         // Nothing until the model is loaded and has read the reply, which publishes the Session again.
         let refused = |said: &str| {
             let model = self.language_model().model()?;
@@ -620,7 +623,8 @@ where
             }
             let model = self.language_model().model()?;
             let read = self.extract_reads().read_of(super::extracting::read, model, &session.id, said)?;
-            Some(if windows.is_empty() { read } else { read.beside_a_walk() })
+            let read = if windows.is_empty() { read } else { read.beside_a_walk() };
+            Some(if try_card.is_none() { read } else { read.beside_a_card() })
         };
         let seen = super::standing::Seen {
             running,
@@ -641,6 +645,7 @@ where
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
                 // A walk already waiting on him asked for his approval; a line that only says what follows it asks nothing more.
                 line.filter(|line| windows.is_empty() || !super::asks::only_approving(line))
+                    .filter(|line| try_card.is_none() || !super::asks::only_at_the_card(line))
             },
             extracted: super::extracting::IN_FORCE.then_some(&extracted),
             // Only the first reply after the tell is read for a refusal of it.
@@ -720,9 +725,8 @@ where
             held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
-            // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
-            // cards open then, so one offered later raises it again.
-            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
+            // Answered on its cards. His dismissal covers the cards open then, so one offered later raises it again.
+            items.extend(try_card.clone());
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.

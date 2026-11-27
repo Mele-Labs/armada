@@ -100,11 +100,14 @@ impl Previewing {
     }
 }
 
+/// Told with a ready offer: a reply that says it waits on the card is read as a new ask, and lists the Job under Needs you.
+pub(crate) const CARD_ASKS: &str = "The Ready to try card asks him itself, so end your turn without saying you wait for his Looks good, his try or the preview.";
+
 /// What the Job is told of an offer, once a (tip, state).
 fn told_text(offer: &KeptPreviewOffered) -> Option<String> {
     let branch = &offer.branch;
     match offer.state.as_str() {
-        READY => Some(format!("{branch} is on the preview list at {}.", short(&offer.tip))),
+        READY => Some(format!("{branch} is on the preview list at {}. {CARD_ASKS}", short(&offer.tip))),
         FAILED => {
             let why = offer.why.as_deref().unwrap_or("it did not check").trim_end_matches('.');
             let files = if offer.files.is_empty() || why.starts_with(CONFLICTS) { String::new() } else { format!(" Files: {}.", offer.files.join(", ")) };
