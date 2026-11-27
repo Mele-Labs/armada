@@ -222,7 +222,7 @@ impl DispatchSheet {
         .into_any_element()
     }
 
-    /// What the sentence starts, and the tools it asks for, at the foot of its box. The tools list opens from the + under it.
+    /// What the sentence starts, and the tools held, at the foot of its box. The tools list opens from the + under it.
     fn story_footer(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let Some(story) = &self.story else { return div().into_any_element() };

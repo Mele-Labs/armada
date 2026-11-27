@@ -86,7 +86,6 @@ pub(super) struct Shape {
     plain: Option<String>,
     story: Option<Story>,
     tools: Vec<SessionTag>,
-    preset: Vec<String>,
 }
 
 /// The most steps ⌘Z goes back.
@@ -147,8 +146,6 @@ pub struct DispatchSheet {
     catalog: Option<(String, Vec<FeatureChoice>)>,
     /// The project whose catalog was asked for and has not answered.
     features_asked: Option<String>,
-    /// The tools the sentence's kind put in, which go again where it turns to plain words.
-    preset: Vec<String>,
     /// The states ⌘Z goes back to, newest last, and the ones it came from, for ⌘Y.
     past: Vec<Shape>,
     future: Vec<Shape>,
@@ -239,7 +236,6 @@ impl DispatchSheet {
             opening: 0,
             catalog: None,
             features_asked: None,
-            preset: Vec::new(),
             past: Vec::new(),
             future: Vec::new(),
             run: None,
@@ -407,7 +403,7 @@ impl DispatchSheet {
 
     pub(super) fn worded(&self, cx: &App) -> bool {
         match &self.story {
-            // The tools a kind presets are no words: nothing starts until a blank holds some.
+            // The tools held are no words: nothing starts until a blank holds some.
             Some(story) => story.has_words() || !self.files.is_empty() || !self.drawn.is_empty(),
             None => !self.words(cx).trim().is_empty() || self.holds(),
         }
@@ -474,21 +470,14 @@ impl DispatchSheet {
     }
 
     /// An opening taken, by Tab or →, or a press on its row: the box becomes the sentence, with the caret in its first
-    /// blank and the kind's tools held.
+    /// blank.
     pub(super) fn take_opening(&mut self, kind: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(chosen) = super::story_kinds::kinds().get(kind) else { return };
+        if super::story_kinds::kinds().get(kind).is_none() {
+            return;
+        }
         let before = self.shape_now(cx);
         self.menu = None;
         self.tools_open = None;
-        self.preset.clear();
-        for id in &chosen.tools {
-            let Some(tool) = ipc::ask_tools::ask_tool(id) else { continue };
-            if !self.tools.iter().any(|one| one.tag.id == tool.id) {
-                let tag = SessionTag { kind: ipc::TagKind::Tool, id: tool.id.to_string(), title: tool.name.to_string(), url: None };
-                self.tools.push(HeldTool { tag, key: cx.focus_handle() });
-                self.preset.push(tool.id.to_string());
-            }
-        }
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
         self.story = Some(Story::new(kind));
         self.remember(before);
@@ -500,7 +489,7 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    /// The sentence's words went into the request's box, which has the sentence's place again. The tools its kind put in go.
+    /// The sentence's words went into the request's box, which has the sentence's place again.
     fn flatten(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(story) = self.story.take() else { return };
         let words = match story.words() {
@@ -508,8 +497,6 @@ impl DispatchSheet {
             words if words.is_empty() => format!("{} ", story.kind().opening),
             words => words,
         };
-        let preset = std::mem::take(&mut self.preset);
-        self.tools.retain(|one| !preset.contains(&one.tag.id));
         self.request.update(cx, |state, cx| {
             state.set_value(words.clone(), window, cx);
             end_of(state, &words, window, cx);
@@ -540,7 +527,6 @@ impl DispatchSheet {
             plain: self.story.is_none().then(|| self.request.read(cx).value().to_string()),
             story: self.story.clone(),
             tools: self.tools.iter().map(|one| one.tag.clone()).collect(),
-            preset: self.preset.clone(),
         }
     }
 
@@ -557,7 +543,6 @@ impl DispatchSheet {
     /// A state brought back: the sentence with its blank and tools, or the words the box held.
     fn restore(&mut self, shape: Shape, window: &mut Window, cx: &mut Context<Self>) {
         self.tools = shape.tools.into_iter().map(|tag| HeldTool { tag, key: cx.focus_handle() }).collect();
-        self.preset = shape.preset;
         self.run = None;
         match shape.story {
             Some(story) => {
@@ -952,7 +937,6 @@ impl DispatchSheet {
         self.files.clear();
         self.drawn.clear();
         self.tools.clear();
-        self.preset.clear();
         self.story = None;
         self.wait = None;
         self.tagged = None;
@@ -1881,7 +1865,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_its_tools_held(cx: &mut TestAppContext) {
+    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_no_tools_held(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
@@ -1892,22 +1876,25 @@ mod tests {
             assert_eq!(story.piece(), &super::super::story_kinds::Piece::Blank("do what"), "the caret is in the first blank");
             assert!(sheet.story_key.is_focused(window), "the sentence has the keys");
             assert_eq!(sheet.request.read(cx).value().to_string(), "", "the typed opening is the sentence now");
-            assert_eq!(held_tools(sheet), ["terminal", "browser"], "the kind's preset is held");
-            assert_eq!(sheet.preset, ["terminal", "browser"]);
+            assert!(held_tools(sheet).is_empty(), "taking an opening holds no tools");
         });
     }
 
     #[gpui::test]
-    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_preset_gone(cx: &mut TestAppContext) {
+    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_tools_he_added_held(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             take_bug(sheet, window, cx);
-            assert_eq!(held_tools(sheet), ["terminal", "browser"]);
+            assert!(held_tools(sheet).is_empty(), "taking an opening holds no tools");
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(0, window, cx);
+            let added = held_tools(sheet);
+            assert_eq!(added.len(), 1, "a tool he adds himself is held");
             press(sheet, "backspace", window, cx);
             assert!(sheet.story.is_none(), "plain words again");
             assert_eq!(sheet.request.read(cx).value().to_string(), "When I ", "the opening is kept");
             assert!(sheet.request.focus_handle(cx).is_focused(window), "the keys are in the box");
-            assert!(held_tools(sheet).is_empty(), "the tools its kind put in go");
+            assert_eq!(held_tools(sheet), added, "the tool he added stays");
         });
     }
 
@@ -1972,7 +1959,7 @@ mod tests {
             press(sheet, "cmd-z", window, cx);
             assert_eq!(blank_words(sheet)[0], "click", "the sentence is back with what was typed");
             assert!(sheet.story_key.is_focused(window), "and has the keys");
-            assert_eq!(held_tools(sheet), ["terminal", "browser"], "with its tools");
+            assert!(held_tools(sheet).is_empty(), "no tools, as before");
             assert_eq!(sheet.words(cx), "When I click");
         });
     }
@@ -1987,7 +1974,7 @@ mod tests {
             assert!(sheet.story.is_none(), "plain mode");
             assert_eq!(sheet.request.read(cx).value().to_string(), "When", "the opening as it was typed");
             assert!(sheet.request.focus_handle(cx).is_focused(window));
-            assert!(held_tools(sheet).is_empty(), "the preset goes with the sentence");
+            assert!(held_tools(sheet).is_empty(), "no tools are held with the sentence gone");
         });
     }
 
