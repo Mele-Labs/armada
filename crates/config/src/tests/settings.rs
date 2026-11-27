@@ -227,6 +227,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
+        s::EFFORT_OPERATOR,
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
@@ -377,7 +378,7 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
 /// The effort settings take every level the agent CLI does, and nothing else.
 #[test]
 fn an_effort_setting_takes_the_cli_levels_up_to_max_and_refuses_the_rest() {
-    for key in ["effort.default", "effort.judge", "effort.proposer"] {
+    for key in ["effort.default", "effort.judge", "effort.proposer", "effort.operator"] {
         for level in ["harness default", "low", "medium", "high", "xhigh", "max"] {
             let pairs = [(key, SettingValue::Text(level.into()))];
             assert!(
