@@ -121,6 +121,8 @@ mod page_moves;
 mod for_you;
 /// The order a Job set on its open asks, and why each stands there.
 mod waiting_order;
+/// The sub projects the owner started from the Jobs list.
+mod sub_projects;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -292,7 +294,7 @@ pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use feature_decisions::KeptFeatureDecision;
 pub use features::{
     feature_state, gist_by as feature_gist_by, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
-    KeptFeatureMerge, KeptSection,
+    KeptFeatureMerge, KeptJobFeature, KeptSection,
 };
 pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
 pub use system_additions::{addition_state, KeptAddition};
@@ -324,6 +326,7 @@ pub use artifact_seen::KeptArtifactSeen;
 pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, KeptMarginSuggestion, KeptMarginThread};
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use waiting_order::KeptWaitingPlace;
+pub use sub_projects::KeptSubProject;
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

@@ -84,6 +84,16 @@ pub const SESSION_RULES: &str = include_str!("session_rules.md");
 /// unasked. Told in place of [`SESSION_RULES`] to the Operator's own session and to no other.
 pub const OPERATOR_RULES: &str = include_str!("operator_rules.md");
 
+/// [`OPERATOR_RULES`] with the story kinds written in from `story_kinds.toml`, so the Operator knows the kinds the
+/// dispatch sheet offers and no copy of them is kept in its rules.
+pub fn operator_rules() -> String {
+    let kinds: Vec<String> = ipc::story_kinds::story_kinds()
+        .iter()
+        .map(|kind| format!("- `{}`, {}, \"{} …\": {}", kind.id, kind.name, kind.opening, kind.starts))
+        .collect();
+    OPERATOR_RULES.replace("{story_kinds}", &kinds.join("\n"))
+}
+
 /// What a Job is told of its own id. **Here and not only in the mod's `armadaSession` note**, because
 /// an organization's Claude Code can pass over the mod's prompt hooks, and a start argument is
 /// Fleet's own. `docs/contracts/agent-prompt/5f-the-job-rules.md`.
@@ -420,7 +430,7 @@ impl HeadlessAgent {
         // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note and a fork's note add to them.
         // The Operator is not a Job, so it is told no Job's id.
         let named = (!hosted.operator).then(|| job_named(&hosted.session));
-        let rules = if hosted.operator { OPERATOR_RULES } else { SESSION_RULES };
+        let rules = if hosted.operator { operator_rules() } else { SESSION_RULES.to_string() };
         let told: Vec<&str> = [Some(rules.trim()), named.as_deref(), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()
             .flatten()

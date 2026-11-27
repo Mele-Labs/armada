@@ -1742,6 +1742,26 @@ pub struct SessionRecord {
     /// `list_job_questions` names which. Absent where none waits. Since 17 Nov 2026. `docs/concepts/job-story.md`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub answer_unread: bool,
+    /// The features the Job writes to now: each feature of a library it filed a written file under, once, in the library's
+    /// order, while it is live and holds a slot. The Jobs list groups by feature and by area from these. Empty for a Job that
+    /// writes to none and for one that has ended. Since 27 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<SessionFeature>,
+}
+
+/// A feature a Job writes to, with enough of its library to draw its heading and its area's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionFeature {
+    /// The project whose library holds it, by id.
+    pub project: String,
+    pub slug: String,
+    pub title: String,
+    /// The slug of its area, and the area's title.
+    pub area: String,
+    pub area_title: String,
+    /// Its area's place in the library and its own place in the area, so headings stand in the library's order.
+    pub area_place: u32,
+    pub place: u32,
 }
 
 /// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is

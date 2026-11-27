@@ -476,6 +476,17 @@ destructive = false
 confirms = false
 notes = "Moves the Jobs under the keys into one of his projects, or out to none: the row's own Job, or every Job selected where the row is among them. Opens the project picker, whose rows are his projects with their repositories under the name, then the copies of his other Mac's shared projects with that Mac named on the line, and No project last; a copy takes a Job only where it lists the Job's repository (`fleet.project_copy_not_member`); the project every Job stands in is ticked. Fleet's `set_session_project` writes it for live and ended Jobs alike, and the Jobs list regroups on the `session.changed` it publishes. Native only. Shifted because Pause (`p`) is the Jobs list's own bare key and carries no row. No glyph: `layers` means how many places a Job writes, so a project is not its meaning. A Job on another Mac is left off, with why, because Fleet answers it 404. The palette answers it as the row's own act, with ⌥⌘P, and as a command for the open Job. Taken 15 Nov 2026."
 
+[actions.start_sub_project]
+kind = "Action"
+tier = "Contextual"
+verb = "Start a sub project"
+icon = "boxes"
+shortcut = "S"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Groups the Jobs under the keys under a name he gives: the row's own Job, or every Job selected where the row is among them. Opens the naming sheet in the project picker's place, with the features those Jobs write to now under Comes with; Enter sends Fleet's `start_sub_project`, Esc leaves. The sub project heads the list in every grouping, and a live Job that writes to one of its features joins it there. Native only. Shifted as Move to project is: the Jobs list's bare keys are its own and carry no row, so a row act takes a capital. Taken 26 Nov 2026."
+
 [actions.deck_select]
 kind = "Action"
 tier = "Contextual"

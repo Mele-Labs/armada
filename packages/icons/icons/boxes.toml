@@ -1,0 +1,7 @@
+[icons.boxes]
+  means = "Three boxes stacked as one load: things he put together"
+  group = "Jobs list"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A sub project, the Jobs he grouped himself: its heading in the Jobs list, its chip on a feature's board, its naming sheet, and the row act that starts one. Never a feature or an area, which are `layers`, never a project, and never an Operator merge, which is `squares-unite`."
+  notes = "Proposed 26 Nov 2026 for sub projects in the Jobs list. Refused: `folder-plus`, reserved to adding a slot; `folder-tree`, reserved to a test map edge; `group`, reserved to a Cluster of Notes; `combine` and `squares-unite`, which say two things made one, where a sub project keeps its Jobs apart. Accent on the heading; tooltip on the menu act: Group the picked Jobs under a name."

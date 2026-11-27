@@ -260,7 +260,7 @@ impl StoryTab {
         labelled(button, Role::Button, said.to_string()).into_any_element()
     }
 
-    /// One row: its glyph, its title with what it says under it, then the opened mark, the portion of time and when. The timing wraps under the title when the pane is too narrow to hold both.
+    /// One row: its glyph, its title with what it says under it, then the portion of time and when. The timing wraps under the title when the pane is too narrow to hold both.
     fn render_entry(&self, flat: usize, entry: &Entry, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let open = self.unfolded.as_deref() == Some(entry.key.as_str());
         let on = self.focus.is_focused(window) && self.cursor == Some(flat) && self.region == Region::Rows;
@@ -278,7 +278,6 @@ impl StoryTab {
             .gap(px(1.))
             .child(div().w_full().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(entry.title.clone())))
             .when(!entry.says.is_empty(), |words| words.child(div().w_full().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(entry.says.clone()))));
-        let caret = column(look, look.length(token::SPACE_4)).child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_4), look.color(token::FG_SUBTLE)));
         let fill = look.color(if entry.spent.who == Who::You { token::STATUS_AWAITING_REVIEW } else { token::ACCENT });
         let spent_text = column(look, look.length(token::SPACE_12)).child(SharedString::from(entry.spent.said()));
         let spent_bar = div()
@@ -323,7 +322,7 @@ impl StoryTab {
             }))
             .child(mark)
             .child(words)
-            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().child(caret).child(spent).child(stamp));
+            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_3)).child(spent).child(stamp));
         let named = if entry.says.is_empty() { format!("{}, {}", entry.title, entry.when) } else { format!("{}, {}, {}", entry.title, entry.says, entry.when) };
         let line = labelled(line, Role::Button, named.clone());
         let frame = div().id(SharedString::from(format!("story-entry-{}", entry.key))).w_full().flex().flex_col();

@@ -82,6 +82,25 @@ struct FleetNotices(Vec<FleetNotice>);
 
 impl Global for FleetNotices {}
 
+/// The held states he closed, as they read when he did: each stays gone while it reads the same, and shows
+/// again once its words change, such as two Macs apart on another pair of builds.
+#[derive(Default)]
+struct ClosedNotices(Vec<FleetNotice>);
+
+impl Global for ClosedNotices {}
+
+fn notice_closed(notice: &FleetNotice, cx: &App) -> bool {
+    cx.try_global::<ClosedNotices>().is_some_and(|kept| kept.0.contains(notice))
+}
+
+/// He closed a held state: one closed before under the same id gives way to this one.
+fn close_notice(notice: FleetNotice, cx: &mut App) {
+    let mut closed = cx.try_global::<ClosedNotices>().map(|kept| kept.0.clone()).unwrap_or_default();
+    closed.retain(|one| one.id != notice.id);
+    closed.push(notice);
+    cx.set_global(ClosedNotices(closed));
+}
+
 /// The words of the agents' signed-out toast, and of its banner when no window is in front.
 const SIGNED_OUT_NEXT: &str = "Jobs stop at their next reply until it signs in again.";
 
@@ -127,6 +146,7 @@ fn signed_out_notice(cx: &App) -> Option<FleetNotice> {
         code: "",
         fault: true,
         act: Some(NoticeAct::SignIn { running: state.signing_in, account: state.account.into() }),
+        closable: false,
     })
 }
 
@@ -611,6 +631,7 @@ fn told(sentence: SharedString, retry: Option<Retry>, failure: Option<Failure>, 
 /// part before.
 pub fn at_rest(cx: &mut App) {
     cx.set_global(FleetNotices::default());
+    cx.set_global(ClosedNotices::default());
     cx.set_global(Told::default());
     cx.set_global(Rulings::default());
     cx.set_global(Holding::default());
@@ -1227,9 +1248,9 @@ impl Toasts {
         labelled(frame, Role::Alert, format!("Toast: {title}"))
     }
 
-    /// A state of Fleet: its edge, what is wrong and what to do, and its code. It has no close: it goes
-    /// when the state does. Copy debug info is on the Fleet popover.
-    fn fleet_toast(&self, notice: &FleetNotice, look: &Look) -> impl IntoElement {
+    /// A state of Fleet: its edge, what is wrong and what to do, and its code. It has no close, save one he may
+    /// leave as it is: it goes when the state does. Copy debug info is on the Fleet popover.
+    fn fleet_toast(&self, notice: &FleetNotice, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let edge = look.color(if notice.fault { token::STATUS_COMPLETED_FAILED } else { token::DEGRADED });
         // The agents' sign-in is the agent's state, not Fleet's, and carries no code.
         let (mark, source): (&str, SharedString) = match &notice.act {
@@ -1253,6 +1274,19 @@ impl Toasts {
                         .text_size(look.length(token::TEXT_2XS))
                         .child(notice.code),
                 )
+            })
+            .when(notice.closable, |head| {
+                let closing = notice.clone();
+                head.child(div().flex_1()).child(labelled(
+                    icon_button(SharedString::from(format!("toast-fleet-close:{}", notice.id)), "x", look.color(token::FG_SUBTLE), look)
+                        .tooltip(tip("Close"))
+                        .on_click(cx.listener(move |_, _, _, cx| {
+                            close_notice(closing.clone(), cx);
+                            cx.notify();
+                        })),
+                    Role::Button,
+                    format!("Close toast: {}", notice.headline),
+                ))
             });
         let body = div()
             .flex_1()
@@ -1780,7 +1814,7 @@ impl Render for Toasts {
         let shown: Vec<Toast> = if reading { Vec::new() } else { self.shelf.shown().into_iter().cloned().collect() };
         let last = shown.len().saturating_sub(1);
         // Fleet's states stand first, at the top of the stack: urgent, and held while they last.
-        let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default().into_iter().chain(signed_out_notice(cx)).collect();
+        let fleet: Vec<FleetNotice> = cx.try_global::<FleetNotices>().map(|kept| kept.0.clone()).unwrap_or_default().into_iter().chain(signed_out_notice(cx)).filter(|notice| !notice_closed(notice, cx)).collect();
         // Then what the app was told: presses Fleet did not take, each until he closes it.
         let told: Vec<TellOne> = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
         // Then what the Operator did with his dispatches and the reviews asked of him, each until he presses it or closes
@@ -1792,7 +1826,7 @@ impl Render for Toasts {
         };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let mut cards: Vec<AnyElement> = Vec::new();
-        cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look).into_any_element()));
+        cards.extend(fleet.iter().map(|notice| self.fleet_toast(notice, look, cx).into_any_element()));
         cards.extend(told.iter().map(|one| self.told_toast(one, look, cx).into_any_element()));
         cards.extend(ruled.iter().enumerate().map(|(at, one)| self.ruling_toast(one, shown.is_empty() && at + 1 == ruled.len(), look, cx).into_any_element()));
         cards.extend(shown.iter().enumerate().map(|(at, toast)| self.toast(toast, at == last, look, cx).into_any_element()));
@@ -2046,7 +2080,7 @@ mod reading_tests {
         });
         cx.update(|_, cx| {
             dispatched(OperatorDispatched { dispatch_id: "d".into(), manifest_id: "armada".into(), way: DispatchWay::Started, session_id: None, title: Some("Fix the build".into()) }, cx);
-            fleet(vec![FleetNotice { id: "slow", headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None }], cx);
+            fleet(vec![FleetNotice { id: "slow", headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None, closable: false }], cx);
         });
         let redraw = |cx: &mut gpui::VisualTestContext| {
             cx.run_until_parked();
@@ -2063,6 +2097,47 @@ mod reading_tests {
         redraw(cx);
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "and it shows when he is done");
+    }
+
+    fn apart(next: &str) -> FleetNotice {
+        FleetNotice { id: "builds-differ", headline: "Studio and Air are on different builds".into(), next: next.to_string().into(), code: "builds-differ", fault: false, act: None, closable: true }
+    }
+
+    #[gpui::test]
+    fn a_closed_builds_toast_stays_closed_for_those_builds_and_returns_for_new_ones(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            at_rest(cx);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx))
+        });
+        let redraw = |cx: &mut gpui::VisualTestContext| {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        };
+        let slow = FleetNotice { id: "slow", headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None, closable: false };
+        let first = "Studio runs 2947ff9, Air runs 4e5fe24. Refresh both Macs again.";
+        cx.update(|_, cx| fleet(vec![slow.clone(), apart(first)], cx));
+        redraw(cx);
+        assert!(!drawn(cx, Role::Button, "Close toast: Fleet is slow"), "a state of Fleet has no close");
+        let close = "Close toast: Studio and Air are on different builds";
+        let at = cx
+            .update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Button, close)).map(|one| one.shown))
+            .expect("the builds toast draws its close");
+        cx.simulate_click(at.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(!drawn(cx, Role::Alert, "Toast: Studio and Air are on different builds"), "closed");
+        cx.update(|_, cx| fleet(vec![slow.clone(), apart(first)], cx));
+        redraw(cx);
+        assert!(!drawn(cx, Role::Alert, "Toast: Studio and Air are on different builds"), "the same builds stay closed");
+        assert!(drawn(cx, Role::Alert, "Toast: Fleet is slow"));
+        cx.update(|_, cx| fleet(vec![slow, apart("Studio runs 13171cc, Air runs 88a22e7. Refresh both Macs again.")], cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Alert, "Toast: Studio and Air are on different builds"), "a new pair of builds shows again");
     }
 }
 
