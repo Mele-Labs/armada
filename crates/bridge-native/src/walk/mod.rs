@@ -3226,7 +3226,7 @@ pub static WALKS: &[Walk] = &[
             step("Its tile turns, edged blue, and the phrase is its brief", Verb::Look, "listitem", "Review the merge line change"),
             step("A Job whose run is over", Verb::Press, "row", "Finished calls"),
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit, Bash, WebFetch, Agent"),
-            step("Each kind done: grey, still on its last frame, each with its time", Verb::Look, "row", "Ran armada check"),
+            step("Each call done: its tinted tile, its words and its time", Verb::Look, "row", "Ran armada check"),
         ],
     },
     Walk {
