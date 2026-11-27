@@ -323,3 +323,46 @@ fn the_page_stands_to_the_right_of_a_card_where_it_fits_else_to_the_left() {
     assert_eq!(wide, want * 0.6);
     assert!((x + wide - px(900. - 8.)).abs() < px(0.01));
 }
+
+#[gpui::test]
+fn a_note_on_a_feature_sends_to_its_jobs_first_and_enter_sends_it_there(cx: &mut TestAppContext) {
+    let (layer, cx) = open(cx, vec![note("to-feature", Some(TWO), None)]);
+    let asked = Rc::new(std::cell::RefCell::new(Vec::new()));
+    let heard = Rc::clone(&asked);
+    let _heard = cx.update(|_, cx| cx.subscribe(&layer, move |_, said: &crate::annotate::Asked, _| heard.borrow_mut().push(said.clone())));
+    assert!(drawn(cx, Role::Button, "Job list and live status's Jobs"), "the first choice names the feature");
+    assert!(drawn(cx, Role::Button, "Send to job"), "the Job picker stays beside it");
+    // The send to the feature holds the keys Send to job holds on a note with no feature.
+    cx.update(|window, cx| {
+        let lead = layer.read(cx).card_keys.0.clone();
+        window.focus(&lead, cx);
+    });
+    settle(cx);
+    cx.simulate_keystrokes("enter");
+    // The harness presses a key and does not release it; a button takes the release as the click.
+    cx.update(|window, cx| {
+        use gpui::InputEvent as _;
+        window.dispatch_event(gpui::KeyUpEvent { keystroke: gpui::Keystroke::parse("enter").expect("a key") }.to_platform_input(), cx);
+    });
+    settle(cx);
+    let asked = asked.borrow();
+    match asked.as_slice() {
+        [crate::annotate::Asked::ToFeature { feature, paths, notes, .. }] => {
+            assert_eq!(feature, "Job list and live status");
+            assert_eq!(paths, &[TWO.to_string()]);
+            assert_eq!(notes, &["The row clips its title".to_string()]);
+        }
+        other => panic!("Enter sent {other:?}"),
+    }
+}
+
+#[gpui::test]
+fn the_jobs_a_feature_send_goes_to_are_named_under_it(cx: &mut TestAppContext) {
+    let (layer, cx) = open(cx, vec![note("named", Some(TWO), None)]);
+    let feature = layer.read_with(cx, |layer, cx| layer.feature_of(1, cx)).expect("the note maps to a feature");
+    assert_eq!(feature.title, "Job list and live status");
+    assert_eq!(
+        feature.jobs.iter().map(|job| job.title.as_str()).collect::<Vec<_>>(),
+        ["Keep the Jobs list at its place on refresh", "Show what a Job waits on in its row"]
+    );
+}

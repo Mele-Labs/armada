@@ -91,7 +91,8 @@ impl PrototypeWindow {
 
     /// The notes go to this Job. A new Job is not started from here.
     fn send_notes(&mut self, layer: Entity<Layer>, asked: &Asked, cx: &mut Context<Self>) {
-        let Asked::Send { to, .. } = asked;
+        // A prototype's notes go to its own Job: the layer offers no feature's send over it.
+        let Asked::Send { to, .. } = asked else { return };
         let title = self.job.title.to_string();
         if to.is_none() {
             layer.update(cx, |layer, cx| layer.refused("a new Job", "A prototype window sends notes to its own Job", cx));

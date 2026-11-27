@@ -239,6 +239,14 @@ impl Beside {
         cx.notify();
     }
 
+    /// The features of the note `key`, once read: none while the read is out.
+    pub(super) fn features_of(&self, key: &str) -> Vec<Mapped> {
+        match self.reads.get(key) {
+            Some(Read::Done(chips)) => chips.iter().map(|chip| chip.feature.clone()).collect(),
+            _ => Vec::new(),
+        }
+    }
+
     /// The chips of the opened note's card, once read.
     fn chips_of_shown(&self) -> &[Chip] {
         match self.shown.as_ref().and_then(|(_, key)| self.reads.get(key)) {

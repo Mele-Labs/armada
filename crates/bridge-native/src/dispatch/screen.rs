@@ -329,6 +329,16 @@ fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut C
     });
 }
 
+/// The ring's ink and the number's on a note's picture, from the look in force.
+fn notes_ink(cx: &App) -> annotate::live::Ink {
+    let look = crate::look::ActiveLook::look(cx);
+    let bytes = |name| {
+        let rgba = look.color(name).to_rgb();
+        [rgba.r, rgba.g, rgba.b, rgba.a].map(|part| (part * 255.).round() as u8)
+    };
+    annotate::live::Ink(bytes(crate::look::token::ACCENT), bytes(crate::look::token::TEXT_ON_ACCENT))
+}
+
 /// The layer over this screen. `seeded` reads back the notes a walk starts with, which a layer read back from
 /// its directory finds there instead.
 fn new_layer(area: &Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<super::face::Offered>, seeded: bool, cx: &mut Context<DispatchScreen>) -> Entity<Layer> {
@@ -897,6 +907,15 @@ impl DispatchScreen {
                 let running = held.jobs.iter().find(|record| record.operator && record.state == ipc::SessionState::Live && record.hosted.is_some());
                 running.map(|record| record.id.as_str().to_string().into())
             };
+            // The Job that took a note sent to a feature's Jobs, said on the note's card.
+            let told = layer.clone();
+            self._subs.push(cx.subscribe(&fleet, move |_, _, claimed: &crate::fleet::NotesClaimed, cx| {
+                told.update(cx, |layer, cx| {
+                    for one in &claimed.0 {
+                        layer.claimed(&one.note_id, one.session_id.as_str(), &one.title, cx);
+                    }
+                })
+            }));
             let operator = operator_of(&fleet, cx);
             layer.update(cx, |layer, cx| layer.set_operator(operator, cx));
             let watched = layer.clone();
@@ -911,7 +930,10 @@ impl DispatchScreen {
     /// A send from the layer, posted to the live Fleet: into the Job picked, or a new held Job started with the
     /// notes' words, as Classic's. The Job opens once Fleet took them; a refusal is said in the bar and a toast.
     fn send_notes(&mut self, layer: Entity<Layer>, asked: &annotate::Asked, window: &mut Window, cx: &mut Context<Self>) {
-        let annotate::Asked::Send { to, notes } = asked;
+        let (to, notes) = match asked {
+            annotate::Asked::Send { to, notes } => (to, notes),
+            annotate::Asked::ToFeature { feature, project, paths, notes } => return self.send_to_feature(layer, feature, project, paths, notes, window, cx),
+        };
         let Some(port) = self.fleet_port(cx) else {
             let title = to.as_ref().map_or_else(|| "a new Job".to_string(), |job| job.title.to_string());
             layer.update(cx, |layer, cx| layer.refused(&title, "Fleet is not connected", cx));
@@ -919,26 +941,15 @@ impl DispatchScreen {
         };
         let manifest = match to {
             Some(_) => None,
-            None => {
-                let repositories = self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().repositories.clone()).unwrap_or_default();
-                let served = live::served(&repositories);
-                let dir = crate::annotate::store::dir();
-                let here = served.iter().find(|one| dir.as_ref().is_some_and(|dir| dir.starts_with(&one.root))).or(served.first());
-                match here {
-                    Some(one) => Some(one.id.clone()),
-                    None => {
-                        layer.update(cx, |layer, cx| layer.refused("a new Job", "Fleet serves no repository to start it in", cx));
-                        return;
-                    }
+            None => match self.notes_repository(cx) {
+                Some(one) => Some(one),
+                None => {
+                    layer.update(cx, |layer, cx| layer.refused("a new Job", "Fleet serves no repository to start it in", cx));
+                    return;
                 }
-            }
+            },
         };
-        let look = crate::look::ActiveLook::look(&**cx);
-        let bytes = |name| {
-            let rgba = look.color(name).to_rgb();
-            [rgba.r, rgba.g, rgba.b, rgba.a].map(|part| (part * 255.).round() as u8)
-        };
-        let ink = annotate::live::Ink(bytes(crate::look::token::ACCENT), bytes(crate::look::token::TEXT_ON_ACCENT));
+        let ink = notes_ink(cx);
         let outgoing = layer.read(cx).outgoing();
         let to = to.clone();
         let words = notes.join("\n");
@@ -986,6 +997,52 @@ impl DispatchScreen {
                 Err((title, why)) => {
                     layer.update(cx, |layer, cx| layer.refused(&title, &why.to_string(), cx));
                     why.tell(format!("Notes not sent to \"{title}\""), cx);
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// The repository the notes are kept in, which a Job started for them starts in: the one Fleet serves whose root holds
+    /// the notes' directory, else the first it serves.
+    fn notes_repository(&self, cx: &App) -> Option<ipc::ManifestId> {
+        let repositories = self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().repositories.clone()).unwrap_or_default();
+        let served = live::served(&repositories);
+        let dir = crate::annotate::store::dir();
+        let here = served.iter().find(|one| dir.as_ref().is_some_and(|dir| dir.starts_with(&one.root))).or(served.first());
+        here.map(|one| one.id.clone())
+    }
+
+    /// The default send of a note on a feature: Fleet sends it to the feature's live Jobs, the first to claim it taking
+    /// it, or starts a Job for it at once, which opens.
+    #[allow(clippy::too_many_arguments)]
+    fn send_to_feature(&mut self, layer: Entity<Layer>, feature: &str, project: &str, paths: &[String], notes: &[String], window: &mut Window, cx: &mut Context<Self>) {
+        let to = format!("{feature}'s Jobs");
+        let (Some(port), Some(manifest)) = (self.fleet_port(cx), self.notes_repository(cx)) else {
+            layer.update(cx, |layer, cx| layer.refused(&to, "Fleet is not connected", cx));
+            return;
+        };
+        let ink = notes_ink(cx);
+        let outgoing = layer.read(cx).outgoing();
+        let (project, paths, words) = (project.to_string(), paths.to_vec(), notes.join("\n"));
+        let task = cx.background_spawn(async move { annotate::live::to_features(port, manifest, project, paths, words, outgoing, ink) });
+        let (list, feature) = (self.jobs.read(cx).list.clone(), feature.to_string());
+        cx.spawn_in(window, async move |_, cx| {
+            let answer = task.await;
+            let _ = cx.update(|_, cx| match answer {
+                Ok(ipc::NotesRouted { started: Some(job), .. }) => {
+                    let session = job.session_id.as_str().to_string();
+                    layer.update(cx, |layer, cx| {
+                        layer.sending_to(session.clone().into());
+                        layer.sent(&job.title, true, cx);
+                    });
+                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                }
+                // He stays where he was: which Job takes the note is theirs to say, and the card says it when one does.
+                Ok(_) => layer.update(cx, |layer, cx| layer.sent_to_feature(&feature, cx)),
+                Err(why) => {
+                    layer.update(cx, |layer, cx| layer.refused(&to, &why.to_string(), cx));
+                    why.tell(format!("Notes not sent to \"{to}\""), cx);
                 }
             });
         })

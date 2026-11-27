@@ -146,6 +146,30 @@ Fleet keeps the record per Job, holder and feature, so it holds across turns and
 A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
 A Fleet that is out or slow hands nothing and the read goes on.
 
+## A note on a screen
+
+A note he leaves on Bridge with the annotation layer goes to the Jobs of the feature its screen belongs to.
+Fleet routes it by rule, and the Jobs decide whose it is.
+
+> **Rule.** Fleet sends the note to every live Job on the feature, and the first Job to claim it takes it.
+> Why: the owner bounces between Jobs and cannot tell whose a note is; the agents read the change it asks for and know, and Fleet's part is the repeatable routing (the owner, 27 Nov 2026).
+
+A note knows the screen it was made on, and Bridge keeps one map from each screen to the modules that draw it (`crates/bridge-native/src/annotate/drawn_by.rs`).
+Those paths map to features as any file does, by [Which feature owns a file](#which-feature-owns-a-file), and the Jobs on them are the ones `list_features` names.
+
+| What Fleet finds | What happens to the note |
+|---|---|
+| Live Jobs on the feature | Each is sent the note, with a line naming the others and asking it to call `claim_note` with the note's id if the change is its own |
+| A Job claims it | It holds the note, whose file names it so its `mark_annotation_done` is served; the others are told which Job took it, and drop it; a later claim is refused, naming that Job |
+| No claim within three minutes | Fleet gives it to the live Job that last wrote one of the screen's files, else to the first Job on the feature, and tells both |
+| No live Job on the feature | Fleet starts one at once, titled with his words, with the notes as its first turn, and it holds them |
+| The paths map to no feature | Bridge offers its Job picker, as before |
+
+In the note's card the first choice, and the one Enter takes, is "<Feature>'s Jobs", with the Jobs named under it and "The first to claim it takes it."; with no Job live it reads "Start a Job for <Feature>".
+The Job picker and Start job stay beside it.
+After the send the card reads "Sent to <Feature>'s Jobs", and "<Job> took it" once Fleet publishes `note.claimed`.
+The wait is `note_claims::UNCLAIMED_AFTER`, chosen and not measured.
+
 ## Docs and tickets a Job read
 
 A page shows the docs and tickets that shaped a feature's work, as two lists of links beside the Jobs and pull requests.
@@ -685,7 +709,10 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them or in the order the librarian holds |
-| `get_features_of_path` | The features a file belongs to |
+| `get_features_of_path` | The features a file belongs to, each with the Jobs on it now |
+| `send_notes_to_features` | His notes on a screen, sent to the live Jobs on the features its files belong to, or to a Job started for them |
+| `claim_note` | A Job takes a note sent to several, the first claim winning |
+| `note.claimed` | A note sent to a feature's Jobs went to one of them |
 | `get_features_by_meaning` | The features of a project that some typed words are about, read by meaning with the local language model, for the dispatch sentence's feature blank |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |

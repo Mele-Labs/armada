@@ -176,6 +176,12 @@ impl Keeper {
     }
 }
 
+/// Where he is now in the window that keeps a history, for what is drawn there (`annotate::drawn_by`).
+pub fn now(cx: &App) -> Option<Place> {
+    let keeper = cx.try_global::<Live>()?.0.upgrade()?;
+    Some(keeper.read(cx).held.at.clone())
+}
+
 fn here(screen: &Entity<OperatorScreen>, overlay: &Entity<SettingsOverlay>, cx: &App) -> Place {
     let (front, job) = screen.read(cx).at(cx);
     Place { front, job, settings: overlay.read(cx).open }

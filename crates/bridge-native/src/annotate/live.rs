@@ -8,7 +8,10 @@ use std::sync::Arc;
 
 use base64::Engine as _;
 use gpui::{Bounds, Pixels};
-use ipc::{DispatchJob, DispatchMessage, DispatchThen, JobDispatched, ManifestId, NoteCrop, NoteElement, NotePlace, NoteState, SendSessionMessage, SendSessionMessageBody, SendSessionNotes, SessionId, SessionNote, SessionUpload, StartSession};
+use ipc::{
+    DispatchJob, DispatchMessage, DispatchThen, JobDispatched, ManifestId, NoteCrop, NoteElement, NotePlace, NoteState, NotesRouted, SendNotesToFeatures, SendSessionMessage, SendSessionMessageBody,
+    SendSessionNotes, SessionId, SessionNote, SessionUpload, StartSession,
+};
 use serde_json::Value;
 
 use crate::refusal::Failed;
@@ -171,6 +174,16 @@ pub fn deliver(port: u16, session: &str, notes: Vec<Outgoing>, ink: Ink) -> Resu
         post(port, "/sessions/message", ipc::encode(&SendSessionMessageBody { message, aim: None }), pictured(std::slice::from_ref(out)))?;
     }
     Ok(())
+}
+
+/// The notes to the live Jobs on the features the files `paths` draw, as one send: Fleet sends each Job the notes, a note
+/// on the window as a note too, or starts a Job with `words` where none is live.
+pub fn to_features(port: u16, manifest: ManifestId, project: String, paths: Vec<String>, words: String, notes: Vec<Outgoing>, ink: Ink) -> Result<NotesRouted, Failed> {
+    let pictures = pictured(&notes);
+    let notes = notes.iter().map(|out| note_of(out, ink)).collect();
+    let sent = SendNotesToFeatures { manifest_id: manifest, project: Some(project), paths, words, notes };
+    let bytes = post(port, "/sessions/notes_to_features", ipc::encode(&sent), pictures)?;
+    ipc::decode::<NotesRouted>("NotesRouted", &bytes).map_err(|why| Failed::from(why.to_string()))
 }
 
 /// What `dispatch_job` made of a new Job's notes.

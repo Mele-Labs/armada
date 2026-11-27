@@ -246,6 +246,11 @@ Only a note whose `sent.sessionId` is the calling job is marked: `status` become
 Answered with the `path` written.
 **It is a call on Fleet's door because the note may sit in a checkout the job holds no slot for**, such as the preview's, and the slot guard refuses that overwrite; the guard is not widened for it.
 
+**A note Fleet sent to every job on a feature is claimed first with `claim_note`** (`note_id`, `session_id` placed the same way).
+Until a job claims it, its `sent.sessionId` is empty and no job's `mark_annotation_done` is served.
+The first claim rewrites `sent` to name that job and gives the other jobs' artifacts of it back; a later claim is a 409 naming the job that took it.
+`../feature-catalog.md`, *A note on a screen*.
+
 **A note sent to a job is kept on it as an artifact of form `note`**, target `note:<id>`.
 Fleet keeps one when `send_session_note` or `send_session_notes` carries a `note_id`, and when a plain message names a window-scope note by its picture `annotation-<id>.png` or its line `- Note file: .armada/annotations/<id>.json`, whose file must exist.
 Its detail is `note`, `title`, `text`, `tag`, `component`, `screen`, `address`, `file` and `picture`, the last two absolute paths and the picture never inline, with `status` and `sent`.

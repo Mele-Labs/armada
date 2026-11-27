@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use gpui::{App, Task};
-use ipc::{FeatureLibrary, FeatureOfPath, FeaturesOfPath, PathHow};
+use ipc::{FeatureJob, FeatureLibrary, FeatureOfPath, FeaturesOfPath, PathHow};
 use serde_json::Value;
 
 use crate::settings::wire::{request, Ask, Refused};
@@ -29,6 +29,8 @@ pub struct Mapped {
     pub project: String,
     pub slug: String,
     pub title: String,
+    /// The Jobs on it now, which a note sent to the feature goes to.
+    pub jobs: Vec<FeatureJob>,
 }
 
 /// A file made relative to the repository `root`, as Fleet reads a path. One outside the repository has none.
@@ -44,10 +46,12 @@ pub fn relative(file: &str, root: Option<&Path>) -> Option<String> {
 }
 
 /// What a note's file records of where its element came from. `source` and `definition` are what Electron's layer
-/// stamps; a note the native layer wrote has neither, and a component only where it knew one.
+/// stamps; a note the native layer wrote has neither, and a component only where it knew one, but `paths`, the files
+/// that draw the screen it was made on (`annotate::drawn_by`).
 pub fn place_of(raw: &Value, root: Option<&Path>) -> Place {
     let mut place = Place::default();
-    for file in [&raw["source"]["file"], &raw["definition"]["file"]] {
+    let paths = raw["paths"].as_array().into_iter().flatten();
+    for file in [&raw["source"]["file"], &raw["definition"]["file"]].into_iter().chain(paths) {
         if let Some(file) = file.as_str().and_then(|file| relative(file, root)) {
             if !place.files.contains(&file) {
                 place.files.push(file);
@@ -70,7 +74,7 @@ pub fn merged(answers: &[FeaturesOfPath]) -> Vec<Mapped> {
     let mut found: Vec<Mapped> = Vec::new();
     for one in answers.iter().flat_map(|answer| &answer.features) {
         if !found.iter().any(|seen| seen.slug == one.slug && seen.project == one.project) {
-            found.push(Mapped { project: one.project.clone(), slug: one.slug.clone(), title: one.title.clone() });
+            found.push(Mapped { project: one.project.clone(), slug: one.slug.clone(), title: one.title.clone(), jobs: one.jobs.clone() });
         }
     }
     found.truncate(MOST);
@@ -131,7 +135,7 @@ pub fn by_component(library: &FeatureLibrary, names: &[String]) -> Vec<Mapped> {
                 held.extend(words(&row.title));
                 wanted.iter().all(|word| held.contains(word))
             })
-            .map(|row| Mapped { project: library.project.clone(), slug: row.slug.clone(), title: row.title.clone() })
+            .map(|row| Mapped { project: library.project.clone(), slug: row.slug.clone(), title: row.title.clone(), jobs: row.jobs_now.clone() })
             .take(MOST)
             .collect();
         if !found.is_empty() {
@@ -200,7 +204,15 @@ pub fn mock_of_path(path: &str) -> FeaturesOfPath {
         .flat_map(|(prefix, slugs)| slugs.iter().map(move |slug| (*prefix, *slug)))
         .filter_map(|(prefix, slug)| {
             let row = library.areas.iter().flat_map(|area| &area.features).find(|row| row.slug == slug)?;
-            Some(FeatureOfPath { project: library.project.clone(), slug: row.slug.clone(), title: row.title.clone(), area: row.area.clone(), how: PathHow::Prefix, prefix: Some(prefix.to_string()) })
+            Some(FeatureOfPath {
+                project: library.project.clone(),
+                slug: row.slug.clone(),
+                title: row.title.clone(),
+                area: row.area.clone(),
+                how: PathHow::Prefix,
+                prefix: Some(prefix.to_string()),
+                jobs: row.jobs_now.clone(),
+            })
         })
         .collect();
     FeaturesOfPath { path: path.to_string(), features }
