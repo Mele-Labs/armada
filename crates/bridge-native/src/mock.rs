@@ -185,6 +185,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "prototype" | "prototype-trouble" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" | "sketch-shapes" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
+        // One Job watching checkout-api after a deploy, its thread holding the live graphs.
+        "live-graphs" => include_bytes!("../fixtures/live-graphs-jobs.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
         "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
@@ -791,6 +793,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "prototype" | "prototype-trouble" => include_bytes!("../fixtures/tools-threads.json"),
         // The tool-rows threads, with the finished Job's retro being written and Search for the queue asking with previews.
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
+        "live-graphs" => include_bytes!("../fixtures/live-graphs-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
         "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "ready-to-try" => include_bytes!("../fixtures/sketch-card-threads.json"),
