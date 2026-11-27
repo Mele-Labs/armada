@@ -61,6 +61,7 @@ impl Differing {
             code: "builds-differ",
             fault: false,
             act: None,
+            closable: true,
         };
         (Some(notice), None)
     }
