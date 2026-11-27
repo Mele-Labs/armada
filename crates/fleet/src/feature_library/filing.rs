@@ -80,9 +80,11 @@ where
         }
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
+        let mut moved: Vec<String> = Vec::new();
         for (who, manifest, paths) in grown {
             let Who::Session(job) = who;
             let paths: Vec<String> = paths.into_iter().collect();
+            let was = store.features_of_job(&job).ok();
             for project in self.projects_of_job_in(&store, &job) {
                 if !store.project_has_features(&project).unwrap_or(false) {
                     continue;
@@ -91,7 +93,25 @@ where
                     let _ = filed_under(&mut store, &loaded, &job, &manifest, &paths, "write", &now);
                 }
             }
+            if store.features_of_job(&job).ok() != was && !moved.contains(&job) {
+                moved.push(job);
+            }
         }
+        // A Job's row carries the features it writes to: one that took on a feature goes out again.
+        let rows: Vec<ipc::SessionRecord> =
+            moved.iter().filter_map(|job| store.session(job).ok().flatten()).filter_map(|kept| self.ledger_row(&store, &kept).ok()).collect();
+        drop(store);
+        for row in rows {
+            self.publish(ipc::Event::SessionChanged(row));
+        }
+    }
+
+    /// Every Job's writes filed again against the library as it stands now, after the catalog was rewritten: a file a
+    /// feature took on since is filed under it.
+    pub(crate) async fn feature_writes_refiled(&self) {
+        let me = format!("{}:", std::ptr::from_ref(self) as usize);
+        filed_before().lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|key, _| !key.starts_with(&me));
+        self.feature_writes_filed().await;
     }
 
     /// A pull request Fleet attached to a Job, or one that merged: its files filed under the features that own them,

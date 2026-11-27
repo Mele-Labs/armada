@@ -164,6 +164,7 @@ where
                     message: prompt.as_str().to_string(),
                     group: None,
                     after: None,
+                    kind: None,
                 };
                 let held = self.another_session_started_by(job.to_string(), start).await.map_err(|why| why.error().message.clone())?;
                 let started = held.session_id.as_str();

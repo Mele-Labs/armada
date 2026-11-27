@@ -179,6 +179,8 @@ pub mod layout;
 pub mod key_bindings;
 /// Armada's own tools a person asks the agent for from the message box. `crates/core-model/domain/ask_tools.toml`.
 pub mod ask_tools;
+/// The kinds of Job a person's words are, and the workflow each starts on. `crates/core-model/domain/story_kinds.toml`.
+pub mod story_kinds;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
@@ -867,7 +869,7 @@ pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, CallTestFlaky, TestCalledFlaky, SessionFact, SessionId, SessionList,
-    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
+    SessionOrigin, ProposedField, SessionProposal, SessionFeature, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
