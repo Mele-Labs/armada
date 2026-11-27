@@ -82,6 +82,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 

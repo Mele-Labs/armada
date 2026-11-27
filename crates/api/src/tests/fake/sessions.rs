@@ -93,6 +93,7 @@ impl Sessions for FakeDaemon {
             clashes: Vec::new(),
             claims_unsent: false,
             answer_unread: false,
+            features: Vec::new(),
         })
     }
 

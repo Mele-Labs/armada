@@ -142,6 +142,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 

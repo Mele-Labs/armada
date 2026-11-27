@@ -296,7 +296,7 @@ pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use feature_decisions::KeptFeatureDecision;
 pub use features::{
     feature_state, gist_by as feature_gist_by, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
-    KeptFeatureMerge, KeptSection,
+    KeptFeatureMerge, KeptJobFeature, KeptSection,
 };
 pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
 pub use system_additions::{addition_state, KeptAddition};

@@ -63,6 +63,8 @@ pub(crate) struct LedgerReads {
     /// The Job's Judge readings, the oldest asked first.
     judge_readings: Vec<store::KeptJudgeReading>,
     touches: Vec<store::KeptTouch>,
+    /// The features it filed a file under, read only while it is live and holds a slot.
+    features: Vec<store::KeptJobFeature>,
     /// The pull requests the plan may land in: the Session's own and those of the Jobs its groups were handed to.
     pulls: Vec<crate::plan_record::PlanPull>,
     /// What the workflow rail is derived from.

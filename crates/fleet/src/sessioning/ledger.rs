@@ -234,6 +234,12 @@ where
             None => Vec::new(),
         };
         let red_pulls = self.red_pulls_of(store, &session.id, &held);
+        // A live Job holding no slot has stopped without ending, and is at work on nothing, as `jobs_now` has it.
+        let features = if session.state == store::SessionState::Live && held.iter().any(|one| one.kind == "slot" && one.state == AttachmentState::Standing) {
+            store.features_of_job(&session.id).map_err(fault)?
+        } else {
+            Vec::new()
+        };
         Ok(LedgerReads {
             values,
             wait,
@@ -253,6 +259,7 @@ where
             other_macs,
             judge_readings: store.judge_readings(&session.id).map_err(fault)?,
             touches: store.session_touches(&session.id).map_err(fault)?,
+            features,
             pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
@@ -398,6 +405,19 @@ where
             crate::plan_record::mark_listed(kept, &mut activity.todos);
         }
         record.touches = crate::plan_keeping::touches_wire(reads.touches);
+        record.features = reads
+            .features
+            .into_iter()
+            .map(|one| ipc::SessionFeature {
+                project: one.project,
+                slug: one.slug,
+                title: one.title,
+                area: one.area,
+                area_title: one.area_title,
+                area_place: one.area_position,
+                place: one.position,
+            })
+            .collect();
         record.judge_readings = self.judge_readings_on_record(&session.id, &reads.judge_readings);
         record.later = reads
             .later

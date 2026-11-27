@@ -2,25 +2,49 @@
 
 use super::*;
 
-/// Three live Jobs with nothing linking them: mock-01, mock-02 and mock-09.
+/// mock-01 writes to two features of one area, mock-02 to one, mock-09 to none.
+const ON: &[(&str, &str)] = &[("start-a-job", "mock-01"), ("job-list-and-live-status", "mock-01"), ("job-list-and-live-status", "mock-02")];
+
+/// What `job` writes to of [`ON`], as Fleet carries it on the Job's row: each feature with its area, read from the mock library.
+fn writes(job: &str) -> Vec<ipc::SessionFeature> {
+    let library = crate::features::mock::library();
+    let mut out = Vec::new();
+    for (area_place, area) in library.areas.iter().enumerate() {
+        for (place, feature) in area.features.iter().enumerate().filter(|(_, feature)| ON.contains(&(feature.slug.as_str(), job))) {
+            out.push(ipc::SessionFeature {
+                project: library.project.clone(),
+                slug: feature.slug.clone(),
+                title: feature.title.clone(),
+                area: area.slug.clone(),
+                area_title: area.title.clone(),
+                area_place: area_place as u32,
+                place: place as u32,
+            });
+        }
+    }
+    out
+}
+
+/// Three live Jobs with nothing linking them, mock-01, mock-02 and mock-09, each carrying what it writes to.
 fn three() -> Vec<SessionRecord> {
     let mut all: Vec<SessionRecord> = crate::mock::jobs("jobs-many").expect("the fixture decodes").into_iter().filter(|job| ["mock-01", "mock-02", "mock-09"].contains(&job.id.as_str())).collect();
     for job in &mut all {
         job.attachments.retain(|one| one.kind != "started_by");
         job.snoozed_until = None;
         job.mac = None;
+        job.features = writes(job.id.as_str());
     }
     all
 }
 
-/// mock-01 writes to two features of one area, mock-02 to one, mock-09 to none.
+/// The library a feature's board reads, with the same Jobs on its features.
 fn leads() -> leads::Leads {
-    let library = crate::features::mock::library_on(&[("start-a-job", "mock-01"), ("job-list-and-live-status", "mock-01"), ("job-list-and-live-status", "mock-02")]);
-    leads::Leads { libraries: vec![library], subs: Vec::new() }
+    leads::Leads { libraries: vec![crate::features::mock::library_on(ON)], subs: Vec::new() }
 }
 
+/// The list by `group`, with no library held: the headings come from the rows.
 fn grouped(group: Group) -> Vec<Line> {
-    lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], group, false, &leads())
+    lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], group, false, &leads::Leads::default())
 }
 
 /// Each heading, and each Job by id with its muted line, in the order drawn.
@@ -68,12 +92,12 @@ fn by_area_a_job_stands_once_under_its_area() {
 }
 
 #[gpui::test]
-fn the_view_menu_picks_by_feature_and_the_list_draws_the_libraries_it_holds(cx: &mut gpui::TestAppContext) {
+fn the_view_menu_picks_by_feature_and_the_headings_draw_at_once_from_the_rows_with_no_library_held(cx: &mut gpui::TestAppContext) {
     let list = cx.new(|cx| JobsList::mock(&three(), cx));
     list.update(cx, |list, cx| {
         list.pick_view("feature", cx);
         assert_eq!(list.group, Group::Feature);
-        list.hold_libraries(leads().libraries, cx);
+        assert!(list.leads.libraries.is_empty(), "no library is read before the headings draw");
         let headings: Vec<String> = list.lines.iter().filter_map(|line| match line { Line::Group(head) => Some(head.name.to_string()), _ => None }).collect();
         assert_eq!(headings, ["Start a Job", "Job list and live status", "No feature"]);
     });
@@ -92,7 +116,7 @@ fn sub(id: &str, name: &str, jobs: &[&str], features: &[&str]) -> ipc::SubProjec
 
 #[test]
 fn a_sub_project_heads_its_jobs_on_top_with_a_joined_one_and_each_still_stands_in_its_group() {
-    let mut held = leads();
+    let mut held = leads::Leads::default();
     // mock-01 he picked; mock-02 writes to the sub project's feature and joins it; one with no Job listed is not drawn.
     held.subs = vec![sub("s1", "Librarian rollout", &["mock-01"], &["job-list-and-live-status"]), sub("s2", "Gone quiet", &["mock-15"], &[])];
     let lines = lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], Group::State, false, &held);

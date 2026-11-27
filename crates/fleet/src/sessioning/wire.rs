@@ -229,6 +229,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 

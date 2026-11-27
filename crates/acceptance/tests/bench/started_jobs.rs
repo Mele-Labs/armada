@@ -135,6 +135,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 

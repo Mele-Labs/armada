@@ -2228,3 +2228,19 @@ Only the Operator composer stopped sending `dispatch_job`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Bridge sends no files, which a newer Fleet reads as none.
+
+## The features a Job writes to, on its row: `SessionRecord.features`
+
+Since 27 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/fleet/src/sessioning/ledger.rs`, `docs/concepts/feature-catalog.md`.
+**Additive only**: one optional field on an existing type and one new type, `SessionFeature`; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRecord.features` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Each feature the Job filed a written file under, once, in the library's order: `project`, `slug`, `title`, `area`, `area_title`, `area_place` and `place`. Set while the Job is live and holds a slot, the Jobs `jobs_now` holds; empty otherwise |
+
+**Why a field on the row.** The native Jobs list grouped by feature from every project's `list_features`, read before it could draw a heading.
+Fleet already files each written file under the features that own it, so the row reads what was filed, one query a live Job, and the headings draw with the Jobs.
+**When it goes out.** Fleet publishes `session.changed` for a Job whose features moved when it files the Job's writes, and files every Job's writes again after `upsert_features`.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older row carries no `features`, which reads as none.

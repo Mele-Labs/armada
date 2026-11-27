@@ -1,10 +1,10 @@
-//! The Jobs list by feature and by area: each project's library (`list_features`) read off the main thread, a heading for
-//! each feature or area, and a Job under every feature whose `jobs_now` holds it. Over every grouping, each sub project
-//! (`list_sub_projects`) heads its Jobs: the ones he picked, and the live Jobs that write to one of its features.
+//! The Jobs list by feature and by area: a heading for each feature or area the listed Jobs write to, and a Job under every
+//! feature its row's `features` names. Over every grouping, each sub project (`list_sub_projects`) heads its Jobs: the ones he
+//! picked, and the live Jobs that write to one of its features. A board reads its project's library (`list_features`).
 
 use super::*;
 
-/// How often the libraries are read again at most while the list wants them: one read can take a second.
+/// How often the libraries are read again at most while a board wants them: one read can take a second.
 const EVERY: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// What a heading leads to, beyond its words.
@@ -30,7 +30,7 @@ impl Lead {
     }
 }
 
-/// What the feature groupings read: each listed project's library, as Fleet last answered.
+/// What the boards read: each listed project's library, as Fleet last answered, and the sub projects.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Leads {
     pub(super) libraries: Vec<ipc::FeatureLibrary>,
@@ -49,33 +49,38 @@ pub(super) struct Shelf<'a> {
     pub jobs: Vec<&'a str>,
 }
 
-impl Leads {
-    /// Every feature, in the libraries' order, area by area.
-    pub(super) fn shelves(&self) -> Vec<Shelf<'_>> {
-        let mut out = Vec::new();
-        for library in &self.libraries {
-            for area in &library.areas {
-                for feature in &area.features {
-                    out.push(Shelf {
-                        key: format!("feature:{}/{}", library.project, feature.slug),
+/// Every feature the Jobs write to, from their rows, in the libraries' order: project by project, area by area.
+pub(super) fn shelves<'a>(jobs: impl IntoIterator<Item = &'a SessionRecord>) -> Vec<Shelf<'a>> {
+    let mut out: Vec<(&ipc::SessionFeature, Shelf<'a>)> = Vec::new();
+    for job in jobs {
+        for feature in &job.features {
+            match out.iter_mut().find(|(held, _)| held.project == feature.project && held.slug == feature.slug) {
+                Some((_, shelf)) => shelf.jobs.push(job.id.as_str()),
+                None => out.push((
+                    feature,
+                    Shelf {
+                        key: format!("feature:{}/{}", feature.project, feature.slug),
                         title: &feature.title,
-                        area_key: format!("area:{}/{}", library.project, area.slug),
-                        area_title: &area.title,
-                        project: &library.project,
+                        area_key: format!("area:{}/{}", feature.project, feature.area),
+                        area_title: &feature.area_title,
+                        project: &feature.project,
                         slug: &feature.slug,
-                        jobs: feature.jobs_now.iter().map(|job| job.session_id.as_str()).collect(),
-                    });
-                }
+                        jobs: vec![job.id.as_str()],
+                    },
+                )),
             }
         }
-        out
     }
+    out.sort_by(|(a, _), (b, _)| (&a.project, a.area_place, &a.area, a.place, &a.slug).cmp(&(&b.project, b.area_place, &b.area, b.place, &b.slug)));
+    out.into_iter().map(|(_, shelf)| shelf).collect()
+}
 
-    /// The titles of the features a Job writes to now, in the libraries' order.
-    pub(super) fn titles_of(&self, job: &str) -> Vec<String> {
-        self.shelves().into_iter().filter(|shelf| shelf.jobs.contains(&job)).map(|shelf| shelf.title.to_string()).collect()
-    }
+/// The titles of the features a Job writes to now, in the libraries' order.
+pub(super) fn titles_of(shelves: &[Shelf], job: &str) -> Vec<String> {
+    shelves.iter().filter(|shelf| shelf.jobs.contains(&job)).map(|shelf| shelf.title.to_string()).collect()
+}
 
+impl Leads {
     /// A feature by its project and slug, with its area's title.
     pub(super) fn feature(&self, project: &str, slug: &str) -> Option<(&ipc::FeatureRow, &str)> {
         let library = self.libraries.iter().find(|library| library.project == project)?;
@@ -89,21 +94,21 @@ impl Leads {
     pub(super) fn members<'a>(&self, sub: &ipc::SubProject, listed: &[&'a SessionRecord]) -> Vec<(&'a SessionRecord, Option<String>)> {
         let mut out: Vec<(&'a SessionRecord, Option<String>)> =
             sub.jobs.iter().filter_map(|id| listed.iter().find(|job| job.id == *id)).map(|job| (*job, None)).collect();
-        let shelves: Vec<Shelf> = self.shelves().into_iter().filter(|shelf| shelf.project == sub.project && sub.features.iter().any(|slug| slug == shelf.slug)).collect();
         for job in listed.iter().filter(|job| job.state == SessionState::Live) {
             if out.iter().any(|(held, _)| held.id == job.id) {
                 continue;
             }
-            if let Some(shelf) = shelves.iter().find(|shelf| shelf.jobs.contains(&job.id.as_str())) {
-                out.push((*job, Some(shelf.title.to_string())));
+            if let Some(feature) = job.features.iter().find(|feature| feature.project == sub.project && sub.features.contains(&feature.slug)) {
+                out.push((*job, Some(feature.title.clone())));
             }
         }
         out
     }
 
-    /// The titles of a sub project's features, as its library names them now.
-    pub(super) fn feature_titles(&self, sub: &ipc::SubProject) -> Vec<String> {
-        sub.features.iter().filter_map(|slug| self.feature(&sub.project, slug)).map(|(feature, _)| feature.title.clone()).collect()
+    /// The titles of a sub project's features, as its library names them now, else as a Job writing to one names it.
+    pub(super) fn feature_titles(&self, sub: &ipc::SubProject, jobs: &[SessionRecord]) -> Vec<String> {
+        let written = |slug: &str| jobs.iter().flat_map(|job| &job.features).find(|feature| feature.project == sub.project && feature.slug == slug).map(|feature| feature.title.clone());
+        sub.features.iter().filter_map(|slug| self.feature(&sub.project, slug).map(|(feature, _)| feature.title.clone()).or_else(|| written(slug))).collect()
     }
 }
 
@@ -119,10 +124,10 @@ pub(super) fn also_under(titles: &[String], under: &str) -> Option<SharedString>
 }
 
 impl JobsList {
-    /// Whether the list draws anything read from the libraries now: a feature grouping, a sub project with features, or the
-    /// naming sheet's Comes with.
+    /// Whether the list draws anything read from the libraries now: a feature's or a sub project's board. The headings draw
+    /// from the Jobs' own rows.
     fn wants_features(&self) -> bool {
-        matches!(self.group, Group::Feature | Group::Area) || self.naming.is_some() || self.leads.subs.iter().any(|sub| !sub.features.is_empty())
+        self.board().is_some()
     }
 
     /// The projects of the Jobs Fleet serves live, by id, each once.
@@ -134,8 +139,8 @@ impl JobsList {
         projects
     }
 
-    /// Read the sub projects again, and the libraries where the list draws from them, no sooner than [`EVERY`] after the last
-    /// read and never two at once. `now` reads at once, as a new grouping does.
+    /// Read the sub projects again, and the libraries where a board draws from them, no sooner than [`EVERY`] after the last
+    /// read and never two at once. `now` reads at once, as a new grouping or a board opening does.
     pub(super) fn refresh_leads(&mut self, now: bool, cx: &mut Context<Self>) {
         if self.leads_read.is_some() || self.fleet.is_none() {
             return;
@@ -249,7 +254,7 @@ impl JobsList {
     }
 
     /// The naming sheet for these Jobs, under the row as the project picker opens, or in the window's upper middle where the row
-    /// is not drawn. The libraries are read now, for what it comes with.
+    /// is not drawn.
     pub(crate) fn open_name_sheet(&mut self, ids: Vec<SharedString>, at: Option<Point<Pixels>>, window: &mut Window, cx: &mut Context<Self>) {
         let ids: Vec<SharedString> = ids.into_iter().filter(|id| self.record(id).is_some_and(|job| job.state == SessionState::Live)).collect();
         if ids.is_empty() {
@@ -273,7 +278,6 @@ impl JobsList {
             cx.notify();
         });
         self.naming = Some((sheet, dismissed));
-        self.refresh_leads(true, cx);
         cx.notify();
     }
 
@@ -294,7 +298,7 @@ impl JobsList {
     pub(crate) fn start_sub_project(&mut self, ids: &[SharedString], name: &str, cx: &mut Context<Self>) -> Task<Result<(), String>> {
         let body = self.sub_project_body(ids, name);
         if self.fleet.is_none() {
-            let features = self.leads.shelves().into_iter().filter(|shelf| shelf.project == body.project && body.jobs.iter().any(|id| shelf.jobs.contains(&id.as_str()))).map(|shelf| shelf.slug.to_string()).collect();
+            let features = shelves(&self.jobs).into_iter().filter(|shelf| shelf.project == body.project && body.jobs.iter().any(|id| shelf.jobs.contains(&id.as_str()))).map(|shelf| shelf.slug.to_string()).collect();
             let sub = ipc::SubProject {
                 id: format!("mock-sub-{}", self.leads.subs.len() + 1),
                 project: body.project,
@@ -390,6 +394,7 @@ impl JobsList {
         let keys = board.read(cx).focus().clone();
         self.board = Some((board, self.picks));
         window.focus(&keys, cx);
+        self.refresh_leads(true, cx);
         cx.notify();
     }
 

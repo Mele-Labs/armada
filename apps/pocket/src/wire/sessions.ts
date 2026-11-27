@@ -1022,6 +1022,26 @@ export type SessionRecord = {
    * `list_job_questions` names which. Absent where none waits. Since 17 Nov 2026. `docs/concepts/job-story.md`.
    */
   answer_unread?: boolean;
+  /**
+   * The features the Job writes to now: each feature of a library it filed a written file under, once, in the library's
+   * order, while it is live and holds a slot. The Jobs list groups by feature and by area from these. Empty for a Job that
+   * writes to none and for one that has ended. Since 27 Nov 2026.
+   */
+  features?: SessionFeature[];
+};
+
+/** A feature a Job writes to, with enough of its library to draw its heading and its area's. */
+export type SessionFeature = {
+  /** The project whose library holds it, by id. */
+  project: string;
+  slug: string;
+  title: string;
+  /** The slug of its area, and the area's title. */
+  area: string;
+  area_title: string;
+  /** Its area's place in the library and its own place in the area, so headings stand in the library's order. */
+  area_place: number;
+  place: number;
 };
 
 /**
