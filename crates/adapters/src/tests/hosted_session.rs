@@ -221,6 +221,19 @@ fn the_operator_is_told_no_job_id_and_runs_with_its_own_style() {
     assert!(!job.contains("outputStyle"), "a Job keeps the person's own style: {job}");
 }
 
+/// The Operator is told every story kind from `story_kinds.toml`, as the sheet offers them, so it can name one on a
+/// start; its rules keep no copy, and no placeholder is left in what it is told.
+#[test]
+fn the_operator_is_told_every_story_kind_from_the_file() {
+    let told = appended(&rendered(&launching(false, SessionMode::Auto).as_operator()));
+    assert!(!told.contains("{story_kinds}"), "{told}");
+    assert!(told.contains("`kind` on `start_another_job`"), "{told}");
+    for kind in ipc::story_kinds::story_kinds() {
+        assert!(told.contains(&format!("- `{}`, {}, \"{} …\": {}", kind.id, kind.name, kind.opening, kind.starts)), "{} is told: {told}", kind.id);
+    }
+    assert!(!crate::hosted_session::OPERATOR_RULES.contains("design_plan"), "the rules name no kind's workflow themselves");
+}
+
 /// The Operator's style is the mod's file of that name, so a rename of either fails here.
 #[test]
 fn the_operator_style_is_the_mods() {
