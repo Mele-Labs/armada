@@ -53,6 +53,17 @@ export type SessionLive = {
 };
 
 /**
+ * The last lines a background command has written, by the call that started it. Read from the
+ * command's output file while it runs, **kept nowhere**: gone when the command ends.
+ */
+export type TaskTail = {
+  /** The id of the call that started the command. */
+  call: string;
+  /** Its newest lines, oldest first, at most three, each cut short. */
+  lines: string[];
+};
+
+/**
  * What a hosted Session is doing. Absent from the row until its first tool call, and again once
  * it ends. Memory only: a Fleet that restarts starts it empty.
  */
@@ -81,4 +92,9 @@ export type SessionActivity = {
   account?: SessionAccount;
   /** The newest page the Session showed or served since the person's last message. */
   live?: SessionLive;
+  /**
+   * The newest lines of each background command still running. An entry goes when its command
+   * ends. Empty is none running, or none that has written.
+   */
+  tails?: TaskTail[];
 };

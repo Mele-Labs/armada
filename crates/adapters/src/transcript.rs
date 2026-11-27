@@ -251,6 +251,8 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
     };
 
     let mut reasoned = false;
+    let located = blocks.iter().filter_map(output_located);
+    let located: Vec<DroneEvent> = located.collect();
     let mut events: Vec<DroneEvent> = blocks
         .into_iter()
         .filter_map(|block| match block {
@@ -264,6 +266,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
             Block::ToolResult {
                 tool_use_id,
                 is_error,
+                ..
             } => Some(DroneEvent::Answered {
                 call: tool_use_id,
                 failed: is_error,
@@ -295,6 +298,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
             }),
         })
         .collect();
+    events.extend(located);
 
     if events.is_empty() {
         events.push(DroneEvent::Unrecognised {
@@ -617,6 +621,39 @@ struct Message {
     model: Option<String>,
 }
 
+/// A tool result's content: one string, or a list of parts of which only the text is read.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ResultContent {
+    Prose(String),
+    Parts(Vec<ResultPart>),
+}
+
+#[derive(Deserialize)]
+struct ResultPart {
+    #[serde(default)]
+    text: Option<String>,
+}
+
+/// What the harness says to a call it moved to the background, up to the path.
+const OUTPUT_AT: &str = "Output is being written to: ";
+
+/// Where a backgrounded command's output goes, from the call's result: `Command running in
+/// background with ID: <task>. Output is being written to: <path>. You will be notified ...`.
+/// **Read out of prose, as the exit code is**: a result that does not say so has no path, and a
+/// miss is an absent line and never a wrong one.
+fn output_located(block: &Block) -> Option<DroneEvent> {
+    let Block::ToolResult { tool_use_id, content: Some(content), .. } = block else { return None };
+    let text = match content {
+        ResultContent::Prose(text) => text.as_str(),
+        ResultContent::Parts(parts) => parts.iter().find_map(|part| part.text.as_deref().filter(|text| text.contains(OUTPUT_AT)))?,
+    };
+    let after = &text[text.find(OUTPUT_AT)? + OUTPUT_AT.len()..];
+    let line = after.lines().next()?;
+    let file = line.split(". You will be notified").next()?.trim().trim_end_matches('.');
+    file.starts_with('/').then(|| DroneEvent::OutputAt { call: tool_use_id.clone(), file: file.to_string() })
+}
+
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Content {
@@ -647,6 +684,9 @@ enum Block {
         tool_use_id: String,
         #[serde(default)]
         is_error: bool,
+        /// Read only for where a backgrounded command writes its output.
+        #[serde(default)]
+        content: Option<ResultContent>,
     },
     #[serde(rename = "text")]
     Text { text: String },

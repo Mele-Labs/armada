@@ -923,7 +923,7 @@ pub use loadout::{
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
 };
 pub use session_activity::{
-    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity,
+    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity, TaskTail,
 };
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
