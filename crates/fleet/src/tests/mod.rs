@@ -29,6 +29,7 @@ mod doc_checks;
 mod library_start;
 mod upkeep;
 mod floor_plan;
+mod sub_projects;
 mod project_pages;
 mod pre_pr;
 mod job_command;

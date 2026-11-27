@@ -118,6 +118,18 @@ impl Features for FakeDaemon {
         Ok(ipc::ModulesDrafted { project: draft.project, drafted: Vec::new(), held: Vec::new() })
     }
 
+    async fn start_sub_project(&self, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        Ok(ipc::SubProject { id: String::from("sp-1"), project: start.project, name: start.name, jobs: start.jobs, features: Vec::new(), started_at: ipc::Instant::carried("2026-11-26T12:00:00Z") })
+    }
+
+    async fn list_sub_projects(&self, _project: Option<String>) -> Result<ipc::SubProjects, Refusal> {
+        Ok(ipc::SubProjects { sub_projects: Vec::new() })
+    }
+
+    async fn ungroup_sub_project(&self, _ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
+        Ok(())
+    }
+
     async fn stop_librarian(&self, _caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {
         Ok(ipc::LibrarianStopping { project: stop.project, stopping: false })
     }

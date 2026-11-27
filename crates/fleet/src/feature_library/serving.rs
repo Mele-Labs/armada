@@ -135,6 +135,18 @@ where
         self.modules_drafted(caller, draft).await
     }
 
+    async fn start_sub_project(&self, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        self.sub_project_started(start).await
+    }
+
+    async fn list_sub_projects(&self, project: Option<String>) -> Result<ipc::SubProjects, Refusal> {
+        self.sub_projects_listed(project).await
+    }
+
+    async fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
+        self.sub_project_ungrouped(ungroup).await
+    }
+
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
     }

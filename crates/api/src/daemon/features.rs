@@ -124,6 +124,19 @@ pub trait Features: Send + Sync + 'static {
     /// where no module is found (`fleet.no_module`).
     fn draft_module_features(&self, caller: Option<crate::Caller>, draft: ipc::DraftModules) -> impl Future<Output = Result<ipc::ModulesDrafted, Refusal>> + Send;
 
+    /// `start_sub_project` — the Jobs the owner picked, kept under a name with the features whose live Jobs hold one of
+    /// them now. [`Refusal::Unacceptable`] for an empty name (`fleet.sub_project_no_name`) or no Jobs
+    /// (`fleet.sub_project_no_jobs`), [`Refusal::NotFound`] for a Job Fleet does not hold (`fleet.no_such_session`),
+    /// [`Refusal::IllegalMove`] for a Job not filed in the project (`fleet.sub_project_across_projects`).
+    fn start_sub_project(&self, start: ipc::StartSubProject) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
+
+    /// `list_sub_projects` — the sub projects of `project`, or of every project where it is `None`, oldest first.
+    fn list_sub_projects(&self, project: Option<String>) -> impl Future<Output = Result<ipc::SubProjects, Refusal>> + Send;
+
+    /// `ungroup_sub_project` — the sub project dropped, its Jobs untouched. [`Refusal::NotFound`] for an unknown id
+    /// (`fleet.no_such_sub_project`).
+    fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> impl Future<Output = Result<(), Refusal>> + Send;
+
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
     /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that

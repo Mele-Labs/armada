@@ -82,6 +82,22 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/features/start/draft",
     },
+    // A sub project is a group of Jobs, so it is a collection of its own and not a read of the library.
+    Route {
+        operation: "start_sub_project",
+        method: "POST",
+        path: "/sub_projects",
+    },
+    Route {
+        operation: "list_sub_projects",
+        method: "GET",
+        path: "/sub_projects",
+    },
+    Route {
+        operation: "ungroup_sub_project",
+        method: "POST",
+        path: "/sub_projects/ungroup",
+    },
     Route {
         operation: "seed_features",
         method: "POST",
