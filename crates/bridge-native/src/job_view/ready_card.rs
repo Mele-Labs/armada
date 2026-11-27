@@ -60,6 +60,8 @@ pub(super) enum Standing {
     Open,
     Later,
     Good,
+    /// He landed it without trying it in his preview.
+    Skipped,
     Rework,
     Withdrawn,
     Replaced,
@@ -70,6 +72,7 @@ impl Standing {
     pub(super) fn of(card: &ThreadReadyToTry, pressed: Option<&Answer>) -> Self {
         match pressed {
             Some(Answer::Approved) => return Standing::Good,
+            Some(Answer::Skipped) => return Standing::Skipped,
             Some(Answer::SentBack(_)) => return Standing::Rework,
             Some(Answer::Later(_)) => return Standing::Later,
             _ => {}
@@ -88,6 +91,7 @@ impl Standing {
         match self {
             Standing::Open | Standing::Later => "Ready to try",
             Standing::Good => "Looks good",
+            Standing::Skipped => "Skipped",
             Standing::Rework => "Needs rework",
             Standing::Withdrawn => "Withdrawn",
             Standing::Replaced => "Replaced by a newer build",
@@ -97,7 +101,7 @@ impl Standing {
     pub(super) fn ink(self) -> Token {
         match self {
             Standing::Open => token::STATUS_COMPLETED_SUCCESS,
-            Standing::Later | Standing::Replaced => token::STATUS_NOT_STARTED,
+            Standing::Later | Standing::Replaced | Standing::Skipped => token::STATUS_NOT_STARTED,
             Standing::Good => token::STATUS_COMPLETED_SUCCESS,
             Standing::Rework => token::STATUS_REJECTED,
             Standing::Withdrawn => token::STATUS_KILLED,
@@ -109,6 +113,7 @@ impl Standing {
             Standing::Open => "Waiting on you to try it",
             Standing::Later => "You asked to be reminded",
             Standing::Good => "You said it looks good",
+            Standing::Skipped => "You landed it without trying it",
             Standing::Rework => "You sent it back for rework",
             Standing::Withdrawn => "The Job took the offer back",
             Standing::Replaced => "The Job offered the branch again at a newer tip",
@@ -117,7 +122,7 @@ impl Standing {
 
     /// A build with nothing left to ask is one line in the thread.
     pub(super) fn folds(self) -> bool {
-        matches!(self, Standing::Good | Standing::Rework | Standing::Withdrawn | Standing::Replaced)
+        matches!(self, Standing::Good | Standing::Skipped | Standing::Rework | Standing::Withdrawn | Standing::Replaced)
     }
 
     /// A build still to answer: open, or put off until a time.
@@ -311,6 +316,7 @@ impl JobView {
         let (key, card) = (card.id.clone(), card.clone());
         Rc::new(move |this, act, window, cx| match act {
             Act::Approve => this.answer_ready(ix, &card, ReadyAnswer::LooksGood, window, cx),
+            Act::Skip => this.answer_ready(ix, &card, ReadyAnswer::Skip, window, cx),
             // With his words in the box the press sends them with the mark; with the box empty it puts the keys there.
             Act::Ask => {
                 let words = this.typed_in(&key, Mode::Note, cx).trim().to_string();
@@ -343,6 +349,7 @@ impl JobView {
         let Some(job) = self.shown.clone() else { return };
         let pressed = match &answer {
             ReadyAnswer::LooksGood => Answer::Approved,
+            ReadyAnswer::Skip => Answer::Skipped,
             ReadyAnswer::NeedsRework { words } => Answer::SentBack(words.clone()),
             ReadyAnswer::Remind { until } => Answer::Later(until.as_str().to_string()),
         };
@@ -824,7 +831,7 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The foot: Looks good, Needs rework and Show me how, a spacer, then Remind me. Needs rework opens its box under them.
+    /// The foot: Looks good, Needs rework, Show me how and Skip, a spacer, then Remind me. Needs rework opens its box under them.
     fn ready_footer(&self, foot: &Foot, card: &ThreadReadyToTry, parts: &Parts, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = foot.key.as_str();
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2));
@@ -834,7 +841,7 @@ impl JobView {
         if let Some(why) = page.cards.said.get(key) {
             column = column.child(refusal(look, key, why.clone()));
         }
-        let (good, rework, how) = (foot.run.clone(), foot.run.clone(), foot.run.clone());
+        let (good, rework, how, skip) = (foot.run.clone(), foot.run.clone(), foot.run.clone(), foot.run.clone());
         let button = |id: &str, said: &'static str, kind: Kind, cap: &str, on: bool| act(look, format!("{id}:{key}"), said, kind, cap, on).tab_index(0).focus_visible(|style| style.border_color(look.color(token::ACCENT)));
         let remind = page.keys.spot(&format!("remind:{key}"), cx);
         let drawn = remind.bounds.clone();
@@ -860,6 +867,11 @@ impl JobView {
                 button("how", "Show me how", Kind::Secondary, "3", shows).when(shows, |one| one.tooltip(tip("Go through the steps")).on_click(cx.listener(move |this, _, window, cx| how(this, Act::Open, window, cx)))),
                 Role::Button,
                 "Show me how",
+            ))
+            .child(labelled(
+                button("skip", "Skip", Kind::Secondary, "4", true).tooltip(tip("Land it without trying it in your preview")).on_click(cx.listener(move |this, _, window, cx| skip(this, Act::Skip, window, cx))),
+                Role::Button,
+                "Skip",
             ))
             .child(div().flex_1())
             .child(labelled(
@@ -1039,7 +1051,7 @@ impl JobView {
             ReadyState::Open | ReadyState::Later => {}
         }
         match asked.answer {
-            ReadyAnswer::LooksGood => (card.state, card.verdict, card.later_until) = (ReadyState::Answered, Some(NoteVerdict::Good), None),
+            ReadyAnswer::LooksGood | ReadyAnswer::Skip => (card.state, card.verdict, card.later_until) = (ReadyState::Answered, Some(NoteVerdict::Good), None),
             ReadyAnswer::NeedsRework { words } => {
                 if words.trim().is_empty() {
                     return Err("words on the note: there are none to send".into());
@@ -1155,6 +1167,15 @@ pub(super) mod tests {
         assert_eq!(Standing::of(&open, Some(&Answer::Approved)), Standing::Good);
         assert_eq!(Standing::of(&open, Some(&Answer::SentBack("More".into()))), Standing::Rework);
         assert_eq!(Standing::of(&open, Some(&Answer::Later("2026-11-16T09:00:00Z".into()))), Standing::Later);
+        assert_eq!(Standing::of(&open, Some(&Answer::Skipped)), Standing::Skipped);
+    }
+
+    /// A build he skipped is one line like one he approved, and says Skipped where that says Looks good.
+    #[test]
+    fn a_skipped_build_reads_skipped_and_folds() {
+        assert_eq!(Standing::Skipped.word(), "Skipped");
+        assert_ne!(Standing::Skipped.word(), Standing::Good.word());
+        assert!(Standing::Skipped.folds() && !Standing::Skipped.asks());
     }
 
     #[test]
@@ -1174,6 +1195,9 @@ pub(super) mod tests {
         assert_eq!(said["answer"], serde_json::json!({"kind": "needs_rework", "words": "Darker edge"}));
         let good: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::LooksGood).expect("it encodes")).expect("json");
         assert_eq!(good["answer"], serde_json::json!({"kind": "looks_good"}));
+        let skip: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::Skip).expect("it encodes")).expect("json");
+        assert_eq!(skip["answer"], serde_json::json!({"kind": "skip"}));
+        assert_eq!((skip["branch"].as_str(), skip["tip"].as_str()), (Some("native/chip"), Some("aaaa1111")));
         let remind: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::Remind { until: Instant::carried("2026-11-16T09:00:00+00:00") }).expect("it encodes")).expect("json");
         assert_eq!(remind["answer"], serde_json::json!({"kind": "remind", "until": "2026-11-16T09:00:00+00:00"}));
     }

@@ -182,7 +182,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // Two Jobs for Listen: one that ends, one that asks.
         "ways-listen" => include_bytes!("../fixtures/listen-jobs.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
-        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "prototype" | "prototype-trouble" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" | "sketch-shapes" => include_bytes!("../fixtures/jobs-tools.json"),
+        "tool-rows" | "artifact-parts" | "artifact-parts-answered" | "artifact-asides" | "artifact-folds" | "prototype" | "prototype-trouble" | "call-rows" | "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "sketch-reader" | "sketch-share" | "sketch-changes" | "sketch-lines" | "subagent" | "ready-to-try" | "walk-builds" | "sketch-shapes" => include_bytes!("../fixtures/jobs-tools.json"),
         // The tool-rows Jobs; two of them have a thread with the agent disputing a Fleet notice.
         "disputed-row" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job at work holding a subagent it sent more work after it finished, and one that finished.
@@ -326,7 +326,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     // A Job holding builds to try waits on him with one item, as Fleet raises it: `Ready to try`, named by the Job's id.
-    if scenario == "ready-to-try" {
+    if matches!(scenario, "ready-to-try" | "walk-builds") {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {
             let card = "try:tool-edit";
             let item = format!(r#"{{"id":"{card}","text":"Ready to try","since":"2026-11-15T14:02:00Z","source":"ready_to_try","artifact":"{card}","act":{{"kind":"message","target":"tool-edit"}}}}"#);
@@ -792,7 +792,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "call-rows" => include_bytes!("../fixtures/call-rows-threads.json"),
         // The tool-rows threads, with Edit the merge line putting a sketch to him: every kind of node, arrows with words, his ink and steps.
         // Edit the merge line putting two sketches to him: Freshness chip pinned, Merge line flow with its card in the thread.
-        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "ready-to-try" => include_bytes!("../fixtures/sketch-card-threads.json"),
+        "sketch-card" | "sketch-approve" | "sketches-several" | "sketch-band" | "thread-jump" | "ready-to-try" | "walk-builds" => include_bytes!("../fixtures/sketch-card-threads.json"),
         // The same two sketches, Freshness chip's mock drawn as a small form: a note may name the box, or an element inside the mock.
         "sketch-reader" => include_bytes!("../fixtures/sketch-reader-threads.json"),
         "sketch-share" => include_bytes!("../fixtures/sketch-share-threads.json"),
@@ -881,8 +881,20 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     // One Job holding four builds to try, one answered and three open: with what he approved beside what was built, with the shot
     // alone and with no picture. Another holds the ones settled, one line each, beside one put off.
-    if scenario == "ready-to-try" {
+    if matches!(scenario, "ready-to-try" | "walk-builds") {
         ready_cards(&mut all)?;
+    }
+    // The Job that showed three native walks built from its branch: one Fleet is still building, one built and waiting on him,
+    // and one whose build failed, so the Job was told and he was not.
+    if scenario == "walk-builds" {
+        if let Some(thread) = all.get_mut("tool-edit") {
+            for (id, title, name, state) in [("win-wb-1", "Walk bar buttons", "walkBarButtons", "building"), ("win-wb-2", "Strip marks", "stripMarks", "ready"), ("win-wb-3", "Toast pile", "toastPile", "failed")] {
+                let wire = format!(
+                    r#"{{"kind":"row","row":{{"kind":"window","id":"{id}","at":"2026-11-15T14:25:00Z","title":"{title}","url":"armada://walk/{name}","build":{{"state":"{state}","commit":"3f9c2ab","at":"2026-11-15T14:26:00Z"}}}}}}"#
+                );
+                thread.items.push(ipc::decode::<ipc::ThreadItem>("walk row", wire.as_bytes()).map_err(|why| why.to_string())?);
+            }
+        }
     }
     // The build to try was offered as long ago as its ask has waited.
     if scenario == "review-asks" {
