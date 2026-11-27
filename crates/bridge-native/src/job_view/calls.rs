@@ -347,6 +347,38 @@ mod tests {
     }
 
     #[test]
+    fn a_shell_grep_reads_as_a_search_and_names_what_it_searched() {
+        use super::super::tool_icons::Kind;
+        let line = r#"Bash grep -rn "fn place" crates/bridge-native/src"#;
+        assert_eq!(kind_of(line), Kind::Search);
+        assert_eq!(call_line(line, false), r#"Searched "fn place" crates/bridge-native/src"#);
+        assert_eq!(call_line(line, true), r#"Searching "fn place" crates/bridge-native/src"#);
+    }
+
+    #[test]
+    fn a_shell_sed_read_after_a_cd_reads_as_a_read_of_its_file() {
+        use super::super::tool_icons::Kind;
+        let line = "Bash cd x && sed -n 1,80p a/b.rs";
+        assert_eq!(kind_of(line), Kind::Read);
+        assert_eq!(call_line(line, false), "Read b.rs");
+    }
+
+    #[test]
+    fn a_shell_line_that_writes_a_file_or_lists_one_stays_a_run() {
+        use super::super::tool_icons::Kind;
+        assert_eq!(kind_of("Bash cat > f.rs <<EOF"), Kind::Run);
+        assert_eq!(call_line("Bash cat > f.rs <<EOF", false), "Ran cat");
+        assert_eq!(kind_of("Bash ls -la"), Kind::Run);
+        assert_eq!(call_line("Bash ls -la", false), "Ran ls");
+    }
+
+    #[test]
+    fn a_run_of_a_shell_grep_then_an_edit_folds_to_the_edit_and_a_grep_after_it_to_the_search() {
+        assert_eq!(calls_line(&[r#"Bash grep -rn "fn place" crates/bridge-native/src"#, "Edit crates/bridge-native/src/a.rs"], false), "Edited a.rs");
+        assert_eq!(calls_line(&["Edit crates/bridge-native/src/a.rs", r#"Bash grep -rn "fn place" crates/bridge-native/src"#], false), r#"Searched "fn place" crates/bridge-native/src"#);
+    }
+
+    #[test]
     fn a_briefed_agent_is_named_by_its_description_and_a_long_phrase_is_clipped() {
         assert_eq!(calls_line(&["Agent Read the docs index"], false), "Read the docs index");
         let long = format!("Agent {}", "x".repeat(60));

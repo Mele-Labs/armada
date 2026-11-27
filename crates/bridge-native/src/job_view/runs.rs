@@ -176,6 +176,20 @@ fn slide_phase(key: &str) -> f32 {
     gpui::ease_in_out((from.elapsed().as_millis() as f32 / SLIDE_MS as f32).min(1.))
 }
 
+/// A run's two newest thoughts, newest first, each as its row id and words.
+fn latest_thoughts(rows: &[SessionRow]) -> (Option<(&str, &str)>, Option<(&str, &str)>) {
+    let mut thoughts = rows.iter().rev().filter_map(|row| match row {
+        SessionRow::Reasoning { id, text, .. } => Some((id.as_str(), text.as_str())),
+        _ => None,
+    });
+    (thoughts.next(), thoughts.next())
+}
+
+/// What a live card's headline says: the run's newest thought, else the running call's phrase, else the last call's.
+fn headline_said(latest: Option<&str>, seen: &[Seen]) -> String {
+    latest.map(str::to_string).or_else(|| seen.iter().find(|one| one.running).or(seen.last()).map(|one| one.phrase.clone())).unwrap_or_default()
+}
+
 /// The card's headline (take A): one line, 14 at 600. A newer one slides in from below while the old goes up; while the
 /// agent thinks it pulses in opacity, where the mock's shimmer needs a gradient clipped to text.
 fn headline(look: &Look, key: &str, text: &str, before: Option<&str>, thinking: bool) -> AnyElement {
@@ -533,11 +547,7 @@ impl JobView {
         // A thought last in a live run means no call runs: the agent is thinking.
         let thinking = live && matches!(rows.last(), Some(SessionRow::Reasoning { .. }));
         let running_at = rows.iter().rposition(|row| !matches!(row, SessionRow::Reasoning { .. })).filter(|_| live && !thinking);
-        let mut thoughts = rows.iter().rev().filter_map(|row| match row {
-            SessionRow::Reasoning { id, text, .. } => Some((id.as_str(), text.as_str())),
-            _ => None,
-        });
-        let (latest, before) = (thoughts.next(), thoughts.next());
+        let (latest, before) = latest_thoughts(rows);
         let now = running_now(&job).to_rfc3339();
         // Each call as the strip draws it: its kind, its phrase and the time it took (so far, while it runs).
         let seen: Vec<Seen> = rows
@@ -573,7 +583,7 @@ impl JobView {
         let first = rows.first().map(SessionRow::at);
         let head = if live {
             let headline_key = latest.map_or_else(|| format!("call:{id}:{}", running_at.unwrap_or(0)), |(thought, _)| thought.to_string());
-            let said = latest.map(|(_, text)| text.to_string()).or_else(|| seen.iter().find(|one| one.running).or(seen.last()).map(|one| one.phrase.clone())).unwrap_or_default();
+            let said = headline_said(latest.map(|(_, text)| text), &seen);
             vec![
                 headline(look, &headline_key, &said, latest.and(before).map(|(_, text)| text), thinking),
                 div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().children(first.map(|at| timer(&job, &format!("run:{id}"), at, None, true, look))).into_any_element(),
@@ -992,5 +1002,39 @@ mod tests {
     fn a_notice_is_summed_up_by_its_first_sentence() {
         assert_eq!(summary_of("Your checks failed. Look at the log.\nMore"), "Your checks failed");
         assert_eq!(summary_of("One line."), "One line");
+    }
+
+    fn thought(id: &str, text: &str) -> SessionRow {
+        SessionRow::Reasoning { id: id.into(), at: ipc::Instant::carried("2026-11-26T10:00:00Z"), text: text.into() }
+    }
+
+    fn call(id: &str, text: &str) -> SessionRow {
+        SessionRow::Tool { id: id.into(), at: ipc::Instant::carried("2026-11-26T10:00:01Z"), text: text.into(), description: None, subagent: None, image: None, message: None }
+    }
+
+    fn seen_call(phrase: &str, running: bool) -> Seen {
+        Seen { at: 0, kind: Kind::Run, phrase: phrase.into(), time: String::new(), running }
+    }
+
+    #[test]
+    fn the_newer_of_two_thoughts_heads_the_run_and_the_older_slides_out() {
+        let rows = [thought("r1", "first"), call("t1", "Read a.rs"), thought("r2", "second"), call("t2", "Read b.rs")];
+        assert_eq!(latest_thoughts(&rows), (Some(("r2", "second")), Some(("r1", "first"))));
+    }
+
+    #[test]
+    fn a_thought_before_the_calls_still_counts_and_a_run_with_none_has_none() {
+        let rows = [thought("r1", "Looking at the router"), call("t1", "Read a.rs"), call("t2", "Grep b")];
+        assert_eq!(latest_thoughts(&rows), (Some(("r1", "Looking at the router")), None));
+        assert_eq!(latest_thoughts(&[call("t1", "Read a.rs")]), (None, None));
+    }
+
+    #[test]
+    fn the_headline_is_the_newest_thought_else_the_running_calls_phrase_else_the_last() {
+        let seen = [seen_call("Read a.rs", false), seen_call("Running cargo check", true), seen_call("Edited b.rs", false)];
+        assert_eq!(headline_said(Some("Weighing two options"), &seen), "Weighing two options");
+        assert_eq!(headline_said(None, &seen), "Running cargo check");
+        assert_eq!(headline_said(None, &seen[..1]), "Read a.rs");
+        assert_eq!(headline_said(None, &[]), "");
     }
 }
