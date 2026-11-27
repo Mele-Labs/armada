@@ -150,6 +150,20 @@ async fn a_resting_job_owing_a_walk_and_a_question_reads_waiting_and_needs_him()
     assert_eq!(mark(&rig, &id).await, reads(JobState::Waiting, JobLamp::Needs, JobGroup::Needs));
 }
 
+/// A Job whose turn ends with `said`, which may ask: a reply that asks stands Idle, not Replied.
+async fn ended(rig: &Rig, said: &str) -> SessionId {
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, said);
+    eventually(|| async {
+        let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+        record.last_turn_at.is_some() && record.hosted.is_some_and(|one| one.turn == SessionTurn::Idle)
+    })
+    .await;
+    id
+}
+
 /// A Ready to try card of the Job's branch, open in its thread.
 async fn a_card_open(rig: &Rig, id: &SessionId) {
     let at = rig.fleet.now();
@@ -161,7 +175,7 @@ async fn a_card_open(rig: &Rig, id: &SessionId) {
 #[tokio::test]
 async fn a_reply_that_only_points_at_the_open_ready_to_try_card_leaves_the_job_ready() {
     let rig = rig_placing(None);
-    let id = replied(&rig, "Built it.\n\nStill waiting for your Looks good on the Ready to try card.").await;
+    let id = ended(&rig, "Built it.\n\nStill waiting for your Looks good on the Ready to try card.").await;
     a_card_open(&rig, &id).await;
     assert_eq!(mark(&rig, &id).await, reads(JobState::Ready, JobLamp::Ready, JobGroup::Ready));
 }
@@ -170,7 +184,7 @@ async fn a_reply_that_only_points_at_the_open_ready_to_try_card_leaves_the_job_r
 #[tokio::test]
 async fn a_question_beside_the_open_ready_to_try_card_still_needs_him() {
     let rig = rig_placing(None);
-    let id = replied(&rig, "Built it.\n\nShould I also change the Pocket list once you've tried it?").await;
+    let id = ended(&rig, "Built it.\n\nShould I also change the Pocket list once you've tried it?").await;
     a_card_open(&rig, &id).await;
     assert_eq!(mark(&rig, &id).await, reads(JobState::Waiting, JobLamp::Needs, JobGroup::Needs));
 }
