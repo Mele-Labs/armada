@@ -348,7 +348,7 @@ mod telling {
     fn open_asks_come_first_and_each_artifact_goes_under_the_ask_he_last_spoke_on() {
         let entries = vec![ask("built", AskState::Built, 1, None), ask("open", AskState::Building, 10, Some(30))];
         let artifacts = [artifact("before", 0, ArtifactState::Approved), artifact("one", 5, ArtifactState::Approved), artifact("two", 20, ArtifactState::SentBack), artifact("three", 40, ArtifactState::Asking)];
-        let story = story_of(&SessionId::carried("s1"), entries, &artifacts);
+        let story = story_of(&SessionId::carried("s1"), entries, &artifacts, &[]);
 
         let order: Vec<&str> = story.asks.iter().map(|one| one.ask.ask_id.as_str()).collect();
         assert_eq!(order, ["open", "built"]);
@@ -360,9 +360,73 @@ mod telling {
         assert_eq!(story.lead, ["Ask open: being built", "Ask built: built"]);
     }
 
+    fn said(id: &str, minute: u32, from: ipc::SessionVoice, text: &str) -> ipc::SessionRow {
+        ipc::SessionRow::Message {
+            id: id.into(),
+            at: at(minute),
+            from,
+            text: text.into(),
+            files: Vec::new(),
+            tags: Vec::new(),
+            sketches: Vec::new(),
+            notice: None,
+            queued: false,
+            edited_at: None,
+            aside: None,
+        }
+    }
+
+    fn tool(id: &str, minute: u32) -> ipc::SessionRow {
+        ipc::SessionRow::Tool { id: id.into(), at: at(minute), text: "Read".into(), description: None, subagent: None, image: None, message: None }
+    }
+
+    #[test]
+    fn the_jobs_text_turns_between_two_asks_are_the_first_asks_replies() {
+        use ipc::SessionVoice::{Agent, You};
+        let rows = [
+            said("x-row", 0, Agent, "before any ask"),
+            said("a-row", 1, You, "first ask"),
+            said("r1", 2, Agent, "One."),
+            tool("t1", 3),
+            said("r2", 4, Agent, "  Two.  "),
+            said("blank", 5, Agent, "   "),
+            said("r3", 6, Agent, "Three."),
+            said("b-row", 10, You, "second ask"),
+            said("r4", 11, Agent, "Four."),
+        ];
+        let story = story_of(&SessionId::carried("s1"), vec![ask("a", AskState::Building, 1, None), ask("b", AskState::Building, 10, None)], &[], &rows);
+        let replies = |at: usize| story.asks[at].replies.iter().map(|one| (one.words.as_str(), one.at.as_str().to_string())).collect::<Vec<_>>();
+        assert_eq!(
+            replies(0),
+            [("One.", at(2).as_str().to_string()), ("Two.", at(4).as_str().to_string()), ("Three.", at(6).as_str().to_string())]
+        );
+        assert_eq!(replies(1), [("Four.", at(11).as_str().to_string())], "up to the end of the thread");
+    }
+
+    #[test]
+    fn a_tool_only_turn_or_an_ask_outside_the_thread_has_no_replies() {
+        use ipc::SessionVoice::{Agent, You};
+        let rows = [said("a-row", 1, You, "ask"), tool("t1", 2), tool("t2", 3), said("note", 4, Agent, "<system-reminder>x</system-reminder>")];
+        let mut elsewhere = ask("b", AskState::Backlog, 5, None);
+        elsewhere.ask.said_in = SessionId::carried("other");
+        let story = story_of(&SessionId::carried("s1"), vec![ask("a", AskState::Building, 1, None), elsewhere], &[], &rows);
+        assert!(story.asks.iter().all(|one| one.replies.is_empty()));
+    }
+
+    #[test]
+    fn a_long_reply_is_cut_at_a_word_with_an_ellipsis() {
+        use ipc::SessionVoice::{Agent, You};
+        let long = "word ".repeat(300);
+        let rows = [said("a-row", 1, You, "ask"), said("r", 2, Agent, &long)];
+        let story = story_of(&SessionId::carried("s1"), vec![ask("a", AskState::Building, 1, None)], &[], &rows);
+        let words = &story.asks[0].replies[0].words;
+        assert!(words.ends_with("word..."), "{words}");
+        assert!(words.chars().count() <= 603);
+    }
+
     #[test]
     fn a_job_with_no_asks_has_an_empty_story_and_its_artifacts_stand_apart() {
-        let story = story_of(&SessionId::carried("s1"), Vec::new(), &[artifact("a", 3, ArtifactState::Reading)]);
+        let story = story_of(&SessionId::carried("s1"), Vec::new(), &[artifact("a", 3, ArtifactState::Reading)], &[]);
         assert!(story.asks.is_empty() && story.lead.is_empty());
         assert_eq!(story.shown_otherwise.len(), 1);
     }

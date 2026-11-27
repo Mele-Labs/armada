@@ -194,6 +194,11 @@ where
         let Some(base) = served.manifest().base().map(str::to_string) else {
             return true;
         };
+        // **Listed before the queue is read**, so an entry made since is never a run's missing entry.
+        let runs = {
+            let base = base.clone();
+            self.forge_asked(served.root(), move |vcs: &V, root: &str| vcs.queue_runs(root, &base)).await
+        };
         let listed = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
                 vcs.merge_queue(root, &base)
@@ -204,7 +209,11 @@ where
             .lock()
             .await
             .queues
-            .insert(served.root().to_string(), listed);
+            .insert(served.root().to_string(), listed.clone());
+        // Never on a queue that would not answer, nor on runs that would not be listed.
+        if let Some(runs) = runs {
+            self.orphans_stopped(served, &runs, &listed).await;
+        }
         true
     }
 
@@ -490,7 +499,7 @@ where
                 .collect();
             (roots, by_hand)
         };
-        let (pulls, merged, runs, queues, elsewhere, held_back, checkout_sent, visits) = {
+        let (pulls, merged, runs, queues, elsewhere, held_back, checkout_sent, visits, stuck) = {
             let sweep = self.sweeping().lock().await;
             (
                 sweep.pulls.clone(),
@@ -501,6 +510,7 @@ where
                 sweep.held_back.clone(),
                 sweep.checkout_sent.clone(),
                 sweep.forge_visits.clone(),
+                sweep.queue_watch.iter().filter_map(|(root, watch)| Some((root.clone(), watch.stuck.as_ref()?.wire()))).collect::<BTreeMap<_, _>>(),
             )
         };
         let store = self.store().lock().await;
@@ -537,6 +547,7 @@ where
                 hub.forge_read_at = visits.get(&root).and_then(|it| it.read_at.as_ref()).map(instant);
                 hub.quiet_since = visits.get(&root).and_then(|it| it.quiet_since.as_ref()).map(instant);
                 hub.quiet_reason = visits.get(&root).and_then(|it| it.quiet_reason.clone());
+                hub.queue_stuck = stuck.get(&root).cloned();
                 if let Some(number) = by_hand.get(&root) {
                     for pull in hub.pull_requests.iter_mut().filter(|it| it.number == *number) {
                         pull.merge_by_hand = true;
@@ -636,6 +647,7 @@ pub(crate) fn hub_of(
         forge_read_at: None,
         quiet_since: None,
         quiet_reason: None,
+        queue_stuck: None,
     })
 }
 

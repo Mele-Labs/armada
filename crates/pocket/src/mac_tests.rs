@@ -103,6 +103,7 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         .route("/other_mac/session", get(thread))
         .route("/other_mac/artifacts", get(thread))
         .route("/other_mac/artifact_page", get(thread))
+        .route("/other_mac/margin", get(thread))
         .route("/other_mac/events", get(events))
         .route("/other_macs/sessions", put(keep))
         .route("/other_macs/bug_reports", put(keep))
@@ -548,7 +549,11 @@ async fn a_jobs_row_and_window_are_read_from_the_other_mac() {
 async fn a_jobs_artifacts_and_pages_are_read_from_the_other_mac() {
     let (home, work) = (Side::new("Home", &[]).await, Side::new("Work", &[]).await);
     paired(&home, &work).await;
-    for path in ["/other_mac/artifacts?session_id=s1", "/other_mac/artifact_page?session_id=s1&artifact=%2Fa.html&revision=2"] {
+    for path in [
+        "/other_mac/artifacts?session_id=s1",
+        "/other_mac/artifact_page?session_id=s1&artifact=%2Fa.html&revision=2&host_kit=true",
+        "/other_mac/margin?session_id=s1&document=a.html",
+    ] {
         let (status, body) = crate::read_other_mac(&home.gateway, &work.id(), path).await.unwrap();
         let asked = path.split_once('?').unwrap().1;
         assert_eq!((status, String::from_utf8(body).unwrap()), (200, format!(r#"{{"asked":"{asked}"}}"#)), "{path}");

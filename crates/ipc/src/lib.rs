@@ -52,6 +52,7 @@ mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
 mod librarian;
+mod librarian_asking;
 mod doc_checks;
 mod library_start;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
@@ -405,6 +406,7 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
@@ -629,7 +631,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QueueStuck, QueueStuckCause, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,
@@ -728,7 +730,7 @@ pub use session_import::{
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
     Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobFeature, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
-    StoryBuilt, StoryChanged, StoryHanded, StoryShown,
+    StoryBuilt, StoryChanged, StoryHanded, StoryReply, StoryShown,
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{

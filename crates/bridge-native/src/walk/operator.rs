@@ -3,7 +3,7 @@
 //! brought from it, Snooze, the feed, a card arriving, a refused and a lost answer, the Operator off in the card's place and
 //! switched on, the status card where nothing needs him: working, its session opened, watching, stopped and restarted, and
 //! a card that comes while the card is folded, waiting in the new-card strip, a Job's plan read in the Review panel over the
-//! page with the Operator's report page listed in it, a Job's build to try, and a question sent with no chip, which the
+//! page with the Operator's report page listed in it, a Job's build to try, and a question sent with no tag, which the
 //! Operator answers in the talk. Fleet is the mock in `operator/scenes.rs`; a
 //! step that names a scene is Fleet speaking first. The key map is the last step's.
 
@@ -31,7 +31,7 @@ const COMES: &str = "Checkout's coupon fix has a walk for you";
 const LATE: &str = "That time has passed. Pick a later one.";
 /// The Job whose plan comes in front.
 const PLAN_JOB: &str = "Fix the merge line freshness chip";
-/// His question to the Operator with no chip and no tag: a talk about no card.
+/// His question to the Operator with no tag: a talk about no card.
 const QUESTION: &str = "Which Jobs are running now?";
 
 pub static STEPS: [Step; 64] = [
@@ -94,7 +94,7 @@ pub static STEPS: [Step; 64] = [
     step("The panel's list heads the Operator apart from the Jobs. Its report page only informs, so the list does not hold it", Verb::Look, "heading", "Operator"),
     step("Esc shuts the panel and gives the keys back to the plan's card", Verb::Key("escape"), "article", PLAN_JOB),
     answer("A Job's build to try comes in front: the card its thread draws, with Looks good, Needs rework, Show me how and Remind me", "build-comes", "button", "Looks good"),
-    step("A press puts the keys in the box. It holds no tag and no chip is picked", Verb::Press, "textbox", "Message"),
+    step("A press puts the keys in the box. It holds no tag", Verb::Press, "textbox", "Message"),
     step("He asks the Operator a question", Verb::Typed(QUESTION), "textbox", "Message"),
     step("Enter sends it as a talk to the Operator about no card: his words join the talk with no About row, and the card in front stays as it is", Verb::Key("enter"), "listitem", "You: Which Jobs are running now?"),
     answer("The Operator answers in the talk. The talk now overflows its room, so the card in front folds to one line, as when the Operator says more", "said", "listitem", "Operator: Pocket, Jobs screens and the desktop_unit fix are running. None of them waits on you."),

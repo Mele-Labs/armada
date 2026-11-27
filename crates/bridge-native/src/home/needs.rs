@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use gpui::{div, prelude::*, AnyElement, Context, Entity, EventEmitter, FontWeight, MouseButton, Render, Role, SharedString, Subscription, Toggled, Window};
 use ipc::{JobLamp, Projects, SessionRecord, SessionState, WaitingSource};
 
+use crate::grid::View;
 use crate::jobs::JobsList;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
@@ -134,6 +135,10 @@ pub struct NeedsCards {
     cards: Vec<NeedCard>,
     /// Fleet has not yet said which Jobs there are.
     reading: bool,
+    /// Cards, or a line to a Job.
+    view: View,
+    /// The block's header is drawn by the grid it stands in, and carries the scope control: the block draws none of its own.
+    hosted: bool,
     _subs: Vec<Subscription>,
 }
 
@@ -145,7 +150,7 @@ impl NeedsCards {
         if let Some(bar) = crate::titlebar::live(cx) {
             subs.push(cx.observe(&bar, |this, _, cx| this.refresh(cx)));
         }
-        let mut this = NeedsCards { list, scope, selected: None, cards: Vec::new(), reading: false, _subs: subs };
+        let mut this = NeedsCards { list, scope, selected: None, cards: Vec::new(), reading: false, view: View::Cards, hosted: false, _subs: subs };
         this.refresh(cx);
         this
     }
@@ -159,6 +164,23 @@ impl NeedsCards {
         if scope != self.scope {
             self.scope = scope;
             self.refresh(cx);
+        }
+    }
+
+    /// Cards or lines, as the layout keeps it. Anything but a list is cards.
+    pub fn set_view(&mut self, view: View, cx: &mut Context<Self>) {
+        let view = if view == View::List { View::List } else { View::Cards };
+        if view != self.view {
+            self.view = view;
+            cx.notify();
+        }
+    }
+
+    /// The host draws the header, scope control and all: the block is its rows alone.
+    pub fn set_hosted(&mut self, hosted: bool, cx: &mut Context<Self>) {
+        if hosted != self.hosted {
+            self.hosted = hosted;
+            cx.notify();
         }
     }
 
@@ -225,7 +247,7 @@ impl NeedsCards {
     // -- drawn ---------------------------------------------------------------------------------
 
     /// The two segments of the scope: the project selected, and all of them. One height, one baseline.
-    fn scope_control(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    pub(crate) fn scope_control(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ring = ring_colour(look);
         let selected = self.selected_name(cx);
         let mut group = div().id("needs-scope").flex_none().flex().items_center().gap(look.length(token::SPACE_1));
@@ -303,6 +325,39 @@ impl NeedsCards {
             said,
         )
         .into_any_element()
+    }
+
+    /// A Job as one line: its mark, its title, the first thing it waits for, its age and, where the block spans projects, its project.
+    fn line(&self, card: &NeedCard, now: DateTime<Utc>, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let ring = ring_colour(look);
+        let id = card.id.clone();
+        let age = card.since.as_deref().and_then(|at| age(at, now));
+        let project = card.project.as_ref().filter(|_| self.scope == NeedsScope::All);
+        let element = div()
+            .id(SharedString::from(format!("needs-line-{}", card.id)))
+            .w_full()
+            .min_w_0()
+            .h(look.length(token::H_ROW_ACTION))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_SM))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(gpui::transparent_black())
+            .text_size(look.length(token::TEXT_XS))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .focusable()
+            .tab_stop(true)
+            .focus_visible(move |style| style.border_color(ring))
+            .on_click(cx.listener(move |this, _, _, cx| this.open(&id, cx)))
+            .child(glyph("bell-ring", look.length(token::SPACE_4), look.color(token::YOU)))
+            .child(div().flex_none().max_w(look.length(token::SPACE_12) * 4.).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(card.title.clone())))
+            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_MUTED)).child(SharedString::from(card.lines.first().cloned().unwrap_or_default())))
+            .children(project.map(|name| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(name.clone()))))
+            .children(age.map(|age| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(age))));
+        labelled(element, Role::Button, card.name()).into_any_element()
     }
 
     /// The Dashboard's card: a title with its mark and its age, what the Job waits for under them, and the project in a chip where
@@ -391,11 +446,14 @@ impl Render for NeedsCards {
             self.bones(look)
         } else if self.cards.is_empty() {
             self.empty(look, cx)
+        } else if self.view == View::List {
+            let lines: Vec<AnyElement> = self.cards.clone().iter().map(|card| self.line(card, now, look, cx)).collect();
+            labelled(div().id("needs-cards-list").flex().flex_col().children(lines), Role::List, "Jobs that need you").into_any_element()
         } else {
             let cards: Vec<AnyElement> = self.cards.clone().iter().map(|card| self.card(card, now, look, cx)).collect();
             labelled(div().id("needs-cards-list").flex().flex_wrap().gap(look.length(token::SPACE_2)).children(cards), Role::List, "Jobs that need you").into_any_element()
         };
-        let toolbar = div().flex_none().flex().items_center().h(look.length(token::H_ROW_ACTION)).px(look.length(token::SPACE_2)).child(self.scope_control(look, cx));
+        let toolbar = (!self.hosted).then(|| div().flex_none().flex().items_center().h(look.length(token::H_ROW_ACTION)).px(look.length(token::SPACE_2)).child(self.scope_control(look, cx)));
         div()
             .id("home-needs-cards")
             .size_full()
@@ -403,7 +461,7 @@ impl Render for NeedsCards {
             .flex_col()
             .font_family(sans(look))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(toolbar)
-            .child(div().id("needs-body").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_2)).pb(look.length(token::SPACE_2)).child(body))
+            .children(toolbar)
+            .child(div().id("needs-body").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_2)).pb(look.length(token::SPACE_2)).when(self.hosted, |body| body.pt(look.length(token::SPACE_2))).child(body))
     }
 }

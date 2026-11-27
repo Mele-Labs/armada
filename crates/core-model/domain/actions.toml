@@ -876,6 +876,17 @@ destructive = false
 confirms = false
 notes = "Opens the sheet of places Armada remembers a change runs, by repository and area, from anywhere on the Reviews tab outside a text box. Each can be edited or forgotten there. `W` is the capital: `w` is `call_recall`, in the dashboard scope."
 
+[actions.review_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "J"
+scope = "review"
+destructive = false
+confirms = false
+notes = "Opens the box of judge types under Judge in the head of the open pull request, where a Job holds it; a pull request no Job holds has no Judge, since Reviews' own review tools read it. Nothing is read until Judge is pressed in the box. The reading is the holding Job's, of kind `pull_request` and id the number. The button and the inbox row show it going, then a dot where notes wait or a check where it found nothing, and its notes stand under Review comments with Send to job and Dismiss. `POST /sessions/judge`."
+
 [actions.issues_panel]
 kind = "Action"
 tier = "Contextual"
@@ -2133,3 +2144,50 @@ scope = "project board"
 destructive = false
 confirms = false
 notes = "Shows the block that has focus in the next of the views its data fits: List, Table, Cards or Picture, and round again. Native only, 23 Nov 2026."
+
+# ---------------------------------------------------------------- home (the Cockpit's blocks)
+
+[actions.home_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the Cockpit's blocks"
+icon = "pencil"
+shortcut = "e"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Turns the Cockpit's home, the blocks on its right side while no Job is open, between drawn and edited. While it is edited a block's header is a handle that moves it, its corner resizes it, and the arrows below act on the block that has focus. Its own scope and its own rows so that rebinding the Dashboard's keys leaves the home's where they were. Native only, 26 Nov 2026."
+
+[actions.home_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move a home block"
+icon = ""
+shortcut = "← / → / ↑ / ↓"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Moves the block that has focus one cell on the home's six-column grid, while the home is edited. The blocks it meets settle round it. Native only, 26 Nov 2026."
+
+[actions.home_resize]
+kind = "Motion"
+tier = "Contextual"
+verb = "Resize a home block"
+icon = ""
+shortcut = "⇧← / ⇧→ / ⇧↑ / ⇧↓"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Narrows, widens, shortens or lengthens the block that has focus by one cell, while the home is edited, between two columns and the grid's width. Native only, 26 Nov 2026."
+
+[actions.home_block_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Change the view of a home block"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Shows the block that has focus in the next of the views its data fits, and round again. Only the Needs you block has two: List and Cards. Native only, 26 Nov 2026."

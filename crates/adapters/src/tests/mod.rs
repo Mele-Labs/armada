@@ -15,6 +15,7 @@ mod api_forge_checks;
 mod api_forge_issues;
 mod api_forge_lists;
 mod api_forge_pulls;
+mod api_forge_queue_runs;
 mod api_forge_reads;
 mod api_forge_writes;
 mod beads;

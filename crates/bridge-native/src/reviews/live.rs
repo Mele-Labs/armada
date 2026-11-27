@@ -17,6 +17,7 @@ use crate::fleet::{FleetConnection, ReviewListsMoved, ReviewRunsMoved};
 use crate::job_view::pane_tree::Arrangement;
 use crate::job_view::wire::encoded;
 
+mod judge;
 mod kept;
 pub(super) mod map;
 
@@ -152,6 +153,7 @@ impl ReviewsScreen {
         this.drafts = Vec::new();
         this.sent_findings = HashMap::new();
         this.review_tools = Vec::new();
+        this.judging.mock.clear();
         let moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewRunsMoved, window, cx| this.runs_moved(moved, window, cx));
         let lists_moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewListsMoved, window, cx| this.lists_moved(moved, window, cx));
         this.live = Some(Live {

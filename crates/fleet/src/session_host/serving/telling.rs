@@ -333,6 +333,11 @@ where
         self.first_message(session, from, text, true).await
     }
 
+    /// A message in `from`'s voice with what it carries, files and tags kept as a Job's message keeps them.
+    pub(crate) async fn message_from(self: &Arc<Self>, sent: SendSessionMessage, from: SessionVoice) -> Result<(), Refusal> {
+        Arc::clone(self).send_hosted_written(sent, Written::Message(from), None, None, false).await.map(|_| ())
+    }
+
     async fn first_message(
         self: &Arc<Self>,
         session: &str,

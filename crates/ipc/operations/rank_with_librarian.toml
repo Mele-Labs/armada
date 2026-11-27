@@ -1,0 +1,15 @@
+[operations.rank_with_librarian]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Have a project's librarian rank the issues he might pick up and the pull requests he might be interested in, with a short why on each. Give the project's id"
+notes = """
+`POST /features/librarian/rank`, body `RankWithLibrarian`: `project`. Answered with `RankedIssues` as `list_ranked_issues` answers, ranked by the librarian: `by_librarian` says when, and each row it ranked carries `why`, at most 80 characters.
+
+**One model call, on his press.** The small model (`models.dispute`) reads both might-lists, each row with the features it matched, and the features his recent Jobs worked on, and answers one line a row in the order it ranks them. It spends one call of the night's `features.librarianAskShare`, as an ask does, and a call that failed is still spent.
+
+**The ranking is held in Fleet's memory, for each project**, until `forget_librarian_ranking`, the Undo of an ask that ranked, or a restart. While it is held `list_ranked_issues` answers the rows it names first, in its order with their why, and the rest after them in feature order. A call that failed or named no row changes nothing: the lists stay as they were. Empty lists ask nothing and spend nothing.
+
+**Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. The night's limit spent, 409 `fleet.librarian_asks_spent`. Refused as `list_ranked_issues` is where the lists do not read. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
+"""

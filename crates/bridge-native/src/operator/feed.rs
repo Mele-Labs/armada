@@ -1,4 +1,5 @@
-//! The feed in the column at the right: what happened since he last looked and needs no decision from him, newest first.
+//! The feed in the column at the right: what happened since he last looked and needs no decision from him, newest first,
+//! under Working, the cards he picked that the Operator is still carrying out.
 //! One row for each entry: a glyph that says its kind in its own hue, its title, what was said under it, and its time. A row
 //! with a Job opens it. It draws what `operator_page` serves in `feed` and derives nothing.
 
@@ -25,15 +26,24 @@ impl OperatorPageView {
             .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Since you last looked"))
             .child(div().flex_1())
             .children(page.looked_at.as_ref().map(|at| self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)));
-        // What the Operator is working on stands first, newest pick first, above what already happened.
-        let working = page.working.iter().map(|turn| self.working_row(turn, look, cx));
         let rows = page.feed.iter().enumerate().map(|(at, entry)| self.feed_row(at, entry, look, cx));
         labelled(
-            div().id("operator-feed").flex().flex_col().gap(look.length(token::SPACE_1)).child(labelled(head, Role::Heading, since.map_or("Since you last looked".to_string(), |since| format!("Since you last looked, {since}")))).children(working).children(rows),
+            div().id("operator-feed").flex().flex_col().gap(look.length(token::SPACE_1)).child(labelled(head, Role::Heading, since.map_or("Since you last looked".to_string(), |since| format!("Since you last looked, {since}")))).children(rows),
             Role::Region,
             "Since you last looked",
         )
         .into_any_element()
+    }
+
+    /// Working: the cards he picked that the Operator is still carrying out, newest pick first, in a group of their own above
+    /// what already happened. None while there are none.
+    pub(super) fn working_group(&self, page: &OperatorPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if page.working.is_empty() {
+            return None;
+        }
+        let head = div().id("working-head").pb(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Working");
+        let rows = page.working.iter().map(|turn| self.working_row(turn, look, cx));
+        Some(labelled(div().id("operator-working").flex().flex_col().gap(look.length(token::SPACE_1)).child(labelled(head, Role::Heading, "Working")).children(rows), Role::Region, "Working").into_any_element())
     }
 
     /// A card he picked that the Operator has not settled: a turning ring, his option as the title, the card's own title under it

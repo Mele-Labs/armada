@@ -165,7 +165,7 @@ fn lines(main: Option<MainStanding>, open: Vec<HubPullRequest>, merged: Vec<ipc:
             off: Vec::new(),
             landed: Vec::new(),
             sent_back: Vec::new(),
-            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing_session: None, fixing_elsewhere: None, checkout: None, forge_read_at: None, quiet_since: None, quiet_reason: None }),
+            hub: Some(MergeLineHub { main, pull_requests: open, merged, fixing_session: None, fixing_elsewhere: None, checkout: None, forge_read_at: None, quiet_since: None, quiet_reason: None, queue_stuck: None }),
         }],
     }
 }

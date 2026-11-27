@@ -2124,6 +2124,25 @@ Electron reads none of it. The native strip says GitHub is rate-limiting us, unt
 An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
 **The event stream.** Both events carry their type whole, so they carry the field; no new event.
 
+## When the merge queue is stuck: `MergeLineHub.queue_stuck`, `MergeLineView.queue_stuck`
+
+Since 25 Nov 2026. `docs/practices/protocol/the-merge-line-fleet-reads.md`.
+**Additive only**: one optional field on two existing types, and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, and there is no number to take.
+It has no TypeScript half: Classic was deleted before it landed, and the native strip is its only reader.
+The native strip draws an amber band under the red one.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, absent while the queue moves: `QueueStuck` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, the hub's as it is |
+| `QueueStuck` | Fleet writes, Bridge reads | `since`, an instant: when Fleet first saw it stuck. `cause`. `job?`: the failing job as the forge names it, absent for a plain wait. `pulls`: the pull requests still in the queue, in queue order. `log_url?`: the failed job's page |
+| `QueueStuckCause` | Fleet writes, Bridge reads | Tagged by `kind`: `no_runner`, `timed_out`, `past_estimate` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as a queue that moves.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.
+
 ## When he was asked to review: `PullReviewRow.asked_at`
 
 Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
@@ -2190,3 +2209,20 @@ A drawing beside takes, and a second ask on one artifact, are refused the same w
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet sends no `answers` and no `question`, which a newer Bridge reads as none.
 **The event stream.** The record is carried whole, so it carries `answers`; no new event.
+
+## A talk to the Operator carries files: `attachments` and `mentions` on `TalkToOperator`
+
+Since 26 Nov 2026. `docs/concepts/operator.md`, *The page*.
+The owner ruled it on 25 Nov 2026: the Operator composer has no kind chips, every send is a talk, and the Operator reads the kind from his words.
+**Additive only**: two optional fields on one existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and the operation file, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `TalkToOperator` (`talk_to_operator`) | Bridge writes, Fleet reads | Gains `attachments`, the `SessionUpload`s he sent with the words, and `mentions`, the `SessionTag`s in them; each absent when empty. With `about` or without, they reach the Operator's session as a Job's message's do |
+
+**`dispatch_job` and `DispatchKind` stay**: crash reports, error toasts, Pocket and a kept idea's Start send them.
+Only the Operator composer stopped sending `dispatch_job`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Bridge sends no files, which a newer Fleet reads as none.

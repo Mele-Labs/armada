@@ -1,204 +1,235 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, TimeZone, Utc};
 use gpui::{div, prelude::*, Role, TestAppContext, VisualTestContext, Window};
-use ipc::{ArtifactState, SessionId};
+use ipc::{ArtifactState, PullRequestCommit, SessionId};
 
 use super::mock::{self, JOB};
-use super::model::{self, decided, Built};
-use super::{Region, StoryTab};
+use super::model::{self, Built, Card, Entry, Filter, Kind, Link, Merge, Spent, Who};
+use super::{Region, StoryEvent, StoryTab};
 use crate::features::overlay::{Content, FeatureOverlay, OverlayEvent, Source};
 use crate::features::page::FeaturePageEvent;
-use crate::features::page_model::{day, Hue};
 use crate::features::story_link::{self, StoryRequest};
 
 fn at(day: u32, hour: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 11, day, hour, 0, 0).unwrap()
 }
 
-fn built() -> Built {
-    model::build(&mock::story(JOB), &mock::titles(), &mock::features())
+/// The moment the mock story is read at.
+fn now() -> DateTime<Utc> {
+    at(17, 12)
 }
 
-fn row_texts(card: &model::Card) -> Vec<String> {
-    card.rows.iter().map(|row| row.text.clone()).collect()
+fn built() -> Built {
+    model::build(&mock::story(JOB), &mock::titles(), &mock::features(), now())
+}
+
+fn keys(built: &Built) -> Vec<&str> {
+    built.entries.iter().map(|entry| entry.key.as_str()).collect()
+}
+
+fn entry(key: &str, kind: Kind, at: DateTime<Utc>, waiting: bool) -> Entry {
+    Entry { key: key.into(), kind, at, title: key.into(), says: String::new(), waiting, when: String::new(), spent: Spent::NONE, card: Card::default() }
 }
 
 // ---- the model -------------------------------------------------------------------------------
 
 #[test]
-fn asks_are_numbered_in_the_order_fleet_gave_them() {
+fn the_rows_stand_oldest_first_whatever_ask_they_belong_to_with_fleets_order_breaking_a_tie() {
     let built = built();
-    let said: Vec<(&str, &str)> = built.cards.iter().map(|card| (card.number.as_str(), card.title.as_str())).collect();
-    assert_eq!(said, [("1.", "Feature catalog"), ("2.", "A reading page never shows"), ("3.", "Votes show as never cast")]);
+    assert_eq!(
+        keys(&built),
+        [
+            "ask-ask-1",
+            "ask-ask-2",
+            "handed-ask-2-2026-11-14T12:00:00Z",
+            "shown-sketches/votes",
+            "handed-ask-3-2026-11-15T09:00:00Z",
+            "shown-documents/feature-catalog",
+            "ask-ask-3",
+            "built-3720"
+        ]
+    );
     let mut flipped = mock::story(JOB);
     flipped.asks.reverse();
-    let numbers: Vec<String> = model::build(&flipped, &mock::titles(), &mock::features()).cards.iter().map(|card| format!("{} {}", card.number, card.title)).collect();
-    assert_eq!(numbers, ["1. A reading page never shows", "2. Feature catalog", "3. Votes show as never cast"], "grouped by feature, and Fleet's order kept inside a group");
+    let again = model::build(&flipped, &mock::titles(), &mock::features(), now());
+    assert!(again.entries.windows(2).all(|pair| pair[0].at <= pair[1].at), "the same order from any order Fleet gave");
 }
 
 #[test]
-fn a_folded_ask_is_one_head_line_with_its_kind_what_came_of_it_and_its_state() {
+fn what_he_was_shown_before_any_ask_stands_apart_and_is_not_in_the_timeline() {
     let built = built();
-    let heads: Vec<(&str, String, &str, Hue)> = built.cards.iter().map(|card| (card.kind, card.outcome.clone(), card.stand.word, card.stand.hue)).collect();
-    assert_eq!(heads[0], ("Change request", "Open: decided kinds as sections".to_string(), "Open", Hue::Running));
-    assert_eq!(heads[1], ("Bug", "Handed to One artifact that grows".to_string(), "Handed", Hue::Handed));
-    assert_eq!(heads[2], ("Bug", "Merged #3720".to_string(), "Fixed", Hue::Done));
+    assert_eq!(built.before.iter().map(|entry| entry.title.as_str()).collect::<Vec<_>>(), ["Start card with the model picker"]);
+    assert!(built.entries.iter().all(|entry| entry.key != built.before[0].key));
 }
 
 #[test]
-fn each_state_has_its_word_and_hue_and_an_ask_with_nothing_yet_says_where_it_stands() {
-    use ipc::AskState::*;
-    let said: Vec<(&str, Hue)> = [Building, Handed, Built, Backlog, Dropped].into_iter().map(|state| (model::stand(state).word, model::stand(state).hue)).collect();
-    assert_eq!(said, [("Open", Hue::Running), ("Handed", Hue::Handed), ("Fixed", Hue::Done), ("Backlog", Hue::NotStarted), ("Dropped", Hue::Muted)]);
-    let mut story = mock::story(JOB);
-    let bare = &mut story.asks[0];
-    bare.ask.said.clear();
-    bare.shown.clear();
-    let card = &model::build(&story, &mock::titles(), &mock::features()).cards[0];
-    assert_eq!(card.outcome, "Open", "no outcome is made up: only where it stands");
+fn a_time_is_now_then_minutes_hours_and_days_ago() {
+    let t = at(17, 12);
+    assert_eq!(model::relative(t, t), "now");
+    assert_eq!(model::relative(t, t - Duration::seconds(59)), "now");
+    assert_eq!(model::relative(t, t - Duration::minutes(5)), "5m ago");
+    assert_eq!(model::relative(t, t - Duration::minutes(180)), "3h ago");
+    assert_eq!(model::relative(t, t - Duration::hours(48)), "2d ago");
+    assert_eq!(model::relative(t, t + Duration::minutes(5)), "now", "a time ahead of the clock is now");
 }
 
 #[test]
-fn the_unfolded_ask_lists_how_it_started_what_was_said_shown_handed_and_built_in_the_order_it_happened_then_where_it_is_filed() {
+fn a_portion_is_said_in_minutes_hours_and_days_and_a_portion_with_no_end_says_nothing() {
+    let said: Vec<String> = [0, 20, 60, 125, 190, 1440, 2880].into_iter().map(model::spoken).collect();
+    assert_eq!(said, ["<1m", "20m", "1h", "2h 5m", "3h 10m", "1d", "2d"]);
+    assert_eq!(Spent::NONE.said(), "");
+}
+
+#[test]
+fn a_portion_runs_to_the_next_row_and_the_last_runs_to_now_only_where_it_waits_on_him() {
+    let mut rows = vec![entry("a", Kind::You, at(17, 8), false), entry("b", Kind::Artifact, at(17, 9), false), entry("c", Kind::Pull, at(17, 11), false)];
+    model::durations(&mut rows, now());
+    let minutes: Vec<Option<i64>> = rows.iter().map(|row| row.spent.minutes).collect();
+    assert_eq!(minutes, [Some(60), Some(120), None], "the last has no end: nothing waits on him");
+    assert_eq!(rows.iter().map(|row| row.spent.who).collect::<Vec<_>>(), [Who::Job, Who::You, Who::Job], "time after what he was shown is his");
+    assert_eq!(rows.iter().map(|row| row.spent.share).collect::<Vec<_>>(), [50, 100, 0], "the bar is the share of the longest");
+    let mut waiting = vec![entry("a", Kind::Artifact, at(17, 11), true)];
+    model::durations(&mut waiting, now());
+    assert_eq!(waiting[0].spent.minutes, Some(60), "a row that waits on him runs to now");
+    assert_eq!(waiting[0].spent.share, 100);
+}
+
+#[test]
+fn a_short_portion_still_draws_a_bar() {
+    let mut rows = vec![entry("a", Kind::You, at(17, 0), false), entry("b", Kind::You, at(17, 1), false), entry("c", Kind::You, at(17, 11), false)];
+    model::durations(&mut rows, now());
+    assert_eq!(rows[0].spent.share, 10);
+    let mut rows = vec![entry("a", Kind::You, at(17, 0), false), entry("b", Kind::You, at(17, 0) + Duration::minutes(1), false), entry("c", Kind::You, at(17, 11), false)];
+    model::durations(&mut rows, now());
+    assert_eq!(rows[0].spent.share, 4, "never less than a sliver");
+}
+
+#[test]
+fn the_filters_are_all_then_each_kind_the_story_holds_and_a_filter_shows_only_its_kind() {
     let built = built();
-    assert_eq!(
-        row_texts(&built.cards[2]),
-        ["\"they show as i never voted\"", "\"yes, per revision\"", "Votes per revision", "Handed to One artifact that grows", "Merged #3720", "Filed under Thread and composer"]
-    );
-    let rows = &built.cards[2].rows;
-    assert_eq!(rows[0].meta, format!("You, {}, how it started", day(at(15, 12))));
-    assert_eq!(rows[1].meta, format!("You, {}, answer", day(at(13, 12))));
-    assert_eq!(rows[4].meta, day(at(15, 15)));
-    assert!(rows[3].tinted && rows[3].hue == Hue::Handed && rows[4].tinted && rows[4].hue == Hue::Done, "handed and merged are drawn in their hues");
-    assert_eq!(rows[5].feature.as_deref(), Some("thread-and-composer"));
-    assert_eq!(
-        row_texts(&built.cards[0]),
-        ["\"every feature gets a page the agents read before they touch its files\"", "Feature catalog design", "\"decided kinds as sections\"", "Open", "Filed under Start a Job", "Filed under Reviews"]
-    );
-    assert_eq!(built.cards[0].rows[1].meta.split(". ").last(), Some("Approved"), "shown, then what he decided");
-    assert_eq!(built.cards[0].rows[3].hue, Hue::Running, "an open ask ends in Open in the running hue");
-    assert!(!row_texts(&built.cards[2]).contains(&"Open".to_string()), "a fixed ask is not open");
-    assert_eq!(built.cards[1].rows.iter().filter(|row| row.feature.is_some()).count(), 1);
+    assert_eq!(built.filters(), [Filter::All, Filter::Only(Kind::You), Filter::Only(Kind::Job), Filter::Only(Kind::Artifact), Filter::Only(Kind::Pull)]);
+    assert_eq!(built.visible(Filter::All).len(), 8);
+    let only = |kind| built.visible(Filter::Only(kind)).into_iter().map(|at| built.entries[at].key.clone()).collect::<Vec<_>>();
+    assert_eq!(only(Kind::Pull), ["built-3720"]);
+    assert_eq!(only(Kind::Artifact), ["shown-sketches/votes", "shown-documents/feature-catalog"], "the artifacts of the asks, not the group before any");
+    assert!(built.before_shown(Filter::All) && built.before_shown(Filter::Only(Kind::Artifact)) && !built.before_shown(Filter::Only(Kind::You)));
+    let mut bare = built.clone();
+    bare.entries.retain(|entry| entry.kind != Kind::Job);
+    assert!(!bare.filters().contains(&Filter::Only(Kind::Job)), "a kind with no row has no tab");
 }
 
 #[test]
-fn what_he_was_shown_says_what_he_decided_in_armadas_voice_and_his_votes_and_presses_carry_no_figure() {
-    let mut story = mock::story(JOB);
-    let shown = &mut story.asks[2].shown[0];
-    assert_eq!(decided(shown), "Sent back: keep each take's votes");
-    for (state, words, said) in [
-        (ArtifactState::Approved, None, "Approved"),
-        (ArtifactState::Approved, Some("go"), "Approved: go"),
-        (ArtifactState::SentBack, None, "Sent back"),
-        (ArtifactState::Dismissed, Some("ignored"), "Dismissed"),
-        (ArtifactState::Asking, None, "Waiting"),
-    ] {
-        shown.state = state;
-        shown.words = words.map(str::to_string);
-        assert_eq!(decided(shown), said);
+fn an_artifact_says_what_he_did_in_plain_words_and_a_status_is_never_a_bare_word() {
+    let built = built();
+    let said = |key: &str| built.entries.iter().find(|entry| entry.key == key).map(|entry| entry.says.clone()).expect(key);
+    assert_eq!(said("shown-sketches/votes"), "You sent it back with a note");
+    assert_eq!(said("shown-documents/feature-catalog"), "You approved it");
+    assert_eq!(built.before[0].says, "You dismissed it");
+    assert_eq!(said("built-3720"), "Merged");
+    assert_eq!(said("ask-ask-1"), "Open: decided kinds as sections");
+    for state in [ArtifactState::Approved, ArtifactState::SentBack, ArtifactState::Dismissed, ArtifactState::Asking, ArtifactState::Reading, ArtifactState::Withdrawn] {
+        assert!(model::said_of(state).split_whitespace().count() >= 2, "{state:?} is a sentence part, not a bare word");
     }
-    let rows = &model::build(&story, &mock::titles(), &mock::features()).cards[2].rows;
-    assert_eq!(rows[2].also, "Pressed start on take-a", "a press is a muted line");
-    let first = &model::build(&mock::story(JOB), &mock::titles(), &mock::features()).cards[0].rows[1];
-    assert_eq!(first.also, "Picked rows", "a vote is a muted line");
-    assert!(!first.also.chars().any(|c| c.is_ascii_digit()), "no count beside what it counts");
 }
 
 #[test]
-fn a_hand_is_to_a_job_or_from_one_and_a_job_with_no_title_is_never_named_by_its_id() {
-    let hand = |built: &Built| built.cards[1].rows.iter().find(|row| row.glyph == "arrow-right-left").map(|row| row.text.clone());
-    let mut story = mock::story(JOB);
-    story.asks[1].handed[0].to_title = None;
-    assert_eq!(hand(&model::build(&story, &Default::default(), &mock::features())).as_deref(), Some("Handed"));
-    assert_eq!(hand(&model::build(&story, &mock::titles(), &mock::features())).as_deref(), Some("Handed to One artifact that grows"), "the Jobs list names it");
-    story.asks[1].handed[0].from = SessionId::carried("job-one-artifact");
-    story.asks[1].handed[0].to = SessionId::carried(JOB);
-    assert_eq!(hand(&model::build(&story, &mock::titles(), &mock::features())).as_deref(), Some("Taken from One artifact that grows"));
-}
-
-#[test]
-fn what_he_was_shown_before_any_ask_stands_apart_unnumbered_and_a_feature_without_a_title_reads_by_its_slug() {
+fn an_asks_card_is_his_words_in_bubbles_and_the_features_it_is_filed_under() {
     let built = built();
-    assert_eq!(built.before.len(), 1);
-    assert_eq!(built.before[0].text, "Start card with the model picker");
-    assert!(built.before[0].meta.ends_with("Dismissed"));
-    let mut story = mock::story(JOB);
-    story.shown_otherwise.clear();
-    assert!(model::build(&story, &mock::titles(), &mock::features()).before.is_empty(), "nothing before any ask: no heading is drawn");
-    let bare = model::build(&mock::story(JOB), &mock::titles(), &Default::default());
-    assert_eq!(bare.cards[2].rows.last().map(|row| row.text.as_str()), Some("Filed under thread-and-composer"));
+    let card = &built.entries[built.find("ask-1").expect("the ask")].card;
+    let said: Vec<(bool, &str)> = card.bubbles.iter().map(|bubble| (bubble.mine, bubble.said.as_str())).collect();
+    assert_eq!(said, [(true, "every feature gets a page the agents read before they touch its files"), (false, "Showed you the document Feature catalog design"), (true, "decided kinds as sections")]);
+    assert_eq!(card.filed.iter().map(|filed| filed.title.as_str()).collect::<Vec<_>>(), ["Start a Job", "Reviews"]);
+    assert_eq!(card.stand.map(|stand| stand.word), Some("Open"));
+}
+
+#[test]
+fn an_asks_card_alternates_his_words_and_the_jobs_in_time_order() {
+    let built = built();
+    let card = &built.entries[built.find("ask-3").expect("the ask")].card;
+    let said: Vec<(bool, &str)> = card.bubbles.iter().map(|bubble| (bubble.mine, bubble.said.as_str())).collect();
+    assert_eq!(
+        said,
+        [(true, "yes, per revision"), (false, "Showed you the sketch Votes per revision"), (false, "Passed it to One artifact that grows"), (true, "they show as i never voted"), (false, "Merged pull request #3720")]
+    );
+    assert!(card.bubbles.iter().filter(|bubble| !bubble.mine).all(|bubble| bubble.who == "Feature Catalog"));
+}
+
+#[test]
+fn the_harness_wrappers_come_off_his_words() {
+    let sent = r#"Sent back part "story-over-time" of "Job story over time". A is close but lets refine it Change it and put it again with add_part under the same id."#;
+    assert_eq!(model::his_words(sent), "A is close but lets refine it");
+    assert_eq!(model::his_words(r#"On your preview note "the card": We are working through some changes now"#), "We are working through some changes now");
+    assert_eq!(model::his_words("a plain message, said as it was"), "a plain message, said as it was");
+    assert_eq!(model::his_words(r#"Sent back part "a" of "b". Change it and put it again with add_part under the same id."#), "");
+}
+
+#[test]
+fn an_artifacts_card_is_the_job_showing_it_then_his_words_votes_and_presses() {
+    let built = built();
+    let card = &built.entries.iter().find(|entry| entry.key == "shown-sketches/votes").expect("shown").card;
+    let said: Vec<(bool, &str)> = card.bubbles.iter().map(|bubble| (bubble.mine, bubble.said.as_str())).collect();
+    assert_eq!(said, [(false, "Showed you the sketch Votes per revision"), (true, "keep each take's votes"), (true, "Pressed start on take-a")]);
+    assert_eq!(card.bubbles[0].who, "Feature Catalog", "the Job is named by its title");
+    assert_eq!(card.bubbles[1].when, "", "when his note was written is not kept, so none is drawn");
+    assert_eq!(card.bubbles[2].when, "3d ago");
+}
+
+#[test]
+fn a_hand_names_the_job_and_the_ask_it_was_about() {
+    let built = built();
+    let hand = built.entries.iter().find(|entry| entry.key == "handed-ask-2-2026-11-14T12:00:00Z").expect("handed");
+    assert_eq!(hand.title, "Handed to One artifact that grows");
+    assert_eq!(hand.card.about, "A reading page never shows");
+    assert_eq!(hand.card.job.as_ref().map(|(_, title)| title.as_str()), Some("One artifact that grows"));
+    assert_eq!(hand.kind, Kind::Job);
+}
+
+fn commit(sha: &str, headline: &str, when: Option<&str>) -> PullRequestCommit {
+    PullRequestCommit { sha: sha.into(), headline: headline.into(), author: None, at: when.map(str::to_string) }
+}
+
+#[test]
+fn a_pull_requests_history_is_its_commits_by_when_then_its_merge() {
+    let merge = Merge { number: 3720, at: at(15, 15) };
+    let commits = [commit("bbbbbbb2222", "Second", Some("2026-11-15T10:00:00Z")), commit("aaaaaaa1111", "First", Some("2026-11-15T08:00:00Z")), commit("ccccccc3333", "Unstamped", None)];
+    let events = model::pull_events(&merge, &commits, now());
+    assert_eq!(events.iter().map(|event| event.said.as_str()).collect::<Vec<_>>(), ["Unstamped", "First", "Second", "Merged"]);
+    assert_eq!(events[1].sha.as_deref(), Some("aaaaaaa"), "the short sha");
+    assert_eq!(events[1].when, "2d ago");
+    assert_eq!(events[1].link, Some(Link::Commit { number: 3720, sha: "aaaaaaa1111".into(), headline: "First".into() }));
+    assert_eq!(events[3].link, None, "the merge goes nowhere");
+}
+
+#[test]
+fn the_presses_of_an_opened_row_are_its_features_then_its_commits_then_the_pull_request() {
+    let built = built();
+    let ask = &built.entries[built.find("ask-1").expect("the ask")];
+    assert_eq!(ask.links(), [Link::Feature("start-a-job".into()), Link::Feature("reviews".into())]);
+    let pull = built.entries.iter().find(|entry| entry.kind == Kind::Pull).expect("a pull request");
+    assert_eq!(pull.links_with(&[]), [Link::Pull(3720)], "before its commits are read");
+    assert_eq!(pull.links_with(&[commit("abc1234", "One", None)]), [Link::Commit { number: 3720, sha: "abc1234".into(), headline: "One".into() }, Link::Pull(3720)]);
+}
+
+#[test]
+fn the_keys_start_on_the_newest_row_that_waits_on_him_else_the_newest() {
+    let mut built = built();
+    assert_eq!(built.newest(Filter::All), Some(7));
+    built.entries[3].waiting = true;
+    assert_eq!(built.newest(Filter::All), Some(3));
+    assert_eq!(built.newest(Filter::Only(Kind::Pull)), Some(7), "under a filter, among what it shows");
+    assert_eq!(built.newest(Filter::Only(Kind::Job)), Some(4));
+}
+
+#[test]
+fn the_features_the_job_is_on_keep_fleets_order_and_say_only_the_ways_it_touched_each() {
+    let built = built();
+    let said: Vec<(&str, &str)> = built.features.iter().map(|line| (line.title.as_str(), line.how.as_str())).collect();
+    assert_eq!(said, [("Start a Job", "wrote 12 files · named in 9 commits · 2 asks filed"), ("Thread and composer", "named in 3 commits · 1 ask filed"), ("Reviews", "1 ask filed")]);
 }
 
 #[test]
 fn the_done_cards_lead_is_a_line_an_ask_each_with_its_asks_state() {
     let lead = model::lead(&mock::story(JOB));
-    let said: Vec<(&str, &str)> = lead.iter().map(|(stand, line)| (stand.word, line.as_str())).collect();
-    assert_eq!(said, [("Open", "Feature catalog: being built"), ("Handed", "A reading page never shows: handed to One artifact that grows"), ("Fixed", "Votes show as never cast: fixed in #3720")]);
-    let mut story = mock::story(JOB);
-    story.lead.clear();
-    assert!(model::lead(&story).is_empty());
-}
-
-#[test]
-fn the_features_the_job_is_on_keep_fleets_order_and_say_only_the_ways_it_touched_each() {
-    let lines: Vec<(String, String)> = built().features.iter().map(|line| (line.title.clone(), line.how.clone())).collect();
-    assert_eq!(
-        lines,
-        [
-            ("Start a Job".to_string(), "wrote 12 files · named in 9 commits · 2 asks filed".to_string()),
-            ("Thread and composer".to_string(), "named in 3 commits · 1 ask filed".to_string()),
-            ("Reviews".to_string(), "1 ask filed".to_string()),
-        ]
-    );
-    let one = ipc::JobFeature { slug: "a".into(), title: "A".into(), area: "x".into(), files_written: 1, commits_named: 1, asks: 0 };
-    assert_eq!(model::how_touched(&one), "wrote 1 file · named in 1 commit");
-}
-
-#[test]
-fn asks_group_under_the_most_touched_feature_they_touch_with_open_first_and_the_unfiled_last_with_no_heading() {
-    let mut story = mock::story(JOB);
-    // A closed ask under the first feature, an ask on two features (Reviews is touched least) and one under none.
-    story.asks[0].open = false;
-    let mut loose = story.asks[2].clone();
-    loose.ask.ask_id = "ask-4".into();
-    loose.ask.title = "Loose".into();
-    loose.ask.features.clear();
-    let mut both = story.asks[0].clone();
-    both.ask.ask_id = "ask-5".into();
-    both.ask.title = "On two".into();
-    both.ask.features = vec!["reviews".into(), "thread-and-composer".into()];
-    both.open = true;
-    story.asks.extend([loose, both]);
-    let built = model::build(&story, &mock::titles(), &mock::features());
-    let order: Vec<(&str, Option<&str>)> = built.cards.iter().map(|card| (card.ask_id.as_str(), card.heading.as_ref().map(|heading| heading.title.as_str()))).collect();
-    assert_eq!(
-        order,
-        [("ask-2", Some("Start a Job")), ("ask-1", None), ("ask-5", Some("Thread and composer")), ("ask-3", None), ("ask-4", None)],
-        "open first in a group; a heading once per group; an ask on two sits in the more touched one; unfiled last, no heading"
-    );
-    assert_eq!(built.cards.iter().map(|card| card.number.as_str()).collect::<Vec<_>>(), ["1.", "2.", "3.", "4.", "5."]);
-}
-
-#[test]
-fn the_outcome_is_what_was_merged_else_where_it_was_handed_else_what_he_decided_and_never_a_made_up_sentence() {
-    let titles = mock::titles();
-    let mine = SessionId::carried(JOB);
-    let mut story = mock::story(JOB);
-    let one = |story: &ipc::StoryAsk| model::outcome(story, &mine, &titles);
-    assert_eq!(one(&story.asks[2]), "Merged #3720");
-    story.asks[2].built.push(ipc::StoryBuilt { pull_request: "#3731".into(), merged_at: ipc::Instant::carried("2026-11-16T12:00:00Z".to_string()) });
-    assert_eq!(one(&story.asks[2]), "Merged #3720, #3731");
-    story.asks[2].open = true;
-    assert_eq!(one(&story.asks[2]), "Merged #3720, #3731, still open");
-    assert_eq!(one(&story.asks[1]), "Handed to One artifact that grows");
-    let bare = &mut story.asks[0];
-    assert_eq!(one(bare), "Open: decided kinds as sections", "the latest thing said or decided, while open");
-    bare.ask.said = vec![mock::words("row-z", ipc::MessageKind::Answer, "yes, per revision", 20)];
-    assert_eq!(one(bare), "Open: Answered: yes, per revision");
-    bare.open = false;
-    bare.ask.said.clear();
-    bare.shown.clear();
-    bare.ask.state = ipc::AskState::Dropped;
-    assert_eq!(one(bare), "Dropped");
+    assert_eq!(lead.iter().map(|(stand, _)| stand.word).collect::<Vec<_>>(), ["Open", "Handed", "Fixed"]);
 }
 
 // ---- the tab ---------------------------------------------------------------------------------
@@ -233,66 +264,95 @@ fn unfolded(tab: &gpui::Entity<StoryTab>, cx: &mut VisualTestContext) -> Option<
     tab.read_with(cx, |tab, _| tab.unfolded.clone())
 }
 
+fn cursor(tab: &gpui::Entity<StoryTab>, cx: &mut VisualTestContext) -> Option<usize> {
+    tab.read_with(cx, |tab, _| tab.cursor)
+}
+
 #[gpui::test]
-fn every_ask_starts_folded_and_one_at_a_time_enter_folds_and_unfolds_where_j_and_k_are(cx: &mut TestAppContext) {
+fn the_keys_start_on_the_newest_row_with_nothing_opened_and_enter_opens_and_closes_one_at_a_time(cx: &mut TestAppContext) {
     let (tab, cx) = open(cx);
-    assert_eq!(unfolded(&tab, cx), None, "every ask is one line until he presses it");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.cursor), Some(0), "the keys start on the first open one");
-    cx.simulate_keystrokes("j");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.cursor), Some(1));
-    assert_eq!(unfolded(&tab, cx), None, "moving unfolds nothing");
+    assert_eq!((unfolded(&tab, cx), cursor(&tab, cx)), (None, Some(7)));
+    cx.simulate_keystrokes("k k");
+    assert_eq!(cursor(&tab, cx), Some(5));
+    assert_eq!(unfolded(&tab, cx), None, "moving opens nothing");
     cx.simulate_keystrokes("enter");
-    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-2"));
-    cx.simulate_keystrokes("enter");
-    assert_eq!(unfolded(&tab, cx), None, "Enter on the open ask folds it");
-    cx.simulate_keystrokes("down down down");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.cursor), Some(2), "it stops at the last");
-    cx.simulate_keystrokes("enter k");
-    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-3"));
-    assert_eq!(tab.read_with(cx, |tab, _| tab.cursor), Some(1));
-    tab.update(cx, |tab, cx| tab.rebuild(cx));
-    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-3"), "reading the story again keeps what he unfolded");
+    assert_eq!(unfolded(&tab, cx).as_deref(), Some("shown-documents/feature-catalog"));
     cx.simulate_keystrokes("k enter");
-    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-1"), "Enter unfolds the first");
-}
-
-#[gpui::test]
-fn a_folded_ask_stays_folded_when_the_story_is_read_again(cx: &mut TestAppContext) {
-    let (tab, cx) = open(cx);
-    cx.simulate_keystrokes("enter enter");
+    assert_eq!(unfolded(&tab, cx).as_deref(), Some("handed-ask-3-2026-11-15T09:00:00Z"), "one at a time");
+    cx.simulate_keystrokes("enter");
     assert_eq!(unfolded(&tab, cx), None);
-    tab.update(cx, |tab, cx| tab.rebuild(cx));
-    assert_eq!(unfolded(&tab, cx), None, "a read does not unfold what he folded");
+    cx.simulate_keystrokes("down down down down down");
+    assert_eq!(cursor(&tab, cx), Some(8), "past the timeline it goes on into the group he was shown before any ask");
+    cx.simulate_keystrokes("down");
+    assert_eq!(cursor(&tab, cx), Some(8), "and stops at the last");
 }
 
 #[gpui::test]
-fn tab_goes_to_the_filed_under_rows_and_enter_there_opens_the_feature_where_esc_goes_back_to_the_asks(cx: &mut TestAppContext) {
+fn a_row_that_is_opened_stays_opened_when_the_story_is_read_again(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_keystrokes("enter");
+    let key = unfolded(&tab, cx);
+    assert!(key.is_some());
+    tab.update(cx, |tab, cx| tab.rebuild(cx));
+    assert_eq!(unfolded(&tab, cx), key);
+}
+
+#[gpui::test]
+fn tab_goes_from_the_rows_to_the_filters_and_arrows_there_pick_a_kind_which_opening_a_row_keeps(cx: &mut TestAppContext) {
     let (tab, cx) = open(cx);
     cx.simulate_keystrokes("tab");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Asks, "a folded ask has no feature to go to");
-    cx.simulate_keystrokes("enter tab");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Filters);
+    cx.simulate_keystrokes("right");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::Only(Kind::You));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.rows().len()), 3, "the three asks");
+    cx.simulate_keystrokes("right right right");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::Only(Kind::Pull));
+    cx.simulate_keystrokes("right");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::Only(Kind::Pull), "it stops at the last");
+    cx.simulate_keystrokes("left left");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::Only(Kind::Job));
+    cx.simulate_keystrokes("tab enter");
+    assert!(unfolded(&tab, cx).is_some());
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::Only(Kind::Job), "opening a row keeps the filter");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.rows().len()), 2);
+    assert!(drawn(cx, Role::Tab, "Jobs") && drawn(cx, Role::Tab, "Artifacts") && drawn(cx, Role::Tab, "PRs"));
+}
+
+#[gpui::test]
+fn a_filter_goes_when_the_story_no_longer_holds_its_kind(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    tab.update(cx, |tab, cx| tab.filter_by(Filter::Only(Kind::Pull), cx));
+    tab.update(cx, |tab, cx| {
+        if let super::Load::Read(story) = &mut tab.story {
+            story.asks[2].built.clear();
+        }
+        tab.rebuild(cx);
+    });
+    assert_eq!(tab.read_with(cx, |tab, _| tab.filter), Filter::All);
+}
+
+#[gpui::test]
+fn tab_goes_to_the_presses_of_the_opened_row_and_enter_on_a_feature_opens_it_where_esc_goes_back(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_keystrokes("k k k k k k k enter");
+    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-ask-1"));
+    cx.simulate_keystrokes("tab");
     assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Links);
     cx.simulate_keystrokes("j");
     assert_eq!(tab.read_with(cx, |tab, _| tab.link_at), 1);
     cx.simulate_keystrokes("j");
     assert_eq!(tab.read_with(cx, |tab, _| tab.link_at), 1, "two features, so it stops at the second");
     cx.simulate_keystrokes("escape");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Asks);
-    assert!(tab.read_with(cx, |tab, _| tab.overlay().is_none()));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Rows);
     cx.simulate_keystrokes("tab enter");
     let overlay = tab.read_with(cx, |tab, _| tab.overlay().cloned()).expect("the feature opened over the tab");
-    assert_eq!(overlay.read_with(cx, |overlay, _| overlay.depth()), 1);
     assert_eq!(overlay.read_with(cx, |overlay, _| overlay.titles().map(|(title, from)| (title.to_string(), from.to_string()))), Some(("Start a Job".to_string(), "Story of Feature Catalog".to_string())));
     cx.simulate_keystrokes("escape");
     assert!(tab.read_with(cx, |tab, _| tab.overlay().is_none()), "the last Esc closes the overlay");
-    // The keys are back on the tab, still on the Filed under row; Esc goes to the heads, and a folded ask has no feature to go to.
-    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Links);
-    cx.simulate_keystrokes("escape enter tab");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.region), Region::Asks, "a part with nothing in it is passed over");
 }
 
 #[gpui::test]
-fn a_story_link_puts_its_ask_in_front_when_the_tab_first_draws_and_one_for_another_job_is_left_alone(cx: &mut TestAppContext) {
+fn a_story_link_puts_its_ask_in_front_when_the_tab_first_draws_whatever_the_filter_and_one_for_another_job_is_left_alone(cx: &mut TestAppContext) {
     ready(cx);
     cx.update(|cx| story_link::put(StoryRequest { session_id: SessionId::carried("another-job"), ask_id: "ask-3".into() }, cx));
     let (tab, cx) = cx.add_window_view(|window, cx| StoryTab::mock(JOB.into(), false, window, cx));
@@ -301,92 +361,103 @@ fn a_story_link_puts_its_ask_in_front_when_the_tab_first_draws_and_one_for_anoth
     cx.update(|_, cx| story_link::take(cx));
     cx.update(|_, cx| story_link::put(StoryRequest { session_id: SessionId::carried(JOB), ask_id: "ask-3".into() }, cx));
     let (named, cx) = cx.add_window_view(|window, cx| StoryTab::mock(JOB.into(), false, window, cx));
-    assert_eq!(unfolded(&named, cx).as_deref(), Some("ask-3"));
-    assert_eq!(named.read_with(cx, |tab, _| tab.cursor), Some(2));
+    assert_eq!(unfolded(&named, cx).as_deref(), Some("ask-ask-3"));
+    assert_eq!(cursor(&named, cx), Some(6));
     assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "it was taken");
+    named.update(cx, |tab, cx| tab.filter_by(Filter::Only(Kind::Pull), cx));
+    named.update(cx, |tab, cx| tab.put_ask("ask-1".into(), cx));
+    assert_eq!((named.read_with(cx, |tab, _| tab.filter), unfolded(&named, cx).as_deref().map(str::to_string)), (Filter::All, Some("ask-ask-1".into())), "the ask is shown whatever the filter was");
 }
 
 #[gpui::test]
-fn a_long_title_gives_way_and_the_state_keeps_its_place_at_the_heads_end(cx: &mut TestAppContext) {
+fn the_tab_draws_a_role_and_a_name_for_every_row_and_the_opened_card(cx: &mut TestAppContext) {
     let (tab, cx) = open(cx);
-    cx.simulate_resize(gpui::size(gpui::px(360.), gpui::px(800.)));
+    cx.simulate_resize(gpui::size(gpui::px(900.), gpui::px(2400.)));
+    cx.simulate_keystrokes("k k k k k k k enter");
+    let names: Vec<String> = tab.read_with(cx, |tab, _| tab.built.entries.iter().map(|entry| if entry.says.is_empty() { format!("{}, {}", entry.title, entry.when) } else { format!("{}, {}, {}", entry.title, entry.says, entry.when) }).collect());
     for _ in 0..2 {
         tab.update(cx, |_, cx| cx.notify());
         cx.run_until_parked();
         cx.update(|window, cx| window.draw(cx).clear(cx));
     }
-    // The book of a window with no label root keeps every frame's entries, so the last is the frame just drawn.
-    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
-        cx.update(|window, cx| {
-            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
-        })
-    };
-    let state = bounds(cx, Role::Image, "Fixed").expect("the state is drawn");
-    assert!(state.right() <= gpui::px(360.), "the state stays in view at 360 wide: {state:?}");
-}
-
-#[gpui::test]
-fn a_heads_last_line_sits_under_its_title_and_the_state_stays_inside_the_card(cx: &mut TestAppContext) {
-    let (tab, cx) = open(cx);
-    cx.simulate_resize(gpui::size(gpui::px(700.), gpui::px(800.)));
-    let title = "Schedule work or set up watcher scripts outside jobs, so that a person can leave a repository to be looked at on a timetable and not by hand";
-    tab.update(cx, |tab, cx| {
-        if let super::Load::Read(story) = &mut tab.story {
-            story.asks[0].ask.title = title.into();
-            story.asks[0].ask.said = vec![mock::words("row-long", ipc::MessageKind::Revision, "**Read the whole of the watcher design and decided that a timetable belongs to the repository, not to the Job that first asked for one**", 17)];
-        }
-        tab.rebuild(cx);
-    });
-    for _ in 0..2 {
-        tab.update(cx, |_, cx| cx.notify());
-        cx.run_until_parked();
-        cx.update(|window, cx| window.draw(cx).clear(cx));
-    }
-    let last = tab.read_with(cx, |tab, _| tab.built.cards[0].outcome.clone());
-    assert!(!last.contains('*'), "the Last line is plain words: {last}");
-    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
-        cx.update(|window, cx| {
-            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
-        })
-    };
-    let said = format!("1. {title}");
-    let head = bounds(cx, Role::Label, &said).expect("the title is drawn");
-    let under = bounds(cx, Role::Label, &last).expect("the Last line is drawn");
-    let state = bounds(cx, Role::Image, "Open").expect("the state is drawn");
-    let card = bounds(cx, Role::ListBoxOption, &said).expect("the card is drawn");
-    assert!(under.top() >= head.bottom(), "the Last line is a row under the title, not beside it: title {head:?}, last {under:?}");
-    assert!(head.size.height > gpui::px(24.), "a long title wraps to a second line and is not cut: {head:?}");
-    assert!(state.right() <= card.right(), "the state stays inside the card: {state:?} in {card:?}");
-    assert!(under.right() <= card.right(), "the Last line is cut at the card's edge: {under:?} in {card:?}");
-}
-
-#[gpui::test]
-fn the_tab_draws_a_role_and_a_name_for_every_head_and_row(cx: &mut TestAppContext) {
-    let (_tab, cx) = open(cx);
-    cx.simulate_keystrokes("enter");
-    assert!(drawn(cx, Role::Heading, "Start a Job") && drawn(cx, Role::Heading, "Thread and composer"), "a group is a heading named by its feature");
-    assert!(drawn(cx, Role::Button, "1. Feature catalog"), "a head is a button named as it reads");
-    assert!(drawn(cx, Role::Button, "3. Votes show as never cast"));
-    assert!(drawn(cx, Role::ListBox, "Asks"));
+    let missing: Vec<&String> = names.iter().filter(|name| !drawn(cx, Role::Button, name)).collect();
+    assert!(missing.is_empty(), "a row is a button named as it reads: {missing:?}");
+    assert!(drawn(cx, Role::ListBox, "Story"));
+    assert!(drawn(cx, Role::Tab, "All") && drawn(cx, Role::TabList, "Story filter"));
+    assert!(drawn(cx, Role::Image, "You"), "the glyph of a row is named by who it is with");
     assert!(drawn(cx, Role::Link, "Filed under Reviews"), "a Filed under row is a link");
-    assert!(drawn(cx, Role::Image, "Open"), "the state glyph is named");
+    assert!(drawn(cx, Role::Status, "Open, A Job is building it"), "the pill says what it means");
+    assert!(drawn(cx, Role::Heading, "Shown to you"), "the leftover group is headed Shown to you");
 }
 
 #[gpui::test]
-fn the_group_of_what_he_was_shown_before_any_ask_has_a_place_only_where_there_is_one(cx: &mut TestAppContext) {
+fn the_group_before_any_ask_has_places_only_where_there_is_one_and_follows_the_filter(cx: &mut TestAppContext) {
     let (tab, cx) = open(cx);
-    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 5, "the features, three asks and the group");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 10, "eight rows, the heading and one row");
+    tab.update(cx, |tab, cx| tab.filter_by(Filter::Only(Kind::You), cx));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 3, "only the asks");
+    tab.update(cx, |tab, cx| tab.filter_by(Filter::All, cx));
     tab.update(cx, |tab, cx| {
         if let super::Load::Read(story) = &mut tab.story {
             story.shown_otherwise.clear();
         }
         tab.rebuild(cx);
     });
-    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 4, "no group where nothing was shown before any ask");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 8);
 }
 
 #[gpui::test]
-fn the_tab_draws_bones_while_it_reads_and_nothing_for_a_job_with_no_asks(cx: &mut TestAppContext) {
+fn opening_a_pull_request_asks_for_its_commits_once_and_a_press_on_a_commit_or_the_pull_request_goes_up(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    let heard: std::rc::Rc<std::cell::RefCell<Vec<String>>> = Default::default();
+    let hear = heard.clone();
+    let _sub = cx.update(|_, cx| {
+        cx.subscribe(&tab, move |_, event: &StoryEvent, _| {
+            hear.borrow_mut().push(match event {
+                StoryEvent::ReadPull { number } => format!("read {number}"),
+                StoryEvent::OpenPull { number, commit } => format!("open {number} {:?}", commit.as_ref().map(|(sha, _)| sha.clone())),
+                StoryEvent::OpenJob(id) => format!("job {id}"),
+                _ => "other".into(),
+            })
+        })
+    });
+    cx.simulate_keystrokes("enter");
+    assert_eq!(*heard.borrow(), ["read 3720"]);
+    tab.update(cx, |tab, cx| tab.set_commits(3720, vec![commit("abc1234def", "Count votes per revision", Some("2026-11-15T10:00:00Z"))], cx));
+    cx.run_until_parked();
+    assert!(drawn(cx, Role::Button, "Count votes per revision"), "the commit is a button");
+    assert!(drawn(cx, Role::Button, "Open pull request"));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(unfolded(&tab, cx), None, "closed");
+    cx.simulate_keystrokes("enter");
+    assert_eq!(*heard.borrow(), ["read 3720"], "its commits are held, so they are not asked for again");
+    cx.simulate_keystrokes("tab enter");
+    assert_eq!(heard.borrow().last().map(String::as_str), Some("open 3720 Some(\"abc1234def\")"), "the first press is the commit");
+    cx.simulate_keystrokes("j enter");
+    assert_eq!(heard.borrow().last().map(String::as_str), Some("open 3720 None"));
+}
+
+#[gpui::test]
+fn a_hand_offers_the_job_it_went_to(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    let heard: std::rc::Rc<std::cell::RefCell<Vec<String>>> = Default::default();
+    let hear = heard.clone();
+    let _sub = cx.update(|_, cx| {
+        cx.subscribe(&tab, move |_, event: &StoryEvent, _| {
+            if let StoryEvent::OpenJob(id) = event {
+                hear.borrow_mut().push(id.clone());
+            }
+        })
+    });
+    cx.simulate_keystrokes("k k k enter");
+    assert_eq!(unfolded(&tab, cx).as_deref(), Some("handed-ask-3-2026-11-15T09:00:00Z"));
+    assert!(drawn(cx, Role::Button, "Open One artifact that grows"));
+    cx.simulate_keystrokes("tab enter");
+    assert_eq!(*heard.borrow(), ["job-one-artifact"]);
+}
+
+#[gpui::test]
+fn the_tab_draws_bones_while_it_reads_and_nothing_for_a_job_with_no_story(cx: &mut TestAppContext) {
     ready(cx);
     let (tab, cx) = cx.add_window_view(|window, cx| StoryTab::mock(JOB.into(), false, window, cx));
     tab.update(cx, |tab, cx| {
@@ -395,14 +466,41 @@ fn the_tab_draws_bones_while_it_reads_and_nothing_for_a_job_with_no_asks(cx: &mu
     });
     cx.run_until_parked();
     assert!(drawn(cx, Role::Image, "Loading"));
-    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 0, "no card is built while it reads");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 0, "no row is built while it reads");
     tab.update(cx, |tab, cx| {
         tab.story = super::Load::Read(ipc::JobStory { session_id: SessionId::carried(JOB), asks: Vec::new(), shown_otherwise: Vec::new(), lead: Vec::new(), features: Vec::new() });
         tab.rebuild(cx);
     });
     cx.run_until_parked();
     assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 0, "an empty slot stays empty");
-    assert!(matches!(tab.read_with(cx, |tab, _| tab.story_is_read()), true), "and it is not bones");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.built.filters()), [Filter::All], "no filters over nothing, so none are drawn");
+    assert!(tab.read_with(cx, |tab, _| tab.story_is_read()), "and it is not bones");
+}
+
+#[gpui::test]
+fn the_columns_of_every_row_line_up_and_a_long_title_wraps_inside_its_row(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_resize(gpui::size(gpui::px(520.), gpui::px(800.)));
+    tab.update(cx, |tab, cx| {
+        if let super::Load::Read(story) = &mut tab.story {
+            story.asks[0].ask.title = "Schedule work or set up watcher scripts outside jobs, so that a person can leave a repository to be looked at on a timetable and not by hand".into();
+        }
+        tab.rebuild(cx);
+    });
+    for _ in 0..2 {
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    let bounds: Vec<gpui::Bounds<gpui::Pixels>> = cx.update(|window, cx| {
+        cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().filter(|one| one.role == Role::ListBoxOption).map(|one| one.bounds).take(5).collect()
+    });
+    assert!(bounds.len() >= 3, "rows are drawn");
+    assert!(bounds.iter().all(|row| row.right() <= gpui::px(520.)), "no row spills out of the tab: {bounds:?}");
+    let stamps: Vec<gpui::Pixels> = cx.update(|window, cx| {
+        cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().take(40).filter(|one| one.role == Role::Image && one.name.starts_with("Time on")).map(|one| one.bounds.right()).collect::<Vec<_>>()
+    });
+    assert!(stamps.windows(2).all(|pair| pair[0] == pair[1]), "the time column is one column: {stamps:?}");
 }
 
 // ---- the overlay -----------------------------------------------------------------------------
@@ -461,7 +559,7 @@ fn a_pages_story_link_replaces_what_the_overlay_draws_and_each_esc_goes_back_one
         Some(Content::Story(story)) => story.clone(),
         _ => panic!("a story"),
     });
-    assert_eq!(unfolded(&story, cx).as_deref(), Some("ask-3"), "at the ask the link named");
+    assert_eq!(unfolded(&story, cx).as_deref(), Some("ask-ask-3"), "at the ask the link named");
     // A Filed under row inside it opens a page on the same stack.
     cx.simulate_keystrokes("tab enter");
     assert_eq!(kinds(&overlay, cx), (3, "page"));
@@ -638,73 +736,9 @@ fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_fro
     });
     assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front of the column");
     assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "the tab took the request");
-    assert!(drawn(cx, Role::Button, "3. Votes show as never cast"), "the tab is drawn in the pane");
+    assert!(drawn(cx, Role::TabList, "Story filter"), "the tab is drawn in the pane");
 }
 
-// ---- the features the Job is on ------------------------------------------------------------
-
-#[gpui::test]
-fn the_features_the_job_is_on_head_the_tab_a_row_each_in_fleets_order_above_the_asks(cx: &mut TestAppContext) {
-    let (tab, cx) = open(cx);
-    for _ in 0..2 {
-        tab.update(cx, |_, cx| cx.notify());
-        cx.run_until_parked();
-        cx.update(|window, cx| window.draw(cx).clear(cx));
-    }
-    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
-        cx.update(|window, cx| {
-            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
-        })
-    };
-    let heading = bounds(cx, Role::Heading, "Features this Job is on").expect("the section is drawn");
-    let rows: Vec<gpui::Bounds<gpui::Pixels>> = ["Start a Job, wrote 12 files · named in 9 commits · 2 asks filed", "Thread and composer, named in 3 commits · 1 ask filed", "Reviews, 1 ask filed"]
-        .into_iter()
-        .map(|name| bounds(cx, Role::Link, name).unwrap_or_else(|| panic!("{name} is drawn")))
-        .collect();
-    let first_ask = bounds(cx, Role::Button, "1. Feature catalog").expect("the first ask is drawn");
-    assert!(heading.bottom() <= rows[0].top() && rows[0].bottom() <= rows[1].top() && rows[1].bottom() <= rows[2].top(), "heading, then each row in order: {heading:?} {rows:?}");
-    assert!(rows[2].bottom() <= first_ask.top(), "the section is above the asks: {rows:?} {first_ask:?}");
-}
-
-#[gpui::test]
-fn a_job_on_no_feature_draws_no_section(cx: &mut TestAppContext) {
-    ready(cx);
-    // Read with no features from the first frame, so the label book holds nothing an earlier frame drew.
-    let (tab, cx) = cx.add_window_view(|window, cx| {
-        let mut tab = StoryTab::mock(JOB.into(), false, window, cx);
-        if let super::Load::Read(story) = &mut tab.story {
-            story.features.clear();
-        }
-        tab.rebuild(cx);
-        tab
-    });
-    cx.update(|window, cx| {
-        let focus = tab.read(cx).focus.clone();
-        window.focus(&focus, cx)
-    });
-    cx.run_until_parked();
-    assert_eq!(tab.read_with(cx, |tab, _| (tab.head(), tab.places())), (0, 4), "three asks and the group, and no place for the section");
-    assert!(!drawn(cx, Role::Heading, "Features this Job is on"), "an empty slot stays empty");
-    cx.simulate_keystrokes("k");
-    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.cursor)), (Region::Asks, Some(0)), "Up at the first ask stays there");
-}
-
-#[gpui::test]
-fn up_from_the_first_ask_reaches_the_features_and_enter_on_one_opens_its_page_over_the_tab(cx: &mut TestAppContext) {
-    let (tab, cx) = open(cx);
-    cx.simulate_keystrokes("k");
-    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.feature_at)), (Region::Features, 2), "Up from the first ask is the last feature");
-    cx.simulate_keystrokes("k k k");
-    assert_eq!(tab.read_with(cx, |tab, _| tab.feature_at), 0, "it stops at the first");
-    cx.simulate_keystrokes("j j j");
-    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.cursor)), (Region::Asks, Some(0)), "Down from the last feature is the first ask");
-    cx.simulate_keystrokes("k k k enter");
-    let overlay = tab.read_with(cx, |tab, _| tab.overlay().cloned()).expect("the feature opened over the tab");
-    assert_eq!(overlay.read_with(cx, |overlay, _| overlay.titles().map(|(title, from)| (title.to_string(), from.to_string()))), Some(("Start a Job".to_string(), "Story of Feature Catalog".to_string())));
-    cx.simulate_keystrokes("escape");
-    assert!(tab.read_with(cx, |tab, _| tab.overlay().is_none()));
-    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.feature_at)), (Region::Features, 0), "the keys come back to the row");
-}
 
 // ---- the library's names ----------------------------------------------------------------------
 
@@ -720,7 +754,7 @@ fn live_in_project(fleet: &gpui::Entity<crate::fleet::FleetConnection>, at: usiz
 }
 
 fn filed_under(tab: &gpui::Entity<StoryTab>, cx: &mut TestAppContext) -> Vec<String> {
-    tab.read_with(cx, |tab, _| tab.built.cards.iter().flat_map(|card| &card.rows).filter(|row| row.feature.is_some()).map(|row| row.text.clone()).collect())
+    tab.read_with(cx, |tab, _| tab.built.entries.iter().flat_map(|entry| &entry.card.filed).map(|filed| format!("Filed under {}", filed.title)).collect())
 }
 
 #[gpui::test]
@@ -743,3 +777,4 @@ fn the_story_draws_before_the_librarys_names_and_takes_them_when_they_land_for_e
     second.update(cx, |tab, cx| tab.took(Ok(mock::story(&other)), cx));
     assert!(filed_under(&second, cx).contains(&format!("Filed under {title}")));
 }
+

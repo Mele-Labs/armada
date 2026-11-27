@@ -75,6 +75,18 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::ArtifactSeen(_) => said("Opened", None),
         JobAct::ArtifactArchive(_) => said("Archive", None),
         JobAct::ArtifactRestore(_) => said("Restore", None),
+        JobAct::MarginComment(body) if body.hold => said("Comment held", Some(first_line(&body.text))),
+        JobAct::MarginComment(body) => said("Comment", Some(first_line(&body.text))),
+        JobAct::MarginSendHeld(_) => said("Send held", None),
+        JobAct::MarginAct(body) => said(
+            match body.act {
+                ipc::MarginAct::MakeChange => "Make this change",
+                ipc::MarginAct::Accept => "Accept",
+                ipc::MarginAct::Reject => "Reject",
+                ipc::MarginAct::Settle { .. } => "Settle",
+            },
+            None,
+        ),
         JobAct::ReadyAnswer(body) => said(
             "Ready to try",
             Some(match body.answer {

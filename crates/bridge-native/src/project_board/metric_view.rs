@@ -256,11 +256,7 @@ impl Board {
 impl super::ProjectScreen {
     /// A broken metric's "Fix with the librarian": the box holds `Fix <title>` and has the keys.
     /// Becomes `self.ask_box.update(cx, |ask, cx| ask.prefill(&format!("Fix {title}"), &format!("metric:{id}"), window, cx))` once AskBox lands.
-    pub(super) fn fix_with_librarian(&mut self, title: &str, _id: &str, window: &mut gpui::Window, cx: &mut Context<Self>) {
-        let words = format!("Fix {title}");
-        self.ask.update(cx, |state, cx| state.set_value(words.clone(), window, cx));
-        crate::drafts::keep(super::KEEP_ASK, &words, cx);
-        self.ask.update(cx, |state, cx| state.focus(window, cx));
-        cx.notify();
+    pub(super) fn fix_with_librarian(&mut self, title: &str, id: &str, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        self.ask_box.update(cx, |ask, cx| ask.prefill(&format!("Fix {title}"), &format!("metric:{id}"), window, cx));
     }
 }

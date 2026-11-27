@@ -60,8 +60,8 @@ pub struct OperatorScreen {
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
     features: Option<Entity<crate::project_board::ProjectScreen>>,
-    /// The Cockpit's floor plan, in the page's place while the Operator is off.
-    floor: Option<Entity<crate::features::floor_home::Floor>>,
+    /// The Cockpit's home of blocks, in the page's place while the Operator is off.
+    home_blocks: Option<Entity<crate::home::HomeScreen>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
@@ -136,6 +136,7 @@ impl OperatorScreen {
         this.usage = Some(usage);
         this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
+        this.make_home(Some(fleet), window, cx);
         // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
         this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
         cx.defer(crate::deep_link::settle);
@@ -195,6 +196,7 @@ impl OperatorScreen {
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
+        this.make_home(None, window, cx);
         this
     }
 
@@ -224,6 +226,10 @@ impl OperatorScreen {
         }
         let list = jobs.read(cx).list.clone();
         let view = jobs.read(cx).view().clone();
+        // Reviews reads a Job's readings of the pull requests it holds from the same list.
+        if let Some(reviews) = &reviews {
+            reviews.update(cx, |reviews, cx| reviews.watch_jobs(list.clone(), cx));
+        }
         let subs = vec![
             cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx)),
             // The card in front may be a Job's Ready to try, drawn from the Job view; and the Review panel, opened over the page,
@@ -318,13 +324,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let floor = features.clone().filter(|_| cockpit).map(|project| {
-            let library = project.read(cx).library_screen();
-            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), library, list.clone(), cx));
-            jobs.update(cx, |jobs, cx| jobs.set_floor(floor.clone(), cx));
-            floor
-        });
-        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, floor, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, home_blocks: None, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if matches!(front, Front::Operator | Front::Cockpit) {
@@ -332,6 +332,31 @@ impl OperatorScreen {
             window.focus(&keys, cx);
         }
         this
+    }
+
+    /// The Cockpit's home of blocks takes the page's place on the right while the Operator is off. `fleet` is the Fleet it keeps its
+    /// layout on, none on the walks'.
+    fn make_home(&mut self, fleet: Option<&Entity<FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.features.clone().filter(|_| self.cockpit) else { return };
+        let library = project.read(cx).library_screen();
+        let list = self.jobs.read(cx).list.clone();
+        let page = self.page.clone();
+        let blocks = match fleet {
+            Some(fleet) => cx.new(|cx| crate::home::HomeScreen::live(fleet, page, library, list, cx)),
+            None => cx.new(|cx| crate::home::HomeScreen::mock(page, library, list, cx)),
+        };
+        // A feature pressed in the System overview opens in the Features place.
+        let opened = cx.subscribe_in(&blocks, window, |this, _, event: &crate::home::HomeEvent, window, cx| {
+            if let crate::home::HomeEvent::Feature(slug) = event {
+                this.bring(Some(Front::Features), window, cx);
+                if let Some(project) = this.features.clone() {
+                    project.update(cx, |project, cx| project.show_feature(slug, window, cx));
+                }
+            }
+        });
+        self._subs.push(opened);
+        self.jobs.update(cx, |jobs, cx| jobs.set_home_blocks(blocks.clone(), cx));
+        self.home_blocks = Some(blocks);
     }
 
     /// The page's box offers the Jobs the list holds, but those that have ended.
@@ -431,9 +456,9 @@ impl OperatorScreen {
                 let keys = if self.jobs.read(cx).list.read(cx).at_home() { self.page.read(cx).focus.clone() } else { self.jobs.read(cx).list.read(cx).focus_handle().clone() };
                 window.focus(&keys, cx);
                 self.page.update(cx, |page, cx| page.in_front(cx));
-                // Features may have been in front and left: the floor reads the library again where it stands in the page's place.
-                if let Some(floor) = &self.floor {
-                    floor.update(cx, |floor, cx| floor.follow(cx));
+                // Features may have been in front and left: the home reads the library and its layout again where it stands.
+                if let Some(blocks) = &self.home_blocks {
+                    blocks.update(cx, |blocks, cx| blocks.follow(cx));
                 }
             }
             Front::Jobs => {
@@ -673,6 +698,16 @@ pub fn open_call(key: String, cx: &mut App) {
     }
     if let Some(page) = live(cx) {
         page.update(cx, |page, cx| page.show_pairing(&key, cx));
+    }
+}
+
+/// A press on the banner of an Operator card, tagged with its `turn:<n>`: the Operator's page in front with that card open.
+pub fn open_card(id: &str, cx: &mut App) {
+    if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
+        (sink.0)(&Asked::Place("operator"), cx);
+    }
+    if let Some(page) = live(cx) {
+        page.update(cx, |page, cx| page.open_id(id, cx));
     }
 }
 
@@ -994,6 +1029,35 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_banner_press_on_an_operator_card_brings_the_page_with_that_card_open(cx: &mut TestAppContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = jobs_screen(window, cx);
+            OperatorScreen::mock(jobs, window, cx)
+        });
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        page.update(cx, |page, cx| {
+            for _ in 0..12 {
+                page.scene("replies", cx).expect("the Operator replies");
+            }
+        });
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "the long talk folds the card in front"));
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Jobs), window, cx));
+        let card = page.read_with(cx, |page, _| page.waiting().first().map(|turn| turn.id.clone())).expect("a card waits behind the front");
+        cx.update(|_, cx| open_card(&card, cx));
+        cx.run_until_parked();
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the Operator's page is in front");
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.clone()), Some(card.clone()), "with the banner's card in front");
+            assert!(!page.is_folded(), "open, not folded");
+        });
+    }
+
+    #[gpui::test]
     fn pasting_a_pull_request_link_into_a_text_box_stays_the_boxs(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
@@ -1113,6 +1177,23 @@ mod tests {
         screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Looks good").is_some(), "back on the page, the card is drawn again");
+    }
+
+    #[gpui::test]
+    fn the_card_in_front_keeps_its_whole_height_in_a_short_window(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        let title = page.read_with(cx, |page, _| page.open_item().map(|turn| super::super::face::card_title(turn).to_string())).expect("a card is in front");
+        let height = |cx: &mut VisualTestContext, high: f32| {
+            cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(high)));
+            redraw(cx);
+            cx.update(|_, cx| cx.set_global(LabelBook::default()));
+            redraw(cx);
+            drawn(cx, Role::Article, &title).expect("the card is drawn").size.height
+        };
+        let tall = height(cx, 1400.);
+        let short = height(cx, 460.);
+        assert_eq!(short, tall, "the card is drawn whole, with nothing in it scrolled away");
     }
 
     #[gpui::test]

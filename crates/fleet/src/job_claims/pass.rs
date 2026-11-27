@@ -214,9 +214,12 @@ where
             };
             let mut shared = Vec::new();
             let failed = answered.as_ref().and_then(|one| one.failed.as_ref()).map(adapter_traits::StoreError::said);
+            let calls = answered.as_ref().map_or(0, |one| one.calls);
             let mut went_unsent = false;
+            let mut over = None;
             let words = self.job_claims().with(|kept| {
                 let held = kept.jobs.entry(job.id.clone()).or_default();
+                over = held.called(calls, now);
                 answered_in(held, answered, &wanted, now, &mut shared);
                 went_unsent = held.unsent && !before.1;
                 let words = waits_kept(&job, held, &person_held, &since);
@@ -230,6 +233,10 @@ where
             // so a refusal (a device it does not know, a clock off by over a minute) is not read as an outage.
             if let (true, Some(why)) = (went_unsent, failed) {
                 self.session_warned(&job.id, "a Job's claims did not reach the store", why);
+            }
+            // Every call writes rows the store's plan counts by the day, so a Job that keeps calling is named here.
+            if let Some(calls) = over {
+                self.session_warned(&job.id, "a Job made more store calls this hour than it should", format!("{calls} calls since the hour began"));
             }
             let words = self.claims_unrepeated(&job.id, words, shared).await;
             if !words.is_empty() {

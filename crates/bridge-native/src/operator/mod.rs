@@ -12,7 +12,7 @@
 //! | Next up: the cards behind the front one, then the kept ideas, folded in the right column | `next_up.rs` |
 //! | A kept idea brought to the front, drawn as a card with Start it and Remove | `idea.rs` |
 //! | The talk under the card, the Operator's own thread with its About rows and the cards it raises, and the new-card strip | `talk.rs` |
-//! | The feed Since you last looked, led by the cards the Operator is working on | `feed.rs` |
+//! | The feed Since you last looked, under Working: the cards the Operator is working on | `feed.rs` |
 //! | The box under the card, whose send is a dispatch or, tagged, a talk about a card | `composer.rs` |
 //! | The ideas the Operator kept for later: what Next up and the idea card read | `parked.rs` |
 //! | Another Mac waiting for his Confirm to pair, as a card atop the page | `pairing.rs` |

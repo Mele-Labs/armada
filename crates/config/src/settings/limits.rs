@@ -16,6 +16,7 @@ pub const PORT_RANGE_BASE: Integer = Integer("limits.portRangeBase");
 pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
 pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
 pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
+pub const QUEUE_REQUEUES_PER_COMMIT: Integer = Integer("limits.queueRequeuesPerCommit");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -194,6 +195,20 @@ pub(super) const LIMITS: &[Entry] = &[
         shipped: Shipped::Integer(5),
         applies: Applies::Live,
         row: Some("watches-per-job"),
+        env: None,
+        tip: None,
+    },
+    // Two: the owner's ruling of 25 Nov 2026. One spends the only try on a
+    // runner hiccup; more keeps a real runner outage cycling before he hears.
+    Entry {
+        key: QUEUE_REQUEUES_PER_COMMIT.0,
+        section: Section::Limits,
+        title: "Queue again after a runner failure",
+        description: "How many times Fleet puts a pull request back in the merge queue when a job got no runner or hit its time limit. After that the merge line shows the queue as stuck.",
+        kind: Kind::Integer { min: 0, max: 5, unit: "times" },
+        shipped: Shipped::Integer(2),
+        applies: Applies::Live,
+        row: Some("merge-queue-requeues-per-commit"),
         env: None,
         tip: None,
     },

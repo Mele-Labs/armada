@@ -153,6 +153,21 @@ fn feature(slug: &str, title: &str, by: MatchedBy, jobs: u32) -> MatchedFeature 
     MatchedFeature { slug: slug.into(), title: title.into(), by: vec![by], jobs }
 }
 
+/// The might-lists as the librarian ranked them: its own order, with a why on each row.
+pub fn ranked_by_librarian() -> RankedIssues {
+    let mut ranked = issues().ranked;
+    ranked.might_pick_up.reverse();
+    let whys = ["Offline sends are the Pocket gap you hit this week", "Two features you work on most wait on it"];
+    for (row, why) in ranked.might_pick_up.iter_mut().zip(whys) {
+        row.why = Some(why.to_string());
+    }
+    for row in &mut ranked.might_be_interested {
+        row.why = Some("Touches the library you work in".to_string());
+    }
+    ranked.by_librarian = Some(Instant::carried("2026-11-24T01:00:00Z"));
+    ranked
+}
+
 /// One issue assigned to him, two ranked ones nobody holds (the first matched two features, the second none), and one pull request
 /// of someone else.
 pub fn issues() -> IssuesRead {
@@ -167,8 +182,9 @@ pub fn issues() -> IssuesRead {
                 issue: issue("armada-9efp", "Library sync", &[]),
                 features: vec![feature("feature-library", "Feature library", MatchedBy::PullRequestFiles, 4), feature("project-board", "Project board", MatchedBy::Label, 2)],
                 jobs: 6,
+                why: None,
             },
-            RankedIssue { manifest_id: Some(ManifestId::carried(ARMADA)), issue: issue("armada-71cc", "Pocket offline", &[]), features: Vec::new(), jobs: 0 },
+            RankedIssue { manifest_id: Some(ManifestId::carried(ARMADA)), issue: issue("armada-71cc", "Pocket offline", &[]), features: Vec::new(), jobs: 0, why: None },
         ],
         might_be_interested: vec![RankedPull {
             manifest_id: ManifestId::carried(ARMADA),
@@ -179,7 +195,9 @@ pub fn issues() -> IssuesRead {
             draft: false,
             features: vec![feature("feature-library", "Feature library", MatchedBy::Files, 4)],
             jobs: 4,
+            why: None,
         }],
+        by_librarian: None,
     };
     IssuesRead { mine, ranked }
 }

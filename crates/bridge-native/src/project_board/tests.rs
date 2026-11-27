@@ -10,11 +10,12 @@ use super::metric::{self, Plot};
 use super::model::{self, Press};
 use super::presets;
 use super::system::BOARD_ROWS;
-use super::{ProjectScreen, Tab, EXAMPLE_ASKS};
+use super::{ProjectScreen, Tab};
+use crate::features::ask_box::EXAMPLE_ASKS;
 
-const PROJECT: &str = crate::features::mock::PROJECT;
+pub(super) const PROJECT: &str = crate::features::mock::PROJECT;
 
-fn ready(cx: &mut TestAppContext) {
+pub(super) fn ready(cx: &mut TestAppContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
@@ -32,29 +33,29 @@ impl Render for Rooted {
     }
 }
 
-fn redraw(cx: &mut VisualTestContext) {
+pub(super) fn redraw(cx: &mut VisualTestContext) {
     for _ in 0..3 {
         cx.run_until_parked();
         cx.update(|window, cx| window.draw(cx).clear(cx));
     }
 }
 
-fn find(cx: &mut VisualTestContext, role: Role, name: &str) -> Option<Bounds<Pixels>> {
+pub(super) fn find(cx: &mut VisualTestContext, role: Role, name: &str) -> Option<Bounds<Pixels>> {
     cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds))
 }
 
-fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
+pub(super) fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
     find(cx, role, name).is_some()
 }
 
-fn press(cx: &mut VisualTestContext, role: Role, name: &str) {
+pub(super) fn press(cx: &mut VisualTestContext, role: Role, name: &str) {
     let at = find(cx, role, name).unwrap_or_else(|| panic!("{name} is drawn")).center();
     cx.simulate_click(at, Modifiers::default());
     redraw(cx);
 }
 
 /// A board on the mock Fleet, which keeps `kept` for the project, read and drawn.
-fn board_keeping(cx: &mut TestAppContext, kept: Option<BoardLayout>) -> (Entity<Board>, &mut VisualTestContext) {
+pub(super) fn board_keeping(cx: &mut TestAppContext, kept: Option<BoardLayout>) -> (Entity<Board>, &mut VisualTestContext) {
     ready(cx);
     let mut held = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -75,7 +76,7 @@ fn board_keeping(cx: &mut TestAppContext, kept: Option<BoardLayout>) -> (Entity<
     (held.expect("the board was made"), cx)
 }
 
-fn layout_of(board: &Entity<Board>, cx: &mut VisualTestContext) -> Layout {
+pub(super) fn layout_of(board: &Entity<Board>, cx: &mut VisualTestContext) -> Layout {
     board.update(cx, |board, _| board.layout(PROJECT).clone())
 }
 
@@ -92,7 +93,7 @@ fn block(kind: &str, x: u8, y: u8, w: u8, h: u8, view: &str) -> BoardBlock {
     BoardBlock { kind: kind.into(), x, y, w, h, view: view.into() }
 }
 
-fn screen(cx: &mut TestAppContext) -> (Entity<ProjectScreen>, &mut VisualTestContext) {
+pub(super) fn screen(cx: &mut TestAppContext) -> (Entity<ProjectScreen>, &mut VisualTestContext) {
     ready(cx);
     let mut held = None;
     let (_, cx) = cx.add_window_view(|window, cx| {
@@ -373,14 +374,14 @@ fn add_block_lists_the_kinds_not_on_the_board_and_a_pick_goes_on_it_by_keys(cx: 
 // ---- the librarian box ---------------------------------------------------------------------------------------------------
 
 fn asked(screen: &Entity<ProjectScreen>, cx: &mut VisualTestContext) -> String {
-    screen.read_with(cx, |screen, cx| screen.ask.read(cx).value().to_string())
+    screen.read_with(cx, |screen, cx| screen.ask_box.read(cx).input.read(cx).value().to_string())
 }
 
 #[gpui::test]
 fn the_librarian_box_offers_example_asks_on_focus_and_a_press_puts_one_in_it(cx: &mut TestAppContext) {
     let (screen, cx) = screen(cx);
     assert!(!drawn(cx, Role::Menu, "Example asks"));
-    cx.update(|window, cx| screen.read(cx).ask.clone().update(cx, |state, cx| state.focus(window, cx)));
+    cx.update(|window, cx| screen.read(cx).ask_box.read(cx).input.clone().update(cx, |state, cx| state.focus(window, cx)));
     redraw(cx);
     assert!(drawn(cx, Role::Menu, "Example asks"));
     for text in EXAMPLE_ASKS {
@@ -394,7 +395,7 @@ fn the_librarian_box_offers_example_asks_on_focus_and_a_press_puts_one_in_it(cx:
 #[gpui::test]
 fn the_arrows_and_enter_take_an_example_and_escape_puts_the_list_away(cx: &mut TestAppContext) {
     let (screen, cx) = screen(cx);
-    cx.update(|window, cx| screen.read(cx).ask.clone().update(cx, |state, cx| state.focus(window, cx)));
+    cx.update(|window, cx| screen.read(cx).ask_box.read(cx).input.clone().update(cx, |state, cx| state.focus(window, cx)));
     redraw(cx);
     cx.simulate_keystrokes("down down enter");
     redraw(cx);
@@ -635,7 +636,7 @@ fn a_broken_block_says_why_and_its_fix_puts_the_words_in_the_ask_box(cx: &mut Te
     assert!(drawn(cx, Role::Button, "Fix Queue depth with the librarian"));
     press(cx, Role::Button, "Fix Queue depth with the librarian");
     assert_eq!(asked(&screen, cx), "Fix Queue depth");
-    let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask.read(cx), cx));
+    let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask_box.read(cx).input.read(cx), cx));
     assert!(cx.update(|window, _| focused.is_focused(window)), "the box has the keys");
 }
 
