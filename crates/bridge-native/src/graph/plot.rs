@@ -628,8 +628,7 @@ impl Plot for GraphPlot {
         let readout = div()
             .flex()
             .flex_col()
-            .gap(px(4.))
-            .min_w(px(132.))
+            .gap(px(2.))
             .child(div().text_color(inks.label).child(SharedString::from(title)))
             .children(rows.into_iter().map(|(ink, key, value, name)| {
                 // Values lead and names follow; each row keys its series with a short stroke of its hue.
@@ -641,10 +640,10 @@ impl Plot for GraphPlot {
                 div()
                     .flex()
                     .items_center()
-                    .gap(px(8.))
+                    .gap(px(6.))
                     .child(div().flex_none().w(px(12.)).flex().justify_center().child(mark))
                     .child(div().flex_none().text_color(strong).font_weight(FontWeight::SEMIBOLD).child(SharedString::from(value)))
-                    .child(div().min_w_0().truncate().text_color(inks.label).child(SharedString::from(name)))
+                    .child(div().flex_none().text_color(inks.label).child(SharedString::from(name)))
             }));
         let dots: Vec<Dot> = state
             .dots
@@ -655,7 +654,28 @@ impl Plot for GraphPlot {
                 Dot::new(*dot).size(px(DOT + 2.)).halo(px(20.)).stroke(inks.surface).fill(ink)
             })
             .collect();
-        let tooltip = Tooltip::new(cursor, bounds.size).glide(false).gap(px(14.)).dots(dots).child(readout);
+        let tooltip = if chart.arcs.is_some() {
+            // A donut is too small to hold the readout; it hugs the pointer instead.
+            Tooltip::new(cursor, bounds.size).glide(false).gap(px(14.)).dots(dots).child(readout)
+        } else {
+            // The readout stands inside the plot's top edge, beside the crosshair on the side with more room, so it covers
+            // neither the axis labels, the legend nor the dots it reads. A see-through surface lets the lines show under it.
+            let cross = f32::from(state.cross_line.x);
+            let beside = 10.;
+            let away = div()
+                .absolute()
+                .top(px(frame.top + 4.))
+                .map(|box_| if frame.right - cross >= cross - frame.left { box_.left(px(cross + beside)) } else { box_.right(bounds.size.width - px(cross - beside)) })
+                .px(px(8.))
+                .py(px(6.))
+                .rounded(px(6.))
+                .border_1()
+                .border_color(inks.axis)
+                .bg(inks.pill.opacity(0.86))
+                .shadow_md()
+                .child(readout);
+            Tooltip::new(cursor, bounds.size).glide(false).appearance(false).dots(dots).child(away)
+        };
         let under = match (&chart.arcs, chart.scatter, self.has_bars()) {
             (Some(_), _, _) | (_, true, _) => None,
             // A bar's column lifts under the pointer; a line's x carries a hairline down the plot.

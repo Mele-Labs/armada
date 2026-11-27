@@ -106,10 +106,21 @@ fn tone_ink(tone: Tone) -> Token {
 /// A change as a chip: its arrow and words in the tone's hue on a tint of it.
 fn delta_chip(look: &Look, id: String, delta: &Delta) -> AnyElement {
     let ink = look.color(tone_ink(delta.tone));
-    let (mark, said) = match delta.tone {
-        Tone::Worse => ("trending-up", "Worse than before"),
-        Tone::Better => ("check", "As it should be"),
-        Tone::Steady => ("minus", "Moved, neither better nor worse"),
+    let said = match delta.tone {
+        Tone::Worse => "Worse than before",
+        Tone::Better => "As it should be",
+        Tone::Steady => "Moved, neither better nor worse",
+    };
+    // The arrow follows the figure's sign; the hue says whether that is good news.
+    let mark = match delta.said.chars().next() {
+        Some('+') => Some("trending-up"),
+        Some('-' | '\u{2212}') => Some("trending-down"),
+        _ if delta.tone == Tone::Better => Some("check"),
+        _ => None,
+    };
+    let words = match &delta.since {
+        Some(since) => format!("{} {since}", delta.said),
+        None => delta.said.clone(),
     };
     labelled(
         div()
@@ -127,10 +138,10 @@ fn delta_chip(look: &Look, id: String, delta: &Delta) -> AnyElement {
             .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
             .text_color(ink)
             .tooltip(tip(said))
-            .child(glyph(look, mark, Size::Small, ink))
-            .child(SharedString::from(delta.said.clone())),
+            .children(mark.map(|mark| glyph(look, mark, Size::Small, ink)))
+            .child(SharedString::from(words.clone())),
         Role::Status,
-        delta.said.clone(),
+        words,
     )
     .into_any_element()
 }
@@ -232,8 +243,7 @@ impl GraphCard {
                     .child(div().flex_none().text_size(look.length(size)).line_height(look.length(size) * 1.15).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(shown)))
                     .children(head.unit.clone().map(|unit| div().flex_none().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(unit)))),
             )
-            .children(head.delta.as_ref().map(|delta| div().pl(look.length(token::SPACE_1)).child(delta_chip(look, format!("graph-delta:{id}"), delta))))
-            .children(head.delta.as_ref().and_then(|delta| delta.since.clone()).map(|since| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(since))));
+            .children(head.delta.as_ref().map(|delta| delta_chip(look, format!("graph-delta:{id}"), delta)));
         Some(labelled(row, Role::Group, said).into_any_element())
     }
 

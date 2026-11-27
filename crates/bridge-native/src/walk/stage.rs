@@ -682,6 +682,28 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             });
             Ok(())
         }
+        // The thread turned by the wheel, then the pointer taken off it to the Jobs column, so no chart is left under it.
+        Verb::Answer(name) if name.starts_with("thread-wheel:") => {
+            let by: f32 = name["thread-wheel:".len()..].parse().map_err(|_| Missed(format!("no amount in {name}")))?;
+            let role = role_named("region").ok_or_else(|| Missed("no role named region".into()))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == "Thread").cloned())
+                .ok_or_else(|| Missed("nothing named \"Thread\" to scroll".into()))?;
+            window.dispatch_event(
+                PlatformInput::Scroll(gpui::ScrollEvent {
+                    position: drawn.shown.center(),
+                    delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-by))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: gpui::TouchPhase::Moved,
+                    source: gpui::ScrollSource::default(),
+                }),
+                cx,
+            );
+            let away = point(drawn.shown.origin.x / 2., drawn.shown.center().y);
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: away, pressed_button: None, modifiers: Modifiers::default() }), cx);
+            Ok(())
+        }
         // The light theme in force, as the owner would pick it in Settings.
         Verb::Answer("look-light") => {
             crate::look::install(crate::look::Look::light(), cx);
