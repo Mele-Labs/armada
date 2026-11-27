@@ -208,7 +208,7 @@ A Job holding several slots is named by the slot whose changes conflict, not by 
 A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*), with no instruction and no one blamed.
 Where the other Job is paused, the notice says so.
 **Told once per file per peer**, main a peer of its own: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
-Fleet keeps no record that two Jobs agreed, so a settled file stays quiet because it was told, not because it was settled.
+A file stays quiet here because it was told: the order two Jobs settle (*Claims a Job holds*) quiets only the claims notice.
 Each file told is kept in the store (`clash_told_paths`), and a notice by its words (`clash_told`), so a restart that refills the table repeats nothing.
 Confirmed 31 Oct 2026: three restarts told one Job the same clash with a paused Job three times, each time to message it.
 
@@ -274,7 +274,7 @@ A claim another holds is asked for again at each renewal.
 |---|---|
 | Another Job, an item | Waits. Its record carries a `claim_waits` line naming the holder's person, Mac and Job title, and the Job is told. When Fleet wins the claim, the line goes and the Job is woken to carry on |
 | A person in beads, an item | Waits the same way, and no claim is made. The line ends when the item is unassigned. Autopilot never picks such an item |
-| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal. **Its own parent or child is no other side**: neither is told |
+| Another Job, a file | Is told the file, the other Job and its address, once, and carries on. The holder is told the same at its next renewal. **Its own parent or child is no other side**: neither is told |
 
 A beads assignee is a person where it is a bare name; a Job claims as `<Mac>/<job>`.
 Other trackers' assignees are not read.
@@ -288,6 +288,20 @@ Confirmed 16 Nov 2026: each restart told every Job again of every file another J
 A wait read from a Job on another Mac is told only to the Job that waits.
 Who is told of a shared file is chosen in one place, `shared_told_to` in `crates/fleet/src/job_claims/pass.rs`.
 `crates/fleet/src/job_claims.rs`.
+
+**The two Jobs settle which lands first. Fleet does not.** Decided by the owner, 27 Nov 2026: Fleet detects the shared file and tells both Jobs; no lead agent orders them and Fleet pauses neither.
+The notice reads `<Job> also writes <files>. Message it at <address> to agree which of you lands first, record that with settle_clash, and call raise_conflict if you cannot agree.`
+
+| What happens | What Fleet keeps |
+|---|---|
+| The two agree by message, and one calls `settle_clash` with `with`, `files`, `first` (`me`, `them` or `both_go_on`) and `why` | The pair's clash, `agreed`. Neither Job is told of those files again, a folder covering the files under it. The other Job is sent nothing |
+| They cannot agree, and one calls `raise_conflict` naming files | The pair's clash, `waiting`, and a `clash_order` item on that Job's Needs you asking `Which lands first, "<A>" or "<B>"?`, raised whether the Operator is on or off, since nothing may wait on the Operator alone. The conflict goes to the Operator as before |
+| He chooses one | The clash, `ruled`, with the one he chose first. Both Jobs are told his choice as a claims notice |
+
+**One clash a pair**, in Fleet's store (`job_clashes`): a later settling or raise between the same two replaces it, its files joined.
+Both Jobs' records carry it in `clashes`, and a feature's board draws a row for each clash among its Jobs: `Two Jobs write <files>`, then `They agreed: "<A>" waits until "<B>" lands.`, `They agreed: both go on.`, `You chose: ...` or `Waiting on you`, with the why in its tooltip.
+Only a Job this Mac keeps can be named: a clash with a Job on another Mac is refused as `raise_conflict` refuses it.
+`crates/fleet/src/session_host/clash_order.rs`.
 
 **The claims list on a project's page is grouped by who holds each claim** (`GET /projects/project/{project}/claims`).
 Each holder carries its person, Mac and Job title, when it last renewed, its claims and what each of its pull requests waits on.
