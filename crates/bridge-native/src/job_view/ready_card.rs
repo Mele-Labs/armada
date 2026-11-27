@@ -81,6 +81,7 @@ impl Standing {
             ReadyState::Open => Standing::Open,
             ReadyState::Later => Standing::Later,
             ReadyState::Answered if card.verdict == Some(NoteVerdict::NeedsWork) => Standing::Rework,
+            ReadyState::Answered if card.skipped => Standing::Skipped,
             ReadyState::Answered => Standing::Good,
             ReadyState::Withdrawn => Standing::Withdrawn,
             ReadyState::Replaced => Standing::Replaced,
@@ -1176,6 +1177,12 @@ pub(super) mod tests {
         assert_eq!(Standing::Skipped.word(), "Skipped");
         assert_ne!(Standing::Skipped.word(), Standing::Good.word());
         assert!(Standing::Skipped.folds() && !Standing::Skipped.asks());
+    }
+
+    #[test]
+    fn a_card_fleet_kept_as_skipped_reads_skipped_when_read_again() {
+        assert_eq!(Standing::of(&card(r#","state":"answered","verdict":"good","skipped":true"#), None), Standing::Skipped);
+        assert_eq!(Standing::of(&card(r#","state":"answered","verdict":"good""#), None), Standing::Good);
     }
 
     #[test]
