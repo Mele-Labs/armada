@@ -19,6 +19,16 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
+    /// `get_features_by_meaning` — the slugs of the project's features, not pending, that `words` are about by meaning, nearest
+    /// first, at most eight and none under the similarity floor. Placed as `list_features` is. **Empty, never refused, while
+    /// the language model is not loaded** or the words are blank.
+    fn get_features_by_meaning(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        words: String,
+    ) -> impl Future<Output = Result<ipc::FeaturesByMeaning, Refusal>> + Send;
+
     /// `get_feature_page` — one feature whole, or with `section` that one section alone, and with `files` the floor plan's
     /// rooms filled with their files. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project does not hold,
     /// and [`Refusal::Unacceptable`] (`fleet.feature_section_unknown`) for a section that is none of the four.

@@ -952,6 +952,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/holding", get(crate::projects::list_holding_projects::<D>))
         .route("/projects/values", get(crate::projects::get_values::<D>))
         .route("/features", get(crate::features::list_features::<D>))
+        .route("/features/match", get(crate::features::get_features_by_meaning::<D>))
         .route("/features/page", get(crate::features::get_feature_page::<D>))
         .route("/features/overview", get(crate::features::get_project_overview::<D>))
         .route("/features/since", get(crate::features::get_since_you_looked::<D>))
