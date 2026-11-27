@@ -2,13 +2,15 @@
 
 **Part of:** [Job](../session.md).
 
-**A Job whose agent CLI has lost its sign-in fails its turn at once, and the harness writes one line marked as an authentication failure.** Fleet reads the marker and never matches on the text.
+**A Job whose agent CLI has lost its sign-in fails its turn at once, and the harness writes one line marked as an authentication failure.** Fleet reads the marker.
+Claude Code 2.1.325 marks the same line as an invalid request, a marker other refusals share, so there Fleet also reads that the harness's sentence opens with "Login expired".
 
 **Every Job shares the account, so the Fleet signs out as one.**
 The first Job heard signed out sets one Fleet-wide state with the time it happened, and a repeat failure in any Job keeps that time.
 Fleet sends the state whole to Bridge, with the account's name from the harness's adapter, and Bridge shows one alert naming it, with a Sign in button and a Mac notification.
 No Job carries an item of its own for it.
 Each Job the failure stopped is marked, so Fleet knows which ones to wake.
+Its process is let go when the failed turn ends, because a running CLI keeps the sign-in it started on and never reads one renewed after it, so the wake starts a new one.
 
 **Pressing Sign in has Fleet run the CLI's own sign-in, with no terminal.**
 It opens his browser, and the page calls the CLI back on a port of its own.

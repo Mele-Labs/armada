@@ -3,6 +3,7 @@
 //! wakes the Jobs it stopped.
 //! `docs/concepts/session/a-job-whose-sign-in-expired.md`.
 
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -121,6 +122,20 @@ async fn a_repeat_failure_keeps_when_the_fleet_signed_out() {
     eventually(|| async { marked(&rig, &other) }).await;
     assert_eq!(state(&rig).await, first);
     assert!(marked(&rig, &id));
+}
+
+/// **A process keeps the sign-in it started on**: one renewed at a terminal or in another Job is never
+/// read by it, so it failed every turn after. The Job's next turn, a wake or his own word, starts a new one.
+#[tokio::test]
+async fn a_signed_out_jobs_next_turn_starts_a_fresh_process() {
+    let rig = rig_placing(None);
+    let (id, process) = a_working_job(&rig).await;
+    signs_out(&rig, process);
+    rig.stand_in.says(process, vec![DroneEvent::Ended { turns: 1, cost_micros: 0, refusals: 0 }]);
+    eventually(|| async { rig.stand_in.process(process).ended.load(Ordering::SeqCst) }).await;
+
+    rig.send(&id, "try again").await;
+    eventually(|| async { rig.stand_in.starts().iter().filter(|one| one.session == id.as_str()).count() == 2 }).await;
 }
 
 /// The model answering in any Job is the account working again, however that came about: he may have
