@@ -63,6 +63,15 @@ pub(crate) fn clash_wire(clash: &KeptClash) -> JobClash {
     }
 }
 
+/// Whether the pair's clash stands for `ask`, a conflict naming files, on the Needs you list: one ask, one item. Its
+/// clash was kept when it was raised or since, so it holds after his choice too; a conflict of wire types alone
+/// keeps no clash and stands as `job_conflict`.
+pub(crate) fn ordered_instead(clashes: &[KeptClash], ask: &KeptJobAsk) -> bool {
+    let Some(other) = ask.other_session_id.as_deref().filter(|_| ask.kind == store::job_ask_kind::CONFLICT && !ask.files.is_empty()) else { return false };
+    let pair = KeptClash::pair_of(&ask.session_id, other);
+    clashes.iter().any(|clash| clash.pair == pair && clash.at >= ask.at)
+}
+
 /// The question on the raising Job's Needs you while its clash waits on him.
 pub(crate) fn clash_items(clashes: &[KeptClash], session: &str) -> Vec<WaitingItem> {
     clashes.iter().filter(|clash| clash.standing == standing::WAITING && clash.recorded_by == session).map(|clash| clash_item(clash, session)).collect()

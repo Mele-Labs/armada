@@ -732,7 +732,9 @@ where
             if !ended {
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
                 // What it asked the Operator, once it is on his Needs you or in Your turn.
-                items.extend(super::job_asks::job_ask_items(&job_asks));
+                // A conflict naming files is asked as the clash's order instead, so it is one item. The Operator still has it.
+                let shown: Vec<store::KeptJobAsk> = job_asks.iter().filter(|ask| !super::clash_order::ordered_instead(&clashes, ask)).cloned().collect();
+                items.extend(super::job_asks::job_ask_items(&shown));
                 // Which of two Jobs lands first, raised to him whether the Operator is on or off.
                 items.extend(super::clash_order::clash_items(&clashes, &session.id));
             }

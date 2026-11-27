@@ -295,7 +295,7 @@ The notice reads `<Job> also writes <files>. Message it at <address> to agree wh
 | What happens | What Fleet keeps |
 |---|---|
 | The two agree by message, and one calls `settle_clash` with `with`, `files`, `first` (`me`, `them` or `both_go_on`) and `why` | The pair's clash, `agreed`. Neither Job is told of those files again, a folder covering the files under it. The other Job is sent nothing |
-| They cannot agree, and one calls `raise_conflict` naming files | The pair's clash, `waiting`, and a `clash_order` item on that Job's Needs you asking `Which lands first, "<A>" or "<B>"?`, raised whether the Operator is on or off, since nothing may wait on the Operator alone. The conflict goes to the Operator as before |
+| They cannot agree, and one calls `raise_conflict` naming files | The pair's clash, `waiting`, and a `clash_order` item on that Job's Needs you asking `Which lands first, "<A>" or "<B>"?`, raised whether the Operator is on or off, since nothing may wait on the Operator alone. The conflict goes to the Operator as before, and its `job_conflict` item is not listed: one ask, one item |
 | He chooses one | The clash, `ruled`, with the one he chose first. Both Jobs are told his choice as a claims notice |
 
 **One clash a pair**, in Fleet's store (`job_clashes`): a later settling or raise between the same two replaces it, its files joined.
