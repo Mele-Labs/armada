@@ -256,6 +256,9 @@ impl JobView {
         let revising = !approved && plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty());
         let technical_key = format!("{key}:technical");
         let plain = !plan.summary.trim().is_empty();
+        // Its sketches measure their width under a key of their own place: the review sheet and the thread draw this plan at
+        // once, and one key read at both widths redrew the drawing at each in turn (his note of 27 Nov: it flickers).
+        let sketched = format!("{key}@{ix}");
         let technical = !plain || page.cards.opened.contains(&technical_key);
         let mut body = div().flex().flex_col().gap(look.length(token::SPACE_2));
         if let (Some(changes), false) = (&plan.changes, revising) {
@@ -272,7 +275,7 @@ impl JobView {
                         .text_color(look.color(token::FG_DEFAULT))
                         .child(SharedString::from(plan.summary.clone())),
                 )
-                .children(self.plan_sketches(key, plan, None, page, look, cx))
+                .children(self.plan_sketches(&sketched, plan, None, page, look, cx))
                 .children(self.plan_notes(pinned, page, look, cx))
                 .child(labelled(
                     div()
@@ -286,7 +289,7 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .children(plan.groups.iter().map(|group| {
                             let gives = self.gives_row(group.gives.clone().unwrap_or_else(|| group.title.clone()), group, pinned, page, look, cx);
-                            match self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx) {
+                            match self.plan_sketches(&sketched, plan, Some((&group.id, &group.title)), page, look, cx) {
                                 Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(gives).child(sketches).into_any_element(),
                                 None => gives,
                             }
@@ -307,12 +310,12 @@ impl JobView {
         }
         if technical {
             if !plain {
-                body = body.children(self.plan_sketches(key, plan, None, page, look, cx));
+                body = body.children(self.plan_sketches(&sketched, plan, None, page, look, cx));
             }
             let inner = if revising {
-                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), (!plain).then_some(key), page, look, cx)
+                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), (!plain).then_some(sketched.as_str()), page, look, cx)
             } else {
-                self.plan_groups(key, plan, approved, plain, pinned, page, look, cx)
+                self.plan_groups(&sketched, plan, approved, plain, pinned, page, look, cx)
             };
             // With no plain view the notes about the plan as a whole stand above the groups.
             body = match self.plan_notes(pinned, page, look, cx).filter(|_| !plain) {
@@ -456,9 +459,6 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(SharedString::from(group.title.clone())),
             )
-            .when(plain, |row| {
-                row.child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).children(group.paths.iter().map(|path| div().child(path.clone()))))
-            })
             .children((!approved).then(|| div().flex().flex_wrap().justify_end().max_w(look.length(token::SPACE_12) * 4.).gap(look.length(token::SPACE_1)).children(marks)))
             .child(
                 div()
@@ -472,11 +472,24 @@ impl JobView {
                     .child(glyph(look, "bot", Size::Small, look.color(token::FG_MUTED)))
                     .child(div().font_family(mono(look)).child(SharedString::from(group.agent.clone()))),
             );
+        // Its paths take a line of their own under the title: beside it they squeezed the title a letter to a line (his note
+        // of 27 Nov).
+        let paths = (plain && !group.paths.is_empty()).then(|| {
+            div()
+                .flex()
+                .flex_wrap()
+                .gap_x(look.length(token::SPACE_3))
+                .text_size(look.length(token::TEXT_XS))
+                .font_family(mono(look))
+                .text_color(look.color(token::FG_SUBTLE))
+                .children(group.paths.iter().map(|path| div().child(path.clone())))
+        });
         // The Judge's notes on the group open under its line; the plain view draws them under what the group gives.
-        match Some(pinned).filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx)) {
-            None => row.into_any_element(),
-            Some(notes) => div().flex().flex_col().child(row).child(notes).into_any_element(),
+        let notes = Some(pinned).filter(|_| !plain).and_then(|at| self.group_findings(at, group, page, look, cx));
+        if paths.is_none() && notes.is_none() {
+            return row.into_any_element();
         }
+        div().flex().flex_col().gap(look.length(token::SPACE_1)).child(row).children(paths).children(notes).into_any_element()
     }
 
     /// The plan read against the version before it (B2.5): what changed in the open, the rest folded. With

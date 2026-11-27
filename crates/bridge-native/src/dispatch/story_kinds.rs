@@ -32,8 +32,6 @@ pub struct StoryKind {
     pub starts: &'static str,
     /// What the line says where the choice reads its second word.
     pub later: Option<&'static str>,
-    /// Keys of `ask_tools.toml`.
-    pub tools: Vec<&'static str>,
     pub hue: &'static str,
     pub glyph: &'static str,
 }
@@ -86,7 +84,6 @@ fn read(registry: &'static str) -> Vec<StoryKind> {
         .map(|(id, fields)| {
             let get = |key: &str| fields.iter().find_map(|(named, value)| (*named == key).then_some(*value));
             let field = |key: &str| get(key).unwrap_or_else(|| panic!("story_kinds.toml: `{id}` has no `{key}`"));
-            let tools = field("tools");
             StoryKind {
                 id,
                 name: field("name"),
@@ -95,7 +92,6 @@ fn read(registry: &'static str) -> Vec<StoryKind> {
                 workflow: field("workflow"),
                 starts: field("starts"),
                 later: get("later"),
-                tools: if tools == "none" { Vec::new() } else { tools.split(',').map(str::trim).collect() },
                 hue: field("hue"),
                 glyph: field("glyph"),
             }
@@ -108,22 +104,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_registry_reads_six_kinds_in_order_each_with_an_opening_blanks_and_preset_tools_of_ask_tools() {
+    fn the_registry_reads_six_kinds_in_order_each_with_an_opening_and_blanks() {
         let ids: Vec<_> = kinds().iter().map(|kind| kind.id).collect();
         assert_eq!(ids, ["bug", "feature", "idea", "design", "investigate", "brainstorm"]);
         for kind in kinds() {
             assert!(!kind.opening.is_empty(), "{} has an opening", kind.id);
             assert!(kind.pieces.iter().any(|piece| !matches!(piece, Piece::Text(_))), "{} has a blank to type into", kind.id);
-            for tool in &kind.tools {
-                assert!(ipc::ask_tools::ask_tool(tool).is_some(), "{}'s preset tool `{tool}` is a key of ask_tools.toml", kind.id);
-            }
         }
-        let preset = |id: &str| kinds().iter().find(|kind| kind.id == id).expect("a kind").tools.clone();
-        assert_eq!(preset("bug"), ["terminal", "browser"]);
-        assert_eq!(preset("feature"), ["sketch"]);
-        assert!(preset("idea").is_empty(), "`none` presets no tool");
-        assert_eq!(preset("design"), ["sketch", "takes"]);
-        assert_eq!(preset("investigate"), ["terminal"]);
-        assert_eq!(preset("brainstorm"), ["diagram"]);
     }
 }
