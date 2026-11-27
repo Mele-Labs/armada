@@ -145,7 +145,7 @@ fn at(day: u32) -> Instant {
 /// request merged for the last, so there are six items, the asks first. None where `held` is false.
 fn install_story(view: &Entity<JobView>, held: bool, cx: &mut VisualTestContext) {
     let asks: Vec<Ask> = if held { mock::held(JOB).asks } else { Vec::new() };
-    let mut told: Vec<StoryAsk> = asks.into_iter().map(|ask| StoryAsk { ask, shown: Vec::new(), built: Vec::new(), handed: Vec::new(), open: true }).collect();
+    let mut told: Vec<StoryAsk> = asks.into_iter().map(|ask| StoryAsk { ask, shown: Vec::new(), built: Vec::new(), handed: Vec::new(), replies: Vec::new(), open: true }).collect();
     if let Some(first) = told.first_mut() {
         first.shown = vec![StoryShown { artifact: "sketches/router".into(), title: "Router sketch".into(), form: ArtifactForm::Sketch, state: ArtifactState::Approved, words: None, votes: Vec::new(), presses: Vec::new(), shown_at: at(20) }];
     }
