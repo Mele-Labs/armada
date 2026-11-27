@@ -162,6 +162,7 @@ fn long_lived() -> SessionRecord {
         lanes: None,
         pull_request_drafts: Vec::new(),
         claim_waits: Vec::new(),
+        clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
     }

@@ -448,6 +448,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
         .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
         .route("/sessions/withdraw_held", post(crate::sessions::withdraw_held::<D>))
+        .route("/sessions/settle_clash", post(crate::sessions::settle_clash::<D>))
         .route("/operator/cards", post(crate::sessions::raise_card::<D>))
         .route("/operator/cards/revise", post(crate::sessions::revise_card::<D>))
         .route("/operator/cards/settle", post(crate::sessions::settle_card::<D>))

@@ -175,6 +175,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `gate` | questions | none: Fleet refuses it |
 | `operator_undone` | by act: a question | plain; the agent is told nothing, and an answer goes to it as `Re: <question>` |
 | `job_conflict` | questions | none: Fleet refuses it |
+| `clash_order` | questions | none: Fleet refuses it |
 | `job_held` | questions | plain; the ask is settled with no answer and the Job that asked is sent `held? <pull or branch>: He dismissed it with no answer.` |
 | `ready_to_try` | to_review | plain; one row for the Job while any card is open, its cards answer it, and a dismissal covers only the cards open then |
 
@@ -304,6 +305,7 @@ Native draws them as their own Done group, last, behind a Done Jobs switch in th
 | `held_child` | Needs you |
 | `job_held` | Needs you |
 | `job_conflict` | Needs you |
+| `clash_order` | Needs you |
 | `gate` | Needs you |
 | `rule_act` | Needs you |
 | `operator_suggestion` | Needs you |

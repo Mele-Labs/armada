@@ -79,6 +79,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("withdraw_draft", shape::of::<crate::WithdrawDraft>()),
         ("withdraw_for_you", shape::of::<crate::WithdrawForYou>()),
         ("withdraw_held", shape::of::<crate::WithdrawHeld>()),
+        ("settle_clash", shape::of::<crate::SettleClash>()),
         ("withdraw_sketch", shape::of::<crate::WithdrawSketch>()),
         ("withdraw_window", shape::of::<crate::WithdrawWindow>()),
         ("write_feature_sections", shape::of::<crate::WriteFeatureSections>()),

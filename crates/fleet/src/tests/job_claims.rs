@@ -309,3 +309,41 @@ async fn a_renewal_is_one_call_a_job_every_five_minutes_and_lapsed_claims_are_ta
         assert_eq!(holder_of(&shared, ClaimKind::File, path).as_deref(), Some(job.as_str()), "{path} taken again");
     }
 }
+
+/// The owner's ruling, 27 Nov 2026: Fleet tells both writers of a file, and the two settle which lands first between
+/// them. Once they record it, neither is told of that file again, and both rows carry it.
+#[tokio::test]
+async fn two_jobs_that_settle_a_shared_file_are_not_told_of_it_again_and_both_rows_carry_it() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let home = mac("home", &shared, &remote).await;
+    let one = home.job("Tidy the log").await;
+    let two = home.job("Quiet the log").await;
+    home.writes(&one, "src/log.rs");
+    home.writes(&two, "src/log.rs");
+
+    home.pass(1).await;
+
+    let (told, other) = match home.told(&one).await.is_empty() {
+        true => (two.clone(), one.clone()),
+        false => (one.clone(), two.clone()),
+    };
+    let word = home.told(&told).await;
+    let address = crate::session_host::address_of(other.as_str());
+    assert!(word.len() == 1 && word[0].contains(&format!("also writes `src/log.rs`. Message it at {address}")) && word[0].contains("`settle_clash`") && word[0].contains("`raise_conflict`"), "{word:?}");
+    assert!(home.told(&other).await.is_empty(), "the holder hears at its renewal");
+
+    let settle = ipc::SettleClash { with: address, files: vec!["src/log.rs".into()], first: ipc::ClashFirst::Them, why: "Its change is the smaller one.".into(), session_id: Some(told.clone()) };
+    let settled = Arc::clone(&home.rig.fleet).settle_clash(None, settle).await.expect("settled");
+    assert_eq!((settled.standing, settled.first.as_ref()), (ipc::ClashStanding::Agreed, Some(&other)));
+
+    home.pass(300).await;
+    home.pass(300).await;
+
+    assert!(home.told(&other).await.is_empty(), "the holder is not told of a file the two settled: {:?}", home.told(&other).await);
+    assert_eq!(home.told(&told).await, word, "nor is the Job that settled it told again");
+    for job in [&one, &two] {
+        let clashes = home.record(job).await.clashes;
+        let [clash] = clashes.as_slice() else { panic!("one clash on {}: {clashes:?}", job.as_str()) };
+        assert_eq!((clash.files.as_slice(), clash.first.as_ref(), clash.why.as_str()), (["src/log.rs".to_string()].as_slice(), Some(&other), "Its change is the smaller one."));
+    }
+}

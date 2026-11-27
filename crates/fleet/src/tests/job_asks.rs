@@ -416,3 +416,42 @@ async fn a_landing_question_reads_the_pull_requests_title_and_the_job_that_asked
     assert_ne!(said, "Should #3745 land?");
     assert_eq!(text(&by_branch.id), "Should fleet/add-the-field land? Asked by Add the field");
 }
+
+/// The owner's rule: nothing may wait on the Operator alone. With it on, a conflict naming files is still his to
+/// order, on the sender's Needs you, and his choice is the pair's order on both rows and told to both Jobs.
+#[tokio::test]
+async fn a_conflict_naming_files_asks_him_which_lands_first_and_his_choice_settles_it_for_both() {
+    let rig = rig_placing(None);
+    let (one, two) = two(&rig).await;
+    on(&rig).await;
+
+    let raised = Arc::clone(&rig.fleet).raise_conflict(None, conflict(&one, &two)).await.expect("raised");
+
+    let mut pair = [address(&one), address(&two)];
+    pair.sort();
+    let id = format!("clash:{}:{}", pair[0], pair[1]);
+    assert!(items(&rig, &one, WaitingSource::JobConflict).await.is_empty(), "the Operator holds the conflict: {}", raised.id);
+    let asked = items(&rig, &one, WaitingSource::ClashOrder).await;
+    let [item] = asked.as_slice() else { panic!("one item: {asked:?}") };
+    assert_eq!((item.id.as_str(), item.text.as_str()), (id.as_str(), "Which lands first, \"Add the field\" or \"Rename the card\"?"));
+    assert_eq!(item.options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), ["Add the field", "Rename the card"]);
+    assert!(items(&rig, &two, WaitingSource::ClashOrder).await.is_empty(), "only the sender holds it");
+    for job in [&one, &two] {
+        let clashes = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session.clashes;
+        assert_eq!(clashes.iter().map(|clash| clash.standing).collect::<Vec<_>>(), [ipc::ClashStanding::Waiting], "it waits on him on both rows");
+    }
+
+    chose(&rig, &one, &id, 1).await;
+
+    assert!(items(&rig, &one, WaitingSource::ClashOrder).await.is_empty(), "the item goes");
+    for job in [&one, &two] {
+        let clashes = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session.clashes;
+        let [clash] = clashes.as_slice() else { panic!("one clash: {clashes:?}") };
+        assert_eq!((clash.standing, clash.first.as_ref()), (ipc::ClashStanding::Ruled, Some(&two)));
+        assert_eq!(clash.files, ["crates/ipc/src/operator_page.rs"]);
+    }
+    let waits = format!("He chose that \"Rename the card\" ({}) lands first on `crates/ipc/src/operator_page.rs`. Wait until it lands before you land yours.", address(&two));
+    assert!(notes_to(&rig, &one).await.contains(&waits), "{:?}", notes_to(&rig, &one).await);
+    let goes = format!("He chose that you land first on `crates/ipc/src/operator_page.rs`. \"Add the field\" ({}) waits until you land.", address(&one));
+    assert!(notes_to(&rig, &two).await.contains(&goes), "{:?}", notes_to(&rig, &two).await);
+}

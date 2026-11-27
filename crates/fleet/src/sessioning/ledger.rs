@@ -295,6 +295,7 @@ where
     /// the turn its items took, so an answer finds what the row held back.
     pub(crate) fn ledger_parts(&self, session: &KeptSession, reads: LedgerReads) -> (SessionRecord, Vec<ipc::WaitingItem>) {
         let mut record = session_wire(session, &reads.held);
+        record.clashes = reads.waiting.clashes.iter().map(crate::session_host::clash_order::clash_wire).collect();
         if session.state == store::SessionState::Live {
             self.slots_held_drawn(session, &mut record.attachments);
             let claims = self.job_claims().shown(&session.id);
