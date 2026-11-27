@@ -256,6 +256,9 @@ impl JobView {
         let revising = !approved && plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty());
         let technical_key = format!("{key}:technical");
         let plain = !plan.summary.trim().is_empty();
+        // Its sketches measure their width under a key of their own place: the review sheet and the thread draw this plan at
+        // once, and one key read at both widths redrew the drawing at each in turn (his note of 27 Nov: it flickers).
+        let sketched = format!("{key}@{ix}");
         let technical = !plain || page.cards.opened.contains(&technical_key);
         let mut body = div().flex().flex_col().gap(look.length(token::SPACE_2));
         if let (Some(changes), false) = (&plan.changes, revising) {
@@ -272,7 +275,7 @@ impl JobView {
                         .text_color(look.color(token::FG_DEFAULT))
                         .child(SharedString::from(plan.summary.clone())),
                 )
-                .children(self.plan_sketches(key, plan, None, page, look, cx))
+                .children(self.plan_sketches(&sketched, plan, None, page, look, cx))
                 .children(self.plan_notes(pinned, page, look, cx))
                 .child(labelled(
                     div()
@@ -286,7 +289,7 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .children(plan.groups.iter().map(|group| {
                             let gives = self.gives_row(group.gives.clone().unwrap_or_else(|| group.title.clone()), group, pinned, page, look, cx);
-                            match self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx) {
+                            match self.plan_sketches(&sketched, plan, Some((&group.id, &group.title)), page, look, cx) {
                                 Some(sketches) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(gives).child(sketches).into_any_element(),
                                 None => gives,
                             }
@@ -307,12 +310,12 @@ impl JobView {
         }
         if technical {
             if !plain {
-                body = body.children(self.plan_sketches(key, plan, None, page, look, cx));
+                body = body.children(self.plan_sketches(&sketched, plan, None, page, look, cx));
             }
             let inner = if revising {
-                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), (!plain).then_some(key), page, look, cx)
+                self.plan_revision(ix, key, plan, plan.changes.as_ref().expect("revising holds changes"), (!plain).then_some(sketched.as_str()), page, look, cx)
             } else {
-                self.plan_groups(key, plan, approved, plain, pinned, page, look, cx)
+                self.plan_groups(&sketched, plan, approved, plain, pinned, page, look, cx)
             };
             // With no plain view the notes about the plan as a whole stand above the groups.
             body = match self.plan_notes(pinned, page, look, cx).filter(|_| !plain) {

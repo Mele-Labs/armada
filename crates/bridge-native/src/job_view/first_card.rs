@@ -212,9 +212,10 @@ impl JobView {
                     let pinned = Pinned::on_card(ix, &card.id, reading, &earlier, plan);
                     self.plan_body(ix, &card.id, plan, false, &pinned, page, look, cx)
                 });
-                padded(body.into_iter().chain([self.first_answers(&first, cx)]).collect())
+                let own = card.as_ref().map(|card| (ix, card.id.clone(), card.version));
+                padded(body.into_iter().chain([self.first_answers(&first, own, cx)]).collect())
             }
-            _ => padded(vec![self.first_answers(&first, cx)]),
+            _ => padded(vec![self.first_answers(&first, None, cx)]),
         };
         let spot = page.keys.spot(&format!("card:{key}"), cx);
         let aim = key.clone();
@@ -336,15 +337,18 @@ impl JobView {
     }
 
     /// The answers of an ask the sheet answers by verdict, a plan, a drawing, a page or a draft, and of a build: Approve, Ask for
-    /// changes and Read it, as the ask offers them.
-    fn first_answers(&self, item: &Item, cx: &Context<Self>) -> AnyElement {
+    /// changes and Read it, as the ask offers them. A plan's Approve goes as its own card's does, `plan`: its place, key and version.
+    fn first_answers(&self, item: &Item, plan: Option<(usize, String, u32)>, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let asks = !item.read && self.item_asks(item, cx) && item.kind != Kind::Build;
         let id = item.id.clone();
         let approve = asks.then(|| {
             let held = item.clone();
             labelled(
-                pressed(glyph_button(look, format!("first-approve:{id}"), "Approve", "check", super::sketch_card::Kind::Primary, true), cx, move |this, window, cx| this.first_approve(held.clone(), window, cx)),
+                pressed(glyph_button(look, format!("first-approve:{id}"), "Approve", "check", super::sketch_card::Kind::Primary, true), cx, move |this, window, cx| match plan.clone() {
+                    Some((ix, key, version)) => this.first_approve_plan(ix, key, version, window, cx),
+                    None => this.first_approve(held.clone(), window, cx),
+                }),
                 Role::Button,
                 "Approve",
             )
@@ -386,6 +390,14 @@ impl JobView {
     fn first_approve(&mut self, item: Item, window: &mut Window, cx: &mut Context<Self>) {
         let body = answer_batch(&[&item], ItemHow::Approve, |_| String::new());
         self.review_send(vec![item], Verdict::Approved, "/sessions/items/answer", ipc::encode(&body), window, cx);
+    }
+
+    /// A plan's Approve on the first card: the plan card's own approve, so a refusal is said on the card (his note of 27 Nov:
+    /// Approve on the plan did nothing, its answer sent as an item and its refusal shown only in a closed sheet).
+    fn first_approve_plan(&mut self, ix: usize, key: String, version: u32, window: &mut Window, cx: &mut Context<Self>) {
+        let session_id = ipc::SessionId::carried(self.shown.clone().unwrap_or_default().to_string());
+        let body = ipc::encode(&ipc::ApprovePlan { session_id, version }).map_err(|why| why.to_string());
+        self.settle(ix, key, super::acts::Answer::Approved, "/sessions/plan/approve", body, window, cx);
     }
 }
 
@@ -470,6 +482,10 @@ mod tests {
         assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "its bar names it now");
         assert!(drawn(cx, Role::List, "What each group gives"), "the card shows the plan itself, as its own card did");
         assert!(drawn(cx, Role::Button, "Read it"), "and Read it still opens it whole");
+        // His note of 27 Nov: Approve on the plan did nothing.
+        press(cx, Role::Button, "Approve");
+        let after = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx));
+        assert!(after.as_ref().is_none_or(|one| one.kind != Kind::Plan), "approved, the plan leaves the first card: {after:?}");
     }
 
     #[gpui::test]

@@ -2351,7 +2351,8 @@ impl JobView {
                         if plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty()) {
                             div().w_full().child(self.plan_body(SHEET, &card.id, plan, false, &pinned, page, look, cx)).into_any_element()
                         } else {
-                            self.review_plan(&card.id, plan, &pinned, page, look, cx)
+                            // Its own key, so its sketches' width is not the thread's drawing of the same plan (it flickered).
+                            self.review_plan(&format!("{}@sheet", card.id), plan, &pinned, page, look, cx)
                         }
                     }
                     None => self.review_skeleton(look),
