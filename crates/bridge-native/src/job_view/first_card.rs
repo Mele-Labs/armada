@@ -151,7 +151,10 @@ impl JobView {
         let ask = self.ask_of(&first);
         // One he answered stands done on the bar while the asks put with or before it are still open.
         let since = asks.iter().map(|one| instant(&one.since)).min().unwrap_or(i64::MAX);
-        let done = record.answers.iter().filter(|one| instant(one.at.as_str()) >= since).max_by_key(|one| instant(one.at.as_str())).map(|one| answered_words(one).to_string());
+        // An answer to an ask still open, such as a note on the plan that still waits, finished nothing: the ask is the step now,
+        // and stood done beside it as well it read twice (his note of 27 Nov: the same plan twice).
+        let open = |answer: &AnsweredAsk| asks.iter().any(|one| super::ask_line::same_item(&one.id, &answer.item) || (one.kind == Kind::Plan && answer.item.starts_with("plan:")));
+        let done = record.answers.iter().filter(|one| instant(one.at.as_str()) >= since && !open(one)).max_by_key(|one| instant(one.at.as_str())).map(|one| answered_words(one).to_string());
         let words: Vec<(Ask, String)> = asks
             .iter()
             .map(|one| {
@@ -536,6 +539,7 @@ mod tests {
         let first = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("the plan asks again");
         assert_eq!(first.kind, Kind::Plan, "Fleet's list wins over the answer held here");
         assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "the first card stands for it");
+        assert!(!drawn(cx, Role::ListItem, "Done: Approve the plan"), "his changes finished nothing, so the plan is not also a step done");
         assert!(drawn(cx, Role::Button, "Approve"), "with its Approve");
     }
 
