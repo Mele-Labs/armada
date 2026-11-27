@@ -15,7 +15,7 @@ const PAGE: &str = "<html><head><title>Layouts</title></head><body><h1>Layouts</
     <armada-take id=\"roomy\" title=\"Roomy\"><p>Wide</p></armada-take></armada-vote></body></html>";
 
 /// Work keeps `PAGE` as a page of its Job, revision 1, and answers with the page's path.
-async fn page_kept(work: &OneMac, job: &SessionId) -> String {
+pub(super) async fn page_kept(work: &OneMac, job: &SessionId) -> String {
     let file = std::path::Path::new(&work.rig.root).join(".armada/documents/layouts.html");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, PAGE).unwrap();
@@ -39,7 +39,7 @@ async fn page_kept(work: &OneMac, job: &SessionId) -> String {
     path
 }
 
-async fn get(mac: &OneMac, path: &str) -> (axum::http::StatusCode, axum::http::HeaderMap, String) {
+pub(super) async fn get(mac: &OneMac, path: &str) -> (axum::http::StatusCode, axum::http::HeaderMap, String) {
     use tower::ServiceExt;
     let request = axum::http::Request::get(path).header("x-armada-caller", "bridge").body(axum::body::Body::empty()).expect("a request");
     let answer = mac.fleet.clone().oneshot(request).await.expect("answered");

@@ -40,12 +40,14 @@ mod features;
 mod first_run;
 mod fleet;
 mod frames;
+mod grid;
 mod history;
 // Nothing draws the Cockpit's home grid yet; its blocks wait for it.
 #[allow(dead_code)]
 mod home;
 mod job_tokens;
 mod job_view;
+mod judge_chips;
 mod judge_types;
 mod inspect;
 mod instance;

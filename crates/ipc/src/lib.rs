@@ -631,7 +631,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QueueStuck, QueueStuckCause, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,
@@ -730,7 +730,7 @@ pub use session_import::{
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
     Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobFeature, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
-    StoryBuilt, StoryChanged, StoryHanded, StoryShown,
+    StoryBuilt, StoryChanged, StoryHanded, StoryReply, StoryShown,
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{

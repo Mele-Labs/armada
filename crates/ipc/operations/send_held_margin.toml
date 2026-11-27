@@ -10,5 +10,7 @@ notes = """
 
 422 `fleet.margin_nothing_held` where nothing is held on the page, and `fleet.margin_no_page` for a page the Job holds none of.
 
+**On a Job held from another Mac it runs there**, as the act `margin_send_held` (`act_from_mac`), and that Mac's answer is passed back as it said it. Since 26 Nov 2026.
+
 `agent_access` is `No`: the comments are the person's.
 """

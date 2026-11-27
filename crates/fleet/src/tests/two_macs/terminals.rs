@@ -87,9 +87,16 @@ async fn across(home: &mut OneMac, work: &OneMac, s: &SessionId, p: &SessionId) 
 
     // 2. He types a command on Work and sees its output there: the sum is printed only once the shell ran it.
     let mut live = work.rig.fleet.observe_session_run(opened.run_id.clone()).await.expect("followed").live.expect("running");
-    let typed = WriteSessionRun { run_id: opened.run_id.clone(), data: "echo across-$((40+2))\r".into() };
-    work.rig.fleet.write_session_run(typed).await.expect("typed on Home");
-    let came = heard(&mut live, |all| all.contains("across-42")).await;
+    // A login shell under the person's own rc may drop a line typed while it starts, so it is typed again until run.
+    let mut came = String::new();
+    for _ in 0..3 {
+        let typed = WriteSessionRun { run_id: opened.run_id.clone(), data: "echo across-$((40+2))\r".into() };
+        work.rig.fleet.write_session_run(typed).await.expect("typed on Home");
+        came.push_str(&heard(&mut live, |all| all.contains("across-42")).await);
+        if came.contains("across-42") {
+            break;
+        }
+    }
     assert!(came.contains("across-42"), "Work saw: {came:?}");
 
     // 3. A private Job's terminal is answered as a Job that does not exist, and nothing opens on Home.

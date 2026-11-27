@@ -6,7 +6,7 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{Ask, AskState, Instant, JobArtifact, JobStory, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown};
+use ipc::{Ask, AskState, Instant, JobArtifact, JobStory, SessionId, SessionRow, SessionVoice, StoryAsk, StoryBuilt, StoryHanded, StoryReply, StoryShown};
 
 use crate::daemon::Fleet;
 
@@ -51,8 +51,53 @@ fn standing(entry: &Entry) -> String {
     }
 }
 
-/// The story of `session`: the asks it holds, grouped, with each artifact under the ask he last spoke on. Pure.
-pub(crate) fn story_of(session: &SessionId, mut entries: Vec<Entry>, artifacts: &[JobArtifact]) -> JobStory {
+/// The longest a reply of the Job's is kept.
+const REPLY_CHARS: usize = 600;
+
+/// `text` whole where it is short, else cut at the last word within [`REPLY_CHARS`] with an ellipsis.
+fn reply_words(text: &str) -> String {
+    let text = text.trim();
+    let Some((end, _)) = text.char_indices().nth(REPLY_CHARS) else { return text.to_string() };
+    let head = &text[..end];
+    let head = match text[end..].starts_with(char::is_whitespace) {
+        true => head,
+        false => head.rfind(char::is_whitespace).map_or(head, |space| &head[..space]),
+    };
+    format!("{}...", head.trim_end())
+}
+
+/// A turn that is only a wrapper tag the harness or Fleet wrote, such as `<system-reminder>...</system-reminder>`.
+fn wrapper_only(text: &str) -> bool {
+    text.starts_with('<') && text.ends_with('>')
+}
+
+/// The Job's written replies under each ask, in `entries`' order. An ask owns the agent text rows after its first row
+/// and before the nearest later first row of another ask said in the same thread. One whose first row is not in `rows` has none.
+fn replies_of(session: &SessionId, entries: &[Entry], rows: &[SessionRow]) -> Vec<Vec<StoryReply>> {
+    let starts: Vec<Option<usize>> =
+        entries.iter().map(|entry| (&entry.ask.said_in == session).then(|| rows.iter().position(|row| row.id() == entry.ask.first_row)).flatten()).collect();
+    starts
+        .iter()
+        .map(|start| {
+            let Some(from) = *start else { return Vec::new() };
+            let to = starts.iter().flatten().copied().filter(|other| *other > from).min().unwrap_or(rows.len());
+            rows[from + 1..to]
+                .iter()
+                .filter_map(|row| match row {
+                    SessionRow::Message { at, from: SessionVoice::Agent, text, notice: None, .. } => {
+                        let text = text.trim();
+                        (!text.is_empty() && !wrapper_only(text)).then(|| StoryReply { words: reply_words(text), at: at.clone() })
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// The story of `session`: the asks it holds, grouped, with each artifact under the ask he last spoke on and the Job's
+/// replies under the ask they came after. Pure.
+pub(crate) fn story_of(session: &SessionId, mut entries: Vec<Entry>, artifacts: &[JobArtifact], rows: &[SessionRow]) -> JobStory {
     entries.sort_by(|a, b| (!open(a.ask.state), a.ask.opened_at.as_str(), &a.ask.ask_id).cmp(&(!open(b.ask.state), b.ask.opened_at.as_str(), &b.ask.ask_id)));
     // When he spoke on each ask in this Job: its first words and each revision or answer written here.
     let spoke: Vec<Vec<&str>> = entries
@@ -79,11 +124,12 @@ pub(crate) fn story_of(session: &SessionId, mut entries: Vec<Entry>, artifacts: 
             None => otherwise.push(one),
         }
     }
+    let replies = replies_of(session, &entries, rows);
     let lead = entries.iter().map(|entry| format!("{}: {}", entry.ask.title, standing(entry))).collect();
     let asks = entries
         .into_iter()
-        .zip(shown)
-        .map(|(entry, shown)| StoryAsk { open: open(entry.ask.state), ask: entry.ask, shown, built: entry.built, handed: entry.handed })
+        .zip(shown.into_iter().zip(replies))
+        .map(|(entry, (shown, replies))| StoryAsk { open: open(entry.ask.state), ask: entry.ask, shown, built: entry.built, handed: entry.handed, replies })
         .collect();
     JobStory { session_id: session.clone(), asks, shown_otherwise: otherwise, lead, features: Vec::new() }
 }
@@ -102,6 +148,7 @@ where
     pub(crate) async fn job_story_read(&self, session: &SessionId) -> Result<JobStory, Refusal> {
         let asks = self.job_asks_listed(session).await?.asks;
         let artifacts = self.job_artifacts(session.as_str()).await?;
+        let rows = self.rows_of(session.as_str()).await?;
         let mut entries = Vec::new();
         let features;
         {
@@ -127,6 +174,6 @@ where
                 entries.push(Entry { ask, built, handed });
             }
         }
-        Ok(JobStory { features, ..story_of(session, entries, &artifacts) })
+        Ok(JobStory { features, ..story_of(session, entries, &artifacts, &rows) })
     }
 }

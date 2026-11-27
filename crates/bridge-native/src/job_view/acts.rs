@@ -206,17 +206,7 @@ pub(super) fn gated(row: Stateful<gpui::Div>, off: Option<SharedString>) -> Stat
 
 /// What Fleet's reason for a refused act reads as, drawn under the card's buttons.
 pub(super) fn refusal(look: &Look, key: &str, why: SharedString) -> gpui::AnyElement {
-    labelled(
-        div()
-            .id(SharedString::from(format!("refused:{key}")))
-            .text_size(look.length(token::TEXT_XS))
-            .line_height(look.length(token::LEADING_SM))
-            .text_color(look.color(token::STATUS_COMPLETED_FAILED))
-            .child(why),
-        Role::Status,
-        "Refused",
-    )
-    .into_any_element()
+    crate::judge_chips::refusal(look, key, why)
 }
 
 /// The time a card shows for its own stamp.

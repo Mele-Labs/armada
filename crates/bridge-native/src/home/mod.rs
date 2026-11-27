@@ -3,14 +3,18 @@
 //! (`ipc::HomeLayout`, whose kinds are the slugs of [`HomeBlockKind`]), are not here.
 
 mod blocks;
+mod layout;
 mod needs;
 mod placeholder;
+mod screen;
+mod wire;
 #[cfg(test)]
 mod tests;
 
 pub use blocks::HomeBlockKind;
 pub use needs::{NeedCard, NeedsCards, NeedsScope, ScopeChanged};
 pub use placeholder::PlaceholderBlock;
+pub use screen::{HomeEvent, HomeScreen};
 
 /// The floor plan as a block: `Floor` made with `Floor::plan`, which draws the map or the code map alone, as many columns as its
 /// box holds. The Operator's Switch on is not part of it.

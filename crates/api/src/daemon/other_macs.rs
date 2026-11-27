@@ -124,14 +124,20 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// [`Refusal::NotFound`] for a Job not shared, worded as for one that does not exist.
     fn share_job_artifacts(&self, job: SessionId) -> impl Future<Output = Result<Vec<JobArtifact>, Refusal>> + Send;
 
-    /// `share_job_artifact_page` — one kept revision of a shared Job's page, sealed as `get_artifact_page` seals it.
-    /// Refused as `share_job_artifacts` is, and as `get_artifact_page` refuses what the Job does not hold.
+    /// `share_job_artifact_page` — one kept revision of a shared Job's page, sealed as `get_artifact_page` seals it,
+    /// for a host that draws the kit itself where `host_kit`. Refused as `share_job_artifacts` is, and as
+    /// `get_artifact_page` refuses what the Job does not hold.
     fn share_job_artifact_page(
         &self,
         job: SessionId,
         artifact: String,
         revision: Option<u32>,
+        host_kit: bool,
     ) -> impl Future<Output = Result<ArtifactPageShared, Refusal>> + Send;
+
+    /// `share_job_margin` — a shared Job's margin threads on one page, as `get_margin_threads` answers. Refused as
+    /// `share_job_artifacts` is.
+    fn share_job_margin(&self, get: ipc::GetMarginThreads) -> impl Future<Output = Result<ipc::MarginThreads, Refusal>> + Send;
 
     /// `share_job_page` — whether another Mac may be shown what this Mac serves on loopback port `port` for Job
     /// `job`: a page the Job showed, or a server it started that is serving. [`Refusal::NotFound`] for a Job not

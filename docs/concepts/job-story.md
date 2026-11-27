@@ -96,6 +96,9 @@ He moves an ask to the backlog or drops it with `change_ask`, and changes its ki
 **Rule.** The story is the Job's asks, open ones first, each group oldest first.
 Each ask shows how it started, its revisions, what he was shown and decided, what was built, what was handed on and whether it is open.
 
+**Rule.** An ask also carries the Job's own written replies: its text turns in the thread the ask was said in, after the ask's first words and before the next ask's first words, oldest first, each cut to about 600 characters at a word.
+Tool calls, empty turns and notices are not replies, and an ask said outside the thread has none.
+
 **Rule.** An artifact goes under the ask he last spoke on before the artifact was first kept.
 Fleet records no message an artifact answers, so the time is the one fact there is.
 What came before any ask of the Job is listed apart.

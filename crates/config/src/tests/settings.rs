@@ -148,6 +148,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DISPUTE_READ_MINUTES,
         s::WATCHES_AT_ONCE,
         s::WATCHES_PER_JOB,
+        s::QUEUE_REQUEUES_PER_COMMIT,
         s::WATCH_GIVE_UP_MINUTES,
         s::COMPACTION_WINDOW,
     ] {
@@ -271,7 +272,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 12 + 17 + 29 + 4 + 22 + s::prompt_keys().count();
+    let handles = 23 + 12 + 17 + 29 + 4 + 22 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

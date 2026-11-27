@@ -4,6 +4,7 @@
 
 mod bar;
 mod inbox;
+mod judge;
 pub mod layout;
 mod live;
 mod markdown;
@@ -244,6 +245,8 @@ pub struct ReviewsScreen {
     rewrite_runs: HashMap<(u64, model::Rewrite), Task<()>>,
     /// Files' own scroll, which a file pressed in the rail moves to that file.
     files_scroll: ScrollHandle,
+    /// Judge on a pull request a Job holds: the box, the asks waiting on a reading, and the notes settled here.
+    judging: judge::Judging,
     _subs: Vec<Subscription>,
 }
 
@@ -357,6 +360,7 @@ impl ReviewsScreen {
             rewritten: HashMap::new(),
             rewrite_runs: HashMap::new(),
             files_scroll: ScrollHandle::new(),
+            judging: judge::Judging::new(mock::judge_readings()),
             _subs: subs,
         }
     }
@@ -1460,6 +1464,11 @@ impl ReviewsScreen {
     /// ⌥1 to ⌥4 bring the main pane's tabs forward, as a Job's panes do; Esc shuts a question.
     fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
+        if keys.key == "escape" && self.judging.open.is_some() {
+            self.close_judge(true, window, cx);
+            cx.stop_propagation();
+            return;
+        }
         if keys.key == "escape" && self.asking.is_some() {
             self.dismiss(window, cx);
             cx.stop_propagation();
@@ -1585,10 +1594,13 @@ impl Render for ReviewsScreen {
         let dialog = self.asking.map(|ask| self.render_dialog(ask, &look, cx));
         let review_ask = self.asking_review.as_ref().map(|open| self.render_review_ask(open, &look, cx));
         let menu = self.pop.as_ref().map(|pop| pop.menu.clone());
+        let judge_box = self.render_judge_box(&look, window, cx);
         div()
             .id("reviews")
+            .key_context(crate::generated::actions::ActionScope::Review.key_context().unwrap_or_default())
             .track_focus(&self.within)
             .on_key_down(cx.listener(Self::on_key))
+            .on_action(cx.listener(Self::on_review_act))
             .relative()
             .size_full()
             .flex()
@@ -1601,6 +1613,7 @@ impl Render for ReviewsScreen {
             .child(page)
             .children(dialog)
             .children(review_ask)
+            .children(judge_box)
             .children(menu)
     }
 }
