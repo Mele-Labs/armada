@@ -49,9 +49,9 @@ fi
 
 # Ours to replace: nothing there, a link (an older attempt at the same entry), or this opener.
 if [[ -e "$entry" && ! -L "$entry" ]]; then
-  held=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$entry/Contents/Info.plist" 2>/dev/null || true)
-  if [[ "$held" != "$opener_id" ]]; then
-    echo "app-entry: $entry is ${held:-not an app this script wrote}, so it is left alone" >&2
+  # Read as text: this script writes its plist as XML, and anything else is not ours.
+  if ! grep -qF "<string>$opener_id</string>" "$entry/Contents/Info.plist" 2>/dev/null; then
+    echo "app-entry: $entry is not an opener this script wrote, so it is left alone" >&2
     exit 0
   fi
 fi
