@@ -381,6 +381,34 @@ async fn a_live_job_is_on_a_feature_only_while_it_holds_a_slot() {
     assert_eq!(row.jobs_now.iter().map(|one| one.session_id.clone()).collect::<Vec<_>>(), [at_work], "the live Job holding no slot is not on it");
 }
 
+/// The features `id`'s row carries, as `list_sessions` answers it.
+async fn features_on_record(rig: &Rig, id: &SessionId) -> Vec<ipc::SessionFeature> {
+    let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions;
+    listed.into_iter().find(|one| &one.id == id).expect("the Job").features
+}
+
+#[tokio::test]
+async fn a_job_that_writes_a_file_under_a_feature_carries_that_feature_on_its_record() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+    wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    assert_eq!(features_on_record(&rig, &id).await, [], "a live Job holding no slot is at work on nothing");
+
+    held_slot(&rig, &id, "4").await;
+    let on = ipc::SessionFeature {
+        project,
+        slug: VOTING.into(),
+        title: VOTING.into(),
+        area: "takes".into(),
+        area_title: "Takes".into(),
+        area_place: 0,
+        place: 0,
+    };
+    assert_eq!(features_on_record(&rig, &id).await, [on], "the feature whose path it wrote under, with its area, and not the other");
+}
+
 #[tokio::test]
 async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_after_another_jobs_merge() {
     let rig = rig(None);
