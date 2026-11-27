@@ -310,6 +310,73 @@ fn a_press_on_a_feature_heading_after_the_pointer_rested_on_a_row_opens_its_boar
     assert!(list.read_with(cx, |list, _| list.board()).is_some(), "the board stands in the right column");
 }
 
+const FEATURE: &str = "Job list and live status";
+
+/// The Jobs screen under the window's root, which clears what the last frame drew, so a label that left is gone.
+struct Rooted(Entity<JobsScreen>);
+
+impl gpui::Render for Rooted {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        crate::labels::label_root(div().size_full().child(self.0.clone()))
+    }
+}
+
+/// The list by feature on its libraries, with the feature's board opened from its heading.
+fn board_open(cx: &mut gpui::TestAppContext) -> (Entity<JobsList>, &mut gpui::VisualTestContext) {
+    cx.update(crate::init_app);
+    let list = cx.new(|cx| JobsList::mock(&three(), cx));
+    let held = list.clone();
+    let (_, cx) = cx.add_window_view(move |window, cx| {
+        let screen = cx.new(|cx| JobsScreen::new(held, None, window, cx));
+        Rooted(screen)
+    });
+    cx.run_until_parked();
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    let at = heading_at(cx, FEATURE);
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"), "the board is filled in");
+    (list, cx)
+}
+
+#[gpui::test]
+fn a_failed_read_of_the_features_keeps_the_library_and_the_board_stays_filled(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = board_open(cx);
+    let project = crate::features::mock::PROJECT.to_string();
+    list.update(cx, |list, cx| list.hold_read(&[project], Vec::new(), cx));
+    assert!(drawn_named(cx, Role::Region, FEATURE), "the board still stands");
+    assert!(drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"), "with its rows");
+    assert!(drawn_named(cx, Role::Heading, FEATURE), "and the heading stays in the list");
+}
+
+#[gpui::test]
+fn a_board_whose_feature_is_not_held_yet_draws_its_title_and_loading_rows(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = board_open(cx);
+    list.update(cx, |list, cx| list.hold_libraries(Vec::new(), cx));
+    assert!(drawn_named(cx, Role::Region, FEATURE), "the board keeps its title");
+    assert!(drawn_named(cx, Role::Image, "Loading"), "and draws placeholder rows");
+    assert!(!drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"));
+    list.update(cx, |list, cx| list.hold_libraries(leads().libraries, cx));
+    assert!(drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"), "the read lands and the board fills in");
+    assert!(!drawn_named(cx, Role::Image, "Loading"));
+}
+
+#[gpui::test]
+fn a_board_whose_feature_is_gone_from_an_answered_library_says_so_in_one_line(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = board_open(cx);
+    let mut library = leads().libraries.remove(0);
+    for area in &mut library.areas {
+        area.features.retain(|feature| feature.slug != "job-list-and-live-status");
+    }
+    list.update(cx, |list, cx| list.hold_libraries(vec![library], cx));
+    assert!(drawn_named(cx, Role::Region, FEATURE));
+    assert!(drawn_named(cx, Role::Label, "No feature Job list and live status in this project now"));
+    assert!(!drawn_named(cx, Role::Image, "Loading"));
+}
+
 #[gpui::test]
 fn ungroup_on_a_sub_projects_board_takes_its_heading_away(cx: &mut gpui::TestAppContext) {
     let (list, cx) = screen(cx);

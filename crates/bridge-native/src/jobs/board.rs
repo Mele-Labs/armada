@@ -16,8 +16,17 @@ struct Holding {
     holds: SharedString,
 }
 
+/// What stands in the board's place of the Jobs: them, grey shapes while the feature's library is not held yet, or a line
+/// where the library answered and the feature is not in it.
+enum Fill {
+    Rows,
+    Loading,
+    Gone,
+}
+
 /// What the board draws, read from the list.
 struct Read {
+    stand: Fill,
     title: SharedString,
     line: SharedString,
     chips: Vec<SharedString>,
@@ -28,6 +37,8 @@ struct Read {
 pub(crate) struct LeadBoard {
     list: gpui::WeakEntity<JobsList>,
     lead: Lead,
+    /// The heading's words when it was pressed: all the board has to say of a feature its library does not hold yet.
+    title: SharedString,
     focus: FocusHandle,
     /// The stop the keys are on: each row's Open by its place, then Ungroup.
     cursor: usize,
@@ -37,9 +48,9 @@ pub(crate) struct LeadBoard {
 }
 
 impl LeadBoard {
-    pub(super) fn new(list: &Entity<JobsList>, lead: Lead, cx: &mut Context<Self>) -> Self {
+    pub(super) fn new(list: &Entity<JobsList>, lead: Lead, title: SharedString, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(list, |_, _, cx| cx.notify());
-        LeadBoard { list: list.downgrade(), lead, focus: cx.focus_handle(), cursor: 0, refused: None, sending: false, _watch: watch }
+        LeadBoard { list: list.downgrade(), lead, title, focus: cx.focus_handle(), cursor: 0, refused: None, sending: false, _watch: watch }
     }
 
     pub(super) fn focus(&self) -> &FocusHandle {
@@ -68,17 +79,21 @@ impl LeadBoard {
         };
         match &self.lead {
             Lead::Feature { project, slug } => {
-                let (feature, area) = list.leads.feature(project, slug)?;
+                let held = list.leads.libraries.iter().any(|library| library.project == *project);
+                let Some((feature, area)) = list.leads.feature(project, slug) else {
+                    let (stand, line) = if held { (Fill::Gone, format!("No feature {} in this project now", self.title)) } else { (Fill::Loading, String::new()) };
+                    return Some(Read { stand, title: self.title.clone(), line: line.into(), chips: Vec::new(), rows: Vec::new(), ungroup: false });
+                };
                 let chips = list.leads.subs.iter().filter(|sub| sub.project == *project && sub.features.iter().any(|one| one == slug)).map(|sub| sub.name.clone().into()).collect();
                 let rows = feature.jobs_now.iter().filter_map(|one| live.iter().find(|job| job.id == one.session_id)).map(|job| holding(job)).collect();
-                Some(Read { title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false })
+                Some(Read { stand: Fill::Rows, title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false })
             }
             Lead::SubProject { id } => {
                 let sub = list.leads.subs.iter().find(|sub| sub.id == *id)?;
                 let titles = list.leads.feature_titles(sub);
                 let line = if titles.is_empty() { "Sub project".to_string() } else { format!("Sub project \u{b7} {}", titles.join(", ")) };
                 let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job)).collect();
-                Some(Read { title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true })
+                Some(Read { stand: Fill::Rows, title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true })
             }
             Lead::Area | Lead::NoFeature => None,
         }
@@ -205,9 +220,36 @@ impl Render for LeadBoard {
                 format!("{}, {}", row.title, row.holds),
             )
         });
-        let card = crate::parts::card::card(look, "what-holds-what", None)
-            .child(crate::parts::card::head(look, "what-holds-what-head", None, "What holds what"))
-            .child(crate::parts::card::body(look, "what-holds-what-body").gap(look.length(token::SPACE_1)).children(holds));
+        let (gone, loading) = (matches!(read.stand, Fill::Gone), matches!(read.stand, Fill::Loading));
+        // Grey shapes where the rows will be, until the library is read: the width of a title and of what it waits on.
+        let bones = loading.then(|| {
+            let row = |at: usize| {
+                div()
+                    .id(("board-bone", at))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_2))
+                    .child(crate::settings::view::bone(look, look.length(token::SPACE_4), look.length(token::SPACE_4)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .flex()
+                            .flex_col()
+                            .gap(look.length(token::SPACE_1))
+                            .child(crate::settings::view::bone(look, look.length(token::SPACE_12) * 3., look.length(token::SPACE_3)))
+                            .child(crate::settings::view::bone(look, look.length(token::SPACE_12) * 2., look.length(token::SPACE_3))),
+                    )
+            };
+            labelled(div().id("board-loading").flex().flex_col().children((0..3).map(row)), Role::Image, "Loading")
+        });
+        let card = (!gone).then(|| {
+            crate::parts::card::card(look, "what-holds-what", None)
+                .child(crate::parts::card::head(look, "what-holds-what-head", None, "What holds what"))
+                .child(crate::parts::card::body(look, "what-holds-what-body").gap(look.length(token::SPACE_1)).children(holds).children(bones))
+        });
+        let line = div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(read.line.clone());
+        let line = if gone { labelled(line.id("board-gone"), Role::Label, read.line.clone()).into_any_element() } else { line.into_any_element() };
         labelled(
             div()
                 .id("lead-board")
@@ -232,12 +274,12 @@ impl Render for LeadBoard {
                             Role::Heading,
                             read.title.clone(),
                         ))
-                        .child(div().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child(read.line.clone()))
+                        .child(line)
                         .children(chips),
                 )
                 .children(ungroup.map(|button| div().flex().child(button)))
                 .children(refusal)
-                .child(card),
+                .children(card),
             Role::Region,
             read.title,
         )
