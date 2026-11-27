@@ -18,6 +18,8 @@
 //! second start brings the first forward. A walk, a mock and a check take no lock.
 
 mod annotate;
+#[cfg(test)]
+mod as_app;
 mod assets;
 mod banner;
 mod build_notes;

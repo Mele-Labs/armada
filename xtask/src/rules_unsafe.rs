@@ -58,6 +58,12 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
          because collecting frees the pid the group is named by",
     ),
     (
+        "crates/bridge-native/src/as_app.rs",
+        "the test binary's hook before main, which runs the app on the main thread when a test starts it, \
+         so the walk and shot check tests need no second build of the crate — ctor requires the hook be \
+         marked unsafe",
+    ),
+    (
         "crates/bridge-native/src/dictation.rs",
         "the one call that sends startDictation: or stopDictation: to the first responder, as the \
          Electron Bridge's Menu.sendActionToFirstResponder does — objc2-app-kit declares \
