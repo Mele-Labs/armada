@@ -1891,6 +1891,7 @@ mod tests {
         assert!(dotted.contains(r#"stroke-dasharray="1 4""#) && dotted.contains(r#"stroke-linecap="round""#), "{dotted}");
         assert!(drawn(&arrow(None, None, None, Some(true)), across()).contains(r#"stroke-dasharray="4 4""#), "a flow reads as dashed");
         assert!(!drawn(&arrow(None, None, None, None), across()).contains("stroke-dasharray"), "an arrow that says nothing is solid");
+        assert!(line(SceneLine::Solid).contains(r#"stroke-width="1.5""#), "an arrow is a line and a half wide");
     }
 
     #[test]
@@ -2001,33 +2002,58 @@ mod tests {
         }
         assert!(svg.contains(">rs<"), "a block of code names its language");
     }
-}
 
-#[cfg(test)]
-mod look_probe {
-    use super::*;
-    #[gpui::test]
-    fn look_probe_writes_a_picture(cx: &mut gpui::TestAppContext) {
+    /// A start in blue with step 1, a teal step and a plain one after it, drawn as the picture, with the theme it was drawn in.
+    fn glass_picture(cx: &mut gpui::TestAppContext) -> (String, Look) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
         let text = r#"{"nodes":[
-            {"id":"g","kind":"group","x":-30,"y":-50,"w":980,"h":200,"title":"Fleet"},
-            {"id":"a","kind":"box","shape":"pill","x":0,"y":0,"title":"Drone","body":"Calls show_sketch","color":"blue","step":1},
-            {"id":"b","kind":"box","x":320,"y":0,"title":"Sketching","body":"Checks the scene and keeps it","color":"teal","step":2},
-            {"id":"c","kind":"box","shape":"cylinder","x":640,"y":0,"title":"Store","body":"Artifacts table","step":3},
-            {"id":"d","kind":"box","shape":"diamond","x":320,"y":230,"title":"Asks?","body":"A question set"},
-            {"id":"e","kind":"box","x":0,"y":230,"title":"Bridge","body":"Draws the card","color":"amber","state":"running"},
-            {"id":"f","kind":"code","x":640,"y":230,"lang":"rs","title":"scene.rs","body":"fn paint_tile(..)"}],
-            "edges":[{"id":"e1","from":"a","to":"b","label":"scene"},{"id":"e2","from":"b","to":"c","flow":true},{"id":"e3","from":"b","to":"d"},{"id":"e4","from":"d","to":"e","label":"yes","line":"dotted"},{"id":"e5","from":"c","to":"f","color":"red"}]}"#;
+            {"id":"a","kind":"box","shape":"pill","x":0,"y":0,"title":"Drone","color":"blue","step":1},
+            {"id":"b","kind":"box","x":320,"y":0,"title":"Sketching","color":"teal"},
+            {"id":"c","kind":"box","x":640,"y":0,"title":"Store"}],
+            "edges":[{"id":"e1","from":"a","to":"b"},{"id":"e2","from":"b","to":"c"}]}"#;
         let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
         let drawn = raw.scene().expect("it reads");
         let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
-        let svg = cx.update(|window, cx| svg(&SharedString::from("probe"), &drawn, window, cx));
-        let dir = std::env::var("PROBE_OUT").unwrap_or_else(|_| "/tmp/armada-red/sketch-look".into());
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(format!("{dir}/probe.svg"), &svg).unwrap();
-        std::fs::write(format!("{dir}/probe.png"), png(&svg).unwrap()).unwrap();
+        cx.update(|window, cx| (svg(&SharedString::from("glass"), &drawn, window, cx), cx.global::<Look>().clone()))
+    }
+
+    /// The markup of one node's group, up to the next node.
+    fn node_markup<'a>(svg: &'a str, id: &str) -> &'a str {
+        let from = svg.find(&format!(r#"data-node="{id}""#)).expect("the node is drawn");
+        let rest = &svg[from..];
+        rest.find(r#"class="sk-node""#).map_or(rest, |end| &rest[..end])
+    }
+
+    #[gpui::test]
+    fn a_coloured_card_glows_faintly_in_its_hue_and_a_plain_one_does_not(cx: &mut gpui::TestAppContext) {
+        let (svg, look) = glass_picture(cx);
+        let teal = node_markup(&svg, "b");
+        let glow = css(look.color(token::SKETCH_TEAL).opacity(tile::GLOW_ALPHA));
+        assert!(teal.contains(r#"class="sk-glow" "#) && teal.contains(&format!(r#"fill="{glow}" filter="url(#sk-glow)""#)), "{teal}");
+        let plain = node_markup(&svg, "c");
+        assert!(!plain.contains("sk-glow"), "{plain}");
+    }
+
+    #[gpui::test]
+    fn a_step_badge_is_a_dark_circle_in_a_light_ring(cx: &mut gpui::TestAppContext) {
+        let (svg, look) = glass_picture(cx);
+        let badge = svg.split(r#"class="sk-badge""#).nth(1).and_then(|rest| rest.split("/>").next()).expect("a step draws a badge");
+        assert!(!badge.contains(&format!(r#"fill="{}""#, css(look.color(token::FG_DEFAULT)))), "{badge}");
+        assert!(badge.contains(&format!(r#"fill="{}""#, css(look.color(token::BG_SUNKEN)))), "{badge}");
+        assert!(badge.contains(&format!(r#"stroke="{}""#, css(look.color(token::FG_DEFAULT).opacity(tile::BADGE_RING)))), "{badge}");
+    }
+
+    #[gpui::test]
+    fn the_start_pill_runs_from_blue_to_teal(cx: &mut gpui::TestAppContext) {
+        let (svg, look) = glass_picture(cx);
+        let pill = svg.split(r#"class="sk-start""#).nth(1).expect("the start draws its pill");
+        assert!(pill.split("/>").next().is_some_and(|rect| rect.contains(r#"fill="url(#sk-pill)""#)), "{pill}");
+        let gradient = svg.split(r#"<linearGradient id="sk-pill""#).nth(1).and_then(|rest| rest.split("</linearGradient>").next()).expect("the pill's gradient is defined");
+        let (blue, teal) = (css(look.color(token::SKETCH_BLUE)), css(look.color(token::SKETCH_TEAL)));
+        assert!(gradient.contains(&format!(r#"<stop offset="0" stop-color="{blue}"/><stop offset="1" stop-color="{teal}"/>"#)), "{gradient}");
     }
 }
+
