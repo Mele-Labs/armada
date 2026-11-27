@@ -15,8 +15,8 @@ const AS_APP: &str = "BRIDGE_NATIVE_AS_APP";
 // SAFETY: it runs before `main`, on the main thread, and only in a copy a test started with `AS_APP`.
 // macOS hands std its arguments and environment there, and the process exits before libtest runs.
 #[allow(unsafe_code)]
-#[ctor::ctor(unsafe)]
-fn run_as_app() {
+#[ctor::ctor]
+unsafe fn run_as_app() {
     if std::env::var_os(AS_APP).is_none() {
         return;
     }

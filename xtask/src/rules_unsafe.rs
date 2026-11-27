@@ -60,8 +60,8 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
     (
         "crates/bridge-native/src/as_app.rs",
         "the test binary's hook before main, which runs the app on the main thread when a test starts it, \
-         so the walk and shot check tests need no second build of the crate — ctor requires the hook be \
-         marked unsafe",
+         so the walk and shot check tests need no second build of the crate — ctor takes the hook only as \
+         an unsafe fn or marked unsafe",
     ),
     (
         "crates/bridge-native/src/dictation.rs",
