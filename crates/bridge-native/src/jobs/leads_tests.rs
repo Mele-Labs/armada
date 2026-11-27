@@ -204,6 +204,112 @@ fn enter_on_a_feature_heading_opens_its_board_where_a_job_opens_and_open_opens_t
     });
 }
 
+/// Where the heading named so is drawn, once the screen is drawn.
+fn heading_at(cx: &mut gpui::VisualTestContext, name: &str) -> gpui::Point<gpui::Pixels> {
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        window.draw(cx).clear(cx);
+        cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Heading, name).map(|one| one.bounds.center())
+    })
+    .unwrap_or_else(|| panic!("the heading {name} is drawn"))
+}
+
+#[gpui::test]
+fn a_press_on_a_feature_heading_opens_its_board_where_a_job_opens(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = screen(cx);
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    let at = heading_at(cx, "Job list and live status");
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    let board = list.read_with(cx, |list, _| list.board()).expect("the board stands in the right column");
+    assert!(matches!(board.read_with(cx, |board, _| board.lead().clone()), leads::Lead::Feature { slug, .. } if slug == "job-list-and-live-status"));
+    assert!(drawn_named(cx, Role::Region, "Job list and live status"));
+}
+
+#[gpui::test]
+fn a_press_on_a_sub_project_heading_opens_its_board_where_a_job_opens(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = screen(cx);
+    list.update(cx, |list, cx| {
+        list.hold_libraries(leads().libraries, cx);
+        list.hold_subs(vec![sub("s1", "Librarian rollout", &["mock-01"], &["job-list-and-live-status"])], cx);
+    });
+    let at = heading_at(cx, "Librarian rollout");
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    let board = list.read_with(cx, |list, _| list.board()).expect("the board stands in the right column");
+    assert!(matches!(board.read_with(cx, |board, _| board.lead().clone()), leads::Lead::SubProject { id } if id == "s1"));
+    assert!(drawn_named(cx, Role::Button, "Ungroup"));
+}
+
+#[gpui::test]
+fn a_press_on_a_feature_heading_in_the_cockpit_opens_its_board_over_the_page(cx: &mut gpui::TestAppContext) {
+    cx.update(crate::init_app);
+    let (screen, cx) = cx.add_window_view(|window, cx| {
+        let list = cx.new(|cx| JobsList::mock(&three(), cx));
+        let page = cx.new(|cx| crate::operator::page::OperatorPageView::mock(window, cx));
+        let mut screen = JobsScreen::new(list, None, window, cx);
+        screen.set_home(page, cx);
+        screen
+    });
+    let list = screen.read_with(cx, |screen, _| screen.list.clone());
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    cx.run_until_parked();
+    let at = heading_at(cx, "Job list and live status");
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(list.read_with(cx, |list, _| list.board()).is_some(), "the board stands in the right column");
+    assert!(drawn_named(cx, Role::Region, "Job list and live status"));
+}
+
+#[gpui::test]
+fn a_press_on_a_feature_heading_in_the_window_opens_its_board_in_the_right_column(cx: &mut gpui::TestAppContext) {
+    cx.update(crate::init_app);
+    let list = cx.new(|cx| JobsList::mock(&three(), cx));
+    let held = list.clone();
+    let (_window, cx) = cx.add_window_view(move |window, cx| {
+        let jobs = cx.new(|cx| JobsScreen::new(held, None, window, cx));
+        crate::operator::screen::OperatorScreen::mock_cockpit_holding(jobs, leads().libraries.remove(0), window, cx)
+    });
+    cx.run_until_parked();
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    let at = heading_at(cx, "Job list and live status");
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(list.read_with(cx, |list, _| list.board()).is_some(), "the board stands in the right column");
+    assert!(drawn_named(cx, Role::Region, "Job list and live status"));
+    let region = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Region, "Job list and live status").map(|one| one.bounds)).expect("drawn");
+    assert!(region.size.width > gpui::px(100.) && region.origin.x > at.x, "the board is drawn to the right of the list: {region:?}");
+}
+
+#[gpui::test]
+fn a_press_on_a_feature_heading_after_the_pointer_rested_on_a_row_opens_its_board(cx: &mut gpui::TestAppContext) {
+    let (list, cx) = screen(cx);
+    list.update(cx, |list, cx| {
+        list.pick_view("feature", cx);
+        list.hold_libraries(leads().libraries, cx);
+    });
+    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Row, "Fix the merge line freshness chip").map(|one| one.bounds.center())).expect("the row is drawn");
+    cx.simulate_mouse_move(row, None, gpui::Modifiers::default());
+    cx.executor().advance_clock(std::time::Duration::from_secs(2));
+    cx.run_until_parked();
+    assert!(list.read_with(cx, |list, _| list.card.is_some()), "the pointer rested: its card is up");
+    let at = heading_at(cx, "Job list and live status");
+    cx.simulate_mouse_move(at, None, gpui::Modifiers::default());
+    cx.run_until_parked();
+    cx.simulate_click(at, gpui::Modifiers::default());
+    cx.run_until_parked();
+    assert!(list.read_with(cx, |list, _| list.board()).is_some(), "the board stands in the right column");
+}
+
 #[gpui::test]
 fn ungroup_on_a_sub_projects_board_takes_its_heading_away(cx: &mut gpui::TestAppContext) {
     let (list, cx) = screen(cx);
