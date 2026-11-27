@@ -94,7 +94,7 @@ pub(super) fn caller() -> Option<api::Caller> {
 }
 
 pub(super) fn begins(rig: &Rig, title: &str, message: &str) -> StartAnotherSession {
-    StartAnotherSession { manifest_id: Some(rig.manifest.clone()), title: title.into(), message: message.into(), group: None, after: None }
+    StartAnotherSession { manifest_id: Some(rig.manifest.clone()), title: title.into(), message: message.into(), group: None, after: None, kind: None }
 }
 
 /// A transcript line the agent CLI wrote: `kind` is `user` or `assistant`.
@@ -1009,4 +1009,65 @@ async fn a_hosted_jobs_reasoning_is_a_row_in_its_thread() {
         })
     })
     .await;
+}
+
+// ---- A start that names a story kind follows that kind's workflow, as the dispatch sheet's does ----
+
+/// A repository whose one workflow is `bug`, which the `bug` and `investigate` kinds both start on.
+fn bug_workflow() -> config::ResolvedWorkflow {
+    let text = "version: 1\nworkflow_id: bug\nname: Bug\nsteps:\n  \
+        - id: fix\n    label: \"Fix it\"\n    delivers: true\n    advance_gate: auto\n";
+    let def = config::WorkflowDef::parse(std::path::Path::new("bug.yml"), text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &crate::tests::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+/// A Job an agent started with `kind`, once its brief is read by a proposer that answers `reading` to every brief.
+async fn started_as(reading: &str, kind: Option<&str>) -> (Rig, SessionRecord) {
+    let rig = rigged(None, Some(Arc::new(FakeJudge::saying(reading))), Some(bug_workflow()));
+    let agent = rig.an_agent().await;
+    eventually_read(&rig, &agent).await;
+    let start = StartAnotherSession { kind: kind.map(str::to_string), ..begins(&rig, "Check the reader", FIRST) };
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect("held");
+    eventually_read(&rig, &held.session_id).await;
+    let record = rig.record(&held.session_id).await;
+    (rig, record)
+}
+
+/// **The kind's workflow is the person's pick**: the proposer reads the brief as none, and the Job stays on the
+/// workflow the kind names in `story_kinds.toml`, `investigate` on `bug` as much as `bug` itself.
+#[tokio::test]
+async fn a_job_started_on_a_story_kind_follows_that_kinds_workflow_over_the_proposers_reading() {
+    for kind in ["bug", "investigate"] {
+        assert_eq!(ipc::story_kinds::story_kind(kind).and_then(|one| one.workflow), Some("bug"), "the file maps {kind}");
+        let (_rig, record) = started_as("workflow: none\ntitle: Why the reader drops lines", Some(kind)).await;
+        assert_eq!(record.workflow.as_deref(), Some("bug"), "{kind} starts on its workflow");
+    }
+}
+
+/// **A kind with no workflow starts a talk Job**, as the sheet's blank does: the proposer reads `bug` into the brief
+/// and is not let fill it in. With no kind named, the same reading does, which is the proposer's ordinary work.
+#[tokio::test]
+async fn an_idea_starts_on_no_workflow_and_the_proposer_does_not_fill_one_in() {
+    const READS_A_BUG: &str = "workflow: bug\ntitle: Why the reader drops lines";
+    for kind in ["idea", "brainstorm"] {
+        assert_eq!(ipc::story_kinds::story_kind(kind).map(|one| one.workflow), Some(None), "the file gives {kind} none");
+        let (_rig, record) = started_as(READS_A_BUG, Some(kind)).await;
+        assert_eq!(record.workflow, None, "{kind} is a talk Job");
+    }
+    let (_rig, unnamed) = started_as(READS_A_BUG, None).await;
+    assert_eq!(unnamed.workflow.as_deref(), Some("bug"), "with no kind the proposer still picks");
+}
+
+#[tokio::test]
+async fn a_kind_the_file_does_not_hold_is_refused_and_starts_nothing() {
+    let rig = rigged(None, None, Some(bug_workflow()));
+    let agent = rig.an_agent().await;
+    let before = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len();
+    let start = StartAnotherSession { kind: Some("chore".into()), ..begins(&rig, "Check the reader", FIRST) };
+    let refused = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect_err("refused");
+    let said = format!("{refused:?}");
+    assert!(said.contains("fleet.story_kind_unknown") && said.contains("`bug`"), "{said}");
+    assert_eq!(rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len(), before, "{agent:?} started nothing");
 }
