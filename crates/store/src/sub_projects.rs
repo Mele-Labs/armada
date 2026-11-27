@@ -41,11 +41,13 @@ fn json(lines: &[String]) -> String {
 }
 
 fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptSubProject> {
+    let name: String = row.get(2)?;
+    let goal: String = row.get(3)?;
     Ok(KeptSubProject {
         id: row.get(0)?,
         project: row.get(1)?,
-        name: row.get(2)?,
-        goal: row.get(3)?,
+        goal: if goal.is_empty() { name.clone() } else { goal },
+        name,
         jobs: lines(row.get(4)?),
         features: lines(row.get(5)?),
         orchestrator: row.get(6)?,
