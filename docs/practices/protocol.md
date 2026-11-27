@@ -251,6 +251,7 @@ If your change touches `crates/ipc`, the route table in
 | [A check of a feature's docs against its code: `check_docs`, `dismiss_doc_flag`, `start_doc_job` and `check` on `FeatureRead`](protocol/a-check-of-a-features-docs.md) |
 | [A project starts its library: `get_library_start` and `draft_module_features`](protocol/a-project-starts-its-library.md) |
 | [The owner groups Jobs into a sub project: `start_sub_project`, `list_sub_projects` and `ungroup_sub_project`](protocol/the-owner-groups-jobs-into-a-sub-project.md) |
+| [To review, across Jobs: `list_to_review`](protocol/to-review-across-jobs.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1863,6 +1864,7 @@ The native Bridge reads it.
 **Refused with nothing changed**: `done_waiting` 409 `fleet.session_waiting_unheld` for an item nothing holds, 422 `fleet.session_waiting_empty` for one the agent did not state; `withdraw_document` 422 `fleet.document_withdraw_not_held` for a page the Job holds no Document at (another Job's included), 422 `fleet.document_withdraw_ambiguous` for a name that fits two, 422 `fleet.document_withdraw_unnamed` where nothing places a Job; `get_needs_you` 422 `fleet.session_waiting_unnamed`.
 **Every `waiting_for` source is one row of one section**, by the table in `crates/fleet/src/session_host/needs_you.rs`, which a test holds to the one in the concept doc.
 `dismiss_waited` reads the same `refused_dismissal` that marks a row `none`, so a row offering a dismissal is one Fleet takes.
+**`list_to_review` is fed from these rows**, one list across Jobs that replaces Needs you as the place he looks: [To review, across Jobs](protocol/to-review-across-jobs.md).
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
