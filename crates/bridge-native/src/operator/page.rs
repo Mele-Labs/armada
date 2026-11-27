@@ -1773,6 +1773,108 @@ mod tests {
         assert!(drawn(cx, gpui::Role::Button, "Pasted file.png"), "the picture is drawn under his words, as on a Job's thread");
     }
 
+    /// The Operator's thread as the page's mock Fleet holds it: his words, a run of tool calls, then its reply.
+    fn thread_with_calls() -> Vec<ipc::ThreadItem> {
+        let talk = |id: &str, from: &str, text: &str| serde_json::json!({ "kind": "row", "row": { "kind": "message", "id": id, "at": "2026-11-11T13:09:00-05:00", "from": { "kind": from }, "text": text } });
+        let calls = serde_json::json!({ "kind": "calls", "id": "t1", "names": ["Read", "Bash"], "rows": [
+            { "kind": "tool", "id": "t1", "at": "2026-11-11T13:09:10-05:00", "text": "Read /jobs/mock-04/plan.md" },
+            { "kind": "tool", "id": "t2", "at": "2026-11-11T13:09:12-05:00", "text": "Bash ls /jobs" },
+        ] });
+        [talk("op-100", "you", "What is Pocket doing?"), calls, talk("op-101", "agent", "Pocket is waiting on the paging.rs Job.")]
+            .into_iter()
+            .map(|item| ipc::decode::<ipc::ThreadItem>("ThreadItem", item.to_string().as_bytes()).expect("a thread item decodes"))
+            .collect()
+    }
+
+    #[gpui::test]
+    fn tool_calls_the_operator_made_are_drawn_folded_in_its_thread_and_a_press_opens_them(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").thread.items = thread_with_calls();
+            cx.notify();
+        });
+        redraw(cx);
+        let folded = "Tool calls: Read, Bash";
+        let talk = bounds_named(cx, gpui::Role::Log, "Talk with the Operator").expect("the talk is drawn");
+        let calls = bounds_named(cx, gpui::Role::Button, folded).expect("the run of calls is one folded line in the talk");
+        assert!(calls.top() >= talk.top() && calls.bottom() <= talk.bottom(), "the line is in the Operator's talk: {calls:?} in {talk:?}");
+        assert!(!drawn(cx, gpui::Role::Row, "Read plan.md") && !drawn(cx, gpui::Role::Row, "Ran ls"), "folded, none of its calls has a line of its own");
+        cx.simulate_click(calls.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Row, "Read plan.md") && drawn(cx, gpui::Role::Row, "Ran ls"), "a press opens each call on its own line");
+    }
+
+    /// The posts the mock Fleet took, as (path, body), oldest first.
+    fn posted(cx: &mut VisualTestContext) -> Vec<(String, String)> {
+        cx.update(|_, cx| crate::job_view::posted_to_mock(cx))
+    }
+
+    #[gpui::test]
+    fn stop_in_the_operators_box_while_it_writes_stops_its_session_and_nothing_else(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        assert!(page.read_with(cx, |page, _| page.session.as_ref().is_some_and(|session| matches!(session.hosted.as_ref().map(|hosted| &hosted.turn), Some(ipc::SessionTurn::Working { .. })))), "the Operator is writing");
+        let stop = bounds_named(cx, gpui::Role::Button, "Stop").expect("Stop is drawn in the box's bar while the Operator writes");
+        let talk = bounds_named(cx, gpui::Role::Log, "Talk with the Operator").expect("the talk is drawn");
+        assert!(stop.top() >= talk.bottom(), "Stop is in the box's bar under the talk: {stop:?} under {talk:?}");
+        cx.simulate_click(stop.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        let posted = posted(cx);
+        assert_eq!(posted.iter().map(|(path, _)| path.as_str()).collect::<Vec<_>>(), ["/sessions/stop"], "Stop only stops: it does not end or close the session");
+        let stopped = ipc::decode::<ipc::StopSession>("StopSession", posted[0].1.as_bytes()).expect("the body reads back");
+        assert_eq!(stopped.session_id.as_str(), "mock-op", "it is the Operator's session that stops, not the Job open behind the page");
+    }
+
+    #[gpui::test]
+    fn stop_is_not_drawn_in_the_operators_box_while_it_is_idle(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Stop"), "it is drawn while the Operator writes");
+        page.update(cx, |page, cx| page.scene("watching", cx).expect("the Operator is between turns"));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Send"), "the box is still drawn");
+        assert!(!drawn(cx, gpui::Role::Button, "Stop"), "Stop goes when the Operator is between turns");
+    }
+
+    #[gpui::test]
+    fn picking_a_model_on_the_operators_chip_saves_models_operator_and_tunes_its_session_on_that_model(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        let chip = bounds_named(cx, gpui::Role::Button, "Model Opus 5.5, effort auto").expect("the Operator's model chip is drawn in its box");
+        cx.simulate_click(chip.center(), gpui::Modifiers::none());
+        redraw(cx);
+        let haiku = bounds_named(cx, gpui::Role::MenuItemCheckBox, "Haiku 5").expect("the picker offers Haiku");
+        cx.simulate_click(haiku.center(), gpui::Modifiers::none());
+        redraw(cx);
+        let posted = posted(cx);
+        let at = |route: &str| posted.iter().position(|(path, _)| path == route).unwrap_or_else(|| panic!("{route} was posted: {:?}", posted.iter().map(|(path, _)| path).collect::<Vec<_>>()));
+        let saved = ipc::decode::<ipc::SaveSettings>("SaveSettings", posted[at("/settings/save")].1.as_bytes()).expect("the body reads back");
+        assert_eq!(saved.changes.into_iter().collect::<Vec<_>>(), [("models.operator".to_string(), Some(ipc::SettingValue::Text("haiku".into())))], "the setting Settings shows is the Operator's, named");
+        let tuned = ipc::decode::<ipc::TuneSession>("TuneSession", posted[at("/sessions/tune")].1.as_bytes()).expect("the body reads back");
+        assert_eq!((tuned.session_id.as_str(), tuned.model.as_deref()), ("mock-op", Some("haiku")), "the session running now is tuned on the model named");
+        assert!(at("/settings/save") < at("/sessions/tune"), "the setting is saved before the session restarts on it");
+    }
+
+    #[gpui::test]
+    fn a_send_carries_the_card_tag_and_the_attached_files_to_the_operator(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        page.update_in(cx, |page, window, cx| page.discuss(window, cx));
+        redraw(cx);
+        let attach = bounds_named(cx, gpui::Role::Button, "Attach file").expect("the box's Attach is drawn");
+        cx.simulate_click(attach.center(), gpui::Modifiers::none());
+        redraw(cx);
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        cx.simulate_input("Why hold Pocket?");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        page.update(cx, |page, _| {
+            let fleet = page.mock_fleet().expect("the walk's Fleet");
+            assert_eq!(fleet.heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))], "his words go with the card's id");
+            assert_eq!(fleet.heard_files.iter().map(|file| (file.name.as_str(), file.media_type.as_str())).collect::<Vec<_>>(), [("sample.rs", "text/plain"), ("Pasted file.png", "image/png")], "and with the files he attached");
+        });
+    }
+
     #[gpui::test]
     fn a_card_the_operator_raises_in_the_talk_is_drawn_in_it_and_settling_it_ends_the_talk(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);

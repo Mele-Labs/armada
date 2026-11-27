@@ -158,6 +158,12 @@ pub fn operator_unechoed(cx: &App) -> Vec<String> {
     page.pending.iter().map(|one| one.text.to_string()).collect()
 }
 
+/// Every act the mock Fleet was posted, as its path and body, for tests.
+#[cfg(test)]
+pub fn posted_to_mock(cx: &App) -> Vec<(String, String)> {
+    view(cx).map(|view| view.read(cx).mock_posted.clone()).unwrap_or_default()
+}
+
 /// The card the Operator's box names, for tests.
 #[cfg(test)]
 pub fn operator_tagged(cx: &App) -> Option<(String, SharedString)> {

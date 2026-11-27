@@ -164,7 +164,7 @@ pub use on_page::{ready_key_on_page, ready_on_page};
 pub use beside::{DrawRaised, Leave, OperatorPane, Say};
 pub use on_page::{operator_answered, operator_focus, operator_has_keys, operator_list, operator_tag, operator_thread_on_page, operator_to_last_reply, operator_untag, operator_words};
 #[cfg(test)]
-pub use on_page::{operator_tagged, operator_unechoed, sent_to_job};
+pub use on_page::{operator_tagged, operator_unechoed, posted_to_mock, sent_to_job};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -457,6 +457,9 @@ pub struct JobView {
     mock_queued: ipc::QueuedList,
     /// Every answer to a Ready to try card the mock Fleet took, oldest first.
     mock_ready: Vec<ipc::AnswerReadyToTry>,
+    /// Every act the mock Fleet was posted, as its path and body, oldest first, for a test to read.
+    #[cfg(test)]
+    mock_posted: Vec<(String, String)>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -752,6 +755,8 @@ impl JobView {
             mock_needs: HashMap::new(),
             mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
             mock_ready: Vec::new(),
+            #[cfg(test)]
+            mock_posted: Vec::new(),
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
