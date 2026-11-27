@@ -106,15 +106,15 @@ fn with_places(mut face: Face, here: Front, cockpit: bool, reviews: bool, kit: b
             face.places.push(Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true });
         }
     }
+    // Project is the second place, straight after the Cockpit.
+    if features && !face.places.iter().any(|place| place.id == "project") {
+        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
+    }
     if reviews && !face.places.iter().any(|place| place.id == "reviews") {
         face.places.push(Place { id: "reviews", label: "Reviews", glyph: "git-pull-request", shown: true, hideable: true });
     }
     if kit && !face.places.iter().any(|place| place.id == "kit") {
         face.places.push(Place { id: "kit", label: "Kit", glyph: "briefcase", shown: true, hideable: true });
-    }
-    // Issues has no native screen yet, so Project follows the last place there is.
-    if features && !face.places.iter().any(|place| place.id == "project") {
-        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
     }
     // Settings > Layout's choice for a place that has a row there, read each time the places are drawn. Project's row is still
     // kept under `features`, the id the saved layout has always used for it.
@@ -1278,16 +1278,16 @@ mod tests {
     }
 
     #[test]
-    fn the_cockpit_strip_is_cockpit_reviews_kit_and_project_with_no_operator_or_jobs_place() {
+    fn the_cockpit_strip_is_cockpit_project_reviews_and_kit_with_no_operator_or_jobs_place() {
         let held = Face::bare();
         let face = with_places(held, Front::Cockpit, true, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(ids, ["cockpit", "project", "reviews", "kit"]);
         assert_eq!((face.places[0].label, face.here), ("Cockpit", Some("cockpit")));
         // A bar that already holds Operator and Jobs, as the walk's mock bar does, loses them.
         let before = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let after = with_places(before, Front::Cockpit, true, true, true, true);
-        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]
