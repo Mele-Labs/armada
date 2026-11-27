@@ -339,6 +339,9 @@ pub enum ReadyAnswer {
     NeedsRework { words: String },
     /// Remind me: the card comes back at `until`, which the client works out from the Later choice he pressed.
     Remind { until: Instant },
+    /// Skip: he approved the look on the walk and lands it untried. Closes the step as Looks good does,
+    /// and the Job is told to land.
+    Skip,
 }
 
 /// `skip_preview_refresh`'s body: the owner skips the Refresh row with this id.
