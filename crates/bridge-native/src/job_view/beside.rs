@@ -175,6 +175,15 @@ impl JobView {
         Some(beside.about.as_ref().map_or_else(|| KEEP.to_string(), |(card, _)| format!("{KEEP}:{card}")))
     }
 
+    /// Where a box's files are held: the Operator's under the key his words are kept under, as attaching stores them, a Job's
+    /// under its id.
+    pub(super) fn box_files_key(&self, id: &SharedString) -> SharedString {
+        match self.beside_key() {
+            Some(key) if self.is_beside(id) => key.into(),
+            _ => id.clone(),
+        }
+    }
+
     /// The Operator's session as the page has it now. A new session, after a restart, is a new thread and box.
     pub(super) fn pin_beside(&mut self, pane: OperatorPane, window: &mut Window, cx: &mut Context<Self>) -> Entity<BesideView> {
         self.beside_leave();

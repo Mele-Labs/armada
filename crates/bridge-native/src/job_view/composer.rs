@@ -781,7 +781,7 @@ impl JobView {
             self.to_composer(window, cx);
             return;
         }
-        if kept.text.trim().is_empty() && !self.composer.holds(&id) {
+        if kept.text.trim().is_empty() && !self.composer.holds(&self.box_files_key(&id)) {
             // Return in an empty box opens a question asked in pictures, as the band's Look and choose does.
             if self.pictured_front(&id, cx).is_some() {
                 self.open_choose(window, cx);
@@ -818,7 +818,7 @@ impl JobView {
             Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new(), Vec::new()),
             None => {
                 let kept = self.kept(cx);
-                let held = self.composer.box_of(&id);
+                let held = self.composer.box_of(&self.box_files_key(&id));
                 (kept, std::mem::take(&mut held.files), std::mem::take(&mut held.drawn))
             }
         };
@@ -1417,7 +1417,8 @@ impl JobView {
     }
 
     pub(super) fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.composer.holds(id) {
+        let files = self.box_files_key(&SharedString::from(id.to_string()));
+        if !self.composer.holds(&files) {
             return None;
         }
         let remove = |key: u64| -> Box<dyn Fn(&ClickEvent, &mut Window, &mut App)> {
@@ -1426,7 +1427,7 @@ impl JobView {
                 let _ = this.update(cx, |this, cx| this.remove_file(key, window, cx));
             })
         };
-        Some(tray(self.composer.files_of(id), self.drawn_tiles(id, look, cx), look, remove))
+        Some(tray(self.composer.files_of(&files), self.drawn_tiles(id, look, cx), look, remove))
     }
 
     /// The box and what hangs on it: refusal, hand-off band, quick bar, tray, words, bar and acts.
@@ -1434,7 +1435,8 @@ impl JobView {
         let look = cx.look();
         let refused = self.pages.get(id).and_then(|page| page.refused.clone());
         let kept_empty = self.composer.input.read(cx).value().trim().is_empty();
-        let nothing = kept_empty && !self.composer.holds(id);
+        let holds = self.composer.holds(&self.box_files_key(id));
+        let nothing = kept_empty && !holds;
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let (mode, ..) = self.tuning(id, cx);
         let mode_said: SharedString = match mode {
@@ -1461,7 +1463,7 @@ impl JobView {
         let card = self.held_card(id, cx);
         // A held Job's Send reads Start, and works on an empty box where Fleet gave no first message.
         let (nothing, said) = match &card {
-            Some(card) => ((kept_empty && !self.composer.holds(id) && card.has_message()) || card.starting(), "Start"),
+            Some(card) => ((kept_empty && !holds && card.has_message()) || card.starting(), "Start"),
             None => (nothing, "Send"),
         };
         let off = self.off_here(id, cx);
