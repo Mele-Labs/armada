@@ -136,7 +136,7 @@ fn an_asks_card_is_his_words_in_bubbles_and_the_features_it_is_filed_under() {
     let built = built();
     let card = &built.entries[built.find("ask-1").expect("the ask")].card;
     let said: Vec<(bool, &str)> = card.bubbles.iter().map(|bubble| (bubble.mine, bubble.said.as_str())).collect();
-    assert_eq!(said, [(true, "every feature gets a page the agents read before they touch its files"), (false, "Showed you the document Feature catalog design"), (true, "decided kinds as sections")]);
+    assert_eq!(said, [(true, "every feature gets a page the agents read before they touch its files"), (false, "I will read each feature's files first and write the page from what they do."), (false, "Showed you the document Feature catalog design"), (true, "decided kinds as sections")]);
     assert_eq!(card.filed.iter().map(|filed| filed.title.as_str()).collect::<Vec<_>>(), ["Start a Job", "Reviews"]);
     assert_eq!(card.stand.map(|stand| stand.word), Some("Open"));
 }
@@ -151,6 +151,35 @@ fn an_asks_card_alternates_his_words_and_the_jobs_in_time_order() {
         [(true, "yes, per revision"), (false, "Showed you the sketch Votes per revision"), (false, "Passed it to One artifact that grows"), (true, "they show as i never voted"), (false, "Merged pull request #3720")]
     );
     assert!(card.bubbles.iter().filter(|bubble| !bubble.mine).all(|bubble| bubble.who == "Feature Catalog"));
+}
+
+#[test]
+fn the_jobs_replies_sit_between_his_revisions_in_time_order() {
+    let mut story = mock::story(JOB);
+    let ask = &mut story.asks[0];
+    ask.shown.clear();
+    ask.ask.said.push(mock::words("row-c", ipc::MessageKind::Revision, "and the examples too", 14));
+    let reply = |words: &str, day: u32| ipc::StoryReply { words: format!("  {words} "), at: ipc::Instant::carried(format!("2026-11-{day:02}T12:00:00Z")) };
+    ask.replies = vec![reply("second reply", 15), reply("first reply", 13)];
+    let built = model::build(&story, &mock::titles(), &mock::features(), now());
+    let card = &built.entries[built.find("ask-1").expect("the ask")].card;
+    let said: Vec<(bool, &str)> = card.bubbles.iter().map(|bubble| (bubble.mine, bubble.said.as_str())).collect();
+    assert_eq!(
+        said,
+        [(true, "every feature gets a page the agents read before they touch its files"), (false, "first reply"), (true, "and the examples too"), (false, "second reply"), (true, "decided kinds as sections")]
+    );
+    assert!(card.bubbles.iter().filter(|bubble| !bubble.mine).all(|bubble| bubble.who == "Feature Catalog"));
+}
+
+#[test]
+fn an_ask_without_replies_draws_only_what_it_did() {
+    let mut story = mock::story(JOB);
+    for ask in &mut story.asks {
+        ask.replies.clear();
+    }
+    let built = model::build(&story, &mock::titles(), &mock::features(), now());
+    let card = &built.entries[built.find("ask-1").expect("the ask")].card;
+    assert_eq!(card.bubbles.iter().map(|bubble| bubble.mine).collect::<Vec<_>>(), [true, false, true]);
 }
 
 #[test]
