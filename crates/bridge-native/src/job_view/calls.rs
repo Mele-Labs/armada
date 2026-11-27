@@ -66,6 +66,48 @@ fn tool_of(text: &str) -> Call<'_> {
     Call { tool: raw.rsplit("__").next().unwrap_or(raw), detail }
 }
 
+/// What a shell line does by the command it runs, after any `cd x &&`: `grep`, `rg` and `find` search, `cat`,
+/// `sed -n`, `head` and `tail` read. The second part is what the call is about, cut from the line itself: the
+/// pattern and places searched, or the last word of a read, which is its file.
+fn shell_doing(line: &str) -> Option<(Family, &str)> {
+    let words = body_of(line);
+    let words = &words[..words.iter().position(|word| *word == "|").unwrap_or(words.len())];
+    // `cat > file <<EOF` writes: a line that sends its output to a file is no read.
+    if words.iter().any(|word| word.contains('>') && !word.starts_with("2>")) {
+        return None;
+    }
+    let name = words.first()?.rsplit('/').next().unwrap_or("");
+    let family = match name {
+        "grep" | "rg" | "find" => Family::Search,
+        "cat" | "head" | "tail" => Family::Read,
+        "sed" if words.get(1) == Some(&"-n") => Family::Read,
+        _ => return None,
+    };
+    let at = |word: &str| word.as_ptr() as usize - line.as_ptr() as usize;
+    let about = match family {
+        Family::Search => {
+            let first = words[1..].iter().find(|word| !word.starts_with('-'))?;
+            let last = words.last()?;
+            &line[at(*first)..at(*last) + last.len()]
+        }
+        _ => {
+            let last = words.last().filter(|_| words.len() > 1)?;
+            &line[at(*last)..at(*last) + last.len()]
+        }
+    };
+    Some((family, about))
+}
+
+/// A call's family, and the call itself with what it is about where a shell line reads or searches.
+fn seen(call: Call<'_>) -> (Option<Family>, Call<'_>) {
+    if call.tool == "Bash" {
+        if let Some((family, about)) = shell_doing(call.detail) {
+            return (Some(family), Call { tool: call.tool, detail: about });
+        }
+    }
+    (family_of(call.tool), call)
+}
+
 /// Whether a call's row is the agent's `dispute_fleet`.
 pub(super) fn is_dispute(text: &str) -> bool {
     tool_of(text).tool == "dispute_fleet"
@@ -199,11 +241,11 @@ fn about_of(family: Family, calls: &[&Call<'_>]) -> String {
 /// the calls of its kind say how many places it touched. A run of nothing known reads as its last
 /// tool's name. `working` picks the verb's tense.
 pub fn calls_line(texts: &[&str], working: bool) -> String {
-    let calls: Vec<Call<'_>> = texts.iter().map(|text| tool_of(text)).collect();
-    let Some(last) = calls.iter().filter_map(|call| family_of(call.tool)).next_back() else {
-        return calls.last().map_or(String::new(), |call| call.tool.to_string());
+    let calls: Vec<(Option<Family>, Call<'_>)> = texts.iter().map(|text| seen(tool_of(text))).collect();
+    let Some(last) = calls.iter().filter_map(|(family, _)| *family).next_back() else {
+        return calls.last().map_or(String::new(), |(_, call)| call.tool.to_string());
     };
-    let of: Vec<&Call<'_>> = calls.iter().filter(|call| family_of(call.tool) == Some(last)).collect();
+    let of: Vec<&Call<'_>> = calls.iter().filter(|(family, _)| *family == Some(last)).map(|(_, call)| call).collect();
     // A briefed agent is named by its description, which is already a phrase.
     if last == Family::Agent {
         let described = of.last().map_or("", |call| call.detail);
@@ -223,7 +265,7 @@ pub fn calls_line(texts: &[&str], working: bool) -> String {
 
 /// One call on a line of its own: a tool Bridge has no verb for says its whole call.
 pub fn call_line(text: &str, working: bool) -> String {
-    if family_of(tool_of(text).tool).is_none() {
+    if seen(tool_of(text)).0.is_none() {
         clip(text)
     } else {
         calls_line(&[text], working)
@@ -233,7 +275,7 @@ pub fn call_line(text: &str, working: bool) -> String {
 /// The kind a call's row draws: its icon and the colour of its rail.
 pub(super) fn kind_of(text: &str) -> super::tool_icons::Kind {
     use super::tool_icons::Kind;
-    match family_of(tool_of(text).tool) {
+    match seen(tool_of(text)).0 {
         Some(Family::Read) => Kind::Read,
         Some(Family::Run) => Kind::Run,
         Some(Family::Edit) => Kind::Edit,
@@ -302,6 +344,38 @@ mod tests {
         assert_eq!(calls_line(&["Bash cargo check", "Bash pnpm test", "Bash cargo clippy"], true), "Running 3 checks");
         assert_eq!(calls_line(&["Bash ls -la", "Bash cargo check"], false), "Ran multiple commands");
         assert_eq!(calls_line(&["Bash FOO=1 ./scripts/preview --restart"], false), "Ran preview");
+    }
+
+    #[test]
+    fn a_shell_grep_reads_as_a_search_and_names_what_it_searched() {
+        use super::super::tool_icons::Kind;
+        let line = r#"Bash grep -rn "fn place" crates/bridge-native/src"#;
+        assert_eq!(kind_of(line), Kind::Search);
+        assert_eq!(call_line(line, false), r#"Searched "fn place" crates/bridge-native/src"#);
+        assert_eq!(call_line(line, true), r#"Searching "fn place" crates/bridge-native/src"#);
+    }
+
+    #[test]
+    fn a_shell_sed_read_after_a_cd_reads_as_a_read_of_its_file() {
+        use super::super::tool_icons::Kind;
+        let line = "Bash cd x && sed -n 1,80p a/b.rs";
+        assert_eq!(kind_of(line), Kind::Read);
+        assert_eq!(call_line(line, false), "Read b.rs");
+    }
+
+    #[test]
+    fn a_shell_line_that_writes_a_file_or_lists_one_stays_a_run() {
+        use super::super::tool_icons::Kind;
+        assert_eq!(kind_of("Bash cat > f.rs <<EOF"), Kind::Run);
+        assert_eq!(call_line("Bash cat > f.rs <<EOF", false), "Ran cat");
+        assert_eq!(kind_of("Bash ls -la"), Kind::Run);
+        assert_eq!(call_line("Bash ls -la", false), "Ran ls");
+    }
+
+    #[test]
+    fn a_run_of_a_shell_grep_then_an_edit_folds_to_the_edit_and_a_grep_after_it_to_the_search() {
+        assert_eq!(calls_line(&[r#"Bash grep -rn "fn place" crates/bridge-native/src"#, "Edit crates/bridge-native/src/a.rs"], false), "Edited a.rs");
+        assert_eq!(calls_line(&["Edit crates/bridge-native/src/a.rs", r#"Bash grep -rn "fn place" crates/bridge-native/src"#], false), r#"Searched "fn place" crates/bridge-native/src"#);
     }
 
     #[test]
