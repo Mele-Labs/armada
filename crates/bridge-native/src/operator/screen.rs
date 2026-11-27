@@ -907,11 +907,11 @@ mod tests {
     }
 
     #[test]
-    fn project_is_a_place_of_its_own_after_the_last_one_and_may_be_hidden() {
+    fn project_is_a_place_of_its_own_after_operator_and_jobs_and_may_be_hidden() {
         let face = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["operator", "jobs", "reviews", "kit", "project"], "no place before it moves a digit");
-        let place = face.places.last().expect("a place");
+        assert_eq!(ids, ["operator", "jobs", "project", "reviews", "kit"], "Project is the third place here, after Operator and Jobs");
+        let place = face.places.iter().find(|place| place.id == "project").expect("a place");
         assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Project", "layout-dashboard", true, true));
         assert!(face.may_hide("project"));
         assert_eq!(with_places(Face::bare(), Front::Jobs, false, true, true, false).places.len(), 4, "a screen without the Project place draws no place for it");
@@ -926,9 +926,9 @@ mod tests {
         // Places already in the bar are read again, so a layout saved after they were first drawn takes hold.
         crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["kit"]}}"#);
         let swapped = with_places(hidden, Front::Jobs, false, true, true, true);
-        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "project"], "Project is back and Kit is gone");
+        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "project", "reviews"], "Project is back and Kit is gone");
         crate::settings::layout::hold("");
-        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "reviews", "kit", "project"]);
+        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]
@@ -970,19 +970,19 @@ mod tests {
     }
 
     #[gpui::test]
-    fn command_5_is_project_with_operator_jobs_reviews_and_kit_before_it(cx: &mut TestAppContext) {
+    fn command_3_is_project_with_operator_and_jobs_before_it_and_reviews_and_kit_after(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
             OperatorScreen::mock_reviews(jobs, window, cx)
         });
         redraw(cx);
-        cx.simulate_keystrokes("cmd-5");
+        cx.simulate_keystrokes("cmd-3");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Features);
-        cx.simulate_keystrokes("cmd-4");
+        cx.simulate_keystrokes("cmd-5");
         redraw(cx);
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the digits before it keep their places");
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the places after it moved one digit down");
         assert!(!entered(&screen, cx));
     }
 
