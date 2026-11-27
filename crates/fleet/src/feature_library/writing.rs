@@ -181,6 +181,8 @@ where
                 None => created.push(slug),
             }
         }
+        drop(store);
+        self.feature_writes_refiled().await;
         Ok(FeaturesUpserted { created, updated, areas: upsert.areas.len() as u32 })
     }
 }

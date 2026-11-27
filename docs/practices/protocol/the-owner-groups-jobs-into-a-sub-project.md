@@ -15,7 +15,7 @@ Only the native Bridge reads it.
 
 **`features` is read once, at the press**, from the same `jobs_now` that `list_features` answers.
 Fleet adds no Job to a sub project after it.
-The Jobs list adds the live Jobs that write to one of `features` itself, from `list_features`.
+The Jobs list adds the live Jobs that write to one of `features` itself, from the `features` on each Job's row.
 
 The press is a 422 `fleet.sub_project_no_name` or `fleet.sub_project_no_jobs`, a 404 `fleet.no_such_session` for a Job Fleet does not hold, and a 409 `fleet.sub_project_across_projects` for a Job not filed in `project`.
 Ungroup is a 404 `fleet.no_such_sub_project` for an unknown id.
