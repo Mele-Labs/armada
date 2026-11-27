@@ -164,6 +164,7 @@ fn view_label(scope: Scope, group: Group) -> String {
 
 mod asleep_mac;
 mod board;
+mod board_clashes;
 mod leads;
 #[cfg(test)]
 mod leads_tests;

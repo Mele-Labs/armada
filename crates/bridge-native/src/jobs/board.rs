@@ -23,6 +23,8 @@ struct Read {
     chips: Vec<SharedString>,
     rows: Vec<Holding>,
     ungroup: bool,
+    /// A feature's clashes among its Jobs, under its rows.
+    clashes: Vec<super::board_clashes::Clash>,
 }
 
 pub(crate) struct LeadBoard {
@@ -70,15 +72,17 @@ impl LeadBoard {
             Lead::Feature { project, slug } => {
                 let (feature, area) = list.leads.feature(project, slug)?;
                 let chips = list.leads.subs.iter().filter(|sub| sub.project == *project && sub.features.iter().any(|one| one == slug)).map(|sub| sub.name.clone().into()).collect();
-                let rows = feature.jobs_now.iter().filter_map(|one| live.iter().find(|job| job.id == one.session_id)).map(|job| holding(job)).collect();
-                Some(Read { title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false })
+                let jobs: Vec<&SessionRecord> = feature.jobs_now.iter().filter_map(|one| live.iter().find(|job| job.id == one.session_id).copied()).collect();
+                let rows = jobs.iter().map(|job| holding(job)).collect();
+                let clashes = super::board_clashes::clashes_of(&jobs);
+                Some(Read { title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false, clashes })
             }
             Lead::SubProject { id } => {
                 let sub = list.leads.subs.iter().find(|sub| sub.id == *id)?;
                 let titles = list.leads.feature_titles(sub);
                 let line = if titles.is_empty() { "Sub project".to_string() } else { format!("Sub project \u{b7} {}", titles.join(", ")) };
                 let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job)).collect();
-                Some(Read { title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true })
+                Some(Read { title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true, clashes: Vec::new() })
             }
             Lead::Area | Lead::NoFeature => None,
         }
@@ -207,7 +211,7 @@ impl Render for LeadBoard {
         });
         let card = crate::parts::card::card(look, "what-holds-what", None)
             .child(crate::parts::card::head(look, "what-holds-what-head", None, "What holds what"))
-            .child(crate::parts::card::body(look, "what-holds-what-body").gap(look.length(token::SPACE_1)).children(holds));
+            .child(crate::parts::card::body(look, "what-holds-what-body").gap(look.length(token::SPACE_1)).children(holds).children(read.clashes.iter().enumerate().map(|(at, clash)| super::board_clashes::clash_row(look, at, clash))));
         labelled(
             div()
                 .id("lead-board")
