@@ -19,6 +19,12 @@ use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
 
+/// The newest lines a running call's command has written, by the call's id. None where it has written none or is no
+/// background command.
+fn tail_of(tails: &[ipc::TaskTail], call: &str) -> Vec<SharedString> {
+    tails.iter().find(|one| one.call == call).map(|one| one.lines.iter().map(|line| SharedString::from(line.clone())).collect()).unwrap_or_default()
+}
+
 /// The first sentence of a notice: up to the first line break or `. `, without a closing full stop.
 fn summary_of(text: &str) -> String {
     let line = text.lines().next().unwrap_or("");
@@ -655,13 +661,14 @@ impl JobView {
             if let Some(one) = seen.iter().find(|one| one.running) {
                 let doing = calls::working_on(&texts[one.at]).unwrap_or_else(|| one.phrase.clone());
                 let since = rows[one.at].at();
+                // What the command has written lately, from the row's activity: Fleet reads it off the output file.
+                let written = self.shown.as_deref().and_then(|job| self.record(job, cx)).and_then(|job| job.activity.as_ref()).map(|activity| tail_of(&activity.tails, rows[one.at].id())).unwrap_or_default();
                 card = card.child(
                     labelled(
                         div()
                             .id(SharedString::from(format!("calls-running:{id}")))
                             .flex()
-                            .items_start()
-                            .gap(look.length(token::SPACE_2))
+                            .flex_col()
                             .min_w_0()
                             .pl(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
                             .pr(look.length(token::SPACE_1))
@@ -673,9 +680,19 @@ impl JobView {
                             .font_family(mono(look))
                             .text_size(look.length(token::TEXT_2XS))
                             .line_height(look.length(token::LEADING_SM))
-                            .child(div().flex_1().min_w_0().min_h(look.length(token::H_CONTROL_SM)).flex().items_center().text_color(look.color(token::FG_DEFAULT)).child(div().min_w_0().child(doing.clone())))
-                            .child(div().flex_none().h(look.length(token::H_CONTROL_SM)).flex().items_center().child(timer(&job, &format!("box:{id}"), since, None, true, look)))
-                            .child(self.stop_button(look, cx)),
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_start()
+                                    .gap(look.length(token::SPACE_2))
+                                    .min_w_0()
+                                    .child(div().flex_1().min_w_0().min_h(look.length(token::H_CONTROL_SM)).flex().items_center().text_color(look.color(token::FG_DEFAULT)).child(div().min_w_0().child(doing.clone())))
+                                    .child(div().flex_none().h(look.length(token::H_CONTROL_SM)).flex().items_center().child(timer(&job, &format!("box:{id}"), since, None, true, look)))
+                                    .child(self.stop_button(look, cx)),
+                            )
+                            .children(written.into_iter().enumerate().map(|(at, line)| {
+                                div().id(SharedString::from(format!("calls-output:{id}:{at}"))).min_w_0().pr(look.length(token::SPACE_1)).truncate().text_color(look.color(token::FG_MUTED)).child(line)
+                            })),
                         Role::Status,
                         doing,
                     ),
@@ -1042,5 +1059,16 @@ mod tests {
         assert_eq!(headline_said(None, &seen), "Running cargo check");
         assert_eq!(headline_said(None, &seen[..1]), "Read a.rs");
         assert_eq!(headline_said(None, &[]), "");
+    }
+
+    #[test]
+    fn a_running_box_holds_the_lines_of_its_own_call_and_none_for_another() {
+        let tails = vec![
+            ipc::TaskTail { call: "toolu_1".into(), lines: vec!["Compiling a".into(), "Compiling b".into()] },
+            ipc::TaskTail { call: "toolu_2".into(), lines: vec!["other".into()] },
+        ];
+        assert_eq!(tail_of(&tails, "toolu_1"), ["Compiling a", "Compiling b"]);
+        assert!(tail_of(&tails, "toolu_3").is_empty());
+        assert!(tail_of(&[], "toolu_1").is_empty());
     }
 }
