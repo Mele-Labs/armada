@@ -147,7 +147,7 @@ impl JobsList {
         let projects = if self.wants_features() { self.lead_projects() } else { Vec::new() };
         self.leads_at = Some(std::time::Instant::now());
         let subs = crate::settings::wire::request::<ipc::SubProjects>(port, crate::settings::wire::Ask::Get("/sub_projects".into()), "SubProjects", cx);
-        let reads: Vec<_> = projects.iter().map(|project| crate::features::wire::library(port, project, cx)).collect();
+        let reads: Vec<_> = projects.iter().map(|project| (project.clone(), crate::features::wire::library(port, project, cx))).collect();
         let read_any = !reads.is_empty();
         self.leads_read = Some(cx.spawn(async move |this, cx| {
             let subs = match subs.await {
@@ -158,7 +158,7 @@ impl JobsList {
                 }
             };
             let mut libraries = Vec::new();
-            for read in reads {
+            for (_, read) in reads {
                 match read.await {
                     Ok(library) => libraries.push(library),
                     Err(why) => Note::warn("a project's features were not read").field("why", why.said).emit(),
@@ -170,7 +170,7 @@ impl JobsList {
                     this.hold_subs(subs, cx);
                 }
                 if read_any {
-                    this.hold_libraries(libraries, cx);
+                    this.hold_read(libraries, cx);
                 }
             });
         }));
@@ -182,6 +182,16 @@ impl JobsList {
             self.leads.subs = subs;
             self.relist(cx);
         }
+    }
+
+    /// What a read brought: a project not answered keeps the library held for it.
+    pub(crate) fn hold_read(&mut self, mut libraries: Vec<ipc::FeatureLibrary>, cx: &mut Context<Self>) {
+        // A project not answered keeps the library held for it: its read failed, or it has no live Job left to read for,
+        // and a board open on one of its features still draws it. Headings come from the listed Jobs, so a kept library
+        // of a project with none draws nothing.
+        let kept: Vec<_> = self.leads.libraries.iter().filter(|held| libraries.iter().all(|library| library.project != held.project)).cloned().collect();
+        libraries.extend(kept);
+        self.hold_libraries(libraries, cx);
     }
 
     /// The libraries Fleet answered: the list draws from them, where they changed.
@@ -372,7 +382,11 @@ impl JobsList {
         self.focused = lead.stop();
         self.card = None;
         let me = cx.entity();
-        let board = cx.new(|cx| board::LeadBoard::new(&me, lead, cx));
+        let title = self.lines.iter().find_map(|line| match line {
+            Line::Group(head) if head.lead.as_ref() == Some(&lead) => Some(head.name.clone()),
+            _ => None,
+        });
+        let board = cx.new(|cx| board::LeadBoard::new(&me, lead, title.unwrap_or_default(), cx));
         let keys = board.read(cx).focus().clone();
         self.board = Some((board, self.picks));
         window.focus(&keys, cx);
