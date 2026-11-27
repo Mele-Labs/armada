@@ -829,6 +829,8 @@ impl JobView {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
+            // Room under the last step before the foot's hairline (his note of 27 Nov).
+            .pb(look.length(token::SPACE_4))
             .child(head)
             .children(look_line)
             .children((!steps.is_empty()).then(|| labelled(div().id(SharedString::from(format!("ready-steps:{}", card.id))).flex().flex_col().gap(look.length(token::SPACE_2)).children(steps), Role::List, "Steps")))
