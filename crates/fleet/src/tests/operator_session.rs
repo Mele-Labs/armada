@@ -81,3 +81,28 @@ async fn an_act_only_the_operator_may_make_is_refused_to_any_other_caller() {
     let refused = rig.fleet.operator_called(None).expect_err("no session placed");
     assert!(format!("{refused:?}").contains("fleet.not_the_operator"), "{refused:?}");
 }
+
+/// **A picked effort is the Operator's own setting**, so a session that ends and starts again runs on it; the
+/// harness's own word names none.
+#[tokio::test]
+async fn the_operators_session_starts_on_its_saved_effort_and_again_after_a_restart() {
+    let rig = rig_placing(None);
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let first = live(&rig).await.expect("started");
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == first) }).await;
+    let start = rig.stand_in.starts().into_iter().find(|one| one.session == first).expect("its process");
+    assert_eq!(start.effort, None, "none saved: the harness picks");
+
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("effort.operator".to_string(), Some(ipc::SettingValue::Text("high".into())))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+    switched(&rig, false).await;
+    rig.fleet.operator_session_kept().await;
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let second = live(&rig).await.expect("started again");
+    assert_ne!(first, second);
+    eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == second) }).await;
+    let start = rig.stand_in.starts().into_iter().find(|one| one.session == second).expect("its process");
+    assert_eq!(start.effort.as_deref(), Some("high"), "the restart runs on the effort saved");
+}

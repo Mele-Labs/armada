@@ -1849,7 +1849,14 @@ mod tests {
         let posted = posted(cx);
         let at = |route: &str| posted.iter().position(|(path, _)| path == route).unwrap_or_else(|| panic!("{route} was posted: {:?}", posted.iter().map(|(path, _)| path).collect::<Vec<_>>()));
         let saved = ipc::decode::<ipc::SaveSettings>("SaveSettings", posted[at("/settings/save")].1.as_bytes()).expect("the body reads back");
-        assert_eq!(saved.changes.into_iter().collect::<Vec<_>>(), [("models.operator".to_string(), Some(ipc::SettingValue::Text("haiku".into())))], "the setting Settings shows is the Operator's, named");
+        assert_eq!(
+            saved.changes.into_iter().collect::<Vec<_>>(),
+            [
+                ("effort.operator".to_string(), Some(ipc::SettingValue::Text("harness default".into()))),
+                ("models.operator".to_string(), Some(ipc::SettingValue::Text("haiku".into()))),
+            ],
+            "the settings Settings shows are the Operator's, named, and the effort is the harness's own while none is picked"
+        );
         let tuned = ipc::decode::<ipc::TuneSession>("TuneSession", posted[at("/sessions/tune")].1.as_bytes()).expect("the body reads back");
         assert_eq!((tuned.session_id.as_str(), tuned.model.as_deref()), ("mock-op", Some("haiku")), "the session running now is tuned on the model named");
         assert!(at("/settings/save") < at("/sessions/tune"), "the setting is saved before the session restarts on it");
