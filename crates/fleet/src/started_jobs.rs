@@ -8,6 +8,8 @@ use ipc::{Attachment, AttachmentState, StartBase, StartCondition, StartedAct, St
 
 /// The attachment on a starter that names the Job it started.
 pub const STARTED_TO: &str = "started_to";
+/// The attachment on a started Job that names its starter.
+pub const STARTED_BY: &str = "started_by";
 
 /// An entry names a Job the caller did not start.
 pub const NOT_YOURS: &str = "fleet.started_not_yours";

@@ -1,6 +1,7 @@
 //! A live Job's claims in its project's store, with two Macs on one store and one beads remote: a
 //! second Job on a held item waits naming the first and carries on once it closes, a person's beads
-//! item is never taken, two Jobs on one file are both told and both carry on, a Job keeps working
+//! item is never taken, two Jobs on one file are both told and both carry on, a Job that started
+//! the writer is told nothing, a Job keeps working
 //! while the store is down and its claims go out when it answers, and a renewal is one call a Job
 //! every five minutes, taken again once its claims lapsed.
 
@@ -193,6 +194,33 @@ async fn two_jobs_writing_one_file_are_both_told_and_both_carry_on() {
         assert!(record.claim_waits.is_empty(), "a file is never waited on");
         assert_eq!(record.state, ipc::SessionState::Live);
     }
+}
+
+/// Confirmed 25-26 Nov 2026: a Job that started others and wrote nothing was told four times that a
+/// Job "also writes" a path its plan named, once naming its own child.
+#[tokio::test]
+async fn a_job_that_started_the_writer_is_told_nothing_and_the_writers_are_told_of_each_other() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let (home, work) = (mac("home", &shared, &remote).await, mac("work", &shared, &remote).await);
+    let parent = home.job("Report operator issues").await;
+    let child = home.job("Operator thread and composer").await;
+    let third = work.job("Librarian on the dashboard").await;
+    crate::tests::document_answers::plan_recorded(&home.rig, &parent).await;
+    home.rig.fleet.started_linked(parent.as_str(), child.as_str(), home.rig.manifest.as_str(), None).await.expect("linked");
+    home.writes(&child, "crates/store");
+    work.writes(&third, "crates/store");
+
+    home.pass(1).await;
+    work.pass(1).await;
+    home.pass(300).await;
+
+    let to_parent = home.told(&parent).await;
+    assert!(to_parent.is_empty(), "the parent writes nothing: {to_parent:?}");
+    assert_ne!(holder_of(&shared, ClaimKind::File, "crates/store").as_deref(), Some(parent.as_str()), "its plan's paths are its children's to claim");
+    let to_child = home.told(&child).await;
+    assert!(to_child.len() == 1 && to_child[0].contains("Job \"Librarian on the dashboard\" on octocat's Mac work also writes `crates/store`"), "{to_child:?}");
+    let to_third = work.told(&third).await;
+    assert!(to_third.len() == 1 && to_third[0].contains("Job \"Operator thread and composer\" on octocat's Mac home also writes `crates/store`"), "{to_third:?}");
 }
 
 /// Confirmed 16 Nov 2026: each Fleet restart told every Job again of every file another Job writes,
