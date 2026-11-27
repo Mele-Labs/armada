@@ -42,6 +42,8 @@ impl JobView {
     pub(super) fn box_key(&self) -> Option<SharedString> {
         match &self.reporting {
             Some(report) => Some(format!("report:{}", report.job).into()),
+            // His words to the Operator are kept for the page, or for the card the box names.
+            None if self.beside_in() => self.beside_key().map(Into::into),
             None => self.shown.clone(),
         }
     }

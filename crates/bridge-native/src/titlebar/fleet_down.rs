@@ -426,13 +426,14 @@ impl TitleBar {
             code: statement.code,
             fault: statement.kind == Kind::Fault,
             act: None,
+            closable: false,
         }]
     }
 }
 
 /// Fleet's stream is up and its routes are not answering: one held notice, in place of a toast per request.
 pub(crate) fn slow_notice(slow: bool) -> Option<FleetNotice> {
-    slow.then(|| FleetNotice { id: SLOW_ID, headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None })
+    slow.then(|| FleetNotice { id: SLOW_ID, headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None, closable: false })
 }
 
 /// The id the toasts read to stop raising a toast for each timed-out request.

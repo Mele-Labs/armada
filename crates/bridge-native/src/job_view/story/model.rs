@@ -580,6 +580,10 @@ fn ask_entry(story: &StoryAsk, job: &str, mine: &SessionId, titles: &Titles, fea
         let name = job_title(titles, other).or_else(|| handed.to_title.clone().filter(|title| !title.is_empty())).unwrap_or_else(|| "another Job".into());
         job_said.push((at, theirs(format!("Passed it to {name}"), at)));
     }
+    for reply in &story.replies {
+        let at = instant(&reply.at);
+        job_said.push((at, theirs(reply.words.trim().to_string(), at)));
+    }
     said.extend(job_said);
     said.sort_by_key(|(at, _)| *at);
     let bubbles: Vec<Bubble> = said.into_iter().map(|(_, bubble)| bubble).collect();
