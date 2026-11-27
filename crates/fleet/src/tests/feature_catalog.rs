@@ -705,10 +705,15 @@ async fn a_feature_left_pending_while_the_operator_was_off_is_not_told_when_it_c
     let job = a_job_in(&rig, &project).await;
     commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &[])]).await;
 
-    started(&rig).await;
+    let operator = started(&rig).await;
+    let told = |containing: &str| {
+        let process = rig.stand_in.process_of(&operator).expect("the Operator's process");
+        let count = process.sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count();
+        count
+    };
     rig.fleet.sources_handed().await;
     commits_filed(&rig, &job, &[trailer("vote-tally", "abc2", &[])]).await;
     rig.fleet.sources_handed().await;
-    eventually(|| async { heard(&rig, "vote-tally") >= 1 }).await;
-    assert_eq!(heard(&rig, "rank-votes"), 0, "what piled up while it was off is not handed to it");
+    eventually(|| async { told("vote-tally") >= 1 }).await;
+    assert_eq!(told("rank-votes"), 0, "what piled up while it was off is not handed to it");
 }
