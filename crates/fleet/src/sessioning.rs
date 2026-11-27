@@ -570,7 +570,7 @@ where
         }
         // A walk built from a commit the Job has moved past is built again, with no one asking.
         if turn_over {
-            self.walk_builds_moved(&session.id).await;
+            Box::pin(self.walk_builds_moved(&session.id)).await;
         }
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
@@ -777,7 +777,7 @@ where
         // A native walk is built from the Job's commit, and says so on its row: nothing asks him until it opens.
         let (build, ask) = match native {
             true => {
-                let (build, ask) = self.walk_build_wanted(&id, &url).await;
+                let (build, ask) = Box::pin(self.walk_build_wanted(&id, &url)).await;
                 (Some(build), ask)
             }
             false => (None, None),

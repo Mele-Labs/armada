@@ -111,7 +111,7 @@ where
                 fleet.builds_taken_in_turns().await;
             }
             // A native walk's build from its Job's commit: the next one started, a failure told.
-            fleet.walk_builds_driven().await;
+            Box::pin(fleet.walk_builds_driven()).await;
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
             // The Operator's own session, started while its switch is on and ended once it is off.

@@ -647,7 +647,7 @@ where
         if let Some((super::super::walking::Pressed::ShipIt, address)) = &pressed {
             let approval = store::KeptApproval { item_id: format!("shipped:{address}"), text: format!("Shipped: {address}"), at: self.now().as_str().to_string() };
             if self.store().lock().await.keep_approval(&id, &approval).is_ok() {
-                self.gates_kept(&id).await;
+                Box::pin(self.gates_kept(&id)).await;
             }
         }
         if noted.is_some() {
