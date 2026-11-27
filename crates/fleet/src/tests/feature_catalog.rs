@@ -696,3 +696,19 @@ async fn bridge_and_the_operator_keep_the_catalog_and_a_jobs_agent_does_not() {
     rig.fleet.change_feature(the_operator(), retitle("From the Operator")).await.expect("the Operator retitles");
     assert_eq!((areas().await, titled().await.as_str()), (before + 2, "From the Operator"));
 }
+
+#[tokio::test]
+async fn a_feature_left_pending_while_the_operator_was_off_is_not_told_when_it_comes_on_and_one_named_after_is() {
+    let rig = rig();
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &[])]).await;
+
+    started(&rig).await;
+    rig.fleet.sources_handed().await;
+    commits_filed(&rig, &job, &[trailer("vote-tally", "abc2", &[])]).await;
+    rig.fleet.sources_handed().await;
+    eventually(|| async { heard(&rig, "vote-tally") >= 1 }).await;
+    assert_eq!(heard(&rig, "rank-votes"), 0, "what piled up while it was off is not handed to it");
+}
