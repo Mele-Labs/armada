@@ -16,7 +16,7 @@ mod sign_in_app;
 mod store;
 pub mod layout;
 pub(crate) mod macs;
-mod mock;
+pub(crate) mod mock;
 mod mock_store;
 mod mock_account;
 mod account;
