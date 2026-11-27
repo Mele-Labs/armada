@@ -150,6 +150,17 @@ fn the_project_follows_the_title_bars_pick_and_the_header_draws_no_project_chips
 // ---- the layout Fleet keeps ----------------------------------------------------------------------------------------------
 
 #[gpui::test]
+fn the_blocks_keep_a_gap_from_both_sides_of_the_window(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("checks", 0, 0, 6, 2, "table"), block("needs-you", 6, 0, 6, 2, "cards")] };
+    let (_board, cx) = board_keeping(cx, Some(kept));
+    let gap = cx.update(|_, cx| { use crate::look::ActiveLook; cx.look().length(crate::look::token::SPACE_3) });
+    let first = find(cx, Role::Region, "Checks and commands").expect("the first block is drawn");
+    let last = find(cx, Role::Region, "Needs you").expect("the last block is drawn");
+    assert_eq!(first.left(), gap, "the first block starts one gap in, not flush with the window");
+    assert_eq!(gpui::px(1280.) - last.right(), gap, "the last block ends one gap from the right edge");
+}
+
+#[gpui::test]
 fn the_layout_fleet_kept_is_what_the_board_opens_on(cx: &mut TestAppContext) {
     let kept = BoardLayout { blocks: vec![block("checks", 0, 0, 6, 2, "table"), block("needs-you", 0, 2, 3, 2, "cards")] };
     let (board, cx) = board_keeping(cx, Some(kept));

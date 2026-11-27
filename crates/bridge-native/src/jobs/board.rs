@@ -75,7 +75,7 @@ impl LeadBoard {
             }
             Lead::SubProject { id } => {
                 let sub = list.leads.subs.iter().find(|sub| sub.id == *id)?;
-                let titles = list.leads.feature_titles(sub);
+                let titles = list.leads.feature_titles(sub, &list.jobs);
                 let line = if titles.is_empty() { "Sub project".to_string() } else { format!("Sub project \u{b7} {}", titles.join(", ")) };
                 let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job)).collect();
                 Some(Read { title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true })

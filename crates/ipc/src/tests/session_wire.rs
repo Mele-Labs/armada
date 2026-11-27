@@ -83,6 +83,7 @@ pub(super) fn a_record() -> SessionRecord {
         claim_waits: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 

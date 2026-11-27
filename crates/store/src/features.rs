@@ -122,6 +122,18 @@ pub struct KeptFeatureFile {
     pub last_at: String,
 }
 
+/// A feature a Job filed a file under, with its area's title and both places.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptJobFeature {
+    pub project: String,
+    pub slug: String,
+    pub title: String,
+    pub area: String,
+    pub area_title: String,
+    pub area_position: u32,
+    pub position: u32,
+}
+
 /// What one merged pull request changed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptFeatureMerge {
@@ -445,6 +457,34 @@ impl Store {
             .prepare("SELECT feature_id, job, path, first_at, last_at FROM feature_job_files WHERE job = ?1 ORDER BY first_at, path")
             .map_err(failed(doing))?;
         let rows = statement.query_map([job], file_row).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// The features `job` filed a file under, each once with its area, project by project in each library's order.
+    pub fn features_of_job(&self, job: &str) -> Result<Vec<KeptJobFeature>, WriteError> {
+        let doing = "reading the features a Job wrote to";
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT f.project, f.slug, f.title, f.area, COALESCE(a.title, f.area), COALESCE(a.position, 0), f.position
+                 FROM features f LEFT JOIN feature_areas a ON a.project = f.project AND a.slug = f.area
+                 WHERE f.id IN (SELECT feature_id FROM feature_job_files WHERE job = ?1)
+                 ORDER BY f.project, COALESCE(a.position, 0), f.area, f.position, f.slug",
+            )
+            .map_err(failed(doing))?;
+        let rows = statement
+            .query_map([job], |row| {
+                Ok(KeptJobFeature {
+                    project: row.get(0)?,
+                    slug: row.get(1)?,
+                    title: row.get(2)?,
+                    area: row.get(3)?,
+                    area_title: row.get(4)?,
+                    area_position: row.get(5)?,
+                    position: row.get(6)?,
+                })
+            })
+            .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
