@@ -620,9 +620,9 @@ impl JobView {
                 items.push(item);
             }
         }
-        // Fleet took his answer and puts the ask to him still, as a plan he sent back the Job kept: Fleet's list wins over the
+        // Fleet took his Ask for changes and puts the ask to him still, as a plan the Job kept: Fleet's list wins over the
         // answer held here (his note of 27 Nov: the plan lost its card and its row in Needs you).
-        let asks_still = |item: &Item| record.answers.iter().any(|one| one.item == item.id && instant(one.at.as_str()) >= instant(&item.since));
+        let asks_still = |item: &Item| record.answers.iter().any(|one| one.how == ipc::AnswerHow::AskedForChanges && one.item == item.id && instant(one.at.as_str()) >= instant(&item.since));
         // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
         if let Some(dock) = self.dock_of(id) {
             items.retain(|item| asks_still(item) || !dock.hidden.contains(&item.id));
