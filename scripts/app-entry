@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+#
+# Keep `~/Applications/Armada.app`, the entry Raycast and Finder list Armada by. It is a small
+# opener with Armada's icon, not the app: the app lives in `builds/current`, which every restart
+# moves (`scripts/keep-build`), and launchd runs it through `bridge-launch` so it reopens after a
+# crash. Opened, the entry hands over to that:
+#
+#   - the native Bridge's job is running: the current build is opened, which brings the running
+#     Bridge forward (`crates/bridge-native/src/instance.rs`), so there is never a second copy;
+#   - the job is loaded and stopped, a quit the person meant: launchd is asked to start it, so a
+#     Bridge opened from Raycast is still reopened after a crash;
+#   - no job is loaded: the current build is opened directly.
+#
+# **It has a bundle id of its own** (`dev.armada.bridge.opener`) and sits outside `builds/`, so
+# Bridge's own Launch Services upkeep (`crates/bridge-native/src/launch_services.rs`) never touches
+# it, and `LSUIElement` keeps it out of the Dock. A symlink to the build was not used: Spotlight is
+# off on some Macs, and Raycast's own scan of `~/Applications` is what lists an app there.
+#
+# Run by `scripts/restart` on every restart, and safe to run again: the entry is rewritten only
+# when what it would hold has changed. An `Armada.app` there that is not this opener, such as the
+# release app `scripts/install.sh` puts in `~/Applications` where `/Applications` is not writable,
+# is left alone. Everything is derived from `$HOME` and `ARMADA_FLEET_LABEL`, as in `scripts/restart`.
+#
+# Usage: scripts/app-entry [--dry-run]
+
+set -euo pipefail
+
+dry_run=false
+case "${1:-}" in
+  "") ;;
+  --dry-run) dry_run=true ;;
+  *) echo "app-entry: unknown argument $1 — usage: scripts/app-entry [--dry-run]" >&2; exit 1 ;;
+esac
+
+home="${HOME:?HOME must be set}"
+support="$home/Library/Application Support/Armada"
+label="${ARMADA_FLEET_LABEL:-com.armada.fleet}"
+native_label="$label.native"
+current="$support/builds/current/Armada.app"
+icon="$current/Contents/Resources/AppIcon.icns"
+apps="$home/Applications"
+entry="$apps/Armada.app"
+opener_id="dev.armada.bridge.opener"
+
+if [[ ! -f "$icon" ]]; then
+  echo "app-entry: $current has no AppIcon.icns, so $entry is left as it is" >&2
+  exit 0
+fi
+
+# Ours to replace: nothing there, a link (an older attempt at the same entry), or this opener.
+if [[ -e "$entry" && ! -L "$entry" ]]; then
+  held=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$entry/Contents/Info.plist" 2>/dev/null || true)
+  if [[ "$held" != "$opener_id" ]]; then
+    echo "app-entry: $entry is ${held:-not an app this script wrote}, so it is left alone" >&2
+    exit 0
+  fi
+fi
+
+mkdir -p "$apps"
+staged=$(mktemp -d "$apps/.Armada.app.XXXXXX")
+trap 'rm -rf "$staged"' EXIT
+chmod 755 "$staged"
+mkdir -p "$staged/Contents/MacOS" "$staged/Contents/Resources"
+cp "$icon" "$staged/Contents/Resources/AppIcon.icns"
+
+cat >"$staged/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>$opener_id</string>
+  <key>CFBundleName</key><string>Armada</string>
+  <key>CFBundleDisplayName</key><string>Armada</string>
+  <key>CFBundleExecutable</key><string>armada-open</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>LSUIElement</key><true/>
+</dict>
+</plist>
+PLIST
+
+# The paths are written in, not read from the environment the opener is started with.
+cat >"$staged/Contents/MacOS/armada-open" <<OPEN
+#!/bin/bash
+# Written by scripts/app-entry in the Armada repository; it is rewritten on every restart.
+service="gui/\$(id -u)/$native_label"
+app="$current"
+state=\$(launchctl print "\$service" 2>/dev/null | sed -n 's/^[[:space:]]*state = //p' | head -n 1)
+if [[ -n "\$state" && "\$state" != running ]]; then
+  exec launchctl kickstart "\$service"
+fi
+exec open "\$app"
+OPEN
+chmod 755 "$staged/Contents/MacOS/armada-open"
+
+if [[ -d "$entry" && ! -L "$entry" ]] && diff -r "$staged" "$entry" >/dev/null 2>&1; then
+  if $dry_run; then
+    echo "$entry is current; nothing to change"
+  else
+    chmod 755 "$entry"
+  fi
+  exit 0
+fi
+
+if $dry_run; then
+  echo "would write $entry, an opener for $current with its icon"
+  exit 0
+fi
+
+rm -rf "$entry"
+mv "$staged" "$entry"
+trap - EXIT
+echo "app-entry: wrote $entry, which opens $current" >&2
