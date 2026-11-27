@@ -431,3 +431,19 @@ async fn a_picture_and_a_tag_he_sends_the_operator_reach_its_session_about_a_car
     }
     assert_eq!(heard(&rig, &format!("About card {raised}")), 1, "the talk about the card still names it");
 }
+
+#[tokio::test]
+async fn a_card_left_open_when_the_operator_went_off_is_cleared_when_it_comes_on_again() {
+    let rig = rig();
+    started(&rig).await;
+    rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised");
+    assert_eq!(page(&rig).await.turn.len(), 1);
+
+    switched(&rig, false).await;
+    rig.fleet.operator_session_kept().await;
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let after = page(&rig).await;
+    assert!(after.on);
+    assert!(after.turn.is_empty() && after.working.is_empty(), "starts fresh: {:?}", after.turn);
+}
