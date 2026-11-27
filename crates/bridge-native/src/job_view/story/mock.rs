@@ -3,7 +3,7 @@
 //! screens' mock holds, so a Filed under row opens a page that exists. The first two asks are under Start a Job and the
 //! third under Thread and composer, so the tab draws two groups.
 
-use ipc::{Ask, AskKind, AskState, AskWords, ArtifactForm, ArtifactState, Instant, JobFeature, JobStory, MessageKind, PageAct, PagePress, PressDid, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteCast, VoteForm, VoteResult};
+use ipc::{Ask, AskKind, AskState, AskWords, ArtifactForm, ArtifactState, Instant, JobFeature, JobStory, MessageKind, PageAct, PagePress, PressDid, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryReply, StoryShown, VoteCast, VoteForm, VoteResult};
 
 use super::model::Features;
 use crate::features::page_model::Titles;
@@ -72,6 +72,7 @@ fn shown(artifact: &str, title: &str, form: ArtifactForm, state: ArtifactState, 
 pub fn story(job: &str) -> JobStory {
     let mut catalog = story_ask(ask("ask-1", AskKind::ChangeRequest, "Feature catalog", "every feature gets a page the agents read before they touch its files", AskState::Building, 12, 16, &["start-a-job", "reviews"]), true);
     catalog.ask.said = vec![words("row-a", MessageKind::Revision, "decided kinds as sections", 16)];
+    catalog.replies = vec![StoryReply { words: "I will read each feature's files first and write the page from what they do.".into(), at: at(13) }];
     let mut design = shown("documents/feature-catalog", "Feature catalog design", ArtifactForm::Page, ArtifactState::Approved, None, 15);
     design.votes = vec![VoteCast { revision: 2, vote: "layout".into(), form: VoteForm::Pick, result: VoteResult::Pick { take: "rows".into(), notes: Default::default() }, at: at(15) }];
     catalog.shown = vec![design];

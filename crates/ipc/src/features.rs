@@ -171,6 +171,14 @@ pub struct FeatureLibrary {
     pub librarian: crate::LibrarianState,
 }
 
+/// `get_features_by_meaning`: the slugs of a project's features that what was typed is about, the nearest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesByMeaning {
+    pub project: String,
+    /// The features it is about, by slug, nearest first. Empty where nothing is near enough or Fleet's language model is not loaded.
+    pub slugs: Vec<String>,
+}
+
 /// A written section as it stands.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeatureSection {

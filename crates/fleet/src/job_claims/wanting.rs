@@ -12,6 +12,7 @@ use crate::clashing::Who;
 use crate::daemon::Fleet;
 use crate::flaky_tests::{TestWait, TEST, TEST_WAIT};
 use crate::pull_requesting::PR;
+use crate::started_jobs::{STARTED_BY, STARTED_TO};
 use crate::session_issues::{CLAIMED_AS, ISSUE};
 
 /// One live Job as a pass reads it.
@@ -36,6 +37,10 @@ pub(crate) struct JobRead {
     pub test_waits: BTreeMap<String, TestWait>,
     /// When its newest pull request merged, as its ledger row last changed. `None` before one has.
     pub merged_at: Option<String>,
+    /// The Job that started it and the Jobs it started, by id: never the other side of its clash.
+    pub kin: BTreeSet<String>,
+    /// It started another Job, so its plan's paths are that Job's work and it claims only what it writes.
+    pub started_others: bool,
 }
 
 impl JobRead {
@@ -59,7 +64,8 @@ impl JobRead {
     /// is asked for too**, so the store lists the wait, and winning it is the wait's end.
     pub(crate) fn wanted(&self, person_held: &BTreeMap<String, String>, files_ended: &BTreeSet<String>) -> BTreeSet<Wanted> {
         let items = self.items.keys().filter(|item| !person_held.contains_key(*item)).map(|item| Wanted::item(item));
-        let files = self.planned.union(&self.written).filter(|path| !files_ended.contains(*path)).map(|path| Wanted::file(path));
+        let planned = self.planned.iter().filter(|_| !self.started_others);
+        let files = planned.chain(self.written.iter()).filter(|path| !files_ended.contains(*path)).map(|path| Wanted::file(path));
         let pulls = self.pulls_open.iter().map(|number| Wanted::pull_request(*number));
         let fixing = self.tests.iter().map(|test| Wanted::test(test));
         let waiting = self.test_waits.iter().filter(|(_, wait)| wait.red.is_none()).map(|(test, _)| Wanted::test(test));
@@ -88,6 +94,16 @@ where
                 let Some(manifest_id) = session.manifest_id.clone() else { continue };
                 let mut job = JobRead { id: id.clone(), manifest_id, title: session.title.unwrap_or_default(), ..JobRead::default() };
                 for row in store.attachments_of(&Holder::session(&id)).unwrap_or_default() {
+                    match row.kind.as_str() {
+                        STARTED_BY => {
+                            job.kin.insert(row.target.clone());
+                        }
+                        STARTED_TO => {
+                            job.kin.insert(row.target.clone());
+                            job.started_others = true;
+                        }
+                        _ => {}
+                    }
                     if row.manifest_id != job.manifest_id {
                         continue;
                     }

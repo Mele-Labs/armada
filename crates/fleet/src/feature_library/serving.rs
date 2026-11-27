@@ -68,6 +68,10 @@ where
         self.features_listed(caller, project).await
     }
 
+    async fn get_features_by_meaning(&self, caller: Option<api::Caller>, project: Option<String>, words: String) -> Result<ipc::FeaturesByMeaning, Refusal> {
+        self.features_by_meaning(caller, project, words).await
+    }
+
     async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String, section: Option<String>, files: bool) -> Result<FeaturePage, Refusal> {
         self.feature_paged(caller, project, feature, section, files).await
     }
@@ -133,6 +137,18 @@ where
 
     async fn draft_module_features(&self, caller: Option<api::Caller>, draft: ipc::DraftModules) -> Result<ipc::ModulesDrafted, Refusal> {
         self.modules_drafted(caller, draft).await
+    }
+
+    async fn start_sub_project(&self, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        self.sub_project_started(start).await
+    }
+
+    async fn list_sub_projects(&self, project: Option<String>) -> Result<ipc::SubProjects, Refusal> {
+        self.sub_projects_listed(project).await
+    }
+
+    async fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
+        self.sub_project_ungrouped(ungroup).await
     }
 
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
