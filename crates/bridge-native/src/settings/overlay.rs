@@ -369,7 +369,7 @@ impl SettingsOverlay {
         cx.notify();
     }
 
-    fn read(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn read(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.live = self.wire.live(cx);
         let read = self.wire.settings(cx);
         self._read = Some(cx.spawn_in(window, async move |this, cx| {

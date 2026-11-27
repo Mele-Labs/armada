@@ -28,6 +28,7 @@ When the Job has pushed, `all_done` waits for the Job to say how each feature it
 A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
 A live Job that holds none has stopped without ending, and drops off.
 A Job waiting on the person while it still holds its slot stays on it.
+Its row carries the features it is on now as `features`, so the Jobs list groups by feature and by area without reading the library.
 An area holds features, and two levels are all there are.
 A feature belongs to one area.
 
@@ -373,7 +374,7 @@ Those features are not read again.
 Every picked Job must be filed in the sub project's project, so a sub project never spans two.
 
 > **Rule.** Fleet keeps only what he picked.
-> Why: a live Job that later writes a file of one of the features is already in `list_features`, and the Jobs list adds it to the group from there.
+> Why: a live Job that later writes a file of one of the features carries it in its row's `features`, and the Jobs list adds it to the group from there.
 
 `list_sub_projects` answers them oldest first, for one project or for all.
 `ungroup_sub_project` drops one, and each of its Jobs goes back to its own row untouched.

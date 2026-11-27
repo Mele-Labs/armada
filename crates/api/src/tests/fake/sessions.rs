@@ -92,6 +92,7 @@ impl Sessions for FakeDaemon {
             claim_waits: Vec::new(),
             claims_unsent: false,
             answer_unread: false,
+            features: Vec::new(),
         })
     }
 

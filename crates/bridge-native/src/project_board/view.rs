@@ -728,7 +728,7 @@ impl Render for Board {
             .child(self.system.read(cx).measure_grid())
             .children(blocks);
         root.child(self.system.read(cx).measure_root())
-            .child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board"))
+            .child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().px(gap).pb(gap).child(board), Role::Group, "Board"))
             .children(over)
             .children(self.confirm_card(&look, cx))
             .into_any_element()

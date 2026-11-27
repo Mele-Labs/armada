@@ -97,12 +97,11 @@ impl NameSheet {
         cx.notify();
     }
 
-    /// The features the Jobs write to now, each with the titles of those Jobs, from the libraries the list holds.
+    /// The features the Jobs write to now, each with the titles of those Jobs, from their rows.
     fn comes_with(&self, cx: &App) -> Vec<(SharedString, SharedString)> {
         let Some(list) = self.list.upgrade() else { return Vec::new() };
         let list = list.read(cx);
-        list.leads
-            .shelves()
+        leads::shelves(&list.jobs)
             .into_iter()
             .filter_map(|shelf| {
                 let titles: Vec<String> = self.ids.iter().filter(|id| shelf.jobs.contains(&id.as_ref())).filter_map(|id| list.record(id)).map(|job| titled(job.title.as_deref())).collect();

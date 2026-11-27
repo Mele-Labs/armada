@@ -165,6 +165,7 @@ impl SettingsScreen {
 
     fn new(under: AnyView, wire: Wire, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let overlay = cx.new(|cx| SettingsOverlay::new(wire, window, cx));
+        cx.set_global(super::catalogue::Here(overlay.downgrade()));
         let handle = window.window_handle();
         let me = overlay.downgrade();
         let told = me.clone();
