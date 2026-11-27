@@ -1,0 +1,12 @@
+[operations.ungroup_sub_project]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Drop a sub project on the owner's press of Ungroup. Its Jobs are untouched. Give its id"
+notes = """
+`POST /sub_projects/ungroup`, body `UngroupSubProject`: `id`. Answered with 204 and no body once it is removed.
+
+**The Jobs themselves are untouched**: each goes back to its own row in the Jobs list.
+
+Refused 404 `fleet.no_such_sub_project` for an id Fleet keeps none under.
+"""

@@ -985,61 +985,12 @@ impl Render for Layer {
             return div().into_any_element();
         }
         let look = cx.look();
-        let focus_ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let view = window.viewport_size();
         // Everything here is placed in the window's own coordinates, which is where the labelled
         // elements and the pointer are read; the screen this sits in starts below the title bar.
         let origin = self.area.get().map(|area| area.origin).unwrap_or_default();
-        // Pins are the open notes', and the done ones' too while the Done tab is chosen.
+        // The opened card shows for an open note, and a done one too while the Done tab is chosen.
         let shown = |note: &Note| note.status == Status::Open || self.tab == panel::Tab::Done;
-        let pins = self.notes.iter().filter(|note| shown(note) && !note.window).filter_map(|note| {
-            let ring = note.ring?;
-            let id = note.id;
-            let sent = note.sent.is_some();
-            let done = note.status == Status::Done;
-            let number = self.number(id);
-            let size = look.length(token::H_BADGE);
-            let (ground, ink, edge) = if sent || done {
-                (look.color(token::BG_RAISED), look.color(token::ACCENT), look.color(token::ACCENT))
-            } else {
-                (look.color(token::ACCENT), look.color(token::TEXT_ON_ACCENT), look.color(token::BG_BASE))
-            };
-            // A done note carries no number, here or in its label, so nothing a person reads counts finished work.
-            let place = number.map_or("Done note".to_string(), |number| format!("Note {number}, open"));
-            let name = match &note.sent {
-                Some(title) => format!("{place}, sent to {title}: {}", note.said),
-                None => format!("{place}: {}", note.said),
-            };
-            Some(labelled(
-                div()
-                    .id(SharedString::from(format!("pin-{id}")))
-                    .occlude()
-                    .absolute()
-                    .left(ring.origin.x + ring.size.width - size / 2.)
-                    .top(ring.origin.y - size / 2.)
-                    .min_w(size)
-                    .h(size)
-                    .px(look.length(token::SPACE_1))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(size)
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(edge)
-                    .bg(ground)
-                    .text_color(ink)
-                    .text_size(look.length(token::TEXT_2XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(focus_ring))
-                    .children(number.map(|number| number.to_string()))
-                    .on_click(cx.listener(move |this, _, window, cx| this.open_note(id, window, cx))),
-                Role::Button,
-                name,
-            ))
-        });
         let opened = self.opened.and_then(|id| self.note(id)).filter(|note| shown(note)).and_then(|note| {
             let ring = note.ring?;
             let id = note.id;
@@ -1149,7 +1100,6 @@ impl Render for Layer {
                 }
             })
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
-            .children(pins)
             .children(opened)
             .map(|root| beside::attach(root, self, window, cx))
             .children(panel)
