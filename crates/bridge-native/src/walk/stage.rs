@@ -36,6 +36,7 @@ impl Stage {
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
         crate::pairing::begin_mock(walk.scenario, cx);
+        crate::graph::mock::begin(walk.scenario, cx);
         cx.set_global(crate::jobs::WalkGroup(if BY_STATE.contains(&walk.name) { crate::jobs::Group::State } else { crate::jobs::Group::Project }));
         match walk.screen {
             Screen::Dispatch => {
@@ -679,6 +680,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     press(MouseButton::Left, at, window, cx);
                 }
             });
+            Ok(())
+        }
+        // The light theme in force, as the owner would pick it in Settings.
+        Verb::Answer("look-light") => {
+            crate::look::install(crate::look::Look::light(), cx);
             Ok(())
         }
         // A send Fleet refused as too large raises the failure toast over whatever screen is in front.
