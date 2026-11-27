@@ -122,6 +122,16 @@ Where none of that is there it does nothing, so it runs every time, and a dry ru
 A Classic started by hand from a terminal is left running.
 It also deletes `Armada/electron/` and `Armada/node_modules/`, which kept builds used to fill for it.
 
+**Every restart keeps `~/Applications/Armada.app`, so Raycast and Finder list Armada like any other app** (`scripts/app-entry`).
+The app itself is in `builds/current`, which each restart moves and which nothing indexes; Spotlight is off on some Macs, and Raycast scans `~/Applications` itself.
+The entry is a small opener, not a link to the build: it has its own bundle id, `dev.armada.bridge.opener`, the kept build's icon, and `LSUIElement`, so it shows no Dock icon of its own.
+Opened, it reads the native Bridge's launchd job.
+A running job gets `open builds/current/Armada.app`, which brings the running app forward (*One live app runs at a time*, below).
+A loaded job that is stopped, a quit he meant, gets `launchctl kickstart`, so a Bridge opened this way is still reopened after a crash.
+With no job loaded, it opens the build directly.
+It sits outside `builds/`, so the app's Launch Services upkeep never unregisters it.
+It is rewritten only when its icon or script would change, and an `Armada.app` there that is not this opener, such as the release app `scripts/install.sh` puts in `~/Applications` where `/Applications` is not writable, is left alone.
+
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in
 `Armada/` touched), then runs `claude plugin marketplace update armada-local`

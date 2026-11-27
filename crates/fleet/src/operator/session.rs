@@ -23,10 +23,10 @@ use crate::session_host::Marked;
 /// What the Operator's session is called where a title is drawn.
 pub(crate) const TITLE: &str = "Operator";
 
-/// Its first turn. The rules are in its system prompt, so this only wakes it.
-const BEGIN: &str = "You are up. Read what Fleet holds across every project and begin your watch: the live Jobs, \
-what has stopped, what waits on him, and main in each repository. Put a card in front of him only where something \
-needs his decision.";
+/// Its first turn. The rules are in its system prompt, so this only wakes it. **It watches from now**: what waited on him
+/// before it came on stays on each Job's own Needs you, so a fresh session does not card the backlog.
+const BEGIN: &str = "You are up. Your watch starts now: what already waits on him stays on each Job's own Needs you, \
+so put no card up for it. Put a card in front of him only for something that arrives from here on and needs his decision.";
 
 /// The refusal for an act only the Operator's session may make.
 pub(crate) const NOT_THE_OPERATOR: &str = "fleet.not_the_operator";
@@ -188,7 +188,7 @@ pub(crate) enum Handed {
 }
 
 /// What `keep_linked_told` files an arrival told to the Operator's session under.
-const TOLD: &str = "told";
+pub(super) const TOLD: &str = "told";
 
 /// The Operator's session is not running.
 pub(crate) const NOT_RUNNING: &str = "fleet.operator_session_not_running";
