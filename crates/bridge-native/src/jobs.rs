@@ -164,13 +164,13 @@ fn view_label(scope: Scope, group: Group) -> String {
 
 mod asleep_mac;
 mod board;
-mod built;
-#[cfg(test)]
-mod built_tests;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
 mod name_sheet;
+mod built;
+#[cfg(test)]
+mod built_tests;
 #[cfg(test)]
 mod prioritise_tests;
 #[cfg(test)]
