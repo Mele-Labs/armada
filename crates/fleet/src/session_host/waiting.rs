@@ -178,6 +178,8 @@ pub(crate) struct WaitingReads {
     offered: Vec<String>,
     /// The order it set on its asks with `order_waiting`.
     order: Vec<store::KeptWaitingPlace>,
+    /// The open sub project it orchestrates, read for its Goal met? card.
+    goal: Option<crate::feature_library::sub_projects::GoalAsk>,
 }
 
 impl WaitingReads {
@@ -252,6 +254,7 @@ pub(crate) fn waiting_reads(
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
         order: store.waiting_order(&session.id)?,
+        goal: crate::feature_library::sub_projects::goal_ask(store, &session.id)?,
     })
 }
 
@@ -298,6 +301,7 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -383,6 +387,7 @@ pub(crate) fn merged(
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -417,6 +422,7 @@ pub(crate) fn merged(
             create_refused: None,
             operator_read: None,
             artifact: Some(one.artifact).filter(|named| !named.is_empty()),
+            goal_met: None,
         })
         .collect();
     items.extend(
@@ -477,6 +483,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: Some(one.artifact).filter(|named| !named.is_empty()),
+                    goal_met: None,
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -490,7 +497,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered, order } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered, order, goal } = reads;
         let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -590,6 +597,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: None,
+                    goal_met: None,
                 });
             }
         }
@@ -684,6 +692,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: None,
+                    goal_met: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
@@ -730,6 +739,8 @@ where
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
                 // What it asked the Operator, once it is on his Needs you or in Your turn.
                 items.extend(super::job_asks::job_ask_items(&job_asks));
+                // Whether the goal of the sub project it orchestrates is met, once it said done or its Jobs are.
+                items.extend(goal.as_ref().and_then(|ask| crate::feature_library::sub_projects::goal_met_item(ask, done.as_deref())));
             }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
@@ -765,6 +776,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: None,
+                        goal_met: None,
                     })
                 }
                 // A draft that joined an artifact is asked for by the artifact.
@@ -798,6 +810,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: Some(format!("{DRAFT_PREFIX}{title}")),
+                        goal_met: None,
                     })
                 }
                 // Fleet's handoff card, while the Job is live to hand on.
@@ -825,6 +838,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: None,
+                        goal_met: None,
                     })
                 }
                 _ => None,
@@ -1472,6 +1486,8 @@ where
             // A suggestion the Operator kept before its session is no longer offered a press.
             WaitingSource::OperatorSuggestion => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "the Operator no longer keeps suggestions to press")),
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
+            // Fleet's, so the agent is told nothing: Agree folds the sub project away, Not yet keeps it open.
+            WaitingSource::GoalMet => self.goal_met_chosen(&id, &item.id, said.choice).await,
             // The close tells the agent; words alone are a message to it, as for a done.
             WaitingSource::Gate => match said.choice {
                 Some(choice) => self.gate_chosen(&id, &item.id, choice).await,

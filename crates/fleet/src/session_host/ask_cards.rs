@@ -62,6 +62,7 @@ pub(super) fn card_items(asked: &CallInFlight, picked: &[QuestionAnswer]) -> Vec
                 create_refused: None,
                 operator_read: None,
                 artifact: None,
+                goal_met: None,
             })
             .collect();
     }
@@ -93,6 +94,7 @@ pub(super) fn card_items(asked: &CallInFlight, picked: &[QuestionAnswer]) -> Vec
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }]
 }
 

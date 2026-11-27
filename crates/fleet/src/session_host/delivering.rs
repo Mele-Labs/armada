@@ -44,6 +44,7 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

@@ -84,7 +84,7 @@ where
 
     /// What a Session handed work starts knowing of the one that handed it: its title and id, where
     /// it works, its open pull requests and the last of what was said in its thread.
-    pub(super) async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
+    pub(crate) async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
         let (session, held) = {
             let store = self.store().lock().await;
             (

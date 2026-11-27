@@ -64,7 +64,8 @@ fn band_of(source: WaitingSource) -> Band {
         | WaitingSource::OperatorUndone
         | WaitingSource::Gate
         | WaitingSource::JobConflict
-        | WaitingSource::JobHeld => Band::Blocks,
+        | WaitingSource::JobHeld
+        | WaitingSource::GoalMet => Band::Blocks,
     }
 }
 
