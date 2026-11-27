@@ -158,9 +158,7 @@ impl JobsList {
                 }
             };
             let mut libraries = Vec::new();
-            let mut asked = Vec::new();
-            for (project, read) in reads {
-                asked.push(project);
+            for (_, read) in reads {
                 match read.await {
                     Ok(library) => libraries.push(library),
                     Err(why) => Note::warn("a project's features were not read").field("why", why.said).emit(),
@@ -172,7 +170,7 @@ impl JobsList {
                     this.hold_subs(subs, cx);
                 }
                 if read_any {
-                    this.hold_read(&asked, libraries, cx);
+                    this.hold_read(libraries, cx);
                 }
             });
         }));
@@ -186,13 +184,13 @@ impl JobsList {
         }
     }
 
-    /// What a read of `asked` projects brought: a project whose read failed keeps the library held for it.
-    pub(crate) fn hold_read(&mut self, asked: &[String], mut libraries: Vec<ipc::FeatureLibrary>, cx: &mut Context<Self>) {
-        for project in asked {
-            if libraries.iter().all(|library| library.project != *project) {
-                libraries.extend(self.leads.libraries.iter().find(|library| library.project == *project).cloned());
-            }
-        }
+    /// What a read brought: a project not answered keeps the library held for it.
+    pub(crate) fn hold_read(&mut self, mut libraries: Vec<ipc::FeatureLibrary>, cx: &mut Context<Self>) {
+        // A project not answered keeps the library held for it: its read failed, or it has no live Job left to read for,
+        // and a board open on one of its features still draws it. Headings come from the listed Jobs, so a kept library
+        // of a project with none draws nothing.
+        let kept: Vec<_> = self.leads.libraries.iter().filter(|held| libraries.iter().all(|library| library.project != held.project)).cloned().collect();
+        libraries.extend(kept);
         self.hold_libraries(libraries, cx);
     }
 

@@ -345,8 +345,7 @@ fn board_open(cx: &mut gpui::TestAppContext) -> (Entity<JobsList>, &mut gpui::Vi
 #[gpui::test]
 fn a_failed_read_of_the_features_keeps_the_library_and_the_board_stays_filled(cx: &mut gpui::TestAppContext) {
     let (list, cx) = board_open(cx);
-    let project = crate::features::mock::PROJECT.to_string();
-    list.update(cx, |list, cx| list.hold_read(&[project], Vec::new(), cx));
+    list.update(cx, |list, cx| list.hold_read(Vec::new(), cx));
     assert!(drawn_named(cx, Role::Region, FEATURE), "the board still stands");
     assert!(drawn_named(cx, Role::Button, "Open Fix the merge line freshness chip"), "with its rows");
     assert!(drawn_named(cx, Role::Heading, FEATURE), "and the heading stays in the list");
