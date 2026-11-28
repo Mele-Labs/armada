@@ -1,14 +1,16 @@
-//! The contents rail on a Job's thread: thin bars down its right edge, one for each ask said in the thread, in the order their
-//! first words come, coloured by kind, all one length. The ask in view is fully lit and ringed. Hovering the bars opens a list beside
-//! them that names each ask with its kind and where it stands; pressing a bar or a row scrolls the thread to where the ask
-//! started. A thread with no asks draws neither.
+//! The contents rail on a Job's thread: thin bars down its right edge, a few pixels long at rest and growing to full length while the pointer or the keys are on it, one for each item of the Job's Story, oldest first,
+//! coloured by the Story's kind of row, all one length. The ask in view is fully lit and ringed. Hovering the bars opens a list
+//! beside them that names each item with the Story's title, what it says and when; pressing a bar or a row of an ask scrolls
+//! the thread to where the ask started, and any other opens the Story tab on that row. A thread with no Story items draws
+//! neither.
 //!
-//! The asks are the kind chip's store's, read off the main thread when the Job came on screen; the rail adds no reader. The ask
-//! in view is worked out in `model` from the list's scroll top, and the rail draws again where the thread does, as the call
-//! chip does, since a scroll redraws the thread.
+//! The items are the Story tab's own rows, shared from the tab the Job view already holds for the Job; the rail adds no
+//! reader. The asks' places in the thread are the kind chip's store's, read off the main thread when the Job came on screen.
+//! The ask in view is worked out in `model` from the list's scroll top, and the rail draws again where the thread does, as
+//! the call chip does, since a scroll redraws the thread.
 //!
-//! **Keys.** `thread_rail` (`⌥T`, scope `thread`) opens the list and puts the keys on it: Up and Down move, Enter jumps to the
-//! ask, Esc puts the list away and gives the keys back to the thread. Those four are the list's own key handler, as a menu's
+//! **Keys.** `thread_rail` (`⌥T`, scope `thread`) opens the list and puts the keys on it: Up and Down move, Enter presses the
+//! row, Esc puts the list away and gives the keys back to the thread. Those four are the list's own key handler, as a menu's
 //! are, and not acts. `⌥↑` and `⌥↓` are another act's and are left to it.
 //!
 //! **Where it hooks in.** The state and the act's handler are made the first time the rail draws, since the thread's start-up
@@ -16,13 +18,14 @@
 
 use gpui::{div, point, prelude::*, px, AnyElement, App, BoxShadow, ClickEvent, Context, FocusHandle, Global, Hsla, KeyDownEvent, ListOffset, Pixels, Role, ScrollHandle, SharedString, Window};
 
-use super::kind_chip::model::Hue;
+use super::story::model::Kind;
+use crate::features::asks::hue_token;
 use super::kind_chip::store;
 use super::JobView;
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use model::Mark;
+use model::Bar;
 
 pub(crate) mod model;
 #[allow(dead_code)]
@@ -33,21 +36,24 @@ mod tests;
 
 /// The rail's measures, from the approved mock (`rail.css`), where no token holds them.
 const BAR_H: f32 = 3.;
-/// Every bar is this long, the one in view too, so the bars line up on both edges; the one in view shows by colour alone.
+/// Every bar is this long while the rail is open, the one in view too, so the bars line up on both edges; the one in view shows by colour alone.
 const BAR_W: f32 = 20.;
+/// At rest the bars are this long, so the rail takes almost nothing of the thread until he goes to it.
+const BAR_REST_W: f32 = 4.;
+/// The column the pointer finds the bars in, at rest and open; the open bars grow out of it over the thread.
+const HIT_W: f32 = 12.;
 const BAR_RADIUS: f32 = 2.;
 const BAR_GAP: f32 = 11.;
 /// How lit a bar is while its ask is not the one in view.
 const BAR_REST: f32 = 0.55;
-const RAIL_SIDE: f32 = 6.;
-const RAIL_EDGE: f32 = 14.;
+const RAIL_EDGE: f32 = 4.;
 const LIST_W: f32 = 300.;
 const ROW_Y: f32 = 6.;
 /// The dot's drop, which sets it level with the first line of the title.
 const DOT_DROP: f32 = 6.;
 const MARK_EDGE: f32 = 2.;
-/// What the rail takes of the thread's width: its edge, a side, a bar, a side.
-const RAIL_WIDTH: f32 = RAIL_EDGE + RAIL_SIDE + BAR_W + RAIL_SIDE;
+/// What the rail takes of the thread's width, at rest: its edge and its column.
+const RAIL_WIDTH: f32 = RAIL_EDGE + HIT_W;
 
 /// What the rail remembers: whether the pointer is on it, where the keys are in the list, and the list's own focus.
 struct Rail {
@@ -91,13 +97,8 @@ pub(crate) fn init(cx: &mut App) {
     });
 }
 
-fn ink(look: &Look, hue: Hue) -> Hsla {
-    match hue {
-        Hue::Bug => look.color(token::ERROR),
-        Hue::Change => look.color(token::ACCENT),
-        Hue::Idea => look.color(token::STATUS_AWAITING_REVIEW),
-        Hue::Neutral => look.color(token::FG_SUBTLE),
-    }
+fn ink(look: &Look, kind: Kind) -> Hsla {
+    look.color(hue_token(kind.hue()))
 }
 
 /// A shadow of no blur: a hairline round a box, or an edge inside one.
@@ -106,22 +107,27 @@ fn edge(color: Hsla, x: Pixels, spread: Pixels, inset: bool) -> BoxShadow {
 }
 
 impl JobView {
-    /// The asks this Job's thread holds in its order, and which of them is in view, as an index into the first.
-    fn rail_marks(&self, id: &SharedString, cx: &App) -> (Vec<Mark>, Option<usize>) {
+    /// The Job's Story items as bars in the Story's order, and which of them is the ask in view, as an index into the first.
+    fn rail_marks(&self, id: &SharedString, cx: &App) -> (Vec<Bar>, Option<usize>) {
+        let items = self.story_items(id, cx);
+        if items.is_empty() {
+            return (Vec::new(), None);
+        }
         let (Some(page), Some(held)) = (self.pages.get(id).filter(|page| page.version.is_some()), self.thread(id, cx)) else { return (Vec::new(), None) };
         let marks = model::marks(&store::asks(id, cx), &held.items);
-        let entries: Vec<usize> = marks.iter().map(|mark| page.entry(mark.item)).collect();
-        let now = model::in_view(&entries, page.list.logical_scroll_top().item_ix);
-        (marks, now)
+        let bars = model::bars(items, &marks);
+        let asks: Vec<(usize, usize)> = bars.iter().enumerate().filter_map(|(bar, one)| one.at.map(|item| (bar, page.entry(item)))).collect();
+        let now = model::in_view(&asks, page.list.logical_scroll_top().item_ix);
+        (bars, now)
     }
 
     /// The room the rail takes off the thread's right, while one is drawn: the bars' column at its widest and the gap to the edge.
-    /// None where the thread holds no ask, the same test that leaves the rail out. The thread pads by it so no card sits under the bars.
+    /// None where the Job has no Story item, the same test that leaves the rail out. The thread pads by it so no card sits under the bars.
     pub(super) fn rail_width(&self, id: &SharedString, cx: &App) -> Option<Pixels> {
         (!self.rail_marks(id, cx).0.is_empty()).then(|| px(RAIL_WIDTH))
     }
 
-    /// The rail over the thread, with its list while the pointer is on it or the keys hold it. None where the thread holds no ask.
+    /// The rail over the thread, with its list while the pointer is on it or the keys hold it. None where the Job has no Story item.
     pub(super) fn render_thread_rail(&mut self, id: &SharedString, cx: &mut Context<Self>) -> Option<AnyElement> {
         // Set up at start-up by `story::init`; a view drawn without it (a test window) makes the state here, once.
         init(cx);
@@ -142,25 +148,26 @@ impl JobView {
 
         let bars = marks.iter().enumerate().map(|(at, mark)| {
             let here = now == Some(at);
-            let lit = ink(look, model::hue(mark.kind));
+            let lit = ink(look, mark.item.kind);
             let bar = div()
+                .flex_none()
                 .h(px(BAR_H))
-                .w(px(BAR_W))
+                .w(px(if open { BAR_W } else { BAR_REST_W }))
                 .rounded(px(BAR_RADIUS))
                 .bg(if here { lit } else { lit.opacity(BAR_REST) })
                 .when(here, |bar| bar.shadow(vec![edge(look.color(token::BORDER_HIGHLIGHT), px(0.), look.length(token::BORDER_WIDTH), false)]));
-            let (job, ask) = (job.clone(), mark.ask_id.clone());
+            let (job, key) = (job.clone(), mark.item.key.clone());
             // The press covers the gap round the bar, which a bar of three pixels alone would be too thin to hit.
             labelled(
                 div()
-                    .id(SharedString::from(format!("rail-bar:{}", mark.ask_id)))
+                    .id(SharedString::from(format!("rail-bar:{}", mark.item.key)))
                     .w_full()
                     .h(px(BAR_H + BAR_GAP))
                     .flex()
                     .items_center()
                     .justify_end()
                     .cursor_pointer()
-                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| this.rail_jump(&job, &ask, window, cx)))
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| this.rail_press(&job, &key, window, cx)))
                     .child(bar),
                 Role::Button,
                 model::bar_name(mark),
@@ -171,13 +178,13 @@ impl JobView {
                 .id("thread-rail")
                 .mt(look.length(token::SPACE_12) + look.length(token::SPACE_2))
                 .py(look.length(token::SPACE_2))
-                .px(px(RAIL_SIDE))
+                .w(px(HIT_W))
                 .flex()
                 .flex_col()
                 .items_end()
                 .children(bars),
             Role::Region,
-            "Asks in this thread",
+            "Story",
         );
 
         let list = open.then(|| self.rail_list(&marks, now, cursor, &focus, &scroll, cx));
@@ -205,13 +212,13 @@ impl JobView {
         )
     }
 
-    /// The list of asks, a card beside the bars: a heading and a row for each ask, the one in view marked.
-    fn rail_list(&self, marks: &[Mark], now: Option<usize>, cursor: Option<usize>, focus: &FocusHandle, scroll: &ScrollHandle, cx: &Context<Self>) -> AnyElement {
+    /// The list of Story items, a card beside the bars: a heading and a row for each item, the ask in view marked.
+    fn rail_list(&self, marks: &[Bar], now: Option<usize>, cursor: Option<usize>, focus: &FocusHandle, scroll: &ScrollHandle, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let job = self.shown.clone().unwrap_or_default();
         let rows = marks.iter().enumerate().map(|(at, mark)| {
             let (here, held) = (now == Some(at), cursor == Some(at));
-            let (job, ask) = (job.clone(), mark.ask_id.clone());
+            let (job, key) = (job.clone(), mark.item.key.clone());
             let mut marked = Vec::new();
             if here {
                 marked.push(edge(look.color(token::ACCENT), px(MARK_EDGE), px(0.), true));
@@ -221,7 +228,7 @@ impl JobView {
             }
             labelled(
                 div()
-                    .id(SharedString::from(format!("rail-row:{}", mark.ask_id)))
+                    .id(SharedString::from(format!("rail-row:{}", mark.item.key)))
                     .flex()
                     .flex_none()
                     .items_start()
@@ -231,8 +238,8 @@ impl JobView {
                     .cursor_pointer()
                     .when(here || held, |row| row.bg(look.color(token::BG_HOVER)).shadow(marked))
                     .hover(|row| row.bg(look.color(token::BG_HOVER)))
-                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| this.rail_jump(&job, &ask, window, cx)))
-                    .child(div().flex_none().mt(px(DOT_DROP)).size(look.length(token::SPACE_2)).rounded_full().bg(ink(look, model::hue(mark.kind))))
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| this.rail_press(&job, &key, window, cx)))
+                    .child(div().flex_none().mt(px(DOT_DROP)).size(look.length(token::SPACE_2)).rounded_full().bg(ink(look, mark.item.kind)))
                     .child(
                         div()
                             .flex()
@@ -244,7 +251,7 @@ impl JobView {
                                     .text_size(look.length(token::TEXT_SM))
                                     .line_height(look.length(token::LEADING_SM))
                                     .text_color(look.color(token::FG_DEFAULT))
-                                    .child(SharedString::from(mark.title.clone())),
+                                    .child(SharedString::from(mark.item.title.clone())),
                             )
                             .child(
                                 div()
@@ -289,24 +296,30 @@ impl JobView {
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .child("Asks in this thread"),
+                        .child("Story"),
                 )
                 .child(div().id("thread-rail-rows").flex_1().min_h_0().overflow_y_scroll().track_scroll(scroll).flex().flex_col().children(rows)),
             Role::ListBox,
-            "Asks in this thread",
+            "Story",
         )
         .into_any_element()
     }
 
-    /// Scroll the thread to where ask `ask` of Job `id` started, which stands at the top, and give the keys back to the thread.
-    fn rail_jump(&mut self, id: &SharedString, ask: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let (marks, _) = self.rail_marks(id, cx);
-        let Some(mark) = marks.iter().find(|mark| mark.ask_id == ask) else { return };
-        if let Some(page) = self.pages.get(id) {
-            page.list.scroll_to(ListOffset { item_ix: page.entry(mark.item), offset_in_item: px(0.) });
-        }
+    /// A press on the item `key` of Job `id`'s Story: an ask the thread holds scrolls the thread to where it started, which stands
+    /// at the top; any other item opens the Story tab on its row. The keys go back to what was pressed over.
+    fn rail_press(&mut self, id: &SharedString, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let (bars, _) = self.rail_marks(id, cx);
+        let Some(bar) = bars.iter().find(|bar| bar.item.key == key) else { return };
         cx.global_mut::<Rail>().cursor = None;
-        window.focus(&self.focus, cx);
+        match bar.at {
+            Some(item) => {
+                if let Some(page) = self.pages.get(id) {
+                    page.list.scroll_to(ListOffset { item_ix: page.entry(item), offset_in_item: px(0.) });
+                }
+                window.focus(&self.focus, cx);
+            }
+            None => self.open_story_row(id, key.to_string(), window, cx),
+        }
         cx.notify();
     }
 
@@ -336,7 +349,7 @@ impl JobView {
         cx.notify();
     }
 
-    /// The list's own keys: Up and Down move, Enter jumps, Esc puts it away. A key with a modifier is not its own, so `⌥↑` and
+    /// The list's own keys: Up and Down move, Enter presses, Esc puts it away. A key with a modifier is not its own, so `⌥↑` and
     /// `⌥↓` go on to the act that holds them.
     fn rail_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let key = &event.keystroke;
@@ -358,7 +371,7 @@ impl JobView {
                 cx.notify();
             }
             "enter" => match marks.get(at) {
-                Some(mark) => self.rail_jump(&id, &mark.ask_id.clone(), window, cx),
+                Some(mark) => self.rail_press(&id, &mark.item.key.clone(), window, cx),
                 None => self.rail_close(window, cx),
             },
             "escape" => self.rail_close(window, cx),

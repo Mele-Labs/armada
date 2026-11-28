@@ -208,7 +208,7 @@ A Job holding several slots is named by the slot whose changes conflict, not by 
 A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*), with no instruction and no one blamed.
 Where the other Job is paused, the notice says so.
 **Told once per file per peer**, main a peer of its own: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
-Fleet keeps no record that two Jobs agreed, so a settled file stays quiet because it was told, not because it was settled.
+A file stays quiet here because it was told: the order two Jobs settle (*Claims a Job holds*) quiets only the claims notice.
 Each file told is kept in the store (`clash_told_paths`), and a notice by its words (`clash_told`), so a restart that refills the table repeats nothing.
 Confirmed 31 Oct 2026: three restarts told one Job the same clash with a paused Job three times, each time to message it.
 
@@ -251,16 +251,20 @@ The store and its wire are [Central store](../contracts/central-store.md).
 | Claim | Taken from | Ends |
 |---|---|---|
 | Tracker item | Each open issue row on the Job's ledger | The item closes, or the row is given back |
-| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*) | A pull request of the Job's merges or closes |
+| File | The plan's paths, and each file Fleet sees the Job write (*Write clashes*). A Job that started another claims only the files it writes | A pull request of the Job's merges or closes |
 | Pull request | Each open pull request the Job holds | It merges or closes |
 | Failing test | A test Fleet started the Job to fix (*A test that fails the merge queue*) | The Job's fix merges and main reads green after it |
 
 A plan group with no paths claims no file.
+**A Job that started other Jobs hands its plan's paths to them**, so it is told of a file only once it writes there.
+Confirmed 25-26 Nov 2026: a Job that wrote nothing was told four times that another Job "also writes" a folder its plan named, once naming its own child.
 Every claim ends when the Job ends, and lapses 30 minutes after its renewals stop.
 
 **A pass every minute sends only the difference** between what the Job holds and what the store already answered as its own.
 Nothing is logged to replay: while the store is down the difference waits, the Job carries on, and its record says `claims_unsent` until a pass sends it.
 A pass makes at most 40 calls a Job, so a Job that wrote many files stays under the store's 120 calls a minute.
+**The last of the 40 is kept for a renewal that is due**, so a pass cut short still renews, and the claims held elsewhere are not asked for again until the next one.
+A Job that makes more than 600 store calls in an hour is named in Fleet's log, once that hour.
 
 **One call renews every claim a live Job holds, every five minutes.**
 A renewal that answers `0` means the claims lapsed, say on a Mac that slept, and the next pass takes them again through the same rules as a first take.
@@ -270,7 +274,7 @@ A claim another holds is asked for again at each renewal.
 |---|---|
 | Another Job, an item | Waits. Its record carries a `claim_waits` line naming the holder's person, Mac and Job title, and the Job is told. When Fleet wins the claim, the line goes and the Job is woken to carry on |
 | A person in beads, an item | Waits the same way, and no claim is made. The line ends when the item is unassigned. Autopilot never picks such an item |
-| Another Job, a file | Is told the file and the other Job, once, and carries on. The holder is told the same at its next renewal |
+| Another Job, a file | Is told the file, the other Job and its address, once, and carries on. The holder is told the same at its next renewal. **Its own parent or child is no other side**: neither is told |
 
 A beads assignee is a person where it is a bare name; a Job claims as `<Mac>/<job>`.
 Other trackers' assignees are not read.
@@ -282,7 +286,22 @@ A wait that ends forgets its item, so a later wait on it is told.
 Everything a pass has for one Job goes as one notice.
 Confirmed 16 Nov 2026: each restart told every Job again of every file another Job writes, one notice for each.
 A wait read from a Job on another Mac is told only to the Job that waits.
+Who is told of a shared file is chosen in one place, `shared_told_to` in `crates/fleet/src/job_claims/pass.rs`.
 `crates/fleet/src/job_claims.rs`.
+
+**The two Jobs settle which lands first. Fleet does not.** Decided by the owner, 27 Nov 2026: Fleet detects the shared file and tells both Jobs; no lead agent orders them and Fleet pauses neither.
+The notice reads `<Job> also writes <files>. Message it at <address> to agree which of you lands first, record that with settle_clash, and call raise_conflict if you cannot agree.`
+
+| What happens | What Fleet keeps |
+|---|---|
+| The two agree by message, and one calls `settle_clash` with `with`, `files`, `first` (`me`, `them` or `both_go_on`) and `why` | The pair's clash, `agreed`. Neither Job is told of those files again, a folder covering the files under it. The other Job is sent nothing |
+| They cannot agree, and one calls `raise_conflict` naming files | The pair's clash, `waiting`, and a `clash_order` item on that Job's Needs you asking `Which lands first, "<A>" or "<B>"?`, raised whether the Operator is on or off, since nothing may wait on the Operator alone. The conflict goes to the Operator as before, and its `job_conflict` item is not listed: one ask, one item |
+| He chooses one | The clash, `ruled`, with the one he chose first. Both Jobs are told his choice as a claims notice |
+
+**One clash a pair**, in Fleet's store (`job_clashes`): a later settling or raise between the same two replaces it, its files joined.
+Both Jobs' records carry it in `clashes`, and a feature's board draws a row for each clash among its Jobs: `Two Jobs write <files>`, then `They agreed: "<A>" waits until "<B>" lands.`, `They agreed: both go on.`, `You chose: ...` or `Waiting on you`, with the why in its tooltip.
+Only a Job this Mac keeps can be named: a clash with a Job on another Mac is refused as `raise_conflict` refuses it.
+`crates/fleet/src/session_host/clash_order.rs`.
 
 **The claims list on a project's page is grouped by who holds each claim** (`GET /projects/project/{project}/claims`).
 Each holder carries its person, Mac and Job title, when it last renewed, its claims and what each of its pull requests waits on.
@@ -479,7 +498,7 @@ The merged pull requests are the listing already read for the hub.
 |---|---|
 | Checks failed | The check that gates the pull request (`ci` where there is one, else every check) failed on the newest commit |
 | Conflicts | The forge says it cannot merge into the base |
-| Left the queue | It was in the merge queue at the last reading and is not now; it names the checks the queue's last run failed, with the end of a log |
+| Left the queue | It was in the merge queue at the last reading and is not now; it names the checks the queue's last run failed, with the end of a log. A drop for want of a runner is not told: *A stuck merge queue* |
 | Unmergeable | The merge queue marks its entry unmergeable |
 | Merged | It merged in the last six hours |
 | Auto-merge on | Someone asked the forge to merge it once its checks pass; told once a pull request. A place in the queue is nothing to say by itself |
@@ -542,6 +561,34 @@ The job note tells agents not to state it.
 **An ask to try a Job's own change is the Ready to try card's, and `waiting_for` refuses it** in a repository with a preview (`fleet.session_waiting_look`, `session_host/look_asks.rs`).
 An item is one when its `approve_pr` act names one of the Job's pull requests, or its words name one of them or a branch it offered and it is marked `approves` or opens with *Try*, *Look at* or *Test*.
 A kept one comes off Needs you once the Job's branch is on the preview list.
+
+### A stuck merge queue
+
+**On 25 Nov 2026 four pull requests cycled in the merge queue for hours** because the macOS job got no runner or ran past its time limit.
+Each failure rebuilt the groups behind it, and the queue's runs that no entry stood behind kept holding the runners.
+The owner decided Fleet handles this itself, from the forge and never an agent's word.
+
+**A queue run no entry stands behind is stopped, each visit, and told to nobody.**
+It is a run not yet finished on a `gh-readonly-queue/<base>/pr-<n>-…` branch whose pull request has no entry in the queue, or whose entry stands at another commit than the run tests.
+The runs are listed before the queue is read, so an entry made in between is never taken for a missing one.
+**Nothing is stopped when the queue would not answer, when the runs would not be listed, or when the queue is as long as one read holds**, because the entry may be past the cut.
+Stopping a run is the only forge write besides queueing; Fleet posts nothing.
+
+**A drop for want of a runner is put back, once for each time `limits.queueRequeuesPerCommit` allows, and told to nobody.**
+The drop is read as infrastructure when the queue's run for it has failed jobs and every one has an annotation saying no runner took it or it ran past its time limit.
+**A job that failed in its own code makes the drop the Job's**, told as above, and so does a drop with no failed job or a run the forge would not read.
+Each put-back is kept under the pull request's commit, so a new commit starts the count again.
+
+**The queue is stuck when a pull request drops for infrastructure with its put-backs spent, or an entry waited more than twice the forge's estimate and at least an hour since it joined.**
+The merge line then shows `queue_stuck` for the repository, with why, the failed job and its page where there is one, and the pull requests that wait: the dropped ones first, then the queue's.
+The owner gets one line on Needs you, on the Job that holds the first of them, such as *The merge queue is stuck: native got no runner*.
+Nothing is told to any Job: stuck is not their code.
+It is a call as a Fleet rule's is, so the owner can dismiss it, and it is kept across a restart.
+
+**It clears when a pull request merges after it began, or nothing waits**: the queue is empty and no dropped pull request is still open outside it.
+The line comes off the Job's list then.
+An entry that waited before it cleared is not read as past its estimate again, since the queue has moved.
+Stuck is kept in memory and read again from the forge after a restart.
 
 ### Telling the Jobs that read a wire type
 

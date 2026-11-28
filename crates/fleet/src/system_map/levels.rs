@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use ipc::{PartOrigin, PathStop, SystemFeature, SystemLink, SystemMap, SystemPart, SystemPartKind};
+use ipc::{LitFeature, PartOrigin, PathStop, SystemFeature, SystemLink, SystemMap, SystemPart, SystemPartKind};
 use store::KeptFeature;
 
 use super::model::{holds, Mapped, Node};
@@ -198,6 +198,7 @@ impl Ground<'_> {
             links,
             stops: Vec::new(),
             librarian_at: self.librarian_at.clone(),
+            lit: None,
         }
     }
 
@@ -233,7 +234,48 @@ impl Ground<'_> {
             links,
             stops: Vec::new(),
             librarian_at: self.librarian_at.clone(),
+            lit: None,
         }
+    }
+
+    /// Whether `feature` owns `file` of `map`, by its prefixes or as filed to it.
+    fn owns_file(&self, feature: &KeptFeature, map: &Mapped, file: &str) -> bool {
+        (feature.manifest_id.is_empty() || feature.manifest_id == map.manifest) && (feature.paths.iter().any(|own| owns(own, file)) || (self.filed)(&feature.id, file))
+    }
+
+    /// Level one with `feature` lit: the parts it owns files in, the parts those files call directly, and level one's links
+    /// they call along. **One hop**: a called part's own calls are not followed, or the store would light for everything.
+    pub(super) fn level_one_lit(&self, feature: &KeptFeature) -> SystemMap {
+        let mut one = self.level_one();
+        let owned = self.level_three(feature).stops;
+        let is_owned = |id: &str| owned.iter().any(|stop| stop.part == id);
+        let mut links: Vec<SystemLink> = Vec::new();
+        for (repo, map) in self.maps.iter().enumerate() {
+            for edge in map.edges.iter().filter(|edge| edge.files.iter().any(|file| self.owns_file(feature, map, file))) {
+                let from = self.part_id(repo, map.pieces[edge.from].part);
+                if !is_owned(&from) {
+                    continue;
+                }
+                let to = self.part_id(repo, match edge.to {
+                    Node::Piece(piece) => map.pieces[piece].part,
+                    Node::Part(part) => part,
+                });
+                // A route an API declares reaches the service that serves it, as level one draws it.
+                let served = |link: &&SystemLink| one.links.iter().any(|by| by.from == to && by.to == link.to && by.label.as_deref() == Some("served by"));
+                let found = one.links.iter().find(|link| link.from == from && link.to == to).or_else(|| one.links.iter().filter(|link| link.from == from).find(served));
+                if let Some(link) = found.filter(|link| !links.contains(link)) {
+                    links.push(link.clone());
+                }
+            }
+        }
+        let mut called: Vec<String> = Vec::new();
+        for link in &links {
+            if !is_owned(&link.to) && !called.contains(&link.to) {
+                called.push(link.to.clone());
+            }
+        }
+        one.lit = Some(LitFeature { slug: feature.slug.clone(), title: feature.title.clone(), owned, called, links });
+        one
     }
 
     /// Level three: the files `feature` owns, grouped by the part they fall in and numbered in level one's order.
@@ -241,9 +283,7 @@ impl Ground<'_> {
         let mut stops: Vec<(u8, String, usize, usize, Vec<String>)> = Vec::new();
         for (repo, map) in self.maps.iter().enumerate() {
             let mut by_part: std::collections::BTreeMap<usize, Vec<String>> = std::collections::BTreeMap::new();
-            let candidates = map.files.iter().map(|(file, _)| file).filter(|file| {
-                (feature.manifest_id.is_empty() || feature.manifest_id == map.manifest) && (feature.paths.iter().any(|own| owns(own, file)) || (self.filed)(&feature.id, file))
-            });
+            let candidates = map.files.iter().map(|(file, _)| file).filter(|file| self.owns_file(feature, map, file));
             for file in candidates {
                 if let Some(part) = map.part_of(file) {
                     by_part.entry(part).or_default().push(file.clone());
@@ -290,6 +330,7 @@ impl Ground<'_> {
             links,
             stops: path_stops,
             librarian_at: self.librarian_at.clone(),
+            lit: None,
         }
     }
 

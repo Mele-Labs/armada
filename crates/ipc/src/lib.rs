@@ -51,10 +51,15 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
+/// Areas made, renamed, split and merged, his rejects, and the rules his reasons became.
+mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
+mod feature_pictures;
 mod library_start;
+/// Groups of Jobs the owner named in the Jobs list.
+mod sub_projects;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -177,8 +182,14 @@ pub mod layout;
 pub mod key_bindings;
 /// Armada's own tools a person asks the agent for from the message box. `crates/core-model/domain/ask_tools.toml`.
 pub mod ask_tools;
+/// The kinds of Job a person's words are, and the workflow each starts on. `crates/core-model/domain/story_kinds.toml`.
+pub mod story_kinds;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
+/// A graph a Job puts in its thread, as a subset of Vega-Lite, and the one reader of it.
+pub mod graph;
+/// A Job's live graphs: the acts that show, feed and withdraw one, and `list_graphs` and `graphs.changed`.
+mod graphs;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
 pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
@@ -194,6 +205,8 @@ pub mod operator_talk;
 pub mod operator_page;
 /// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
 pub mod operator_cards;
+/// What each project's Operator is set to. `crates/ipc/operations/list_operator_settings.toml`.
+pub mod operator_settings;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -330,6 +343,8 @@ mod margin;
 mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
+/// Everything waiting on the person across a project's Jobs, in one list. `list_to_review`.
+mod to_review;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
 /// A background act that failed after its reply.
@@ -400,15 +415,19 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_settings::{OperatorDecisions, OperatorRole, OperatorSettings, OperatorSettingsList, OperatorSettingsSet, OperatorStyle, OperatorTag, OperatorTools, OperatorToolsSet, ProjectOperatorSettings, SetOperatorSettings};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AnswerRetire, AreaSeed, ChangeFeature, DocGist, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
-    FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
+    FeaturePage, FeatureRow, FeatureSection, FeaturesByMeaning, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
+pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use feature_pictures::{AddFeaturePicture, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, PictureBy, RemoveFeaturePicture};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
+pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
@@ -416,7 +435,7 @@ pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJo
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
-pub use job_asks::{HeldWithdrawn, WithdrawHeld};
+pub use job_asks::{ClashFirst, ClashStanding, HeldWithdrawn, JobClash, SettleClash, WithdrawHeld};
 pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
@@ -525,7 +544,7 @@ pub use hosted_sessions::{
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionWindow, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, PrioritiseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
-    TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy,
+    TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy, WalkBuild, WalkBuildState,
 };
 pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
@@ -545,9 +564,9 @@ pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
 pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, ReviewAsked, StandingCall, StandingCallKind, StandingCalls};
 pub use job_thread::{
-    against_of_detail, file_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
+    against_of_detail, file_call_of, graph_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
     SketchCall, CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead,
-    JobThreadTail, Lapsed, OpenCall, PlanCardState, ThreadAsk, ThreadDocument, ThreadHead, ThreadItem, ThreadPlan, ThreadSketch,
+    JobThreadTail, Lapsed, OpenCall, PlanCardState, ThreadAsk, ThreadDocument, ThreadGraph, ThreadHead, ThreadItem, ThreadPlan, ThreadSketch,
     ThreadTrail, TrailBay, TrailOpened,
     THREAD_ITEMS_MOST, THREAD_ITEMS_SERVED, THREAD_TAIL_MOST,
 };
@@ -588,9 +607,15 @@ pub use metrics::{
     MetricAnswer, MetricCall, MetricCredential, MetricHeader, MetricPoint, MetricReading, MetricReadings, MetricRecipe, MetricRow, MetricSaved,
     MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
 };
+pub use graphs::{
+    delta_of, feed_name_ok, recipe_rows, time_field, Better, FormAsked, GraphChecked, GraphDelta, GraphFedBy, GraphFeed, GraphForm, GraphHeadline,
+    GraphList, GraphPoints, GraphPointsTaken, GraphReading, GraphRecipe, GraphShown, GraphSince, GraphSource, GraphStat, GraphTone, GraphsChanged,
+    HeadlineAsked, ShowGraph, StatAsked, WithdrawGraph, GRAPHS_A_JOB, GRAPH_EVERY_SECS_LEAST, GRAPH_EVERY_SECS_MOST, GRAPH_FEED_KEPT,
+    GRAPH_POINTS_AT_MOST, GRAPH_TIME_FIELD,
+};
 pub use projects::MergeProjects;
 pub use system_map::{
-    AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
+    AdditionAnswer, AnswerSystemAddition, LitFeature, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
 };
 pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{
@@ -631,7 +656,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QueueStuck, QueueStuckCause, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,
@@ -730,7 +755,7 @@ pub use session_import::{
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
     Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobFeature, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
-    StoryBuilt, StoryChanged, StoryHanded, StoryShown,
+    StoryBuilt, StoryChanged, StoryHanded, StoryReply, StoryShown,
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{
@@ -864,7 +889,7 @@ pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
     AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, CallTestFlaky, TestCalledFlaky, SessionFact, SessionId, SessionList,
-    SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
+    SessionOrigin, ProposedField, SessionProposal, SessionFeature, SessionRecord, SessionStarted, ClaimWait, ClaimWaitEnds, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
     SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
@@ -876,6 +901,7 @@ pub use sessions::{
 pub use needs_you::{
     NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection, NeedsYouSectionKind,
 };
+pub use to_review::{ToReview, ToReviewAnswer, ToReviewCard, ToReviewGroup, ToReviewHead, ToReviewItem, ToReviewJob, ToReviewKind, ToReviewSubProject};
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
@@ -918,7 +944,7 @@ pub use loadout::{
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
 };
 pub use session_activity::{
-    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity,
+    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity, TaskTail,
 };
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
@@ -1002,3 +1028,6 @@ pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKi
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
 pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};
+/// A native walk played against the pictures of the look he approved.
+mod look_checks;
+pub use look_checks::{LookReport, LookStep};

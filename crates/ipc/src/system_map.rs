@@ -90,8 +90,21 @@ pub struct PathStop {
     pub files: Vec<String>,
 }
 
+/// One feature lit on level one: the parts it flows through, told apart by how, and the links it flows along.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LitFeature {
+    pub slug: String,
+    pub title: String,
+    /// The parts it owns files in, each with them: level three's stops, numbered as there.
+    pub owned: Vec<PathStop>,
+    /// The parts its files call directly that it owns no file in. One hop: what those parts call is not lit.
+    pub called: Vec<String>,
+    /// Level one's links from a part it owns that its own files make.
+    pub links: Vec<SystemLink>,
+}
+
 /// `get_system_map`: one level of the map. **Level one has neither `part` nor `feature`**; level two names `part`,
-/// the part zoomed into; level three names `feature`, and `stops` is its path.
+/// the part zoomed into; level three names `feature`, and `stops` is its path. Level one read with `lit` carries `lit`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SystemMap {
     pub project: String,
@@ -107,6 +120,9 @@ pub struct SystemMap {
     /// When the librarian last added to this project's map. Absent where it never has.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub librarian_at: Option<Instant>,
+    /// The feature `lit` asked for, on level one only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lit: Option<LitFeature>,
 }
 
 /// Someone who commits to a part's files.

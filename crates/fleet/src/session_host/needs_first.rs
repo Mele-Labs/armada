@@ -15,7 +15,7 @@ use crate::daemon::Fleet;
 /// **Fleet's whys, in one place**, so they are read against the armada-voice skill together: facts, no dashes.
 pub(crate) const WHY_BLOCKS: &str = "The work waits on your answer";
 pub(crate) const WHY_PAGE: &str = "A page to read";
-pub(crate) const WHY_TRY: &str = "Try it once the asks above are answered";
+pub(crate) const WHY_TRY: &str = "The work is ready to try";
 pub(crate) const WHY_DONE: &str = "The work is done";
 pub(crate) const WHY_PROTOTYPE_NEEDS_BUILD: &str = "The prototype needs this build";
 pub(crate) const WHY_WALK_NEEDS_BUILD: &str = "The walk needs this build";
@@ -64,7 +64,9 @@ fn band_of(source: WaitingSource) -> Band {
         | WaitingSource::OperatorUndone
         | WaitingSource::Gate
         | WaitingSource::JobConflict
-        | WaitingSource::JobHeld => Band::Blocks,
+        | WaitingSource::ClashOrder
+        | WaitingSource::JobHeld
+        | WaitingSource::GoalMet => Band::Blocks,
     }
 }
 

@@ -90,8 +90,10 @@ impl Sessions for FakeDaemon {
             lanes: None,
             pull_request_drafts: Vec::new(),
             claim_waits: Vec::new(),
+            clashes: Vec::new(),
             claims_unsent: false,
             answer_unread: false,
+            features: Vec::new(),
         })
     }
 
@@ -808,6 +810,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::OperatorActsList::default())
     }
 
+    async fn list_operator_settings(&self) -> Result<ipc::OperatorSettingsList, Refusal> {
+        Ok(ipc::OperatorSettingsList::default())
+    }
+
+    async fn set_operator_settings(self: std::sync::Arc<Self>, _set: ipc::SetOperatorSettings) -> Result<ipc::OperatorSettingsList, Refusal> {
+        Ok(ipc::OperatorSettingsList::default())
+    }
+
     async fn ask_held(
         self: std::sync::Arc<Self>,
         _caller: Option<crate::Caller>,
@@ -822,6 +832,14 @@ impl Sessions for FakeDaemon {
         _withdrawn: ipc::WithdrawHeld,
     ) -> Result<ipc::HeldWithdrawn, Refusal> {
         Ok(ipc::HeldWithdrawn { id: String::from("held:repo:1") })
+    }
+
+    async fn settle_clash(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        settle: ipc::SettleClash,
+    ) -> Result<ipc::JobClash, Refusal> {
+        Ok(ipc::JobClash { id: String::from("clash:s-a:s-b"), jobs: Vec::new(), files: settle.files, standing: ipc::ClashStanding::Agreed, first: None, why: settle.why, at: String::new() })
     }
 
     async fn report_bug(
@@ -916,6 +934,10 @@ impl Sessions for FakeDaemon {
             review_in_band: false,
             glyphs: Vec::new(),
         })
+    }
+
+    async fn list_to_review(&self, project: Option<String>) -> Result<ipc::ToReview, Refusal> {
+        Ok(ipc::ToReview { project, groups: Vec::new() })
     }
 
     async fn all_done(

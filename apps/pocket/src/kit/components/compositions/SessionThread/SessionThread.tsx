@@ -2831,7 +2831,7 @@ function ReachAnswers({
  * the sketch drawn with it, and Approve. **A press anywhere on it but Approve opens the plan in full** (`onReview`), where every group is
  * open and the sketch is large. Short enough that the thread never has to scroll it under the box.
  */
-function PlanCard({ approval }: { approval: PlanApproval }) {
+export function PlanCard({ approval }: { approval: PlanApproval }) {
   const { approved, onReview } = approval;
   const aside = approval.setAside === true && !approved;
   // A plan set aside folds to a chip, at the press and on arriving so; its press unfolds it.

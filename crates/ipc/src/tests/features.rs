@@ -32,8 +32,8 @@ fn an_ask_filed_outside_a_job_says_its_shape() {
 
 #[test]
 fn a_feature_is_merged_or_renamed_and_says_where_it_went() {
-    assert_eq!(shape::of::<ChangeFeature>(), "{project: string, feature: string, into?: string, slug?: string, title?: string, area?: string}");
-    assert_eq!(shape::of::<FeatureChanged>(), "{feature: string, merged_into?: string}");
+    assert_eq!(shape::of::<ChangeFeature>(), "{project: string, feature: string, into?: string, slug?: string, title?: string, area?: string, why?: string}");
+    assert_eq!(shape::of::<FeatureChanged>(), "{feature: string, merged_into?: string, rule?: string}");
 }
 
 #[test]
@@ -79,12 +79,12 @@ fn an_act_names_its_feature_as_one_slug_or_a_list() {
 }
 
 #[test]
-fn the_librarian_names_nine_parts_and_says_where_it_stands() {
+fn the_librarian_names_ten_parts_and_says_where_it_stands() {
     use crate::{FeatureLibrary, LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
     assert_eq!(shape::of::<RunLibrarian>(), "{project: string}");
     assert_eq!(
         shape::of::<LibrarianRan>(),
-        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], stopped?: boolean}"
+        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists|pictures], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists|pictures], stopped?: boolean}"
     );
     let state = "{last_run?: string, read_through?: number, merged_since?: [number], steps?: [{id: string, title: string, detail: string, model?: boolean}], running?: {run: string, steps: [{step: string, state: running|done|skipped|failed, said?: string}]}}";
     assert_eq!(shape::of::<LibrarianState>(), state);
@@ -95,9 +95,9 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     assert_eq!(shape::of::<crate::RetireAnswered>(), "{project: string, slug: string, retired?: boolean}");
     assert_eq!(shape::of::<crate::RetireProposal>(), "{why: code_gone|unused, evidence: string}");
     let row = shape::of::<crate::FeatureRow>();
-    assert!(row.contains("retire?: {why: code_gone|unused, evidence: string}, planned?: boolean}"), "{row}");
+    assert!(row.contains("retire?: {why: code_gone|unused, evidence: string}, planned?: boolean, cover?: string}"), "{row}");
     assert_eq!(shape::of::<crate::LibrarianStepMoved>(), "{project: string, run: string, step: string, state: running|done|skipped|failed, said?: string}");
-    assert_eq!(LibrarianPart::ALL.len(), 9);
+    assert_eq!(LibrarianPart::ALL.len(), 10);
     for part in LibrarianPart::ALL {
         assert_eq!(LibrarianPart::from_name(part.name()), Some(part), "{} reads back by its name", part.name());
     }
@@ -122,4 +122,30 @@ fn a_library_start_says_its_shape_and_a_draft_names_what_it_kept_and_passed_over
     assert_eq!(shape::of::<crate::LibraryStart>(), "{project: string, modules: [{name: string, slug: string, path: string, held?: boolean}], docs: [string]}");
     assert_eq!(shape::of::<crate::DraftModules>(), "{project: string}");
     assert_eq!(shape::of::<crate::ModulesDrafted>(), "{project: string, drafted: [string], held?: [string]}");
+}
+
+#[test]
+fn a_sub_project_says_its_shape() {
+    assert_eq!(
+        shape::of::<crate::SubProject>(),
+        "{id: string, project: string, name: string, goal: string, jobs: [string], features: [string], orchestrator?: string, started_at: string, ended_at?: string}"
+    );
+    assert_eq!(shape::of::<crate::StartSubProject>(), "{project: string, name: string, goal: string, jobs: [string]}");
+    assert_eq!(shape::of::<crate::TurnIntoOrchestrator>(), "{project: string, session_id: string, goal: string}");
+    assert_eq!(shape::of::<crate::UngroupSubProject>(), "{id: string}");
+    assert_eq!(shape::of::<crate::GoalMet>(), "{sub_project: string, goal: string, landed?: [{number: number, title: string}]}");
+}
+
+#[test]
+fn an_area_change_a_reject_and_a_catalog_rule_say_their_shape() {
+    assert_eq!(shape::of::<crate::ChangeArea>(), "{project: string, area: string, change: {act: make|rename|split|merge, ...}, why?: string}");
+    let lists = "features?: [string], areas?: [string], paths?: [string]";
+    assert_eq!(shape::of::<crate::RejectInCatalog>(), format!("{{project: string, reject: not_this_feature|not_together, {lists}, why?: string}}"));
+    let acts = "make_area|rename_area|split_area|merge_areas|merge_features|rename_feature|move_feature|not_this_feature|not_together";
+    let rule = format!("{{id: string, text: string, act: {acts}, {lists}, at: string}}");
+    assert_eq!(shape::of::<crate::CatalogRules>(), format!("{{project: string, rules: [{rule}]}}"));
+    assert_eq!(shape::of::<crate::AreaChanged>(), "{project: string, area: string, rule?: string}");
+    assert_eq!(shape::of::<crate::DropCatalogRule>(), "{project: string, rule: string}");
+    assert!(shape::of::<crate::ChangeFeature>().ends_with("area?: string, why?: string}"));
+    assert_eq!(shape::of::<crate::FeatureChanged>(), "{feature: string, merged_into?: string, rule?: string}");
 }

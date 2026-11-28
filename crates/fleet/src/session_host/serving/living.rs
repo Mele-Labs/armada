@@ -306,9 +306,14 @@ where
                         None => None,
                     },
                     // Read at each start, so an edit to the note reaches the next process. The
-                    // Logbook and how the owner works with Jobs are a Job's, and the Operator is not one.
+                    // Logbook and a Job's own acts are a Job's, and the Operator is not one: it is told
+                    // how he takes things in, without them.
                     note: match hosting.operator {
-                        true => self.successor_note_of(id).await,
+                        true => {
+                            let first = self.successor_note_of(id).await;
+                            let told: Vec<String> = first.into_iter().chain(Some(self.operator_ways_note())).collect();
+                            Some(told.join("\n\n"))
+                        }
                         false => {
                             let first = self.successor_note_of(id).await;
                             let logbook = self.logbook_note_of(served.as_ref().map(|one| one.root())).await;
@@ -328,7 +333,10 @@ where
                     subagent_cache_ttl,
                     skills_off,
                     thinking_summaries,
-                    operator: hosting.operator,
+                    operator: match (hosting.operator, hosting.project.as_deref()) {
+                        (true, project) => Some(self.operator_prompt_of(project.unwrap_or_default()).await),
+                        (false, _) => None,
+                    },
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {

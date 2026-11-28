@@ -586,6 +586,10 @@ pub trait Sessions: Send + Sync + 'static {
         session_id: Option<ipc::SessionId>,
     ) -> impl Future<Output = Result<ipc::NeedsYou, Refusal>> + Send;
 
+    /// `list_to_review` — everything waiting on the person across `project`'s live Jobs, or every project's, each item a
+    /// row of its Job's Needs you with the operation that answers it.
+    fn list_to_review(&self, project: Option<String>) -> impl Future<Output = Result<ipc::ToReview, Refusal>> + Send;
+
     /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
     /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.
     fn all_done(
@@ -690,6 +694,12 @@ pub trait Sessions: Send + Sync + 'static {
     /// `set_operator_acts` — one project's value, or unset. [`Refusal::NotFound`] for a project he has none of.
     fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> impl Future<Output = Result<ipc::OperatorActsList, Refusal>> + Send;
 
+    /// `list_operator_settings` — each project's Operator, and the output styles he may pick.
+    fn list_operator_settings(&self) -> impl Future<Output = Result<ipc::OperatorSettingsList, Refusal>> + Send;
+
+    /// `set_operator_settings` — what one project's Operator is. [`Refusal::NotFound`] for a project he has none of.
+    fn set_operator_settings(self: std::sync::Arc<Self>, set: ipc::SetOperatorSettings) -> impl Future<Output = Result<ipc::OperatorSettingsList, Refusal>> + Send;
+
     /// `ask_held` — the agent asks whether a pull request or a branch should land. `caller` places a hosted
     /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
     /// neither or both of `pull` and `branch`, or one the Job's repository does not have.
@@ -707,6 +717,15 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         withdrawn: ipc::WithdrawHeld,
     ) -> impl Future<Output = Result<ipc::HeldWithdrawn, Refusal>> + Send;
+
+    /// `settle_clash` — the agent records the order it and another Job agreed for files both write. `caller` places a
+    /// hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
+    /// a `with` that is the sender, ended or no Job's address, no `files`, or an empty `why`.
+    fn settle_clash(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        settle: ipc::SettleClash,
+    ) -> impl Future<Output = Result<ipc::JobClash, Refusal>> + Send;
 
     /// `report_bug` — the agent says Armada itself got something wrong. `caller` places a session as
     /// `all_done`'s does, a terminal one included. [`Refusal::Unacceptable`] for a call that places none, or an

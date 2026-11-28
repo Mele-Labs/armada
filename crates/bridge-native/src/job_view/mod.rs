@@ -90,6 +90,7 @@ mod parts_card;
 mod parts_fold;
 mod parts_reader;
 mod live_pill;
+mod page_graphs;
 mod page_sketches;
 mod reader;
 mod reader_draw;
@@ -106,6 +107,8 @@ mod lanes_copy;
 mod ledger;
 mod mods_made;
 mod mod_panel;
+#[cfg(test)]
+mod operator_harness;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
@@ -126,6 +129,7 @@ pub(crate) mod pulls;
 mod issues;
 mod system;
 mod bays;
+mod beside;
 mod column_bands;
 pub(crate) mod column_strip;
 mod children_tab;
@@ -153,6 +157,7 @@ mod job_browser;
 mod loadout_tab;
 mod feature_tab;
 mod tokens_tab;
+mod graph_card;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
@@ -160,6 +165,10 @@ pub use judge_cards::{ask_judge_choice, ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
+pub use beside::{DrawRaised, Leave, OperatorPane, Say, UNSTARTED};
+pub use on_page::{operator_answered, operator_focus, operator_has_keys, operator_list, operator_tag, operator_thread_on_page, operator_to_last_reply, operator_untag, operator_words};
+#[cfg(test)]
+pub use on_page::{operator_drawn_for, operator_tagged, operator_unechoed, posted_to_mock, sent_to_job};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -223,6 +232,9 @@ pub(crate) enum Extra {
     Judging(String),
     Plan(PlanCardState),
     Sketch(String),
+    /// The run being done now, when a card that waits on him stands over the thread: it is drawn here, under that card,
+    /// where its item draws nothing (`extras_of`).
+    Live,
     Pending(usize),
     Working,
     /// The card of the subagents and background tasks running now.
@@ -254,6 +266,8 @@ pub(crate) enum Extra {
     /// The Job's first open ask in Fleet's order, by its card's key (`first_key`): the one ask that stands as a card, under a bar of the steps
     /// it leads (`first_card`).
     First(String),
+    /// A card the Operator raised in the talk, by id, drawn whole by its page (`beside`).
+    Raised(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -271,6 +285,8 @@ pub(crate) struct Pending {
     body: Option<String>,
     /// Fleet did not take it: it stays in the thread marked Not sent, with a Retry.
     failed: bool,
+    /// The card his words to the Operator are about, by id and title, for the About row over them.
+    about: Option<(String, SharedString)>,
 }
 
 /// Whether Fleet's row `row` reads `words` now, so the edit drawn over it can go.
@@ -389,6 +405,11 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
     if let Some(sketch) = &head.sketch {
         extras.push(Extra::Sketch(sketch.title.clone()));
     }
+    // Work being done stands under what waits on him, so a card that asks him is not pushed up by it.
+    let waits_on_him = extras.iter().any(|extra| matches!(extra, Extra::Plan(PlanCardState::Waiting) | Extra::Sketch(_)));
+    if waits_on_him && working && head.asked.is_none() && matches!(items.last(), Some(ThreadItem::Calls { .. })) {
+        extras.push(Extra::Live);
+    }
     extras.extend((0..pending.len()).map(Extra::Pending));
     if refreshing {
         extras.push(Extra::Refreshing);
@@ -404,11 +425,11 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
     extras
 }
 
-/// How many of the person's own messages read exactly `text`.
+/// How many of the person's own messages read exactly `text`. Fleet echoes his words to the Operator under the card's tag.
 fn echoed(items: &[ThreadItem], text: &str) -> usize {
     items
         .iter()
-        .filter(|item| matches!(item, ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, text: said, .. } } if said.trim() == text))
+        .filter(|item| matches!(item, ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, text: said, .. } } if crate::operator::talk::tag_of(said).map_or(said.as_str(), |(.., words)| words).trim() == text))
         .count()
 }
 
@@ -448,6 +469,9 @@ pub struct JobView {
     mock_queued: ipc::QueuedList,
     /// Every answer to a Ready to try card the mock Fleet took, oldest first.
     mock_ready: Vec<ipc::AnswerReadyToTry>,
+    /// Every act the mock Fleet was posted, as its path and body, oldest first, for a test to read.
+    #[cfg(test)]
+    mock_posted: Vec<(String, String)>,
     /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
     mock_refusals: usize,
     /// The workflow changes of a mock scenario, by id, as Fleet's `workflow_changes` holds them live.
@@ -589,6 +613,8 @@ pub struct JobView {
     drawn: Rc<std::cell::Cell<u64>>,
     /// The thread's rows as views of their own, so a pulse draws its row and not the thread (`row_views`).
     rows: row_views::Rows,
+    /// The Operator's session, drawn beside the Job on screen on the Operator's page.
+    beside: Option<beside::Beside>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -628,7 +654,20 @@ impl JobView {
             composer.catalog.scripts = catalogue.talk;
         }
         // Told it changed, the view draws its rows whole next; a frame that only moves a pulse takes them from the cache.
-        subscriptions.push(cx.observe_self(|this, _| this.rows.changed()));
+        subscriptions.push(cx.observe_self(|this, cx| {
+            this.rows.changed();
+            this.beside_changed(cx);
+        }));
+        // A key where the Operator's thread or box holds the keys is answered with its parts in place.
+        let keyed = cx.weak_entity();
+        subscriptions.push(cx.intercept_keystrokes(move |_, window, cx| {
+            if keyed.update(cx, |this, cx| this.beside_keys(window, cx)).unwrap_or(false) {
+                let keyed = keyed.clone();
+                cx.defer(move |cx| {
+                    keyed.update(cx, |this, _| this.beside_leave()).ok();
+                });
+            }
+        }));
         // Each draws this view again: it is drawn from a cache (`JobsScreen::render`).
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| {
             this.followed(window, cx);
@@ -728,6 +767,8 @@ impl JobView {
             mock_needs: HashMap::new(),
             mock_queued: if mock_on { crate::mock::queued() } else { Default::default() },
             mock_ready: Vec::new(),
+            #[cfg(test)]
+            mock_posted: Vec::new(),
             mock_refusals: crate::mock::refusals(),
             mock_changes,
             shown: None,
@@ -803,6 +844,7 @@ impl JobView {
             linked: Default::default(),
             drawn: Rc::default(),
             rows: Default::default(),
+            beside: None,
             _subscriptions: subscriptions,
         }
     }
@@ -892,9 +934,11 @@ impl JobView {
         })
     }
 
-    /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`).
+    /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`). The Operator's on its page always
+    /// is: words sent with no session running start one.
     fn closed(&self, id: &str, cx: &App) -> bool {
-        self.record(id, cx).is_none_or(|job| {
+        !self.is_beside(id)
+            && self.record(id, cx).is_none_or(|job| {
             job.state == SessionState::Ended || job.mark.is_some_and(|mark| matches!(mark.state, JobState::Ended | JobState::Quiet))
         })
     }
@@ -906,6 +950,7 @@ impl JobView {
 
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.beside_leave();
         self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let (opened, picks) = {
@@ -1016,6 +1061,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
+        self.beside_leave();
         self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
@@ -1046,6 +1092,7 @@ impl JobView {
         self.want_needs(id, cx);
         self.want_looks(id, cx);
         self.want_watches(id, cx);
+        self.want_graphs(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
         let working = self.working(id, cx);
@@ -1119,7 +1166,7 @@ impl JobView {
             .chain(self.record(id, cx).into_iter().flat_map(|record| record.answers.iter().map(ask_line::answer_key)))
             .collect();
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
-        if ready_compact::asks(&held.items) {
+        if ready_compact::asks(&held.items) && !first.as_ref().is_some_and(|first| first.kind == review::Kind::Build) {
             cards.push(Extra::Ready);
         }
         // Words the Judge is reading stand at the thread's end as the card their reading will be, ahead of the builds.
@@ -1129,8 +1176,13 @@ impl JobView {
         if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
             extras.push(Extra::Subagents);
         }
-        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Live | Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
+        // The cards the Operator raised in the talk stand after his words and before what it is doing now.
+        if let Some(beside) = self.beside.as_ref().filter(|beside| beside.id == *id) {
+            let working = extras.iter().position(|extra| matches!(extra, Extra::Live | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+            extras.splice(working..working, beside.raised.iter().cloned().map(Extra::Raised));
+        }
         // The pin is keyed by the sketch's ledger id, which a revision drawn against an earlier title keeps while its title changes.
         let pinned = held.head.sketch.as_ref().map(|one| one.sketch.as_str());
         extras.retain(|extra| !(matches!(extra, Extra::Sketch(_)) && pinned.is_some_and(|ledger| self.is_part(id, ledger))));
@@ -1145,8 +1197,9 @@ impl JobView {
         if self.record(id, cx).is_some_and(|job| !job.claim_waits.is_empty()) {
             extras.push(Extra::ClaimWaits);
         }
-        // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards.
-        if !self.sends_waiting(id, cx).is_empty() {
+        // What he sent that waits for the Job's Mac is the newest thing he did, so it stands after the Job's own cards. The
+        // Operator never runs on another Mac.
+        if !self.is_beside(id) && !self.sends_waiting(id, cx).is_empty() {
             extras.push(Extra::WaitsFor);
         }
         // A wait for a slot asks him nothing, and stands with the Job's other waits.
@@ -1159,6 +1212,10 @@ impl JobView {
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
+        // The Operator's asks and its waits are the page's own cards, so its talk does not draw them again.
+        if self.is_beside(id) {
+            extras.retain(|extra| !matches!(extra, Extra::First(_) | Extra::Answer(_) | Extra::Waiting | Extra::End | Extra::ClaimWaits | Extra::SlotWait | Extra::Moving | Extra::Ready));
+        }
         // Where a build changed, its item measures again: it draws a line when settled and nothing while it is listed on the card.
         let ready = ready_compact::signature(&held.items);
         let page = self.pages.get_mut(id).expect("the page was just read");
@@ -1381,6 +1438,7 @@ impl JobView {
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.drawn.set(self.drawn.get() + 1);
+        self.beside_leave();
         self.rows.begin(&self.shown);
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
@@ -1413,6 +1471,7 @@ impl Render for JobView {
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
         self.sync_tokens_link(&id, window, cx);
+        self.sync_graphs(&id, graph_card::Place::Thread, cx);
         self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
@@ -1508,7 +1567,7 @@ impl Render for JobView {
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(false, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_judge_sheet(&id, window, cx));
@@ -1556,9 +1615,28 @@ mod tests {
     fn what_stands_over_the_thread_is_drawn_after_its_items_in_electrons_order() {
         let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
         let (head, items) = thread(&you("a", "hi"), &head);
-        let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false }];
+        let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false, about: None }];
         let extras = extras_of(&head, &items, &pending, true, false, false);
         assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Pending(0), Extra::Working]);
+    }
+
+    #[test]
+    fn a_live_run_stands_under_a_card_that_waits_on_him_and_in_place_otherwise() {
+        let calls = r#"{"kind":"calls","id":"t1","names":["Bash"],"rows":[{"kind":"tool","id":"t1","at":"2026-11-09T10:00:00Z","text":"Bash ls"}]}"#;
+        let waiting = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
+        let (head, items) = thread(calls, &waiting);
+        let extras = extras_of(&head, &items, &[], true, false, false);
+        assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Live]);
+        // His unsent words are newer than the run, so they stand after it.
+        let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false, about: None }];
+        assert_eq!(extras_of(&head, &items, &pending, true, false, false), [Extra::Plan(PlanCardState::Waiting), Extra::Live, Extra::Pending(0)]);
+        // A run that is over, a plan put aside and a thread ending on his words keep the run where it was.
+        assert_eq!(extras_of(&head, &items, &[], false, false, false), [Extra::Plan(PlanCardState::Waiting)]);
+        let aside = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"set_aside"}}}}"#);
+        let (head, items) = thread(calls, &aside);
+        assert_eq!(extras_of(&head, &items, &[], true, false, false), [Extra::Plan(PlanCardState::SetAside)]);
+        let (head, items) = thread(&you("a", "hi"), &waiting);
+        assert_eq!(extras_of(&head, &items, &[], true, false, false), [Extra::Plan(PlanCardState::Waiting), Extra::Working]);
     }
 
     #[test]

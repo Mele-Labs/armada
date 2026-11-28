@@ -132,8 +132,10 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         lanes: None,
         pull_request_drafts: Vec::new(),
         claim_waits: Vec::new(),
+        clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 
@@ -156,6 +158,7 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

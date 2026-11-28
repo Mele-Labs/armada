@@ -113,6 +113,8 @@ pub fn owed_kind(item: &WaitingItem) -> OwedKind {
         | WaitingSource::Gate
         | WaitingSource::OperatorUndone
         | WaitingSource::JobConflict
-        | WaitingSource::JobHeld => OwedKind::Needs,
+        | WaitingSource::ClashOrder
+        | WaitingSource::JobHeld
+        | WaitingSource::GoalMet => OwedKind::Needs,
     }
 }

@@ -105,6 +105,8 @@ mod session_summaries;
 mod studio;
 mod studio_sketch;
 mod studio_zones;
+/// A system map with a feature lit, and one from before `lit`.
+mod system_map;
 /// The Board row, and the redaction it exists for.
 mod timeline;
 mod bay_history;
@@ -117,6 +119,7 @@ mod document_answers;
 mod step_reading;
 mod taught_mods;
 mod watch_wire;
+mod graph_wire;
 /// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
 mod terminal_wire;
 mod workflow_changes;

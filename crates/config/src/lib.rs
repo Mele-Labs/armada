@@ -84,7 +84,7 @@ pub use piece::{LeftOut as PieceLeftOut, Written as PieceWritten};
 pub use rule::{parse as parse_rule, RuleError, RuleFile, Rules};
 pub use manifest::{
     AppRun, BadSeedPath, Check, Command, FromKit, Harness, kit_copy_fault, manifest_run_lines, KitCopy, KitFile, KitKind, KitName, KitRead, Link, Manifest, MergeBy,
-    Preparation, Seed, Server, TrackerBlock, DEFAULT_CI_GATE,
+    Preparation, Seed, Server, TrackerBlock, Walks, DEFAULT_CI_GATE,
 };
 pub use resolve::{ResolvedWorkflow, DEFAULT_ITERATION_CAP};
 pub use roster::Roster;

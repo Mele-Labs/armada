@@ -365,6 +365,7 @@ async fn declared_by_the_manifest(
         Registry::Commands => None,
     };
     let began = std::time::Instant::now();
+    let cpu_before = checks_runner::children_cpu();
     let executed = declared::execute_told(
         &root,
         registry,
@@ -379,17 +380,18 @@ async fn declared_by_the_manifest(
         Some(&armada::test_map::from_fleet),
     )
     .await;
+    let cpu = cpu_before.zip(checks_runner::children_cpu()).map(|(before, after)| after.saturating_sub(before));
     match executed {
         Ok(ran) => {
             if let Some(told) = told {
-                told.end(&ran, began.elapsed());
+                told.end(&ran, began.elapsed(), cpu);
             }
             say::ran(&ran, verb);
             ExitCode::from(ran.status())
         }
         Err(why) => {
             if let Some(told) = told {
-                told.refused(&why.to_string(), began.elapsed());
+                told.refused(&why.to_string(), began.elapsed(), cpu);
             }
             eprintln!("{why}");
             ExitCode::FAILURE

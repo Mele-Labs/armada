@@ -177,7 +177,7 @@ where
 
     /// The repositories the project's members name, which a feature that names none is read in. **A copy of another
     /// Mac's names its own**, read in this Mac's catalog.
-    fn repositories_of(&self, store: &Store, project: &str) -> Vec<String> {
+    pub(super) fn repositories_of(&self, store: &Store, project: &str) -> Vec<String> {
         let held = self.projects_held();
         let own = core_model::ScopeId::new(project).ok().and_then(|scope| held.get(&scope).cloned());
         let Some(project) = own.or_else(|| self.copy_read_in(store, project)) else {
@@ -213,6 +213,7 @@ where
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
         let mut health = Health::new(&store, &loaded, self.repositories_of(&store, &loaded.project));
         let upkeep = store.upkeep_in(&chosen).map_err(|why| self.feature_fault(why))?;
+        let covers = store.feature_covers(&chosen).map_err(|why| self.feature_fault(why))?;
         // Every feature's sections are read against one read of the merges after the oldest of them.
         let sections = loaded.map.features().iter().map(|feature| store.feature_sections(&feature.id)).collect::<Result<Vec<_>, _>>().map_err(|why| self.feature_fault(why))?;
         let merges = match sections.iter().flatten().map(|one| one.written_at.as_str()).min() {
@@ -223,7 +224,7 @@ where
             let marked = marked(feature, sections, &merges);
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
             let jobs = on.get(&feature.id).cloned().unwrap_or_default();
-            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug));
+            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug), covers.get(&feature.id).cloned());
             match areas.iter_mut().find(|area| area.slug == feature.area) {
                 Some(area) => area.features.push(row),
                 // A feature whose area was never kept is listed under its own slug rather than dropped.
@@ -313,9 +314,11 @@ where
         }
         let upkeep = store.upkeep_in(&loaded.project).map_err(|why| self.feature_fault(why))?;
         let tickets = reads_of(&links, feature_link_kind::TICKET);
+        let pictures = super::pictures::standing(&store, &feature.id).map_err(|why| self.feature_fault(why))?;
+        let cover = pictures.first().map(|one| one.id.clone());
         let mut page = FeaturePage {
             project: loaded.project.clone(),
-            feature: row_of(&feature, health, jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug)),
+            feature: row_of(&feature, health, jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug), cover),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
             paths: feature.paths.clone(),
             entry_points: feature.entry_points.clone(),
@@ -330,6 +333,7 @@ where
             docs,
             tickets,
             floor_plan: None,
+            pictures: if only.is_none() { pictures.into_iter().map(super::pictures::on_the_wire).collect() } else { Vec::new() },
         };
         drop(store);
         if only.is_none() {
@@ -406,7 +410,7 @@ fn retire_of(mark: Option<&KeptUpkeep>) -> Option<ipc::RetireProposal> {
     Some(ipc::RetireProposal { why, evidence: mark.evidence.clone() })
 }
 
-fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>, upkeep: Option<&KeptUpkeep>) -> FeatureRow {
+fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>, upkeep: Option<&KeptUpkeep>, cover: Option<String>) -> FeatureRow {
     FeatureRow {
         id: feature.id.clone(),
         slug: feature.slug.clone(),
@@ -419,6 +423,7 @@ fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<Featu
         health,
         retire: retire_of(upkeep),
         planned: upkeep.is_some_and(|mark| mark.kind == upkeep_kind::PLANNED),
+        cover,
     }
 }
 

@@ -313,13 +313,13 @@ checks:
       - ".claude/hooks/**"
 
   preview_test:
-    # `scripts/preview`, `scripts/restart`, `scripts/restart-build`, `scripts/detach` and
-    # `scripts/running-bridge` against a throwaway repository, a
+    # `scripts/preview`, `scripts/restart`, `scripts/restart-build`, `scripts/detach`,
+    # `scripts/app-entry` and `scripts/running-bridge` against a throwaway repository, a
     # stub `armada` and a stub Fleet. Git and Python only: no build, no real
     # Fleet, and `HOME` is a scratch directory. A failure means the preview
     # merges the wrong branches or a restart refuses or adopts wrongly, or
     # `scripts/prune-build` drops build output a build still uses.
-    run: python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py
+    run: python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py scripts/test_app_entry.py
     when:
       - ".github/**"
       - "scripts/preview"
@@ -329,6 +329,8 @@ checks:
       - "scripts/running-bridge"
       - "scripts/test_restart_detach.py"
       - "scripts/retire-classic"
+      - "scripts/app-entry"
+      - "scripts/test_app_entry.py"
       - "scripts/test_preview.py"
       - "scripts/prune-build"
       - "armada.yml"
@@ -474,6 +476,31 @@ connectors: false
 # commit of main, so every slot asks a graph of what it was cut from.
 # docs/practices/code-graph.md.
 when_base_moves: [code_graph]
+
+# How Fleet builds, lists, opens and pictures a native walk of this repository:
+# the native Bridge on mock data, built from the Job's own commit. This is the
+# one declaration the walk build, the open press and the kept looks all read, so
+# another repository declares its own app the same way.
+# docs/concepts/manifest.md, *Walks*.
+#
+# **`env` carries the one variable, because a `run` gets no shell.** The build is
+# incremental, as a restart's is and the shipped app is not. **`seed`** is the
+# preview checkout's own `target`, cloned into the first tree so that build
+# compiles the Job's crates and not the world's.
+#
+# **`--hold 0` on both pictured commands**: none, since every walk that plays
+# drew the same pictures twice and six replayed with no hold matched their held
+# pictures (28 Nov 2026). It is the same on approval and on replay, which is what
+# a comparison needs.
+walks:
+  build: env CARGO_PROFILE_RELEASE_INCREMENTAL=true cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target
+  binary: crates/bridge-native/target/release/bridge-native
+  list: ${binary} --list-walks
+  open: ${binary} --walk ${walk} --job ${job} --url ${url} --fleet-port ${fleet_port}
+  take: --take ${name}=${walk}
+  shots: ${binary} --walk ${walk} --check --shots ${shots} --hold 0
+  against: ${binary} --walk ${walk} --check --shots ${shots} --against ${against} --out ${out} --hold 0
+  seed: crates/bridge-native/target
 
 # Armada's own work is kept in beads, on this repository's refs/dolt/data. docs/practices/joining.md
 tracker:

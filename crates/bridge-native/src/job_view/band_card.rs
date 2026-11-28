@@ -86,6 +86,11 @@ pub(super) fn kind_look(form: ArtifactForm) -> (&'static str, Token, &'static st
 /// The 26 px tile that carries the kind's glyph.
 pub(super) fn tile(look: &Look, form: ArtifactForm) -> gpui::Div {
     let (glyph, ink, _) = kind_look(form);
+    glyph_tile(look, glyph, ink)
+}
+
+/// The 26 px tile that carries `glyph` in `ink`, for a kind `kind_look` does not name.
+pub(super) fn glyph_tile(look: &Look, glyph: &str, ink: Token) -> gpui::Div {
     let ink = look.color(ink);
     div()
         .flex_none()
@@ -100,8 +105,14 @@ pub(super) fn tile(look: &Look, form: ArtifactForm) -> gpui::Div {
 
 /// The state chip: a dot and its word, in the state's colour. `words`, where Fleet gave any, is its tooltip.
 pub(super) fn state_chip(look: &Look, id: String, stand: Stand, words: Option<&str>, named: Option<&str>) -> AnyElement {
-    let ink = look.color(stand.ink());
-    let said: SharedString = words.map(|words| words.to_string()).unwrap_or_else(|| stand.tip().to_string()).into();
+    let said = words.map(|words| words.to_string()).unwrap_or_else(|| stand.tip().to_string());
+    dot_chip(look, id, stand.ink(), stand.word(), said, named.unwrap_or(stand.word()))
+}
+
+/// A state chip of any state: a dot and `word` in `ink`, `said` in its tooltip, `named` for VoiceOver.
+pub(super) fn dot_chip(look: &Look, id: String, ink: Token, word: &'static str, said: String, named: &str) -> AnyElement {
+    let ink = look.color(ink);
+    let said: SharedString = said.into();
     labelled(
         div()
             .id(SharedString::from(id))
@@ -118,9 +129,9 @@ pub(super) fn state_chip(look: &Look, id: String, stand: Stand, words: Option<&s
             .text_color(ink)
             .tooltip(tip(said))
             .child(gpui::svg().path(icon_path("circle-dot")).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
-            .child(stand.word()),
+            .child(word),
         Role::Status,
-        named.unwrap_or(stand.word()).to_string(),
+        named.to_string(),
     )
     .into_any_element()
 }
@@ -354,6 +365,8 @@ pub(super) enum Act {
     Archive,
     Open,
     Edit,
+    /// Land it without trying it, on a Ready to try card.
+    Skip,
 }
 
 /// The act a key names on a card with nothing open in it. A and C answer and E edits only while it asks; D dismisses
@@ -744,7 +757,7 @@ impl JobView {
                     }
                     Act::Archive => this.archive_card(ix, &id, &page_name, window, cx),
                     Act::Open => this.open_document(&page_name, window, cx),
-                    Act::Edit => {}
+                    Act::Edit | Act::Skip => {}
                 }
             })
         };

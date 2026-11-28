@@ -10,6 +10,7 @@ import { DocumentView } from "./Document";
 import { Draft } from "./Draft";
 import { start, useFleet } from "./fleet";
 import { Home } from "./Home";
+import { ToReview } from "./ToReview";
 import { Job } from "./Job";
 import { Operator } from "./Operator";
 import { Pair } from "./Pair";
@@ -23,6 +24,8 @@ let subscribed = false;
 function Screen({ route }: { route: Route }) {
   switch (route.screen) {
     case "home":
+      return <ToReview />;
+    case "jobs":
       return <Home />;
     case "pair":
       return (

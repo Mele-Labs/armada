@@ -18,6 +18,7 @@ mod build_turns;
 mod note_resolving;
 pub(crate) mod asking;
 mod backgrounding;
+mod tailing;
 mod call_rows;
 pub(crate) mod check_calls;
 pub(crate) mod compacting;
@@ -25,6 +26,7 @@ mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;
 pub(crate) mod job_asks;
+pub(crate) mod clash_order;
 pub(crate) mod document_answers;
 pub(crate) mod document_page;
 pub(crate) mod documents;
@@ -112,6 +114,7 @@ pub(crate) mod delivery_setting;
 pub(crate) mod start_card;
 pub(crate) mod fleet_calls;
 pub(crate) mod needs_you;
+pub(crate) mod to_review;
 pub(crate) mod rule_asks;
 pub(crate) mod stopping;
 pub(crate) mod planning;
@@ -623,6 +626,8 @@ pub(crate) struct State {
     pub call_rows: call_rows::CallRows,
     /// The shell and watch calls of the stream, to pair with the task each starts. In memory.
     pub background: backgrounding::Calls,
+    /// The output files of the session's background commands, to tail while they run. In memory.
+    pub tailing: tailing::Tailing,
     /// The agent's own shell calls running `armada check`, while they run. In memory.
     pub check_calls: check_calls::CheckCalls,
     /// The commands the session ran and what came back, for `crate::run_memory`. In memory.
@@ -734,6 +739,7 @@ impl State {
             spawns: crate::file_touching::Spawns::default(),
             call_rows: call_rows::CallRows::default(),
             background: backgrounding::Calls::default(),
+            tailing: tailing::Tailing::default(),
             check_calls: check_calls::CheckCalls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),

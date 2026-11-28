@@ -15,6 +15,8 @@ use crate::open::Store;
 pub enum LogSection {
     /// One repository's, under its key.
     Repo,
+    /// One project's, under its id: told to every repository the project holds.
+    Project,
     /// This Mac's.
     Machine,
     /// The person's habits, shared by every repository.
@@ -84,7 +86,7 @@ macro_rules! words {
     };
 }
 
-words!(LogSection { Repo => "repo", Machine => "machine", Habits => "habits" });
+words!(LogSection { Repo => "repo", Project => "project", Machine => "machine", Habits => "habits" });
 words!(LogKind { Command => "command", Gotcha => "gotcha", Convention => "convention", Environment => "environment", Habit => "habit" });
 words!(LogState { Candidate => "candidate", Standing => "standing", Faded => "faded" });
 words!(LogTopic { Git => "git", Slots => "slots", Testing => "testing", Tools => "tools", Mac => "mac" });
@@ -116,7 +118,7 @@ pub struct LogHistory {
 pub struct LogEntry {
     pub id: Option<i64>,
     pub section: LogSection,
-    /// The repository's key for [`LogSection::Repo`], empty otherwise.
+    /// The repository's key for [`LogSection::Repo`], the project's id for [`LogSection::Project`], empty otherwise.
     pub repository: String,
     pub kind: LogKind,
     /// A few words naming it. `None` until a Distil run names it.
@@ -214,6 +216,27 @@ impl Store {
             .map_err(database(DOING))?
             .collect::<Result<_, _>>()
             .map_err(database(DOING))?;
+        for entry in &mut entries {
+            let id = entry.id.unwrap_or_default();
+            entry.evidence = self.logbook_evidence(id)?;
+            entry.history = self.logbook_history(id)?;
+        }
+        Ok(entries)
+    }
+
+    /// The entries of the given projects, by project id, each with its evidence and history. **Not in
+    /// [`Store::logbook_of`]**, so a pass over one repository's entries never takes a project's for its own.
+    pub fn logbook_of_projects(&self, projects: &[String]) -> Result<Vec<LogEntry>, WriteError> {
+        const DOING: &str = "reading the projects' Logbook";
+        let mut asked = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM logbook_entries WHERE section = 'project' AND repository = ?1 ORDER BY id"))
+            .map_err(database(DOING))?;
+        let mut entries = Vec::new();
+        for project in projects {
+            let found = asked.query_map([project], entry_of).map_err(database(DOING))?.collect::<Result<Vec<_>, _>>().map_err(database(DOING))?;
+            entries.extend(found);
+        }
         for entry in &mut entries {
             let id = entry.id.unwrap_or_default();
             entry.evidence = self.logbook_evidence(id)?;
@@ -378,7 +401,7 @@ impl Store {
         evidence: Option<LogEvidence>,
         at: u64,
     ) -> Result<i64, WriteError> {
-        let repository = if section == LogSection::Repo { repository } else { "" };
+        let repository = if matches!(section, LogSection::Repo | LogSection::Project) { repository } else { "" };
         self.conn
             .execute(
                 "DELETE FROM logbook_forgotten WHERE section = ?1 AND repository = ?2 AND words = ?3",

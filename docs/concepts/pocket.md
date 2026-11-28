@@ -180,6 +180,7 @@ The phone asks once more for an address when one lapses, and the video keeps its
 | Jobs | Every live Job, drawn as native's Jobs list: a heading per project, and in it Needs you first, then working, held and done. Each row has its lamp, state glyph, last turn and, with more than one Mac, its Mac's dot. A Job another started folds under its starter, which carries a glyph per state while folded. A project dropdown narrows the list to one project, and All lists a Job in no project too, under its repository's heading. A scope narrows the list to Needs you, Active, Paused, Drafts or All, and a search to titles | `GET /api/sessions` |
 | A row's second line | A waiting Job says what holds it, since a phone has no hover. A done Job says its summary and has an End button. Any other says its pull request, issue, workflow step and what it is doing now. Only Needs you rows pulse | `GET /api/sessions` |
 | A row's state | Fleet's `mark` where the Gateway sends one, else what the phone reads off the row's fields. Without a mark a reply reads as idle, since the phone keeps no record of what the owner read | `GET /api/sessions` |
+| To review | Every Job's asks, grouped by sub project goal, then feature, each answered in place | `GET /api/sessions/to_review`, `POST /api/sessions/items/answer`, `POST /api/sessions/waiting/done` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
 | A file | A file the Job showed: its text, or a picture, drawn in the thread | `GET /api/sessions/shown?session_id=&path=` |
 | A video | A video the Job showed, played in the thread, with its place kept | `GET /api/sessions/shown/address?session_id=&path=`, signed, then `GET /shown/<ticket>`, unsigned |
@@ -194,7 +195,8 @@ The phone asks once more for an address when one lapses, and the video keeps its
 
 **Fleet rules on every route the Gateway calls as the phone, by name** (`crates/api/src/phone_share.rs`, with the rulings in `crates/fleet/src/share.rs`).
 A route asked about a Job the phone does not see is asked with an id no Job has, so it answers in its own words for a missing Job.
-The Jobs list, the repositories and the projects are cut to what the phone sees, `/events` drops every other Job's change, and a route with no ruling is 404.
+The Jobs list, To review, the repositories and the projects are cut to what the phone sees, `/events` drops every other Job's change, and a route with no ruling is 404.
+A verdict on items of several Jobs asks each Job the phone does not see as an id of its own that no Job has, so each item is refused in the route's words for a missing Job.
 A Job the phone starts goes into the first shared project of this Mac holding its repository, which the Gateway names, and Fleet refuses one into any other.
 
 **Waiting follows Bridge's order.** A Job is not waiting while it is paused, failed to start, waits on another Job, sits on its start card or is held by the plan's limit, whatever it owes.

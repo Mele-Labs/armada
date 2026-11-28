@@ -4,7 +4,7 @@
 // with the kit's own script, so its vote posts to the phone as it does on a Mac.
 
 import { readFileSync } from "node:fs";
-import type { JobArtifact, ThreadReadyToTry } from "../wire";
+import type { JobArtifact, ThreadReadyToTry, WaitingItem } from "../wire";
 
 export const PARTS_JOB = "f2";
 export const STEP_BAR = "sketch:Step bar";
@@ -416,5 +416,38 @@ export function tryCard(now: number): ThreadReadyToTry {
     words: "Show each Job's steps, so I can see where it is at a glance.",
     in_build: true,
     state: "open",
+  };
+}
+
+/** A second Job's open Ready to try card, so To review has two Jobs to try in one card: the `rv` Job's, with its item. */
+export const TRY_TO_REVIEW = "try:armada/pocket-to-review@28ecff5d1bcd1e481a2db9e0c3f26d9828ac2ec5";
+export function toReviewTry(now: number): {
+  card: ThreadReadyToTry;
+  item: WaitingItem;
+} {
+  return {
+    card: {
+      id: TRY_TO_REVIEW,
+      at: at(now, 2),
+      offered_at: at(now, 2),
+      branch: "armada/pocket-to-review",
+      tip: "28ecff5d1bcd1e481a2db9e0c3f26d9828ac2ec5",
+      about: "Pocket opens on To review, every Job's asks answered in place",
+      look: "Open Armada on the phone: it opens on To review.",
+      steps: [
+        {
+          say: "Press Refresh preview on your Mac",
+          act: "refresh_preview",
+        },
+      ],
+      in_build: true,
+      state: "open",
+    },
+    item: {
+      id: TRY_TO_REVIEW,
+      text: "Try: Pocket opens on To review",
+      since: at(now, 2),
+      source: "ready_to_try",
+    },
   };
 }

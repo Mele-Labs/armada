@@ -1,9 +1,10 @@
 //! A Job's own card drawn on another screen's page: the Operator page draws a Job's Ready to try as the thread does, with its
 //! own answers, from the Job view that holds the card's state. The Job must be the one the view shows, as the window's other
-//! screens open a Job without a pick; until it is, the page draws its skeleton.
+//! screens open a Job without a pick; until it is, the page draws its skeleton. The Operator's own thread and box are drawn
+//! under the card the same way, from a second session the view holds beside the Job it shows (`beside.rs`).
 
 use chrono::Local;
-use gpui::{AnyElement, App, Entity, Global, WeakEntity, Window};
+use gpui::{prelude::*, AnyElement, AnyView, App, Entity, Global, ListState, SharedString, WeakEntity, Window};
 use ipc::ThreadItem;
 
 use super::band_card::Act;
@@ -72,6 +73,107 @@ pub fn ready_key_on_page(job: &str, item: &str, digit: &str, window: &mut Window
         run(view, act, window, cx);
         true
     })
+}
+
+/// **The Operator's thread and box, drawn as a Job's thread and box are**, under the card on its page. `pane` is what the page
+/// has of the Operator now. None until the Job view is made.
+pub fn operator_thread_on_page(pane: super::OperatorPane, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+    let view = view(cx)?;
+    let drawn = view.update(cx, |view, cx| view.pin_beside(pane, window, cx));
+    Some(AnyView::from(drawn).into_any_element())
+}
+
+/// The list the Operator's thread is drawn in, which the page measures to fold the card above it.
+pub fn operator_list(cx: &App) -> Option<ListState> {
+    let view = view(cx)?;
+    let view = view.read(cx);
+    let id = &view.beside.as_ref()?.id;
+    Some(view.pages.get(id)?.list.clone())
+}
+
+/// Discuss: the Operator's box names the card, and takes the keys.
+pub fn operator_tag(card: String, title: SharedString, window: &mut Window, cx: &mut App) {
+    let Some(view) = view(cx) else { return };
+    view.update(cx, |view, cx| {
+        view.set_about(Some((card, title)), window, cx);
+        view.on_beside(|view| view.composer.input.update(cx, |input, cx| input.focus(window, cx)));
+    });
+}
+
+/// The talk about the card is over: the box names no card, and the words in it stay, kept for the page.
+pub fn operator_untag(cx: &mut App) {
+    let Some(view) = view(cx) else { return };
+    view.update(cx, |view, cx| view.drop_about(cx));
+}
+
+/// The caret goes in the Operator's box.
+pub fn operator_focus(window: &mut Window, cx: &mut App) {
+    let Some(view) = view(cx) else { return };
+    view.update(cx, |view, cx| {
+        view.on_beside(|view| view.composer.input.update(cx, |input, cx| input.focus(window, cx)));
+    });
+}
+
+/// Whether the Operator's box has the keys.
+pub fn operator_has_keys(window: &Window, cx: &App) -> bool {
+    view(cx).is_some_and(|view| view.read(cx).beside_has_keys(window, cx))
+}
+
+/// The words in the Operator's box.
+pub fn operator_words(cx: &App) -> String {
+    view(cx).map(|view| view.read(cx).beside_words(cx)).unwrap_or_default()
+}
+
+/// Fleet answered the Operator's send `key`: a refusal leaves it in the thread marked Not sent, with its Retry.
+pub fn operator_answered(key: u64, said: Result<(), String>, cx: &mut App) {
+    let Some(view) = view(cx) else { return };
+    view.update(cx, |view, cx| view.operator_answered(key, said, cx));
+}
+
+/// The Operator's thread scrolled up to its last words, where it stops following its end. Whether it has said any.
+pub fn operator_to_last_reply(cx: &mut App) -> bool {
+    let Some(view) = view(cx) else { return false };
+    view.update(cx, |view, cx| view.to_last_reply(cx))
+}
+
+/// What he has sent Job `job`, in its thread and not echoed yet, for tests.
+#[cfg(test)]
+pub fn sent_to_job(job: &str, cx: &App) -> Vec<String> {
+    let Some(view) = view(cx) else { return Vec::new() };
+    let view = view.read(cx);
+    let thread = view.mock.get(job).into_iter().flat_map(|held| held.items.iter()).filter_map(|item| match item {
+        ThreadItem::Row { row: ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } } => Some(text.clone()),
+        _ => None,
+    });
+    let pending = view.pages.get(job).into_iter().flat_map(|page| page.pending.iter().map(|one| one.text.to_string()));
+    thread.chain(pending).collect()
+}
+
+/// The Operator's sends its thread has not echoed yet, for tests.
+#[cfg(test)]
+pub fn operator_unechoed(cx: &App) -> Vec<String> {
+    let Some(view) = view(cx) else { return Vec::new() };
+    let view = view.read(cx);
+    let Some(page) = view.beside.as_ref().and_then(|beside| view.pages.get(&beside.id)) else { return Vec::new() };
+    page.pending.iter().map(|one| one.text.to_string()).collect()
+}
+
+/// Every act the mock Fleet was posted, as its path and body, for tests.
+#[cfg(test)]
+pub fn posted_to_mock(cx: &App) -> Vec<(String, String)> {
+    view(cx).map(|view| view.read(cx).mock_posted.clone()).unwrap_or_default()
+}
+
+/// The session the Operator's thread and box on the page are drawn for, for tests.
+#[cfg(test)]
+pub fn operator_drawn_for(cx: &App) -> Option<SharedString> {
+    Some(view(cx)?.read(cx).beside.as_ref()?.id.clone())
+}
+
+/// The card the Operator's box names, for tests.
+#[cfg(test)]
+pub fn operator_tagged(cx: &App) -> Option<(String, SharedString)> {
+    view(cx)?.read(cx).beside.as_ref()?.about.clone()
 }
 
 /// What the page's answers sent for Job builds on mock data, and whether a build's box for his words is open, for tests.

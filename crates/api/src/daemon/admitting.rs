@@ -12,6 +12,8 @@
 //! the answer arrives as a [`WordsReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
+use std::future::Future;
+
 use ipc::door::{Reachable, ON_YOUR_WORDS, OPERATOR, REACHABLE};
 
 use crate::mcp::Caller;
@@ -23,7 +25,17 @@ pub trait Admitting: Send + Sync + 'static {
     /// **`None` is every other caller**, which the door answers exactly as it
     /// did before a Job on your words could be told apart — a person's own agent
     /// session keeps every row the inventory marks `Yes`.
-    fn words_reach_at(&self, caller: Caller) -> Option<WordsReach>;
+    ///
+    /// **Async because the Operator's reach is read off its project's settings**, which Fleet keeps in the store.
+    fn words_reach_at(&self, caller: Caller) -> impl Future<Output = Option<WordsReach>> + Send;
+
+    /// Why the Operator's call is held, where it names a repository, a Job or a pull request outside its project:
+    /// the refusal the call is answered with. **`None` lets it through**, and is every call of any other caller.
+    /// The daemon decides, since only it knows which projects hold which repositories.
+    fn call_held(&self, caller: Caller, call: &ipc::door::Call) -> impl Future<Output = Option<String>> + Send {
+        let _ = (caller, call);
+        async { None }
+    }
 
     /// The key on a tool's `_meta` the agent's harness reads as loading it at the start, for the
     /// rows the inventory marks `always_loaded`. **`None` by default**, which marks none.
@@ -34,8 +46,8 @@ pub trait Admitting: Send + Sync + 'static {
     /// Whether this call's connection is held inside a Job: its agent, or any process the agent
     /// started. **For the routes that are the person's alone** (`crate::callers::THE_PERSONS_OWN`),
     /// which refuse it whatever the call says it is. By default, wherever the door would place it.
-    fn job_at(&self, caller: Caller) -> bool {
-        self.words_reach_at(caller).is_some()
+    fn job_at(&self, caller: Caller) -> impl Future<Output = bool> + Send {
+        async move { self.words_reach_at(caller).await.is_some() }
     }
 }
 
@@ -46,6 +58,10 @@ pub struct WordsReach {
     otherwise: &'static str,
     session: bool,
     operator: bool,
+    /// Acts left out of the reach, each with the sentence that names why: a tool its project switched off.
+    withheld: Vec<(&'static str, String)>,
+    /// Acts listed and refused at the call, each with why: they are open while the person has said so lately.
+    unsaid: Vec<(&'static str, String)>,
 }
 
 impl WordsReach {
@@ -60,6 +76,8 @@ impl WordsReach {
             otherwise,
             session: false,
             operator: false,
+            withheld: Vec::new(),
+            unsaid: Vec::new(),
         }
     }
 
@@ -78,6 +96,8 @@ impl WordsReach {
             otherwise: "a job is offered what any agent of the person's is, and no more",
             session: true,
             operator: false,
+            withheld: Vec::new(),
+            unsaid: Vec::new(),
         }
     }
 
@@ -101,13 +121,53 @@ impl WordsReach {
         self.session
     }
 
-    pub fn may(&self, operation: &str) -> bool {
+    /// Leave `operations` out of the reach, each refused with `why`, which names the switch that is off. **Not listed
+    /// and not callable.** Named even for an act the reach never listed, such as one of the Operator's own rows, so the
+    /// refusal is the switch's and not that of a tool that does not exist.
+    pub fn without(mut self, operations: &[&'static str], why: &str) -> WordsReach {
+        for operation in operations {
+            self.may.retain(|one| one != operation);
+            self.withheld.push((operation, why.to_string()));
+        }
+        self
+    }
+
+    /// Keep `operations` listed and refuse a call to one with `why`. **For what is open for a while**, which a tool list an
+    /// agent read at its start could not follow.
+    pub fn until_said(mut self, operations: &[&'static str], why: &str) -> WordsReach {
+        for operation in operations {
+            self.unsaid.push((operation, why.to_string()));
+        }
+        self
+    }
+
+    /// Whether a setting left `operation` out of the reach.
+    pub fn is_withheld(&self, operation: &str) -> bool {
+        self.withheld.iter().any(|(one, _)| *one == operation)
+    }
+
+    /// Whether the tool is in the list the caller is shown.
+    pub fn listed(&self, operation: &str) -> bool {
         self.may.contains(&operation)
     }
 
+    /// Whether a call to `operation` goes through.
+    pub fn may(&self, operation: &str) -> bool {
+        self.listed(operation) && !self.unsaid.iter().any(|(one, _)| *one == operation)
+    }
+
+    /// The sentence that refuses `operation` where a setting does, and none where the reach does or nothing does.
+    pub fn held_back(&self, operation: &str) -> Option<String> {
+        let (_, why) = self.withheld.iter().chain(&self.unsaid).find(|(one, _)| *one == operation)?;
+        Some(format!("`{operation}` {why}"))
+    }
+
     /// The refusal a call outside the reach is answered with. **It names the
-    /// operation**, so a session reads which act was the person's.
+    /// operation**, so a session reads which act was the person's, and a tool switched off names the switch.
     pub fn refusing(&self, operation: &str) -> String {
+        if let Some(why) = self.held_back(operation) {
+            return why;
+        }
         let whose = if self.operator { "the Operator's" } else { "this Job's" };
         format!("`{operation}` is not {whose} to call: {}", self.otherwise)
     }

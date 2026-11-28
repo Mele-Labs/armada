@@ -38,6 +38,7 @@ fn item(id: &str, source: Source, act: Option<(WaitingActKind, &str)>, choices: 
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -78,6 +79,7 @@ fn cases() -> Vec<Case> {
         case(item("words:m:x", Source::WordsAddress, Some((Act::Answer, "words:m:x")), &["Other"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("call:7", Source::FleetCall, Some(own), &[], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("task_done:p", Source::TaskDone, Some((Act::Answer, "task_done:p")), &["Mark done", "Keep open"], &[]), Section::Questions, Dismiss::None, false),
+        case(item("goal_met:sp", Source::GoalMet, Some((Act::Answer, "goal_met:sp")), &["Agree", "Not yet"], &[]), Section::Questions, Dismiss::None, false),
         case(item("watch_not_ours:w", Source::WatchNotOurs, Some((Act::Answer, "w")), &["Ignore", "Fix it"], &[]), Section::Questions, Dismiss::Plain, false),
         case(item("start:child", Source::HeldChild, Some((Act::Message, "child")), &[], &[]), Section::Questions, Dismiss::None, false),
         case(item("preview:b@t", Source::PreviewOffer, Some((Act::Run, "scripts/preview --restart")), &[], &[]), Section::Commands, Dismiss::Skip, true),
@@ -88,6 +90,7 @@ fn cases() -> Vec<Case> {
         case(item("undone:1", Source::OperatorUndone, Some((Act::Answer, "undone:1")), &["Run the suite", "Push now"], &[]), Section::Questions, Dismiss::Plain, true),
         case(item("conflict:s-a:s-b", Source::JobConflict, Some((Act::Answer, "conflict:s-a:s-b")), &["Tell A to change", "Tell B", "Hold both"], &[]), Section::Questions, Dismiss::None, false),
         case(item("held:armada:12", Source::JobHeld, Some((Act::Answer, "held:armada:12")), &["Land it", "Hold it"], &[]), Section::Questions, Dismiss::Plain, false),
+        case(item("clash:s-a:s-b", Source::ClashOrder, Some((Act::Answer, "clash:s-a:s-b")), &["Tidy the log", "Quiet the log"], &[]), Section::Questions, Dismiss::None, false),
     ]
 }
 
@@ -123,6 +126,8 @@ fn counted(source: Source) -> usize {
         Source::JobConflict => 26,
         Source::JobHeld => 27,
         Source::ReadyToTry => 28,
+        Source::ClashOrder => 29,
+        Source::GoalMet => 30,
     }
 }
 
@@ -169,7 +174,7 @@ fn needs_you_places_every_source_in_one_section_and_says_how_it_is_put_away() {
     let all = cases();
     let mut seen: Vec<usize> = all.iter().map(|one| counted(one.item.source)).collect();
     seen.sort_unstable();
-    assert_eq!(seen, (0..29).collect::<Vec<_>>(), "every source is named once");
+    assert_eq!(seen, (0..31).collect::<Vec<_>>(), "every source is named once");
 
     let items: Vec<WaitingItem> = all.iter().map(|one| one.item.clone()).collect();
     let view = view_of(&items);
@@ -226,6 +231,7 @@ fn owed_table() -> Vec<(Source, OwedKind)> {
         (Source::WordsAddress, Needs),
         (Source::FleetCall, Needs),
         (Source::TaskDone, Needs),
+        (Source::GoalMet, Needs),
         (Source::WatchNotOurs, Needs),
         (Source::HeldChild, Needs),
         (Source::PreviewOffer, Needs),
@@ -237,6 +243,7 @@ fn owed_table() -> Vec<(Source, OwedKind)> {
         (Source::OperatorUndone, Needs),
         (Source::JobConflict, Needs),
         (Source::JobHeld, Needs),
+        (Source::ClashOrder, Needs),
         (Source::ReadyToTry, Ready),
     ]
 }
@@ -312,7 +319,7 @@ fn needs_you_offers_no_dismissal_where_fleet_refuses_it() {
             assert_eq!(row.dismiss, Dismiss::None, "{:?} is answered, not dismissed", item.source);
         }
     }
-    assert_eq!(refused, 6, "delivery, slot_choice, task_done, held_child, gate and job_conflict");
+    assert_eq!(refused, 8, "delivery, slot_choice, task_done, held_child, gate, job_conflict, clash_order and goal_met");
 }
 
 #[test]
@@ -487,6 +494,7 @@ async fn needs_you_fleet_call_row_says_plain_and_dismissing_it_clears_it() {
         proposal: TeachingProposal { fleet: Some(ProposedFleet { rule, untestable: Vec::new() }), ..TeachingProposal::default() },
         reach: TeachingReach::Everywhere,
         repository: None,
+        project: None,
         session_id: None,
         cite: None,
         source: None,

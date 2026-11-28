@@ -349,12 +349,10 @@ impl JobView {
         labelled(line, Role::Button, format!("Open sketch {}", card.title)).into_any_element()
     }
 
-    /// A sketch a plan names, drawn inside the plan: its card's band and drawing, with no footer, since the plan's
+    /// A sketch a plan names, drawn inside the plan: its title and drawing, with no card or footer, since the plan's
     /// Approve answers it. A press opens it and the pointer on it plays its steps, as on its card. The drawing is
     /// sized from the plan column's width as it was last drawn, which is narrower than the thread's.
     pub(super) fn plan_sketch(&self, key: &str, card: &ThreadSketch, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let settled = settled_of(card.settled.as_ref(), page.cards.pressed(&card.id, card));
-        let standing = Standing::of(card, settled.as_ref().map(|(said, _)| *said), self.sketch_waits_with_plan(&card.sketch, cx), false);
         let acts = Acts { ix: 0, key: key.to_string(), sketch: card.sketch.clone(), drawn: None, asking: false };
         let (scene_key, scene) = shown_scene(card, None);
         let pointed = page.cards.pointed.as_deref() == Some(key) || page.cards.focused.as_deref() == Some(key);
@@ -384,21 +382,32 @@ impl JobView {
         .top_0()
         .left_0()
         .size_full();
-        let band = self.band(0, card, standing, None, false, look, cx);
-        let press = self.sketch_press(&acts, Some(&card.id), &card.title, band, drawing, plays, page, cx);
-        div()
+        // Inside the plan it is part of the plan, not a card in a card (his note of 27 Nov): its title on a line over the
+        // drawing, and the drawing in a rounded well that lights its edge while pointed.
+        let ink = look.color(if pointed { token::ACCENT } else { token::FG_MUTED });
+        let band = div()
             .flex()
-            .flex_col()
-            .min_w_0()
-            .overflow_hidden()
-            .rounded(look.length(token::RADIUS_LG) * 1.5)
-            .bg(look.color(token::BG_RAISED))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(if pointed { token::ACCENT } else { token::BORDER_DEFAULT }))
-            .relative()
-            .child(press)
-            .child(measure)
-            .into_any_element()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .pb(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(gpui::svg().path(icon_path("layers")).flex_none().size(look.length(token::TEXT_SM)).text_color(ink))
+            .child(div().min_w_0().child(SharedString::from(card.title.clone())))
+            .into_any_element();
+        let drawing = drawing.map(|well| {
+            div()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_LG))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(if pointed { token::ACCENT } else { token::BORDER_SUBTLE }))
+                .child(well)
+                .into_any_element()
+        });
+        let press = self.sketch_press(&acts, Some(&card.id), &card.title, band, drawing, plays, page, cx);
+        div().flex().flex_col().min_w_0().relative().child(press).child(measure).into_any_element()
     }
 
     /// A plan sketch's column was drawn at `width`: kept, and the lists measured again where it changed.
@@ -536,11 +545,13 @@ impl JobView {
     }
 
     /// The drawing's well: sunken, its edge a hairline, cut at 240 with a fade at its foot where the drawing runs on.
-    /// `edge_to_edge` fills the frame it stands in, whose own edge it keeps, as a sketch inside a plan does.
+    /// `edge_to_edge` fills the frame it stands in, whose own edge it keeps, as a sketch inside a plan does, and is drawn
+    /// whole: a plan's sketch is read where the plan is, not opened (his note of 26 Nov).
     fn well(&self, height: gpui::Pixels, replaced: bool, edge_to_edge: bool, drawn: AnyElement, look: &Look) -> AnyElement {
-        let most = look.length(token::SPACE_12) * 5.;
         let pad = look.length(token::SPACE_3);
-        let cut = height + pad * 2. + look.length(token::BORDER_WIDTH) * 2. > most;
+        let whole = height + pad * 2. + look.length(token::BORDER_WIDTH) * 2.;
+        let most = if edge_to_edge { whole } else { look.length(token::SPACE_12) * 5. };
+        let cut = whole > most;
         let sunken = look.color(token::BG_SUNKEN);
         div()
             .when(!edge_to_edge, |inset| inset.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)))

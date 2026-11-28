@@ -81,9 +81,9 @@ pub trait Projects: Send + Sync + 'static {
     fn list_ranked_issues(&self, project: String) -> impl Future<Output = Result<ipc::RankedIssues, Refusal>> + Send;
 
     /// `get_system_map` — one level of the project's system map: level one with neither `part` nor `feature`, level two
-    /// with `part`, level three with `feature`. Read from the project's files, no model. [`Refusal::NotFound`] for a project
-    /// he has none of, a part or a feature it holds none of.
-    fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
+    /// with `part`, level three with `feature`, and level one with `lit`'s feature lit. Read from the project's files, no
+    /// model. [`Refusal::NotFound`] for a project he has none of, a part or a feature it holds none of.
+    fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>, lit: Option<String>) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
 
     /// `get_system_part` — what Fleet knows of one part, one feature, or neither for the whole project, in nine sections.
     /// [`Refusal::NotFound`] for a project, part or feature it holds none of.

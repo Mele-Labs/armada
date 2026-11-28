@@ -67,7 +67,7 @@ pub struct KeptHosting {
     /// The folder under the repository's root the Job's terminals open in, as `crates/fleet`. `None`
     /// is the root, or the slot's worktree once one is held.
     pub terminal_dir: Option<String>,
-    /// The Operator's own session: one per Mac, which has no repository, no slot and no Manifest.
+    /// The Operator's own session: one for each project, which has no repository, no slot and no Manifest.
     pub operator: bool,
 }
 
@@ -206,8 +206,29 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// The live Operator session, if one runs: the newest hosting marked `operator` whose session has not ended.
-    pub fn live_operator_hosting(&self) -> Result<Option<KeptHosting>, WriteError> {
+    /// Every live Operator session, one per project: each hosting marked `operator` whose session has not ended, oldest first.
+    pub fn live_operator_hostings(&self) -> Result<Vec<KeptHosting>, WriteError> {
+        let doing = "reading the Operators' sessions";
+        let columns = COLUMNS.split(", ").map(|column| format!("h.{column}")).collect::<Vec<_>>().join(", ");
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {columns} FROM hosted_sessions h JOIN sessions s ON s.id = h.session_id
+                 WHERE h.operator = 1 AND s.state <> 'ended' ORDER BY s.started_at, s.id"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map([], kept).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// `project`'s live Operator session, if one runs: the newest of its hostings.
+    pub fn live_operator_hosting_of(&self, project: &str) -> Result<Option<KeptHosting>, WriteError> {
+        Ok(self.live_operator_hostings()?.into_iter().rev().find(|hosting| hosting.project.as_deref() == Some(project)))
+    }
+
+    /// The newest Operator session, ended ones too: the one whose thread holds the last talk.
+    pub fn newest_operator_hosting(&self) -> Result<Option<KeptHosting>, WriteError> {
         let columns = COLUMNS
             .split(", ")
             .map(|column| format!("h.{column}"))
@@ -217,14 +238,14 @@ impl Store {
             .query_row(
                 &format!(
                     "SELECT {columns} FROM hosted_sessions h JOIN sessions s ON s.id = h.session_id
-                     WHERE h.operator = 1 AND s.state <> 'ended'
+                     WHERE h.operator = 1
                      ORDER BY s.started_at DESC, s.id DESC LIMIT 1"
                 ),
                 [],
                 kept,
             )
             .optional()
-            .map_err(fault("reading the Operator's session"))
+            .map_err(fault("reading the Operator's newest session"))
             .map_err(WriteError::Database)
     }
 

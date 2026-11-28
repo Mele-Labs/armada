@@ -45,7 +45,7 @@ fn card_key(artifact: &JudgeArtifact) -> String {
 }
 
 /// A menu entry's id lives as long as the app: kept once however often the menu opens.
-fn interned(text: String) -> &'static str {
+pub(super) fn interned(text: String) -> &'static str {
     static HELD: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, &'static str>>> = std::sync::OnceLock::new();
     let mut held = HELD.get_or_init(Default::default).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     held.entry(text.clone()).or_insert_with(|| Box::leak(text.into_boxed_str()))
@@ -68,7 +68,7 @@ fn card_place(items: &[ThreadItem], extras: &[Extra], artifact: &JudgeArtifact) 
         _ => false,
     });
     // An open build is drawn in the pinned card at the thread's end, not where it was offered.
-    let pinned = (artifact.kind == JudgeKind::Branch).then(|| extras.iter().position(|extra| matches!(extra, Extra::Ready)).map(|at| items.len() + at)).flatten();
+    let pinned = (artifact.kind == JudgeKind::Branch).then(|| extras.iter().position(super::ready_compact::holds_builds).map(|at| items.len() + at)).flatten();
     pinned.or(item)
 }
 

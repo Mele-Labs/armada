@@ -77,7 +77,14 @@ where
             (grouped(turn), working, self.digest_read(&store, &since), kept, feed)
         };
         let acts = self.operator_acts_listed().await.map(|list| list.projects).unwrap_or_default();
-        let session_id = if on { self.operator_session_id().await.map(|id| SessionId::carried(&id)) } else { None };
+        let operators = self.operator_settings_projects().await;
+        // The first running Operator, for a Bridge that still draws one.
+        let session_id = if on { operators.iter().find_map(|one| one.session_id.clone()) } else { None };
+        // The thread the page draws while none runs: the newest session's, so the talk is never gone.
+        let talk_session_id = match &session_id {
+            Some(id) => Some(id.clone()),
+            None => self.store().lock().await.newest_operator_hosting().ok().flatten().map(|hosting| SessionId::carried(&hosting.session_id)),
+        };
         let mut digest = digest;
         digest.handled.log = self.journal_file_now().await;
         Ok(OperatorPage {
@@ -92,7 +99,9 @@ where
             slots: self.slots_read().await,
             feed,
             session_id,
+            talk_session_id,
             operator_acts: acts,
+            operators,
         })
     }
 
@@ -169,6 +178,7 @@ where
             conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
             held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
             card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()).map(|card| card_picked(card, row)),
+            operator: row.project.as_deref().map(|project| super::settings::operator_tag_in(store, project)),
         };
         Some(shown)
     }

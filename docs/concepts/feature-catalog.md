@@ -28,6 +28,7 @@ When the Job has pushed, `all_done` waits for the Job to say how each feature it
 A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
 A live Job that holds none has stopped without ending, and drops off.
 A Job waiting on the person while it still holds its slot stays on it.
+Its row carries the features it is on now as `features`, so the Jobs list groups by feature and by area without reading the library.
 An area holds features, and two levels are all there are.
 A feature belongs to one area.
 
@@ -210,7 +211,7 @@ The Operator brings him one card, with three options.
 | Option | What the Operator does |
 |---|---|
 | Confirm | `upsert_features` with state `confirmed`, an area, a title and a line. The feature keeps what was filed under it |
-| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections and asks move to the target, which keeps its id, its state and its `added_at` |
+| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections, asks, the Jobs that named it and its docs' checks move to the target, which keeps its id, its state and its `added_at` |
 | Rename | `change_feature` with `slug` and `title` |
 
 With the Operator off, he does each of the three himself from the Features screen, and Bridge makes the same calls the Operator would.
@@ -335,7 +336,50 @@ A page handed to a Job names each open pull request by someone else that changes
 Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
 The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
 
-## Ranking the issues he might pick up
+## Sub projects
+
+A sub project is a group of Jobs the owner picked in the Jobs list and named, toward a goal in his words.
+He picks them with ⌘-click or a right click and Start a sub project, and gives it a name and a goal.
+The Jobs list draws it as a heading on top of the list, with its Jobs nested under it.
+
+`start_sub_project` keeps his name and goal, trimmed, and the Jobs in his order.
+It also keeps the slugs of the features whose `jobs_now` holds one of those Jobs at the press, read as `list_features` reads them.
+Those features are not read again.
+Every picked Job must be filed in the sub project's project, so a sub project never spans two.
+
+> **Rule.** Fleet keeps only what he picked.
+> Why: a live Job that later writes a file of one of the features carries it in its row's `features`, and the Jobs list adds it to the group from there.
+
+`list_sub_projects` answers the open ones oldest first, for one project or for all, and with `ended` the ones folded away.
+`ungroup_sub_project` drops one, and each of its Jobs goes back to its own row untouched.
+
+### The orchestrator
+
+Every sub project has an orchestrator: an ordinary Job with a thread, which coordinates its Jobs toward the goal.
+He talks to it as he talks to any Job.
+
+> **Rule.** The orchestrator is a Job, not a new kind of thing.
+> Why: the owner decided it, so its thread, its waiting list and every way he reaches a Job serve it as they are.
+
+`start_sub_project` starts it before the sub project is kept, titled with his goal, in the repository of the first picked Job.
+Its first message is its brief: the sub project, the goal, and each picked Job's title and id.
+
+`turn_into_orchestrator` makes a running Job the orchestrator of a new sub project named with its title.
+Its own work moves first to a new child Job, titled the same.
+The child takes its slot, branch and pull requests, as a hand of its holds moves them, and is sent the handoff a context handoff carries with the Job's first message.
+The child is the sub project's first Job, and the turned Job is then sent its orchestrator brief.
+
+A sub project kept before orchestrators gets one from the first `list_sub_projects` that lists it, with its name as its goal.
+Fleet tries that once, so a start that fails is not tried at every read.
+
+### Goal met?
+
+When the orchestrator calls `all_done`, or every Job of the sub project merged a pull request or ended, the orchestrator's waiting list holds a Goal met? card.
+It is Fleet's, of source `goal_met`, and carries the goal and the pull requests that landed by number and title.
+Agree folds the sub project away, and `list_sub_projects` keeps it in history with `ended`.
+Not yet keeps it open, and the card comes back the next time the orchestrator calls `all_done`.
+Neither tells the orchestrator anything, and the card is answered, not dismissed.
+
 
 The project's Dashboard lists the open issues nobody is assigned to, that no Job holds and that no pull request already closes, as the ones he might pick up.
 `list_ranked_issues` maps each to the features it touches, three ways, and uses no model and asks the forge for nothing: it reads the issue lists Fleet holds, the open pull requests the Reviews lists left with their files, and the Jobs the library recorded.
@@ -374,15 +418,46 @@ A feature's `added_at` is the moment it was kept and is never rewritten, so the 
 An area that holds more than eight features is told to the Operator, who reads it with `list_features` and raises one card that proposes a split: the new areas and the features that go to each, with keeping the area as an option.
 Pending features are not counted.
 Nothing changes until he answers.
-After he picks, the Operator keeps each new area with `upsert_features` and moves each feature with `change_feature` and `area`, which must be an area the project keeps.
-With the Operator off, he splits the area from the Features screen, which makes the same two calls.
-A new area is kept by `upsert_features` with `features` empty.
+After he picks, the Operator splits each new area off with `change_area` and the act `split`, naming the features that go to it.
+With the Operator off, he splits the area from the Features screen.
 A move changes the feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
 
 > **Rule.** An area is told again only when it has grown by another eight.
 > Why: a card he answered by keeping the area would otherwise come back on every tick.
 
 The seed's largest area holds eight, so seeding raises none.
+
+## Areas
+
+He makes, renames, splits and merges areas from the Features screen, and the Operator does on his word, each with one `change_area` call.
+
+| Act | What changes |
+|---|---|
+| `make` | A new area, after every area the project keeps, holding no feature |
+| `rename` | Its slug, its title or both. Its features go with it |
+| `split` | A new area right after it, and the features he named move into the new one. Each must be in the area split |
+| `merge` | Every feature it holds moves into the other area, after the features that area holds, and the area goes |
+
+A moved feature keeps its slug, prefixes, asks and `added_at`.
+An area has no alias: a rename takes the old slug out, and `pending` is never an area's slug.
+`upsert_features` still keeps areas in bulk, as the seed and a confirm do.
+
+## His rules
+
+He can say why a change was right, or why the catalog got something wrong, in his own words, and Fleet keeps each reason as a rule of the project's catalog.
+`change_feature` and `change_area` take his words as `why`.
+`reject_in_catalog` is his Not this feature, for a feature or area that is not one or for paths that are not part of a feature, and his Doesn't go together, for two features, areas or paths or more that the catalog should keep apart.
+A reject keeps a rule and changes nothing else.
+
+A rule holds his words on one line, the act he gave them with, the features, areas and paths it was about as they were named then, and when.
+A reject he gave no words for is kept as what he rejected, from the titles, such as "Voting and Page actions do not go together.".
+`list_catalog_rules` reads a project's rules, newest first, and `drop_catalog_rule` takes one out.
+
+> **Rule.** Every model call and Operator tell that shapes the catalog carries the project's newest forty rules whole.
+> Why: a rule he gave once has to hold on the next proposal, and an agent that had to choose to read the rules would not always read them.
+
+The ask of the librarian puts them in its question, after his words and before the features, and the Operator's tells of a pending feature and of a crowded area end with them.
+A later rename of a feature or area does not rewrite a rule's slugs.
 
 ## Starting a library
 
@@ -413,17 +488,61 @@ The box's card says what it drafted, and Undo takes out each draft still pending
 An ask from the box itself drafts the same way.
 The keys go Draft as Pending, Read them, then the box, and Tab past the box gives them back to the list.
 
+## Pictures
+
+A feature is shown by what it looks like in the running app, as People in Photos shows a person by a face.
+Each picture belongs to one feature, and the feature's page carries every one it has.
+
+| Part | Where it comes from |
+|---|---|
+| The file | Copied by Fleet under its support folder, at `feature-pictures/<project>/<feature id>/<picture id>.png` |
+| Where it came from | `url`, the page's address, or `screen`, the name of a native screen that has none, such as a walk's |
+| Commit | The Job's checkout, the running server's checkout, or the kept native build |
+| When, and its size | Taken at, width and height read off the PNG's header, and its bytes |
+| Who took it | A Job and its id, or the librarian |
+
+**A Job keeps a picture of a screen it built** with `add_feature_picture`: the feature's slug, the PNG's path on this Mac, and `url` or `screen`.
+The path is what `browser_screenshot` answered, or a picture a native walk's `--shots` wrote.
+Fleet copies the file, so the Job's scratch folder may go, and keeps the commit the Job's checkout stands at.
+
+**The cover is the newest standing picture.**
+`list_features` carries each feature's cover as `cover`, and `get_feature_page` carries every standing picture newest first as `pictures`.
+`get_feature_picture` serves one picture's bytes by its id.
+
+**Not this feature** is his press on a picture, `remove_feature_picture`, with `why` where he says what is wrong.
+The page and the list stop carrying it, and the cover moves to the next.
+The row and its file stay, marked removed with when and `why`, so what he taught is kept: the librarian never takes that page or screen again for that feature.
+His `why` is also kept as a rule of the catalog, a Not this feature about the feature, as `reject_in_catalog` keeps one, so it reaches every catalog tell; see [His rules](#his-rules).
+A press with no words keeps no rule.
+
+> **Rule.** A removed picture is marked, never deleted.
+> Why: his "not this one" is the signal the gallery learns from, and a deleted row would lose it.
+
+**The librarian's `pictures` part takes one picture a feature** on a run, once he turns it on (it ships off, since it starts a headless browser for each feature), of the screen the feature is tied to.
+A feature is tied to the screen its newest standing picture shows, a Job's or the librarian's.
+Where it has none, it is tied to the page its own files route to in a web app that routes by file: Next's `app/…/page.tsx` and `pages/…`, and SvelteKit's `routes/…/+page.svelte`, the shortest route first.
+A route with a segment filled in at request time, such as `[id]`, has no one address and ties nothing.
+A page is taken on the project's running server, a main checkout's before a Job's slot's, at the path the picture or the route gives, by Playwright's headless shell at 1280 by 800.
+A native screen is taken as the first step of the walk of that name in Armada's kept build, played with `--walk <name> --check --shots`, where a repository of the project holds the native Bridge.
+Neither opens a window on his screen.
+The librarian's take replaces its own last take of the same screen and never a Job's picture, and a screen whose app stands at the commit of that take is not taken again.
+Where no feature is tied to a screen, or no app of the project is running, the step says so and takes nothing.
+It costs no model.
+
+> **Rule.** The librarian takes only a screen it can tie to a feature, and never guesses one.
+> Why: a picture of the wrong screen is worse than none, and a person's Not this feature should be the exception, not the work.
+
 ## Librarian
 
 The librarian is the Fleet work that keeps a project's catalog current.
-It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
+It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked`, `gists` and `pictures`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built into a run so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, `gists`, the free part of `drift`, `retire`, `links` and `pictures` are built into a run so far, and a run does nothing else but keep its record.
 The model's part of `drift` is built and runs only on his press of Check on a feature's page, never in a run.
 
 Settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
-`features.librarianParts` names the parts a run does, all nine as it ships.
+`features.librarianParts` names the parts a run does, all ten as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
 `features.librarianAskShare` is the night his asks spend from, apart from that share, and is in [Asking the librarian](#asking-the-librarian).
 
@@ -515,7 +634,7 @@ The facts then wait: the part's next run reads from the last run that did it.
 A word Fleet cannot read means `on_press`.
 
 **The Catch up card shows a run's steps, each as it moves.**
-`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `write_gists` last among them where `gists` is on, then `read_through`.
+`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `take_pictures` where `pictures` is on, `write_gists` last among them where `gists` is on, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
@@ -670,9 +789,13 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them or in the order the librarian holds |
 | `get_features_of_path` | The features a file belongs to |
+| `get_features_by_meaning` | The features of a project that some typed words are about, read by meaning with the local language model, for the dispatch sentence's feature blank |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature, the glossary terms it introduced and its gists of the docs it read |
+| `add_feature_picture` | The calling Job keeps a picture of a screen it built under its feature |
+| `remove_feature_picture` | His Not this feature on a picture, with why |
+| `get_feature_picture` | One picture's bytes |
 | `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
@@ -689,8 +812,16 @@ A Job whose turns were read before searches were counted is in no week until its
 | `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
 | `get_library_start` | The modules a project's build files name and the docs at the top of its repositories, for the start panel |
 | `draft_module_features` | The owner's Draft as Pending, or the Operator, keeps each module of a project with no feature of its own as a pending feature |
+| `start_sub_project` | The owner groups the Jobs he picked under a name and a goal, with the features they are on now, and Fleet starts its orchestrator |
+| `list_sub_projects` | The open sub projects of a project, or of every project, oldest first, or the ones folded away |
+| `turn_into_orchestrator` | The owner turns a running Job into a new sub project's orchestrator, and its work moves to a new first child |
+| `ungroup_sub_project` | The owner's Ungroup drops a sub project and leaves its Jobs |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
-| `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
+| `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area, with his reason as a rule |
+| `change_area` | The Operator, or he from the Features screen, makes, renames, splits or merges an area, with his reason as a rule |
+| `reject_in_catalog` | His Not this feature or Doesn't go together, kept as a rule |
+| `list_catalog_rules` | A project's catalog rules, newest first |
+| `drop_catalog_rule` | Takes one catalog rule out |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
@@ -707,4 +838,6 @@ What the library would hold in the clear there is in [Central store](../contract
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
 - The check that marks a doc or ticket link `gone`.
+- The gallery on the native Features page: Fleet serves the pictures, and Bridge draws none yet.
+- A picture of a web page behind a sign in, and a route a framework does not spell in its file names.
 - The Ask box on a feature's page: Fleet answers `feature:<slug>`, and Bridge mounts the box on the Dashboard and the empty Features page alone.

@@ -90,7 +90,7 @@ fn heard(rig: &Rig, containing: &str) -> usize {
 
 /// His words to the Operator, about `about` where it names a card, with nothing sent beside them.
 pub(super) fn said(words: &str, about: Option<&str>) -> TalkToOperator {
-    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
+    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None, looking_at: None }
 }
 
 fn option(label: &str, cost: &str) -> CardOption {
@@ -194,8 +194,8 @@ async fn later_sends_a_card_off_the_page_and_tells_the_operator_when_and_his_wor
     eventually(|| async { heard(&rig, "Anything else?") >= 1 }).await;
 
     rig.fleet.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await.expect("closed");
-    let refused: Refusal = rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect_err("nothing would hear it");
-    assert_eq!(code(refused).1, "fleet.operator_session_not_running");
+    rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect("kept until a session is up");
+    assert_eq!(rig.fleet.store().lock().await.operator_held_sends().expect("read").len(), 1, "kept, not refused");
 }
 
 #[tokio::test]
@@ -219,13 +219,15 @@ async fn the_operators_acts_are_a_value_per_project_that_is_unset_until_he_says(
     assert_eq!(unknown.status(), 404);
 }
 
-fn arrival(id: &str, subject: &str) -> Arrival {
+/// What arrives in the rig's one repository, which its one project holds.
+fn arrival(rig: &Rig, id: &str, subject: &str) -> Arrival {
     Arrival {
         id: id.into(),
         arrived: Arrived::Report,
         source: Source::Agent,
         session_id: String::new(),
-        manifest_id: String::new(),
+        manifest_id: rig.manifest.as_str().to_string(),
+        project: String::new(),
         subject: subject.into(),
         words: "The scrollback is lost on a resize.".into(),
     }
@@ -236,8 +238,8 @@ async fn while_the_operators_session_runs_what_arrives_is_told_to_it_once_and_fl
     let rig = rig();
     let id = started(&rig).await;
 
-    assert!(rig.fleet.hand_once(arrival("report:1", "Scrollback is lost")).await, "handed");
-    assert!(rig.fleet.hand_once(arrival("report:1", "Scrollback is lost")).await, "handed again");
+    assert!(rig.fleet.hand_once(arrival(&rig, "report:1", "Scrollback is lost")).await, "handed");
+    assert!(rig.fleet.hand_once(arrival(&rig, "report:1", "Scrollback is lost")).await, "handed again");
     eventually(|| async { heard(&rig, "Scrollback is lost") >= 1 }).await;
     assert_eq!(heard(&rig, "Scrollback is lost"), 1, "told once");
     assert!(page(&rig).await.feed.iter().any(|one| one.kind == OperatorFeedKind::Told && one.title == "Scrollback is lost"), "and on the feed");
@@ -430,4 +432,20 @@ async fn a_picture_and_a_tag_he_sends_the_operator_reach_its_session_about_a_car
         assert_eq!(tags.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["armada/other"], "the tag rides with {words:?}");
     }
     assert_eq!(heard(&rig, &format!("About card {raised}")), 1, "the talk about the card still names it");
+}
+
+#[tokio::test]
+async fn a_card_left_open_when_the_operator_went_off_is_cleared_when_it_comes_on_again() {
+    let rig = rig();
+    started(&rig).await;
+    rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised");
+    assert_eq!(page(&rig).await.turn.len(), 1);
+
+    switched(&rig, false).await;
+    rig.fleet.operator_session_kept().await;
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let after = page(&rig).await;
+    assert!(after.on);
+    assert!(after.turn.is_empty() && after.working.is_empty(), "starts fresh: {:?}", after.turn);
 }

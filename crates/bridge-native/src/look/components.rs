@@ -2,8 +2,8 @@
 //!
 //! gpui-component draws its widgets (buttons, inputs, lists, tables) from `ThemeColor`, a fixed set
 //! of roles. The tokens are a different set, so this is the one table that says which token plays
-//! which role. A role with no token of its own keeps the library's value for the theme's tone
-//! (the chart colours, for one); everything a person sees as a surface, an edge or a text is mapped.
+//! which role. A role with no token of its own keeps the library's value for the theme's tone;
+//! everything a person sees as a surface, an edge, a text or a chart's series is mapped.
 
 use gpui::{px, App, Hsla};
 use gpui_component::{Theme, ThemeMode};
@@ -93,6 +93,13 @@ fn paint(colors: &mut gpui_component::ThemeColor, look: &Look) {
     colors.group_box = c(token::BG_RAISED);
     colors.group_box_foreground = c(token::FG_DEFAULT);
     colors.accordion = c(token::BG_BASE);
+
+    // A chart's series, the first five of the six; a graph of Bridge's own reads all six by token.
+    colors.chart_1 = c(token::CHART_1);
+    colors.chart_2 = c(token::CHART_2);
+    colors.chart_3 = c(token::CHART_3);
+    colors.chart_4 = c(token::CHART_4);
+    colors.chart_5 = c(token::CHART_5);
 
     // Status hues. The tokens carry one colour each and no hover or pressed variant, so those
     // three roles share it.

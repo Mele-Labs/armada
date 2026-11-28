@@ -88,6 +88,7 @@ mod held_forge;
 mod link_site;
 /// A session Bridge hosts: a live process, resumed by id. Since 23.49.
 mod hosted_session;
+mod operator_prompt;
 mod inline_comments;
 mod issue_lookup;
 /// Reading a repository's open issues and writing back on one. #91.
@@ -138,6 +139,7 @@ mod reclaim;
 mod repairing;
 mod remembering;
 mod recorded_laps;
+mod queue_runs;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
@@ -217,14 +219,15 @@ pub use github_api::{
 };
 pub use harness::HeadlessAgent;
 pub use models_offered::HarnessModel;
-pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
+pub use operator_prompt::{role_rules, OperatorPrompt};
+pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, OPERATOR_STYLE, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
 pub use consulting::{consulted, Consulted, ConsultedKind};
 pub use issue_tracker::IssueTracker;
 pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;
-pub use taught_tracker::{run_metric, TaughtTracker, TaughtTrackers, TrackerFile};
+pub use taught_tracker::{graph_recipe_problem, run_graph_recipe, run_metric, TaughtTracker, TaughtTrackers, TrackerFile};
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
 pub use mcp_configured::{ConfigPlaces, ConfigStamp, Configured, McpConfig};

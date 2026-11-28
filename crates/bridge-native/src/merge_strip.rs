@@ -16,6 +16,7 @@
 mod fix;
 mod live;
 mod scenes;
+mod stuck;
 pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
@@ -31,7 +32,7 @@ use gpui::{
     WeakEntity, Window,
 };
 use ipc::{
-    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, PullTone, StandingCall, StandingCallKind,
+    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, PullTone, QueueStuck, QueueStuckCause, StandingCall, StandingCallKind,
 };
 
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -96,6 +97,8 @@ pub enum Asked {
     TakeOver { root: String, request: String },
     /// Fleet reads the pull request from the forge now (the chip menu's Refresh).
     RefreshPull { root: String, number: u64 },
+    /// Each of these pull requests back in the merge queue now (the stuck band's Queue again).
+    QueueAgain { root: String, numbers: Vec<u64> },
 }
 
 impl EventEmitter<Asked> for MergeStrip {}
@@ -317,7 +320,7 @@ impl MergeStrip {
 
     /// A walk's scene that comes with main's card open, as a hover leaves it.
     pub fn show_main(&mut self, cx: &mut Context<Self>) {
-        if let Some(line) = self.shown().into_iter().find(|at| matches!(self.data.lines[*at].view.main, Some(MainView::Red { .. }))) {
+        if let Some(line) = self.shown().into_iter().find(|at| matches!(self.data.lines[*at].view.main, Some(MainView::Red { .. })) || self.data.lines[*at].view.queue_stuck.is_some()) {
             self.card = Some(Card::Main(line));
             cx.notify();
         }
@@ -859,6 +862,10 @@ impl MergeStrip {
         if let Some(checkout) = held {
             said = format!("{said}, checkout {}", checkout_title(checkout));
         }
+        let stuck = one.view.queue_stuck.is_some();
+        if stuck {
+            said = format!("{said}, merge queue stuck");
+        }
         let calling = self.calling(&format!("main:{}", one.view.root)) || self.calling(&format!("checkout:{}", one.view.root));
         let ink = if red { look.color(token::STATUS_COMPLETED_FAILED) } else { look.color(token::STATUS_COMPLETED_SUCCESS) };
         let stale = quiet.is_some();
@@ -891,9 +898,16 @@ impl MergeStrip {
                     said,
                 )
             }))
+            .children(stuck.then(|| {
+                labelled(
+                    div().id(SharedString::from(format!("stuck-{id}"))).flex_none().child(glyph("triangle-alert", look.length(token::SPACE_3), look.color(token::STATUS_AWAITING_REVIEW))).tooltip(tip("Merge queue stuck")),
+                    Role::Image,
+                    "Merge queue stuck",
+                )
+            }))
             .children(self.refused_mark(&format!("main:{}", one.view.root), &id, look))
             .child(name);
-        if !red && held.is_none() {
+        if !red && held.is_none() && !stuck {
             // A picture: its tooltip is the sentence, then how old the reading is.
             let tooltip = match forge.read_at {
                 None => said.clone(),
@@ -1177,6 +1191,9 @@ impl MergeStrip {
         if let Some(MainView::Red { failed, also, merge, taken_by, elsewhere, checking, .. }) = &one.view.main {
             body.push(self.red_band(line, failed, also, merge.as_ref(), taken_by.as_ref(), elsewhere.as_ref(), !checking.is_empty(), checking, look, cx));
         }
+        if let Some(stuck) = &one.view.queue_stuck {
+            body.push(stuck_band(line, stuck, &one.view.pulls, look, cx));
+        }
         if let Some(checkout) = &one.view.checkout {
             body.push(checkout_section(checkout, look));
         }
@@ -1377,6 +1394,140 @@ impl MergeStrip {
     }
 }
 
+/// The merge queue stuck: amber like the held checkout, since main itself is not failing. What stopped it, since
+/// when, the pull requests still waiting in their order, and the failed job's log where Fleet has its page.
+fn stuck_band(line: usize, stuck: &QueueStuck, held: &[ipc::PullView], look: &Look, cx: &Context<MergeStrip>) -> AnyElement {
+    let hue = look.color(token::STATUS_AWAITING_REVIEW);
+    let title = "Merge queue stuck";
+    let tooltip = "Fleet put these back in the queue as often as Settings › Limits allows. It waits for the queue to move.";
+    let job = |name: &str| div().min_w_0().font_family(mono(look)).child(name.to_string());
+    let cause = match (&stuck.cause, stuck.job.as_deref()) {
+        (QueueStuckCause::NoRunner, Some(name)) => div().flex().items_center().child(job(name)).child(" got no runner"),
+        (QueueStuckCause::NoRunner, None) => div().child("A job got no runner"),
+        (QueueStuckCause::TimedOut, Some(name)) => div().flex().items_center().child(job(name)).child(" ran past its time limit"),
+        (QueueStuckCause::TimedOut, None) => div().child("A job ran past its time limit"),
+        (QueueStuckCause::PastEstimate, _) => div().child("Waiting past twice the forge's estimate"),
+    };
+    let since = crate::settings::time::stamp_at(stuck.since.as_str()).map(|at| format!("Since {at}"));
+    let log = stuck.log_url.clone().map(|url| {
+        labelled(
+            Btn::new("open-queue-log", "Open log", Weight::Secondary).draw(look, cx).on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))),
+            Role::Button,
+            "Open log",
+        )
+    });
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    let told = stuck::held_by_a_job(stuck, held);
+    // Stacked full width: three side by side do not fit main's card, and a wrapped third reads as an afterthought.
+    let acts = div()
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_2))
+        .child(labelled(
+            Btn::new("queue-again", "Queue again", Weight::Secondary)
+                .full()
+                .filled(hue)
+                .draw(look, cx)
+                .tooltip(tip("Puts each pull request back in the merge queue now"))
+                .on_click(cx.listener(move |this, _, _, cx| this.stuck_requeued(line, cx))),
+            Role::Button,
+            "Queue again",
+        ))
+        .child(labelled(
+            Btn::new("tell-their-jobs", "Tell Jobs", Weight::Secondary)
+                .full()
+                .disabled(!told)
+                .draw(look, cx)
+                .tooltip(tip(if told { "Sends each Job that holds one of these the cause, since when and the log" } else { "No Job holds these pull requests" }))
+                .when(told, |button| button.on_click(cx.listener(move |this, _, _, cx| this.stuck_told(line, cx)))),
+            Role::Button,
+            "Tell Jobs",
+        ))
+        .child(labelled(
+            Btn::new("start-repair-job", "Repair Job", Weight::Secondary)
+                .full()
+                .draw(look, cx)
+                .tooltip(tip("Starts a Job with the cause, the pull requests and the log written in"))
+                .on_click(cx.listener(move |this, _, _, cx| this.stuck_repair(line, cx))),
+            Role::Button,
+            "Repair Job",
+        ));
+    let pulls = (!stuck.pulls.is_empty()).then(|| {
+        labelled(
+            div().id("stuck-pulls").flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).font_family(mono(look)).children(stuck.pulls.iter().map(|number| {
+                let name = format!("#{number}");
+                let number = *number;
+                labelled(
+                    small(look)
+                        .id(SharedString::from(format!("stuck-pull-{number}")))
+                        .flex_none()
+                        .px(look.length(token::SPACE_2))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_SUBTLE))
+                        .rounded_full()
+                        .bg(look.color(token::FG_DEFAULT).opacity(0.06))
+                        .child(name.clone())
+                        .cursor_pointer()
+                        .focusable()
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.border_color(ring))
+                        .hover(move |style| style.bg(look.color(token::FG_DEFAULT).opacity(0.12)))
+                        .on_click(cx.listener(move |this, _, window, cx| this.chip_pressed(line, number, window, cx))),
+                    Role::Button,
+                    name,
+                )
+            })),
+            Role::List,
+            "Pull requests in the queue",
+        )
+    });
+    labelled(
+        div()
+            .id("stuck-band")
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(hue.opacity(0.4))
+            .bg(hue.opacity(0.10))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .gap(look.length(token::SPACE_3))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .child(labelled(
+                                div().id("stuck-mark").flex_none().child(glyph("triangle-alert", look.length(token::SPACE_3), hue)).tooltip(tip(tooltip)),
+                                Role::Image,
+                                tooltip,
+                            ))
+                            .child(
+                                div()
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .line_height(look.length(token::LEADING_XS))
+                                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                    .child(title),
+                            ),
+                    )
+                    .children(log),
+            )
+            .child(small(look).child(cause))
+            .children(since.map(|text| small(look).text_color(look.color(token::FG_MUTED)).child(text)))
+            .children(pulls)
+            .child(acts),
+        Role::Status,
+        title,
+    )
+    .into_any_element()
+}
+
 /// A held checkout's section (`YourCheckout.tsx`): its head, the title, and the fact under it.
 fn checkout_section(held: &HeldCheckout, look: &Look) -> AnyElement {
     let hue = look.color(token::STATUS_AWAITING_REVIEW);
@@ -1545,6 +1696,67 @@ mod tests {
         let all = crate::mock::jobs("jobs-many").expect("the fixture decodes");
         let list = cx.new(|cx| crate::jobs::JobsList::mock(&all, cx));
         cx.add_window(|window, cx| MergeStrip::new(&list, window, cx))
+    }
+
+    #[gpui::test]
+    fn a_stuck_queue_scene_opens_main_card_on_the_pull_requests_in_their_order(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        cx.update(|cx| scenes::apply("strip-queue-stuck", cx)).expect("the scene is named");
+        strip
+            .update(cx, |this, _, _| {
+                let stuck = this.data.lines[0].view.queue_stuck.as_ref().expect("the scene's view carries the field");
+                assert_eq!((stuck.cause, stuck.job.as_deref(), stuck.pulls.as_slice()), (QueueStuckCause::NoRunner, Some("native"), &[3395, 3392, 3390, 3376][..]));
+                assert!(stuck.log_url.is_some());
+                assert!(matches!(this.data.lines[0].view.main, Some(MainView::Green { .. })), "main itself is green");
+                assert!(this.card == Some(Card::Main(0)), "the scene comes with main's card open");
+            })
+            .unwrap();
+    }
+
+    #[gpui::test]
+    fn the_stuck_band_tells_each_holding_job_the_facts_and_briefs_a_repair_job(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        cx.update(|cx| scenes::apply("strip-queue-stuck", cx)).expect("the scene is named");
+        strip
+            .update(cx, |this, _, _| {
+                let view = &this.data.lines[0].view;
+                let stuck = view.queue_stuck.as_ref().expect("stuck");
+                assert!(stuck::held_by_a_job(stuck, &view.pulls));
+                let tells = stuck::tells_of(stuck, &view.pulls);
+                let sessions: Vec<&str> = tells.iter().map(|(session, _)| session.as_ref()).collect();
+                assert_eq!(sessions, ["mock-02", "mock-06"], "the Jobs that hold #3395 and #3392, each told once");
+                assert!(tells[0].1.starts_with("#3395 is stuck in the merge queue: native got no runner, since "), "{}", tells[0].1);
+                assert!(tells[0].1.ends_with("Fleet put it back as often as Settings › Limits allows. Log: https://github.com/Mele-Labs/armada/actions/runs/1"), "{}", tells[0].1);
+                let brief = stuck::brief_of(stuck);
+                assert!(brief.starts_with("The merge queue on main is stuck: native got no runner since "), "{brief}");
+                assert!(brief.contains("Pull requests held: #3395 #3392 #3390 #3376. Fleet put each back as often as Settings › Limits allows. Failed job: https://github.com/Mele-Labs/armada/actions/runs/1. Find why, and clear it."), "{brief}");
+            })
+            .unwrap();
+    }
+
+    #[gpui::test]
+    fn queue_again_asks_for_every_stuck_pull_request_and_a_chip_opens_its_pull_request(cx: &mut gpui::TestAppContext) {
+        let strip = strip(cx);
+        cx.update(|cx| scenes::apply("strip-queue-stuck", cx)).expect("the scene is named");
+        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let heard = asked.clone();
+        let _watch = cx.update(|cx| cx.subscribe(&strip.entity(cx).unwrap(), move |_, event: &Asked, _| heard.borrow_mut().push(event.clone())));
+        strip
+            .update(cx, |this, window, cx| {
+                this.stuck_requeued(0, cx);
+                this.chip_pressed(0, 3392, window, cx);
+            })
+            .unwrap();
+        let root = "/Users/user/Development/armada".to_string();
+        assert_eq!(
+            *asked.borrow(),
+            [Asked::QueueAgain { root: root.clone(), numbers: vec![3395, 3392, 3390, 3376] }, Asked::OpenPull { root, number: 3392 }]
+        );
+    }
+
+    #[test]
+    fn a_view_with_no_queue_stuck_field_decodes_as_a_queue_that_moves() {
+        assert!(quiet_line("armada", "").view.queue_stuck.is_none());
     }
 
     #[gpui::test]

@@ -43,21 +43,31 @@ fn code(refused: Refusal) -> (u16, String) {
 }
 
 /// The Operator's session, started and its process up.
-async fn started(rig: &Rig) -> String {
+pub(super) async fn started(rig: &Rig) -> String {
     switched(rig, true).await;
     rig.fleet.operator_session_kept().await;
-    let id = rig.fleet.operator_session_id().await.expect("started");
+    let id = super::operator_session::live(rig).await.expect("started");
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id) }).await;
     id
 }
 
-fn heard(rig: &Rig, containing: &str) -> usize {
-    rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
+/// What every Operator was told that holds `containing`. A feature is told to the Operator of its own project, which is
+/// not the one a repository in no project became, so it is counted over them all.
+pub(super) fn heard(rig: &Rig, containing: &str) -> usize {
+    rig.stand_in
+        .starts()
+        .iter()
+        .filter_map(|start| rig.stand_in.process_of(&start.session))
+        .map(|process| process.sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count())
+        .sum()
 }
 
 pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
-    rig.fleet.add_project(NewProject { name: "Armada".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone()
+    let project = rig.fleet.add_project(NewProject { name: "Armada".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone();
+    // Its Operator runs from the next tick, where the Operator is on.
+    rig.fleet.operator_session_kept().await;
+    project
 }
 
 /// The repository holds what the seed's marker names, so the seed describes it.
@@ -401,6 +411,7 @@ async fn a_pending_feature_merged_into_another_moves_what_it_holds_and_its_old_s
         slug: slug.map(String::from),
         title: title.map(String::from),
         area: None,
+        why: None,
     };
     let refused = rig.fleet.change_feature(a_job(), change(Some(VOTING), None, None)).await.expect_err("not the Operator");
     assert_eq!(code(refused).1, "fleet.not_the_operator");
@@ -474,7 +485,7 @@ async fn a_feature_renamed_keeps_its_old_slug_as_an_alias_and_its_asks_follow_it
     libraried(&rig, &project).await;
     let ask = rig.fleet.file_ask(the_operator(), filing(&project, "Buttons on a page", &[ACTIONS])).await.expect("filed");
 
-    let rename = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: Some("page-buttons".to_string()), title: Some("Page buttons".to_string()), area: None };
+    let rename = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: Some("page-buttons".to_string()), title: Some("Page buttons".to_string()), area: None, why: None };
     let done = rig.fleet.change_feature(the_operator(), rename).await.expect("renamed");
     assert_eq!((done.feature.as_str(), done.merged_into), ("page-buttons", None));
     assert!(state_of(&rig, &project, ACTIONS).await.is_none() && state_of(&rig, &project, "page-buttons").await.is_some());
@@ -484,7 +495,7 @@ async fn a_feature_renamed_keeps_its_old_slug_as_an_alias_and_its_asks_follow_it
     assert_eq!(asks.asks.iter().map(|one| one.ask_id.clone()).collect::<Vec<_>>(), [ask.ask_id]);
     assert_eq!(asks.asks[0].features, ["page-buttons".to_string()]);
 
-    let retitle = ChangeFeature { project, feature: "page-buttons".to_string(), into: None, slug: None, title: Some("Buttons".to_string()), area: None };
+    let retitle = ChangeFeature { project, feature: "page-buttons".to_string(), into: None, slug: None, title: Some("Buttons".to_string()), area: None, why: None };
     assert_eq!(rig.fleet.change_feature(the_operator(), retitle).await.expect("retitled").feature, "page-buttons");
 }
 
@@ -496,7 +507,7 @@ async fn two_seeded_features_that_are_one_merge_with_their_code_and_the_target_k
     libraried(&rig, &project).await;
     let was = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("held");
 
-    let merge = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: Some(VOTING.to_string()), slug: None, title: None, area: None };
+    let merge = ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: Some(VOTING.to_string()), slug: None, title: None, area: None, why: None };
     rig.fleet.change_feature(the_operator(), merge).await.expect("merged");
     let now = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("held");
     assert_eq!((now.id.as_str(), now.added_at.as_str(), now.state.as_str()), (was.id.as_str(), was.added_at.as_str(), "seeded"));
@@ -524,7 +535,7 @@ async fn two_seeded_features_that_are_one_merge_with_their_code_and_the_target_k
 // An area that grows past about eight features is told to the Operator, who proposes a split on a card.
 
 /// `count` more features in the area `takes`, past the two `libraried` keeps.
-async fn grown(rig: &Rig, project: &str, count: usize) {
+pub(super) async fn grown(rig: &Rig, project: &str, count: usize) {
     let features = (1..=count)
         .map(|n| FeatureSeed {
             slug: format!("take-{n}"),
@@ -554,7 +565,7 @@ async fn an_area_past_eight_features_is_told_to_the_operator_once_with_its_featu
     rig.fleet.sources_handed().await;
     eventually(|| async { heard(&rig, "split") >= 1 }).await;
     assert_eq!(heard(&rig, "take-7"), 1, "names the features it holds");
-    assert_eq!(heard(&rig, "`area`"), 1, "says how to move one");
+    assert_eq!(heard(&rig, "`change_area` and the act `split`"), 1, "says how to split it");
     rig.fleet.sources_handed().await;
     assert_eq!(heard(&rig, "take-7"), 1, "told once");
 }
@@ -592,6 +603,7 @@ async fn a_feature_moves_to_an_area_the_project_keeps_and_to_no_other() {
         slug: None,
         title: None,
         area: Some(area.to_string()),
+        why: None,
     };
 
     let refused = rig.fleet.change_feature(a_job(), move_to("actions", None)).await.expect_err("not the Operator");
@@ -668,14 +680,15 @@ async fn with_the_operator_on_fleet_files_no_note_itself() {
 #[tokio::test]
 async fn bridge_and_the_operator_keep_the_catalog_and_a_jobs_agent_does_not() {
     let rig = rig();
-    started(&rig).await;
+    // The project first, so the Operator that starts is its own and the Job's process is the second the stand-in starts.
     let project = a_project(&rig).await;
+    started(&rig).await;
     libraried(&rig, &project).await;
     a_job_in(&rig, &project).await;
     assert!(rig.fleet.session_holding(&api::Caller::at(format!("127.0.0.1:{JOB_PORT}").parse().unwrap())).is_some(), "the Job's agent is placed");
 
     let new_area = |slug: &str| UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: slug.into(), title: slug.into() }], features: Vec::new() };
-    let retitle = |title: &str| ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: None, title: Some(title.to_string()), area: None };
+    let retitle = |title: &str| ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: None, title: Some(title.to_string()), area: None, why: None };
     let titled = || async { rig.fleet.store().lock().await.feature_named(&project, ACTIONS).expect("read").expect("held").title };
     let areas = || async { rig.fleet.store().lock().await.feature_areas(&project).expect("read").len() };
     let before = areas().await;
@@ -695,4 +708,25 @@ async fn bridge_and_the_operator_keep_the_catalog_and_a_jobs_agent_does_not() {
     rig.fleet.upsert_features(the_operator(), new_area("from-operator")).await.expect("the Operator keeps an area");
     rig.fleet.change_feature(the_operator(), retitle("From the Operator")).await.expect("the Operator retitles");
     assert_eq!((areas().await, titled().await.as_str()), (before + 2, "From the Operator"));
+}
+
+#[tokio::test]
+async fn a_feature_left_pending_while_the_operator_was_off_is_not_told_when_it_comes_on_and_one_named_after_is() {
+    let rig = rig();
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let job = a_job_in(&rig, &project).await;
+    commits_filed(&rig, &job, &[trailer("rank-votes", "abc1", &[])]).await;
+
+    let operator = started(&rig).await;
+    let told = |containing: &str| {
+        let process = rig.stand_in.process_of(&operator).expect("the Operator's process");
+        let count = process.sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count();
+        count
+    };
+    rig.fleet.sources_handed().await;
+    commits_filed(&rig, &job, &[trailer("vote-tally", "abc2", &[])]).await;
+    rig.fleet.sources_handed().await;
+    eventually(|| async { told("vote-tally") >= 1 }).await;
+    assert_eq!(told("rank-votes"), 0, "what piled up while it was off is not handed to it");
 }

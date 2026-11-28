@@ -82,6 +82,62 @@ pub struct HeldWithdrawn {
     pub id: String,
 }
 
+/// `settle_clash`: two Jobs that write the same files agreed which of them lands first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettleClash {
+    /// The other Job's address, `s-` and eight characters, as the claims notice named it.
+    pub with: String,
+    /// The paths the two agreed on. A folder covers the files under it.
+    pub files: Vec<String>,
+    pub first: ClashFirst,
+    /// Why, in one sentence.
+    pub why: String,
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// Which of the two lands first, from the point of view of the Job that calls `settle_clash`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClashFirst {
+    Me,
+    Them,
+    BothGoOn,
+}
+
+/// How a clash between two Jobs stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClashStanding {
+    /// The two agreed, with `settle_clash`.
+    Agreed,
+    /// One raised it with `raise_conflict` naming files, and the person chose which goes first.
+    Ruled,
+    /// One raised it with `raise_conflict` naming files, and the person has not chosen yet.
+    Waiting,
+}
+
+/// Two Jobs that write the same files, and the order they settled. **The same on both Jobs' records.** Answered by
+/// `settle_clash`, and carried on `SessionRecord::clashes`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobClash {
+    /// `clash:<a>:<b>`, the two addresses sorted.
+    pub id: String,
+    /// The Job that settled it or raised it, then the other.
+    pub jobs: Vec<OperatorAskJob>,
+    pub files: Vec<String>,
+    pub standing: ClashStanding,
+    /// The Job that lands first, the other waiting until it lands. Absent where both go on, and while it waits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first: Option<SessionId>,
+    /// Their one sentence on why, or for a raised clash what fails if both land. Empty where none was given.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub why: String,
+    /// When it was last settled or raised.
+    pub at: String,
+}
+
 /// A Job on a card of Your turn, as a chip: its title and its address.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorAskJob {

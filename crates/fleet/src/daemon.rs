@@ -184,13 +184,19 @@ pub struct Fleet<H, V, W> {
     /// The native apps a Job's walks run, stopped with the walk, the Job, the slot and Fleet. Never
     /// written down — `crate::native_walks`.
     native_walks: crate::native_walks::NativeWalks,
+    /// The native Bridge each walk is built as from its Job's commit, one at a time. Never written down - `crate::walk_builds`.
+    walk_builds: crate::walk_builds::WalkBuilds,
     peers: Arc<dyn PeerOf>,
     /// What sends a request and the secrets it is filled with — `crate::requesting`.
     requests: crate::requesting::Requesting,
     /// The metric tokens this Mac's keychain holds, one per tool. Never written to a file, which a commit could carry.
     metric_tokens: Arc<dyn adapter_traits::RequestSecrets + Send + Sync>,
+    /// What the librarian takes a feature's picture with — `crate::picture_capture`.
+    capture: Arc<dyn crate::picture_capture::Capture>,
     /// What each project's metric recipes last read, in memory only — `crate::project_metrics`.
     metric_readings: crate::project_metrics::Readings,
+    /// The graph recipes running now. Every graph itself is in the store: `crate::graphs`.
+    graphs_running: crate::graphs::Running,
     /// The watch commands running now. Every watch itself is in the store: `crate::watches`.
     watches: crate::watches::Watches,
     /// The rebase-and-push tail, held by one Job at a time.

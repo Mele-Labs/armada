@@ -635,6 +635,21 @@ pub(crate) async fn get_needs_you<D: Sessions>(
     }
 }
 
+/// `?project=`, left out for every project.
+#[derive(Deserialize)]
+pub(crate) struct ForToReview {
+    #[serde(default)]
+    project: Option<String>,
+}
+
+/// Everything waiting on the person across a project's Jobs, or every project's. 200.
+pub(crate) async fn list_to_review<D: Sessions>(State(served): State<Served<D>>, Query(asked): Query<ForToReview>) -> Response {
+    match served.daemon().list_to_review(asked.project).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
@@ -817,6 +832,26 @@ pub(crate) async fn set_operator_acts<D: Sessions>(State(served): State<Served<D
     }
 }
 
+/// Each project's Operator, and the output styles he may pick.
+pub(crate) async fn list_operator_settings<D: Sessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_operator_settings().await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// What one project's Operator is. 200 with every project's; 404 for a project he has none of; 422 for a value Fleet refuses.
+pub(crate) async fn set_operator_settings<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: ipc::SetOperatorSettings = match ipc::decode_body("what a project's Operator is set to", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_operator_settings(set).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent asks whether a pull request or a branch should land. 200 with the ask's id, and Fleet's answer where it
 /// had one; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
 pub(crate) async fn ask_held<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
@@ -839,6 +874,19 @@ pub(crate) async fn withdraw_held<D: Sessions>(State(served): State<Served<D>>, 
     };
     match served.shared().withdraw_held(crate::acting::asking(), withdrawn).await {
         Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent records the order it and another Job agreed for files both write. 200 with the clash as both Jobs'
+/// records carry it; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn settle_clash<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let settle: ipc::SettleClash = match ipc::decode_body("the order two Jobs agreed", &body) {
+        Ok(settle) => settle,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().settle_clash(crate::acting::asking(), settle).await {
+        Ok(clash) => answer(StatusCode::OK, &clash, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -1293,9 +1341,9 @@ pub(crate) async fn start_another_session<D: Sessions>(
         };
         undecodable(&why.to_string(), served.run_id())
     };
-    let ipc::StartAnotherSessions { manifest_id, title, message, group, after, jobs } = starts;
+    let ipc::StartAnotherSessions { manifest_id, title, message, group, after, kind, jobs } = starts;
     if !jobs.is_empty() {
-        if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() {
+        if manifest_id.is_some() || title.is_some() || message.is_some() || group.is_some() || after.is_some() || kind.is_some() {
             return unreadable("one Job's fields and `jobs` together; give one Job at the top or every Job in `jobs`");
         }
         // Placement is the caller's, not a Job's: a first Job refused unplaced means none would start,
@@ -1319,7 +1367,7 @@ pub(crate) async fn start_another_session<D: Sessions>(
         return answer(StatusCode::OK, &ipc::SessionsHeld { jobs }, served.run_id());
     }
     let start = match (title, message) {
-        (Some(title), Some(message)) => ipc::StartAnotherSession { manifest_id, title, message, group, after },
+        (Some(title), Some(message)) => ipc::StartAnotherSession { manifest_id, title, message, group, after, kind },
         (None, _) => return unreadable("missing field `title`"),
         (_, None) => return unreadable("missing field `message`"),
     };

@@ -12,6 +12,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features",
     },
     Route {
+        operation: "get_features_by_meaning",
+        method: "GET",
+        path: "/features/match",
+    },
+    Route {
         operation: "get_feature_page",
         method: "GET",
         path: "/features/page",
@@ -48,6 +53,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/write_sections",
     },
     Route {
+        operation: "add_feature_picture",
+        method: "POST",
+        path: "/features/pictures/add",
+    },
+    Route {
+        operation: "remove_feature_picture",
+        method: "POST",
+        path: "/features/pictures/remove",
+    },
+    Route {
+        operation: "get_feature_picture",
+        method: "GET",
+        path: "/features/picture",
+    },
+    Route {
         operation: "upsert_features",
         method: "POST",
         path: "/features/upsert",
@@ -81,6 +101,27 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "draft_module_features",
         method: "POST",
         path: "/features/start/draft",
+    },
+    // A sub project is a group of Jobs, so it is a collection of its own and not a read of the library.
+    Route {
+        operation: "start_sub_project",
+        method: "POST",
+        path: "/sub_projects",
+    },
+    Route {
+        operation: "list_sub_projects",
+        method: "GET",
+        path: "/sub_projects",
+    },
+    Route {
+        operation: "ungroup_sub_project",
+        method: "POST",
+        path: "/sub_projects/ungroup",
+    },
+    Route {
+        operation: "turn_into_orchestrator",
+        method: "POST",
+        path: "/sub_projects/orchestrator",
     },
     Route {
         operation: "seed_features",
@@ -126,6 +167,26 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "change_feature",
         method: "POST",
         path: "/features/change",
+    },
+    Route {
+        operation: "change_area",
+        method: "POST",
+        path: "/features/areas/change",
+    },
+    Route {
+        operation: "reject_in_catalog",
+        method: "POST",
+        path: "/features/reject",
+    },
+    Route {
+        operation: "list_catalog_rules",
+        method: "GET",
+        path: "/features/rules",
+    },
+    Route {
+        operation: "drop_catalog_rule",
+        method: "POST",
+        path: "/features/rules/drop",
     },
     // The mod's hook asks as a Job is about to read, so it spells itself beside the two acts.
     Route {

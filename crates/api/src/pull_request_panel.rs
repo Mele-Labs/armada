@@ -24,7 +24,11 @@ pub(crate) async fn get_pull_request_detail<D: PullRequestPanel + Admitting>(
     let manifest_id = ManifestId::carried(repository);
     match served.daemon().get_pull_request_detail(manifest_id.clone(), number).await {
         Ok(page) => {
-            if !peer.is_some_and(|ConnectInfo(peer)| served.daemon().job_at(Caller::at(peer))) {
+            let by_a_job = match peer {
+                Some(ConnectInfo(peer)) => served.daemon().job_at(Caller::at(peer)).await,
+                None => false,
+            };
+            if !by_a_job {
                 served.daemon().pull_request_opened(manifest_id, number).await;
             }
             answer(StatusCode::OK, &page, served.run_id())

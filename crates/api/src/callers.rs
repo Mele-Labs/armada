@@ -96,11 +96,18 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("prioritise_session", "prioritises a Job"),
     ("upsert_features", "keeps the feature catalog"),
     ("change_feature", "keeps the feature catalog"),
+    ("change_area", "keeps the feature catalog"),
+    ("reject_in_catalog", "keeps the feature catalog"),
+    ("drop_catalog_rule", "keeps the feature catalog"),
     ("answer_retire", "keeps the feature catalog"),
     ("check_docs", "keeps the feature catalog"),
     ("dismiss_doc_flag", "keeps the feature catalog"),
+    ("remove_feature_picture", "keeps the feature catalog"),
     ("start_doc_job", "keeps the feature catalog"),
     ("draft_module_features", "keeps the feature catalog"),
+    ("start_sub_project", "groups his Jobs"),
+    ("ungroup_sub_project", "groups his Jobs"),
+    ("turn_into_orchestrator", "groups his Jobs"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),
@@ -181,7 +188,7 @@ pub(crate) async fn refuse_a_job<D: Admitting>(
     let (Some((operation, does)), Some(peer)) = (persons, peer) else {
         return next.run(request).await;
     };
-    if !served.daemon().job_at(Caller::at(peer)) {
+    if !served.daemon().job_at(Caller::at(peer)).await {
         return next.run(request).await;
     }
     problem(

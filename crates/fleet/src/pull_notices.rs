@@ -341,6 +341,8 @@ where
         // Before anything is told at this commit: a notice sent below is at the commit kept here, and a
         // push is the commit moving, which is how a Job told of a red pull request is read to have fixed it.
         let _ = self.store().lock().await.keep_pull_head(served.root(), pull.number, head);
+        // A push to a pull request that is open: the looks its Job kept are checked at the new head.
+        self.pull_looks_told(served, pull.number, branch, head).await;
         // Auto-merge is told once a pull request, whatever commit it is at when it is turned on. A wait
         // the agent stated stays in his Needs you: Fleet refuses the one it writes, never takes one off.
         if pull.auto_merge {
@@ -373,7 +375,8 @@ where
         if pull.queue == PullQueue::Unmergeable {
             causes.push(Cause::Unmergeable);
         }
-        if dropped {
+        // A drop for want of a runner is put right, or called stuck, and told to nobody.
+        if dropped && self.drop_judged(served, pull, head).await == crate::queue_watch::DropSaid::Tell {
             causes.push(Cause::Dropped);
         }
         let mut everyone = true;
@@ -606,6 +609,8 @@ where
             .await;
             // The same merge asks whether the project tasks the Job held are done.
             self.tasks_asked_by_merge(served, one.pull.number).await;
+            // And may finish a sub project, whose orchestrator then asks Goal met?.
+            self.orchestrators_told_of_merge(served, one.pull.number).await;
             if elapsed(&at, &now) > MERGE_IS_NEWS {
                 continue;
             }

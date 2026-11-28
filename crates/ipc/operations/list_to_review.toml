@@ -1,0 +1,22 @@
+[operations.list_to_review]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "List everything waiting on the person across a project's Jobs, or every project's, grouped by sub project, then feature, each with the operation that answers it in place"
+notes = """
+`GET /sessions/to_review?project=`. Answers 200 with `ToReview` `{ project?, groups[] }`. **It replaces Needs you as the place he looks**: one list across Jobs, so he answers each thing with no Job to open. Read off this Mac's live Jobs, with no forge call and no model.
+
+**`project` is optional.** Named, the list holds the Jobs filed in that project, as `list_features` files them: the project the Job was started for, else those holding its repository. Left out, every live Job is listed, a Job in no project among them. A project with nothing waiting answers no groups.
+
+**Each item is a row of its Job's Needs you.** The rows are worked out by `get_needs_you`'s own rule over the same `waiting_for`, after the person's dismissals, so the two never disagree: every `waiting_for` item of a listed Job is one item here, and `row` is the `NeedsYouRow` `get_needs_you` answers for it.
+
+**`groups`** are `{ head, items[] }`, none empty: each sub project with an item, oldest started first, then each feature in its library's order, then `neither`. `head` is tagged by `kind`: `sub_project { id, name, goal }`, `feature`, a `SessionFeature`, or `neither`. **A Job's sub project** is the first, oldest started, it orchestrates or he picked it for, else the first with a feature the Job writes to now, as the Jobs list joins one. **A Job in no sub project** goes under its first feature in the library's order, and a Job that writes to none under `neither`. A sub project's group is headed by its `goal`, which is its `name` where it was kept before goals. Only open sub projects head a group: one he agreed is met is folded away. Within a group, items stand by `order`, the place `order_waiting` gave them in their Job, then oldest first.
+
+**An item** is `{ kind, row, order, why?, job, project?, sub_project?, features[], answer, operator_read? }`. `operator_read` is the Operator's read and pick, as the item's `WaitingItem` carries it. `job` is `{ id, title }`, the title else the id. `features` are the Job's `SessionRecord.features`. **`kind`** is one of `plan`, `sketch`, `document`, `draft`, `ready_to_try`, `clash`, `goal_met`, `question`, `to_do`, `walk`, `command`, `pull_request`, `restart` or `done`. A `clash` is a `job_conflict` item today, and the `clash_order` that stands in its place where Fleet raises one. A `goal_met` is the orchestrator's Goal met? card, answered with `answer_waiting`: `Agree` (choice 0) or `Not yet` (choice 1).
+
+**`answer`** is the existing operation that settles it, tagged by `op`: `answer_items` (Approve or send back, for a plan, sketch, page, draft, walk, or a Job's item raised with `approves`), `answer_waiting` (a choice or words; the row's act carries the choices; a `clash` and a `goal_met` among them), `answer_ready_to_try { cards[] }` (each open card `{ branch, tip, about }`), `done_waiting`, `begin_session { session_id }` (Press Start, on the Job or on one it started), `dismiss_waiting` (the Job's done) or `press` (nothing to answer: the row's act is the press, a command, a restart or a pull request to open).
+
+`agent_access` is `No`: the list is the person's.
+
+Since 28 Nov 2026 each item carries `operator`, `{ project, name, accent }`, beside `project`: the name and accent that project's Operator is set to. It is absent where the Job is in no project.
+"""

@@ -20,6 +20,8 @@ use ipc::operator_talk::{OperatorSaid, OperatorTalk, OperatorTalkLine, TalkToOpe
 use ipc::{SessionTag, SessionUpload, CardOption, CardRaised, CardRevised, OperatorCardSettled, Instant, OperatorCard, RaiseCard, ReportCard, ReviseCard, SettleCard, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource};
 use store::KeptTurn;
 
+use super::fleet_cards::FleetCardKind;
+use super::routing::Routed;
 use super::turning::turn_number;
 use crate::daemon::Fleet;
 
@@ -30,6 +32,8 @@ pub(crate) const SETTLED: &str = "settled:";
 
 const CARD_REFUSED: &str = "fleet.card_refused";
 const CARD_UNKNOWN: &str = "fleet.card_unknown";
+/// The refusal of `raise_card` for a project whose decisions are asked in the talk.
+pub(crate) const CHAT_MODE: &str = "fleet.operator_chat_mode";
 
 /// The most lines of the earlier conversation the page reads.
 const TALK_SHOWN: u32 = 20;
@@ -78,7 +82,7 @@ where
     }
 
     /// The repository named, as its manifest's id: its folder's name, or the id itself.
-    fn repository_id_of(&self, name: &str) -> Option<String> {
+    pub(super) fn repository_id_of(&self, name: &str) -> Option<String> {
         self.repositories().hosted().into_iter().find_map(|one| {
             let id = one.manifest().id().as_str().to_string();
             let folder = std::path::Path::new(one.root()).file_name().map(|folder| folder.to_string_lossy().to_string());
@@ -94,9 +98,30 @@ where
         row.filter(|row| row.settled_at.is_none() && row.card.is_some()).ok_or_else(unknown)
     }
 
-    /// `raise_card`.
+    /// The project whose Operator card `row` belongs to: the project of the session that raised it. An item Fleet raised
+    /// names none, so it is the project whose Operator runs and whose repository the item is in.
+    pub(crate) async fn card_project(&self, row: &KeptTurn) -> Option<String> {
+        if let Some(project) = &row.project {
+            return Some(project.clone());
+        }
+        let held = self.projects_held();
+        for one in held.holding(&ipc::ManifestId::carried(&row.manifest_id).to_domain()) {
+            if self.operator_session_id(one.id().as_str()).await.is_some() {
+                return Some(one.id().as_str().to_string());
+            }
+        }
+        None
+    }
+
+    /// `raise_card`. The card belongs to the project of the Operator that raised it.
     pub(crate) async fn card_raised(self: &Arc<Self>, caller: Option<api::Caller>, card: RaiseCard) -> Result<CardRaised, Refusal> {
-        self.operator_called(caller)?;
+        let raiser = self.operator_called(caller)?;
+        let project = self.operator_project_of(&raiser).await;
+        if let Some(project) = project.as_deref() {
+            if self.operator_settings_of(project).await.decisions == ipc::OperatorDecisions::Chat {
+                return Err(self.hosted_refusal(CHAT_MODE, "this project asks its decisions in the talk, not on cards. Ask each one in the talk as one question with two to four numbered options, your pick first, a cost on each"));
+            }
+        }
         let (title, read) = (card.title.trim(), card.read.trim());
         if title.is_empty() || read.is_empty() {
             return Err(self.card_refused("a card has a title and a read, and one of them is empty"));
@@ -134,6 +159,7 @@ where
             create_refused: None,
             operator_read: None,
             artifact: None,
+            goal_met: None,
         };
         let shown = OperatorCard { kind: card.kind, talk_of: card.talk_of.clone(), sessions: card.sessions.clone(), picked: None, steps: Vec::new(), returned: None };
         let row = KeptTurn {
@@ -144,6 +170,7 @@ where
             pick: card.options.first().map(|one| one.label.trim().to_string()),
             raised_at: at.as_str().to_string(),
             card: ipc::encode(&shown).ok(),
+            project,
             ..KeptTurn::default()
         };
         let n = self.store().lock().await.add_operator_turn(&row).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.card_refused("that card stands already"))?;
@@ -195,7 +222,7 @@ where
         let row = self.card_open(&settle.card).await?;
         let at = self.now();
         self.store().lock().await.settle_operator_turn(row.n, at.as_str(), Some(&format!("{SETTLED}{said}"))).map_err(|why| self.ledger_fault(why))?;
-        self.feed_kept(OperatorFeedKind::Settled, &Self::card_title(&row), None, Some(said)).await;
+        self.feed_kept(row.project.as_deref(), OperatorFeedKind::Settled, &Self::card_title(&row), None, Some(said)).await;
         Ok(OperatorCardSettled { card: settle.card })
     }
 
@@ -213,7 +240,8 @@ where
         if !item.options.iter().any(|option| option.label == label) {
             return Err(self.hosted_refusal("fleet.operator_answer_not_offered", &format!("{label} is not an option this card offers")));
         }
-        let Some(session) = self.operator_session_id().await else {
+        let project = self.card_project(row).await.unwrap_or_default();
+        let Some(session) = self.operator_session_id(&project).await else {
             return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would reach it. Turn the Operator off and on to start it"));
         };
         let at = self.now();
@@ -221,6 +249,8 @@ where
             return Err(self.hosted_refusal("fleet.operator_answer_not_offered", "this card is picked already and the Operator is working on it"));
         }
         self.operator_page_changed();
+        // His press is a say for this Operator: what its level holds is open for a while.
+        self.operator_said(&project);
         let text = format!(
             "He chose \"{label}\" on card turn:{} \"{}\". Do it now. Report each real step with report_card, settle the card when it is done, \
              and report failed with the reason the moment it cannot be done. It comes back to his front if nothing settles it in 15 min.",
@@ -276,34 +306,67 @@ where
                 Self::card_title(&row),
                 row.picked.as_deref().unwrap_or_default()
             );
-            let _ = self.operator_told(&text).await;
+            let project = self.card_project(&row).await.unwrap_or_default();
+            let _ = self.operator_told(&project, &text).await;
         }
     }
 
     /// Card `row` sent back with Later until `until`: the Operator is told when it comes back.
     pub(crate) async fn card_sent_later(self: &Arc<Self>, row: &KeptTurn, until: &str) {
-        let Some(session) = self.operator_session_id().await else { return };
+        let project = self.card_project(row).await.unwrap_or_default();
+        let Some(session) = self.operator_session_id(&project).await else { return };
         let text = format!("He sent card turn:{} \"{}\" back with Later. It comes back at {until}.", row.n, Self::card_title(row));
         let _ = self.told_of_his_act(&session, &text).await;
     }
 
-    /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **Refused with
-    /// `fleet.operator_session_not_running`** where no session runs, since nothing would hear them. A card he talks
-    /// about is named to the session. The files and tags he sent go with the words, card or none. The session's
-    /// answer is its thread, not this reply.
+    /// `talk_to_operator`: his words, delivered to the Operator's session of the project [`talk_routed`](Self::talk_routed)
+    /// names, as he wrote them. **With the switch on and that project's session not running, they are kept** with the project,
+    /// its session is started at once, and it is told them once it is up. **Where the router is unsure** his words are kept with
+    /// no project and Fleet asks him which of the likeliest it is for; one candidate hears it at once. Refused with
+    /// `fleet.operator_session_not_running` with the switch off, or where no project is named. A card he talks about is named
+    /// to the session. The files and tags he sent go with the words, card or none. The session's answer is its thread, not this reply.
     pub(crate) async fn operator_talked(self: &Arc<Self>, talk: TalkToOperator) -> Result<OperatorSaid, Refusal> {
-        let TalkToOperator { words, about, attachments, mentions } = talk;
-        let running = self.operator_session_id().await.is_some();
+        let (project, candidates) = match self.talk_routed(&talk).await {
+            Routed::To(project) => (project, Vec::new()),
+            Routed::Unsure(candidates) => match candidates.as_slice() {
+                [one] => (one.clone(), Vec::new()),
+                [] => (String::new(), Vec::new()),
+                _ => (String::new(), candidates),
+            },
+        };
+        if !project.is_empty() && self.operator_session_id(&project).await.is_some() {
+            self.talk_delivered(&project, talk).await?;
+        } else if self.operator_on() && !project.is_empty() {
+            self.talk_held(&TalkToOperator { project: Some(project), ..talk }).await?;
+            self.operator_seat().wake.notify_one();
+        } else if self.operator_on() && !candidates.is_empty() {
+            let held = self.talk_held(&TalkToOperator { project: None, ..talk }).await?;
+            self.fleet_card_raised(FleetCardKind::WhichProject { held, candidates }).await;
+        } else {
+            return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator is off, so nothing here would hear it"));
+        }
+        Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
+    }
+
+    /// Keep `talk` until a session is up to be told it. Its number is how the card that asks which project finds it again.
+    async fn talk_held(&self, talk: &TalkToOperator) -> Result<i64, Refusal> {
+        let kept = ipc::encode(talk).map_err(|why| self.hosted_refusal(super::session::NOT_RUNNING, &format!("the words could not be kept: {why}")))?;
+        self.store().lock().await.add_operator_held_send(&kept, self.now().as_str()).map_err(|why| self.ledger_fault(why))
+    }
+
+    /// His words told to `project`'s running session: about the card he named, where Fleet holds it, else as he wrote them.
+    pub(crate) async fn talk_delivered(self: &Arc<Self>, project: &str, talk: TalkToOperator) -> Result<(), Refusal> {
+        let TalkToOperator { words, about, attachments, mentions, project: _, looking_at: _ } = talk;
+        // His words are a say for this Operator.
+        self.operator_said(project);
         let card = match about.as_deref() {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,
         };
-        match (running, card) {
-            (true, Some(card)) => self.card_talked_about(card, &words, attachments, mentions).await?,
-            (true, None) => self.operator_told_as_him(&words, attachments, mentions).await?,
-            (false, _) => return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it")),
+        match card {
+            Some(card) => self.card_talked_about(card, project, &words, attachments, mentions).await,
+            None => self.operator_told_as_him(project, &words, attachments, mentions).await,
         }
-        Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
     }
 
     /// `operator_talk`: the conversation kept before the session, read as it was kept.
@@ -314,11 +377,11 @@ where
 
     /// His words about a card, as he wrote them, with a short tag naming it. Refused where the card is not
     /// one Fleet holds or the Operator's session is not running.
-    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, words: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
+    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, project: &str, words: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
         self.card_known(id).await?;
         let n = turn_number(id).unwrap_or_default();
         let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.card_refused(&format!("{id} is no card Fleet holds")))?;
         let tag = format!("[About card turn:{n} \"{}\"]", Self::card_title(&row));
-        self.operator_told_as_him(&format!("{tag}\n{words}"), attachments, mentions).await
+        self.operator_told_as_him(project, &format!("{tag}\n{words}"), attachments, mentions).await
     }
 }

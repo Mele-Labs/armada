@@ -19,6 +19,16 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
+    /// `get_features_by_meaning` — the slugs of the project's features, not pending, that `words` are about by meaning, nearest
+    /// first, at most eight and none under the similarity floor. Placed as `list_features` is. **Empty, never refused, while
+    /// the language model is not loaded** or the words are blank.
+    fn get_features_by_meaning(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        words: String,
+    ) -> impl Future<Output = Result<ipc::FeaturesByMeaning, Refusal>> + Send;
+
     /// `get_feature_page` — one feature whole, or with `section` that one section alone, and with `files` the floor plan's
     /// rooms filled with their files. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project does not hold,
     /// and [`Refusal::Unacceptable`] (`fleet.feature_section_unknown`) for a section that is none of the four.
@@ -88,6 +98,23 @@ pub trait Features: Send + Sync + 'static {
         write: ipc::WriteFeatureSections,
     ) -> impl Future<Output = Result<ipc::FeatureSectionsWritten, Refusal>> + Send;
 
+    /// `add_feature_picture` — the calling Job keeps a picture of a screen under a feature. [`Refusal::Unacceptable`] for a call
+    /// that places no hosted session, an ended one, an unknown slug (`fleet.feature_unknown`), no `url` and no `screen`
+    /// (`fleet.picture_source`) or a file that is no readable PNG (`fleet.picture_unreadable`).
+    fn add_feature_picture(
+        &self,
+        caller: Option<crate::Caller>,
+        add: ipc::AddFeaturePicture,
+    ) -> impl Future<Output = Result<ipc::FeaturePictureAdded, Refusal>> + Send;
+
+    /// `remove_feature_picture` — his Not this feature on a picture. Refused as `answer_retire` is to any session but the
+    /// Operator's (`fleet.not_the_operator`); [`Refusal::NotFound`] for an id Fleet does not hold (`fleet.picture_unknown`).
+    fn remove_feature_picture(&self, caller: Option<crate::Caller>, remove: ipc::RemoveFeaturePicture) -> impl Future<Output = Result<ipc::FeaturePictureRemoved, Refusal>> + Send;
+
+    /// `get_feature_picture` — one picture's PNG bytes. [`Refusal::NotFound`] (`fleet.picture_unknown`) for an id Fleet does not
+    /// hold or whose file is gone.
+    fn get_feature_picture(&self, id: String) -> impl Future<Output = Result<Vec<u8>, Refusal>> + Send;
+
     /// `upsert_features` — areas and features kept by slug, for the Operator's seeding and for the owner's confirming and
     /// splitting from Bridge. [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's
     /// (`fleet.not_the_operator`), a feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a
@@ -123,6 +150,26 @@ pub trait Features: Send + Sync + 'static {
     /// holds a confirmed or seeded feature (`fleet.library_started`), [`Refusal::Unacceptable`] as `get_library_start` is and
     /// where no module is found (`fleet.no_module`).
     fn draft_module_features(&self, caller: Option<crate::Caller>, draft: ipc::DraftModules) -> impl Future<Output = Result<ipc::ModulesDrafted, Refusal>> + Send;
+
+    /// `start_sub_project` — the Jobs the owner picked, kept under a name and his goal with the features whose live Jobs
+    /// hold one of them now, and an orchestrator Job started for it. [`Refusal::Unacceptable`] for an empty name
+    /// (`fleet.sub_project_no_name`), goal (`fleet.sub_project_no_goal`) or no Jobs (`fleet.sub_project_no_jobs`),
+    /// [`Refusal::NotFound`] for a Job Fleet does not hold (`fleet.no_such_session`), [`Refusal::IllegalMove`] for a Job
+    /// not filed in the project (`fleet.sub_project_across_projects`).
+    fn start_sub_project(self: std::sync::Arc<Self>, start: ipc::StartSubProject) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
+
+    /// `list_sub_projects` — the open sub projects of `project`, or of every project where it is `None`, oldest first, or
+    /// the ones folded away where `ended`. An open one kept without an orchestrator has one started, once.
+    fn list_sub_projects(self: std::sync::Arc<Self>, project: Option<String>, ended: bool) -> impl Future<Output = Result<ipc::SubProjects, Refusal>> + Send;
+
+    /// `turn_into_orchestrator` — a running Job made the orchestrator of a new sub project, its own work moved to a new
+    /// first child Job. Refused as `start_sub_project` is, and [`Refusal::IllegalMove`] for a Job that has ended or
+    /// orchestrates already (`fleet.sub_project_not_turnable`).
+    fn turn_into_orchestrator(self: std::sync::Arc<Self>, turn: ipc::TurnIntoOrchestrator) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
+
+    /// `ungroup_sub_project` — the sub project dropped, its Jobs untouched. [`Refusal::NotFound`] for an unknown id
+    /// (`fleet.no_such_sub_project`).
+    fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> impl Future<Output = Result<(), Refusal>> + Send;
 
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
@@ -163,6 +210,23 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
     fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;
+
+    /// `change_area` — the Operator or the owner makes, renames, splits or merges an area, his reason kept as a rule.
+    /// [`Refusal::Unacceptable`] (`fleet.not_the_operator`, `fleet.area_change`, `fleet.feature_slug`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`), [`Refusal::IllegalMove`] (`fleet.area_slug_taken`).
+    fn change_area(&self, caller: Option<crate::Caller>, change: ipc::ChangeArea) -> impl Future<Output = Result<ipc::AreaChanged, Refusal>> + Send;
+
+    /// `reject_in_catalog` — his Not this feature or Doesn't go together, kept as a rule and nothing else. [`Refusal::Unacceptable`]
+    /// (`fleet.not_the_operator`, `fleet.feature_project`, `fleet.catalog_reject`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`).
+    fn reject_in_catalog(&self, caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> impl Future<Output = Result<ipc::CatalogRuleKept, Refusal>> + Send;
+
+    /// `list_catalog_rules` — the project's catalog rules, newest first. [`Refusal::Unacceptable`] (`fleet.feature_project`).
+    fn list_catalog_rules(&self, project: Option<String>) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
+
+    /// `drop_catalog_rule` — one rule taken out. Refused as `reject_in_catalog` is, and [`Refusal::NotFound`]
+    /// (`fleet.catalog_rule_unknown`).
+    fn drop_catalog_rule(&self, caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
 
     /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
     /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.

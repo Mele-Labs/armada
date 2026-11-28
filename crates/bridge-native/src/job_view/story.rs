@@ -39,7 +39,7 @@ pub(crate) mod mock;
 pub(crate) mod model;
 #[allow(dead_code)]
 pub(crate) mod shots;
-mod view;
+pub(crate) mod view;
 
 #[cfg(test)]
 mod tests;
@@ -119,6 +119,8 @@ pub struct StoryTab {
     pub(crate) list: ListState,
     /// The ask to put in front when the story is read: from a Story link, or asked for by whoever opened the tab.
     want: Option<String>,
+    /// The key of a row to put in front when it is held: from the rail over the thread, for any kind of row.
+    want_key: Option<String>,
     overlay: Option<Entity<FeatureOverlay>>,
     /// Set by the Job view that holds the tab in its panes: a feature opens as a tab beside the thread, so the tab says so up
     /// instead of drawing an overlay over itself.
@@ -203,6 +205,7 @@ impl StoryTab {
             focus,
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             want: None,
+            want_key: None,
             overlay: None,
             routed: false,
             overlay_sub: None,
@@ -230,6 +233,22 @@ impl StoryTab {
     pub fn put_ask(&mut self, ask_id: String, cx: &mut Context<Self>) {
         self.want = Some(ask_id);
         self.settle(cx);
+    }
+
+    /// Put the row `key` in front, unfolded and with the keys on it, whatever kind of row it is.
+    pub fn put_key(&mut self, key: String, cx: &mut Context<Self>) {
+        self.want_key = Some(key);
+        self.settle(cx);
+    }
+
+    /// What the rail over the thread draws: each row of the timeline, what he was shown before any ask first, in the Story's order.
+    pub(crate) fn rail_items(&self) -> Vec<crate::job_view::thread_rail::model::Item> {
+        self.built
+            .before
+            .iter()
+            .chain(&self.built.entries)
+            .map(|entry| crate::job_view::thread_rail::model::Item { key: entry.key.clone(), kind: entry.kind, title: entry.title.clone(), says: entry.says.clone(), when: entry.when.clone() })
+            .collect()
     }
 
     // ---- reading -----------------------------------------------------------------------------
@@ -382,7 +401,9 @@ impl StoryTab {
 
     /// The row asked for, or the one that was opened, is opened with the keys on it; the keys start on the newest row.
     fn settle(&mut self, cx: &mut Context<Self>) {
-        if let Some(want) = self.want.as_deref().and_then(|id| self.built.find(id)).map(|at| self.built.entries[at].key.clone()) {
+        let held = |key: &String| self.built.entries.iter().chain(&self.built.before).any(|entry| &entry.key == key);
+        let wanted = self.want.as_deref().and_then(|id| self.built.find(id)).map(|at| self.built.entries[at].key.clone()).or_else(|| self.want_key.clone().filter(held));
+        if let Some(want) = wanted {
             // The row asked for is shown whatever the filter was.
             if !self.rows().iter().any(|entry| entry.key == want) {
                 self.filter = Filter::All;
@@ -390,12 +411,17 @@ impl StoryTab {
                 self.list.reset(count);
             }
             self.want = None;
+            self.want_key = None;
             self.unfolded = Some(want.clone());
             self.cursor = self.rows().iter().position(|entry| entry.key == want);
             self.region = Region::Rows;
             self.link_at = 0;
             if let Some(at) = self.cursor {
                 self.list.scroll_to_reveal_item(self.place_of(at));
+                let merged = self.rows().get(at).and_then(|entry| entry.card.merge.as_ref().map(|merge| merge.number));
+                if let Some(number) = merged.filter(|number| !self.commits.contains_key(number)) {
+                    cx.emit(StoryEvent::ReadPull { number });
+                }
             }
         }
         let held = self.unfolded.clone().filter(|key| self.rows().iter().any(|entry| &entry.key == key));
@@ -786,6 +812,19 @@ impl JobView {
         let Some(tab) = cx.try_global::<Stories>().and_then(|held| held.0.get(job)) else { return Vec::new() };
         let tab = tab.read(cx);
         tab.built.features.iter().map(|line| super::column_strip::StripFeature { slug: line.slug.clone(), title: line.title.clone(), hue: crate::features::hue_among(tab.areas.iter().map(String::as_str), &line.area) }).collect()
+    }
+
+    /// The items of Job `job`'s Story as the rail over the thread draws them. None are held until the tab has read the story.
+    pub(super) fn story_items(&self, job: &str, cx: &App) -> Vec<super::thread_rail::model::Item> {
+        cx.try_global::<Stories>().and_then(|held| held.0.get(job)).map(|tab| tab.read(cx).rail_items()).unwrap_or_default()
+    }
+
+    /// A press on a bar of the rail that is not an ask the thread holds: the Story tab comes forward on its row `key`, unfolded, with the keys on it.
+    pub(super) fn open_story_row(&mut self, job: &str, key: String, window: &mut Window, cx: &mut Context<Self>) {
+        let tab = self.story_of(job, window, cx);
+        tab.update(cx, |tab, cx| tab.put_key(key, cx));
+        self.open_kind("story", cx);
+        self.focus_story(window, cx);
     }
 
     /// A feature chip of the strip pressed: the feature's page opens as a tab beside the thread, as a row of the Story tab's does.

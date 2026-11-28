@@ -28,7 +28,7 @@ use config::settings::PROMPT_TEACHING_READ;
 use ipc::{ReadTeaching, TeachingProposal, TeachingReach, TeachingSource, TeachingSourceKind, WireError};
 
 use crate::daemon::Fleet;
-use answer::{allowed, Context, Unfit};
+use answer::{Context, Unfit};
 
 /// Words, a message or a person's reply that cannot be put: empty, or over a bound. A 422.
 const INPUT_REFUSED: &str = "fleet.teaching_input_refused";
@@ -147,6 +147,9 @@ const RULE_BLOCK: &str =
 
 const SECTIONS_ONE_REPOSITORY: &str =
     "`section` is `repo`, and `kind` is `command`, `gotcha` or `convention`";
+const SECTIONS_ONE_PROJECT: &str =
+    "`section` is `repo`, and `kind` is `command`, `gotcha` or `convention`, for what holds in every repository \
+     of the project; or `habits` with `kind` `habit` for how the person wants agents to work";
 const SECTIONS_EVERY_REPOSITORY: &str =
     "`section` is `habits` with `kind` `habit` for how the person wants agents to work, or `machine` \
      with `kind` `environment` for a fact about this Mac";
@@ -173,9 +176,10 @@ fn source_phrase(kind: TeachingSourceKind) -> &'static str {
 
 /// The paragraph that says what may be proposed for a source.
 fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&str>, ground: Option<&ruling::Ground>) -> String {
-    let may = allowed(kind);
+    let may = answer::allowed_at(kind, reach);
     let sections = match reach {
         TeachingReach::Repository => SECTIONS_ONE_REPOSITORY,
+        TeachingReach::Project => SECTIONS_ONE_PROJECT,
         TeachingReach::Everywhere => SECTIONS_EVERY_REPOSITORY,
     };
     let mut blocks = Vec::new();
@@ -232,19 +236,24 @@ where
         if too_long(subject, MOST_WORDS) || too_long(said, MOST_SAID) || too_long(&teach.message, MOST_MESSAGE) {
             return Err(input("what was pressed on, the message or what you wrote is too long"));
         }
+        if teach.reach == TeachingReach::Project {
+            let named = teach.project.as_deref().map(str::trim).filter(|named| !named.is_empty());
+            self.logbook_project(named.ok_or_else(|| input("a teaching for one project needs the project"))?).await?;
+        }
         let root = match (teach.reach, teach.repository.as_deref()) {
             (TeachingReach::Repository, None) => return Err(input("a teaching for one repository needs the repository")),
             (_, Some(named)) => Some(self.run_repository(named)?),
-            (TeachingReach::Everywhere, None) => None,
+            (TeachingReach::Everywhere | TeachingReach::Project, None) => None,
         };
         let manifest = root.as_deref().and_then(|root| self.manifest_id_at(root));
         let notice = (source.kind == TeachingSourceKind::Notice).then(|| source.ids.first().map(String::as_str)).flatten();
         let failed = |why: &str| Refusal::Fault(WireError::raised(READ_FAILED, why, self.run_id()));
         let reach = match teach.reach {
             TeachingReach::Repository => "this repository only",
+            TeachingReach::Project => "every repository of one project",
             TeachingReach::Everywhere => "every repository",
         };
-        let ground = allowed(source.kind).rule.then(|| self.rule_ground(root.as_deref()));
+        let ground = answer::allowed_at(source.kind, teach.reach).rule.then(|| self.rule_ground(root.as_deref()));
         let question = self.prompts().fill(
             PROMPT_TEACHING_READ,
             &[

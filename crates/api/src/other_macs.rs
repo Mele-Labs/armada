@@ -29,7 +29,7 @@ pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessi
         .route("/other_mac/preview_offers", get(share_preview_offers::<D>))
         .route("/other_mac/projects", get(share_projects::<D>))
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
-        .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
+        .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>).layer(DefaultBodyLimit::max(crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE)))
         .route("/other_mac/refresh_claim", post(hold_refresh_claim::<D>))
         .route("/other_mac/kit", get(share_kit::<D>))
         .route("/other_mac/kit_settle", post(kit_settle_from_mac::<D>))

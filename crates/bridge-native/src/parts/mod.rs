@@ -16,6 +16,7 @@ pub mod card;
 pub mod chip;
 pub mod list;
 pub mod pane;
+pub mod ring;
 pub mod row;
 pub mod tabs;
 pub mod text;

@@ -476,6 +476,17 @@ destructive = false
 confirms = false
 notes = "Moves the Jobs under the keys into one of his projects, or out to none: the row's own Job, or every Job selected where the row is among them. Opens the project picker, whose rows are his projects with their repositories under the name, then the copies of his other Mac's shared projects with that Mac named on the line, and No project last; a copy takes a Job only where it lists the Job's repository (`fleet.project_copy_not_member`); the project every Job stands in is ticked. Fleet's `set_session_project` writes it for live and ended Jobs alike, and the Jobs list regroups on the `session.changed` it publishes. Native only. Shifted because Pause (`p`) is the Jobs list's own bare key and carries no row. No glyph: `layers` means how many places a Job writes, so a project is not its meaning. A Job on another Mac is left off, with why, because Fleet answers it 404. The palette answers it as the row's own act, with ⌥⌘P, and as a command for the open Job. Taken 15 Nov 2026."
 
+[actions.start_sub_project]
+kind = "Action"
+tier = "Contextual"
+verb = "Start a sub project"
+icon = "boxes"
+shortcut = "S"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Groups the Jobs under the keys under a name he gives: the row's own Job, or every Job selected where the row is among them. Opens the naming sheet in the project picker's place, with the features those Jobs write to now under Comes with; Enter sends Fleet's `start_sub_project`, Esc leaves. The sub project heads the list in every grouping, and a live Job that writes to one of its features joins it there. Native only. Shifted as Move to project is: the Jobs list's bare keys are its own and carry no row, so a row act takes a capital. Taken 26 Nov 2026."
+
 [actions.deck_select]
 kind = "Action"
 tier = "Contextual"
@@ -2144,3 +2155,50 @@ scope = "project board"
 destructive = false
 confirms = false
 notes = "Shows the block that has focus in the next of the views its data fits: List, Table, Cards or Picture, and round again. Native only, 23 Nov 2026."
+
+# ---------------------------------------------------------------- home (the Cockpit's blocks)
+
+[actions.home_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the Cockpit's blocks"
+icon = "pencil"
+shortcut = "e"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Turns the Cockpit's home, the blocks on its right side while no Job is open, between drawn and edited. While it is edited a block's header is a handle that moves it, its corner resizes it, and the arrows below act on the block that has focus. Its own scope and its own rows so that rebinding the Dashboard's keys leaves the home's where they were. Native only, 26 Nov 2026."
+
+[actions.home_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move a home block"
+icon = ""
+shortcut = "← / → / ↑ / ↓"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Moves the block that has focus one cell on the home's six-column grid, while the home is edited. The blocks it meets settle round it. Native only, 26 Nov 2026."
+
+[actions.home_resize]
+kind = "Motion"
+tier = "Contextual"
+verb = "Resize a home block"
+icon = ""
+shortcut = "⇧← / ⇧→ / ⇧↑ / ⇧↓"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Narrows, widens, shortens or lengthens the block that has focus by one cell, while the home is edited, between two columns and the grid's width. Native only, 26 Nov 2026."
+
+[actions.home_block_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Change the view of a home block"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "cockpit home"
+destructive = false
+confirms = false
+notes = "Shows the block that has focus in the next of the views its data fits, and round again. Only the Needs you block has two: List and Cards. Native only, 26 Nov 2026."

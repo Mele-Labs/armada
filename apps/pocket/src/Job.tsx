@@ -5,7 +5,6 @@
 
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import {
-  AppWindow,
   Check,
   ChevronRight,
   CirclePause,
@@ -16,7 +15,6 @@ import {
   GitFork,
   Link as Linked,
   ListTodo,
-  LoaderCircle,
   MessageCircleQuestion,
   Play,
   PowerOff,
@@ -31,7 +29,7 @@ import {
 import { AskCards, SessionThread } from "./kit/components/compositions/SessionThread/SessionThread";
 import { Badge } from "./kit/components/primitives/Badge/Badge";
 import { Button } from "./kit/components/primitives/Button/Button";
-import { Card, CardFooter, CardHeader, CardTitle } from "./kit/components/primitives/Card/Card";
+import { Card } from "./kit/components/primitives/Card/Card";
 import { Select } from "./kit/components/primitives/Select/Select";
 import { SessionComposer } from "./kit/components/compositions/SessionComposer/SessionComposer";
 import { SessionFrame } from "./kit/components/compositions/SessionFrame/SessionFrame";
@@ -60,6 +58,7 @@ import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from 
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { ArtifactCard } from "./Artifact";
+import { OnMac, PressCard, RunCard, WaitingAsk } from "./cards";
 import { BandCard, Well } from "./kit/components/compositions/BandCard/BandCard";
 import { DraftText } from "./kit/components/compositions/SessionThread/DraftRow";
 import { PageScreen } from "./PageBody";
@@ -88,7 +87,6 @@ import {
   linksOf,
   onMacOf,
   pressesOf,
-  OPEN_ON_MAC,
   rowsOf,
   runsOf,
   sessionOfThread,
@@ -125,88 +123,6 @@ function useReply(machine: Machine): [
   ];
 }
 
-/** Something the owner is asked: its choices, and their own words where Fleet takes words. */
-function WaitingAsk({
-  item,
-  keep,
-  answer,
-  titled = false,
-}: {
-  item: WaitingItem;
-  keep: string;
-  answer: (given: { choice?: number; text?: string }) => Promise<boolean>;
-  /** The first card already holds the question as its title. */
-  titled?: boolean;
-}) {
-  const [words, setWords] = useState("");
-  const choices = choicesOf(item);
-  return (
-    <div className="pk-ask" role="group" aria-label={item.text}>
-      {titled && item.creating_since === undefined ? null : (
-        <p className="pk-question">
-          {titled ? null : item.text}
-          {item.creating_since === undefined ? null : (
-            <>
-              {" "}
-              <Tooltip label="Making a slot">
-                <span role="img" aria-label="Making a slot">
-                  <LoaderCircle className="pk-spin" size={14} aria-hidden="true" />
-                </span>
-              </Tooltip>
-            </>
-          )}
-        </p>
-      )}
-      <Trouble says={item.create_refused ?? ""} />
-      {choices.length === 0 ? null : (
-        <div className="pk-choices" role="group" aria-label="Options">
-          {choices.map(({ label, description, choice }) => (
-            <Button
-              key={label}
-              variant="secondary"
-              onClick={() =>
-                void answer({
-                  choice,
-                })
-              }
-            >
-              <span className="pk-choice__words">
-                {label}
-                {description === undefined ? null : (
-                  <span className="pk-choice__says">{description}</span>
-                )}
-              </span>
-            </Button>
-          ))}
-        </div>
-      )}
-      {takesWords(item) ? (
-        <>
-          <Textarea
-            keep={keep}
-            rows={2}
-            aria-label="Answer"
-            placeholder="Answer"
-            value={words}
-            onChange={(event) => setWords(event.target.value)}
-          />
-          <Button
-            variant="primary"
-            disabled={words.trim() === ""}
-            onClick={() =>
-              void answer({
-                text: words.trim(),
-              }).then((went) => went && setWords(""))
-            }
-          >
-            Answer
-          </Button>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 function PlanChanges({ keep, send }: { keep: string; send: (text: string) => Promise<boolean> }) {
   const [words, setWords] = useState("");
   return (
@@ -227,104 +143,6 @@ function PlanChanges({ keep, send }: { keep: string; send: (text: string) => Pro
         Send changes
       </Button>
     </div>
-  );
-}
-
-/**
- * A command the agent asked the owner to run on the Mac: run there from here, and its exit and tail come back as a `ran` row.
- * Once a run has ended the card says so, with its exit code, until the agent clears the item.
- */
-function RunCard({
-  item,
-  command,
-  ran,
-  run,
-  titled = false,
-}: {
-  item: WaitingItem;
-  command: string;
-  ran?: {
-    code?: number;
-  };
-  run: () => Promise<boolean>;
-  /** The first card already holds the question as its title. */
-  titled?: boolean;
-}) {
-  const [going, setGoing] = useState(false);
-  return (
-    <Card className="pk-card" role="group" aria-label={item.text}>
-      {titled ? null : (
-        <CardHeader>
-          <CardTitle>{item.text}</CardTitle>
-        </CardHeader>
-      )}
-      <code className="pk-card__command">{command}</code>
-      <CardFooter className="pk-card__acts">
-        {ran !== undefined ? (
-          <span className="pk-card__ran">
-            {ran.code === undefined ? null : (
-              <Figure name="Exit code" loose>{`exit ${ran.code}`}</Figure>
-            )}
-            <Tooltip label="Ran">
-              <span role="img" aria-label="Ran">
-                <Check size={16} strokeWidth={2} aria-hidden="true" />
-              </span>
-            </Tooltip>
-          </span>
-        ) : (
-          <Button
-            variant="primary"
-            pending={going}
-            onClick={() => {
-              setGoing(true);
-              void run().finally(() => setGoing(false));
-            }}
-          >
-            Run
-          </Button>
-        )}
-      </CardFooter>
-    </Card>
-  );
-}
-
-/** Something Fleet lists that is pressed and not answered: a Job to open, a call to dismiss. */
-function PressCard({
-  item,
-  open,
-  dismiss,
-}: {
-  item: WaitingItem;
-  open?: () => void;
-  dismiss?: () => Promise<boolean>;
-}) {
-  return (
-    <div className="pk-ask" role="group" aria-label={item.text}>
-      <p className="pk-question">{item.text}</p>
-      <div className="pk-choices" role="group" aria-label="Options">
-        {open === undefined ? null : (
-          <Button variant="secondary" onClick={open}>
-            Open
-          </Button>
-        )}
-        {dismiss === undefined ? null : (
-          <Button variant="secondary" onClick={() => void dismiss()}>
-            Dismiss
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** A walk, or a question asked in one, points at a page that is only on the Mac: the Job says so, and takes no answer here. */
-function OnMac({ item }: { item: WaitingItem }) {
-  return (
-    <p className="pk-onmac" role="group" aria-label={item.text}>
-      <AppWindow size={14} aria-hidden="true" />
-      <span className="pk-onmac__says">{item.text}</span>
-      <span className="pk-onmac__where">{OPEN_ON_MAC}</span>
-    </p>
   );
 }
 
@@ -983,9 +801,13 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       card: (titled) => (
         <WaitingAsk
           key={item.id}
-          item={item}
+          text={item.text}
+          choices={choicesOf(item)}
+          words={takesWords(item)}
+          making={item.creating_since !== undefined}
+          refused={item.create_refused ?? ""}
           keep={keep(`waiting:${item.id}`)}
-          titled={titled}
+          headed={titled}
           answer={(given) =>
             run(() =>
               acts.answerWaiting({
@@ -1005,9 +827,9 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       card: (titled) => (
         <RunCard
           key={item.id}
-          item={item}
+          text={item.text}
           command={command}
-          titled={titled}
+          headed={titled}
           {...(ran === undefined
             ? {}
             : {
@@ -1105,7 +927,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
       {presses.map(({ item, opens, dismissible }) => (
         <PressCard
           key={item.id}
-          item={item}
+          text={item.text}
           {...(opens === undefined || opens === id
             ? {}
             : {
@@ -1144,7 +966,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
         </div>
       )}
       {onMac.map((item) => (
-        <OnMac key={item.id} item={item} />
+        <OnMac key={item.id} text={item.text} />
       ))}
       <Trouble says={says} />
     </div>

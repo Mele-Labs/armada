@@ -45,6 +45,9 @@ pub enum Asked {
     ReadRepository(String),
     /// A sentence needs the feature catalog of this project, by Fleet's id. The answer is [`DispatchSheet::set_features`].
     ReadFeatures(String),
+    /// Words rested in a feature blank of this project: which of its features are they about, by meaning. The answer is
+    /// [`DispatchSheet::set_meaning`].
+    ReadMeaning { project: String, words: String },
     /// A Job is tagged: read the wait the words name.
     ReadWait { job: String, words: String },
     /// `project` is Fleet's id for the project of the row picked; none starts it in no project.
@@ -86,7 +89,6 @@ pub(super) struct Shape {
     plain: Option<String>,
     story: Option<Story>,
     tools: Vec<SessionTag>,
-    preset: Vec<String>,
 }
 
 /// The most steps ⌘Z goes back.
@@ -147,8 +149,6 @@ pub struct DispatchSheet {
     catalog: Option<(String, Vec<FeatureChoice>)>,
     /// The project whose catalog was asked for and has not answered.
     features_asked: Option<String>,
-    /// The tools the sentence's kind put in, which go again where it turns to plain words.
-    preset: Vec<String>,
     /// The states ⌘Z goes back to, newest last, and the ones it came from, for ⌘Y.
     past: Vec<Shape>,
     future: Vec<Shape>,
@@ -239,7 +239,6 @@ impl DispatchSheet {
             opening: 0,
             catalog: None,
             features_asked: None,
-            preset: Vec::new(),
             past: Vec::new(),
             future: Vec::new(),
             run: None,
@@ -407,7 +406,7 @@ impl DispatchSheet {
 
     pub(super) fn worded(&self, cx: &App) -> bool {
         match &self.story {
-            // The tools a kind presets are no words: nothing starts until a blank holds some.
+            // The tools held are no words: nothing starts until a blank holds some.
             Some(story) => story.has_words() || !self.files.is_empty() || !self.drawn.is_empty(),
             None => !self.words(cx).trim().is_empty() || self.holds(),
         }
@@ -474,21 +473,14 @@ impl DispatchSheet {
     }
 
     /// An opening taken, by Tab or →, or a press on its row: the box becomes the sentence, with the caret in its first
-    /// blank and the kind's tools held.
+    /// blank.
     pub(super) fn take_opening(&mut self, kind: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(chosen) = super::story_kinds::kinds().get(kind) else { return };
+        if super::story_kinds::kinds().get(kind).is_none() {
+            return;
+        }
         let before = self.shape_now(cx);
         self.menu = None;
         self.tools_open = None;
-        self.preset.clear();
-        for id in &chosen.tools {
-            let Some(tool) = ipc::ask_tools::ask_tool(id) else { continue };
-            if !self.tools.iter().any(|one| one.tag.id == tool.id) {
-                let tag = SessionTag { kind: ipc::TagKind::Tool, id: tool.id.to_string(), title: tool.name.to_string(), url: None };
-                self.tools.push(HeldTool { tag, key: cx.focus_handle() });
-                self.preset.push(tool.id.to_string());
-            }
-        }
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
         self.story = Some(Story::new(kind));
         self.remember(before);
@@ -500,7 +492,7 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    /// The sentence's words went into the request's box, which has the sentence's place again. The tools its kind put in go.
+    /// The sentence's words went into the request's box, which has the sentence's place again.
     fn flatten(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(story) = self.story.take() else { return };
         let words = match story.words() {
@@ -508,8 +500,6 @@ impl DispatchSheet {
             words if words.is_empty() => format!("{} ", story.kind().opening),
             words => words,
         };
-        let preset = std::mem::take(&mut self.preset);
-        self.tools.retain(|one| !preset.contains(&one.tag.id));
         self.request.update(cx, |state, cx| {
             state.set_value(words.clone(), window, cx);
             end_of(state, &words, window, cx);
@@ -540,7 +530,6 @@ impl DispatchSheet {
             plain: self.story.is_none().then(|| self.request.read(cx).value().to_string()),
             story: self.story.clone(),
             tools: self.tools.iter().map(|one| one.tag.clone()).collect(),
-            preset: self.preset.clone(),
         }
     }
 
@@ -557,7 +546,6 @@ impl DispatchSheet {
     /// A state brought back: the sentence with its blank and tools, or the words the box held.
     fn restore(&mut self, shape: Shape, window: &mut Window, cx: &mut Context<Self>) {
         self.tools = shape.tools.into_iter().map(|tag| HeldTool { tag, key: cx.focus_handle() }).collect();
-        self.preset = shape.preset;
         self.run = None;
         match shape.story {
             Some(story) => {
@@ -625,6 +613,27 @@ impl DispatchSheet {
         self.drafting = self.drafting && self.waiting;
         self.tools_open = None;
         self.reread(&words, cx);
+        self.want_meaning(cx);
+        cx.notify();
+    }
+
+    /// Ask what the words typed in a feature blank are about, once there are two letters of them and a project is chosen.
+    fn want_meaning(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project() else { return };
+        let words = self.story.as_ref().and_then(|story| story.feature_typed()).filter(|words| words.chars().filter(|c| c.is_alphanumeric()).count() >= 2);
+        if let Some(words) = words {
+            cx.emit(Asked::ReadMeaning { project, words: words.to_string() });
+        }
+    }
+
+    /// The app's answer to [`Asked::ReadMeaning`]: the slugs of the features the words are about. An answer for words
+    /// no longer in the blank, or for another project, is let go.
+    pub fn set_meaning(&mut self, project: &str, words: &str, slugs: Vec<String>, cx: &mut Context<Self>) {
+        if self.project().as_deref() != Some(project) {
+            return;
+        }
+        let Some(story) = self.story.as_mut().filter(|story| story.feature_typed() == Some(words)) else { return };
+        story.mean(words, slugs.into_iter().map(Into::into).collect());
         cx.notify();
     }
 
@@ -952,7 +961,6 @@ impl DispatchSheet {
         self.files.clear();
         self.drawn.clear();
         self.tools.clear();
-        self.preset.clear();
         self.story = None;
         self.wait = None;
         self.tagged = None;
@@ -1539,7 +1547,7 @@ fn choices<'a>(held: &'a Option<(String, Vec<FeatureChoice>)>, face: &Face, proj
         let mut rows: Vec<FeatureChoice> = Vec::new();
         for one in face.chips.iter().chain(&face.more).filter_map(|chip| chip.project.as_ref()) {
             if !rows.iter().any(|row| row.slug == one.id) {
-                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), slug: one.id.clone(), kind: Kind::Project });
+                rows.push(FeatureChoice { title: one.name.clone(), area: SharedString::default(), summary: SharedString::default(), slug: one.id.clone(), kind: Kind::Project });
             }
         }
         return Cow::Owned(rows);
@@ -1881,7 +1889,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_its_tools_held(cx: &mut TestAppContext) {
+    fn typing_when_then_tab_takes_the_bug_sentence_with_the_caret_in_the_first_blank_and_no_tools_held(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             sheet.request.update(cx, |state, cx| state.set_value("When", window, cx));
@@ -1892,22 +1900,25 @@ mod tests {
             assert_eq!(story.piece(), &super::super::story_kinds::Piece::Blank("do what"), "the caret is in the first blank");
             assert!(sheet.story_key.is_focused(window), "the sentence has the keys");
             assert_eq!(sheet.request.read(cx).value().to_string(), "", "the typed opening is the sentence now");
-            assert_eq!(held_tools(sheet), ["terminal", "browser"], "the kind's preset is held");
-            assert_eq!(sheet.preset, ["terminal", "browser"]);
+            assert!(held_tools(sheet).is_empty(), "taking an opening holds no tools");
         });
     }
 
     #[gpui::test]
-    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_preset_gone(cx: &mut TestAppContext) {
+    fn backspace_in_an_empty_first_blank_returns_plain_words_with_the_opening_kept_and_the_tools_he_added_held(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             take_bug(sheet, window, cx);
-            assert_eq!(held_tools(sheet), ["terminal", "browser"]);
+            assert!(held_tools(sheet).is_empty(), "taking an opening holds no tools");
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(0, window, cx);
+            let added = held_tools(sheet);
+            assert_eq!(added.len(), 1, "a tool he adds himself is held");
             press(sheet, "backspace", window, cx);
             assert!(sheet.story.is_none(), "plain words again");
             assert_eq!(sheet.request.read(cx).value().to_string(), "When I ", "the opening is kept");
             assert!(sheet.request.focus_handle(cx).is_focused(window), "the keys are in the box");
-            assert!(held_tools(sheet).is_empty(), "the tools its kind put in go");
+            assert_eq!(held_tools(sheet), added, "the tool he added stays");
         });
     }
 
@@ -1972,7 +1983,7 @@ mod tests {
             press(sheet, "cmd-z", window, cx);
             assert_eq!(blank_words(sheet)[0], "click", "the sentence is back with what was typed");
             assert!(sheet.story_key.is_focused(window), "and has the keys");
-            assert_eq!(held_tools(sheet), ["terminal", "browser"], "with its tools");
+            assert!(held_tools(sheet).is_empty(), "no tools, as before");
             assert_eq!(sheet.words(cx), "When I click");
         });
     }
@@ -1987,7 +1998,7 @@ mod tests {
             assert!(sheet.story.is_none(), "plain mode");
             assert_eq!(sheet.request.read(cx).value().to_string(), "When", "the opening as it was typed");
             assert!(sheet.request.focus_handle(cx).is_focused(window));
-            assert!(held_tools(sheet).is_empty(), "the preset goes with the sentence");
+            assert!(held_tools(sheet).is_empty(), "no tools are held with the sentence gone");
         });
     }
 
@@ -2088,7 +2099,7 @@ mod tests {
         let (heard, _sub) = starts_heard(&sheet, cx);
         sheet.update_in(cx, |sheet, window, cx| {
             start_sentence(sheet, "When", "click Pay", window, cx);
-            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), slug: slug.to_string().into(), kind: Kind::Feature };
+            let one = |title: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Payments".into(), summary: SharedString::default(), slug: slug.to_string().into(), kind: Kind::Feature };
             sheet.catalog = Some(("storefront".to_string(), vec![one("Checkout", "checkout-flow"), one("Billing", "billing")]));
             sheet.story.as_mut().expect("a sentence").values[2] = "Checkout".into();
             sheet.act(window, cx);
@@ -2099,5 +2110,47 @@ mod tests {
         let heard = heard.borrow();
         assert_eq!(heard[0].0, "When I click Pay in Checkout\nFeature: checkout-flow");
         assert_eq!(heard[1].0, "When I click Pay in the pay button", "words typed into the blank name no feature");
+    }
+
+    #[gpui::test]
+    fn a_meaning_answer_adds_its_rows_after_the_word_matches_without_repeating_any_and_a_stale_answer_is_dropped(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let asked = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let heard = std::rc::Rc::clone(&asked);
+        let _sub = cx.update(|_, cx| {
+            cx.subscribe(&sheet, move |_, asked: &Asked, _| {
+                if let Asked::ReadMeaning { project, words } = asked {
+                    heard.borrow_mut().push((project.clone(), words.clone()));
+                }
+            })
+        });
+        let titles = |sheet: &DispatchSheet| sheet.story.as_ref().expect("a sentence").list(&sheet.features()).expect("a feature blank").into_iter().map(|row| row.title.to_string()).collect::<Vec<_>>();
+        let project = sheet.update_in(cx, |sheet, window, cx| {
+            take_bug(sheet, window, cx);
+            let row = sheet.face.chips.iter().find(|chip| chip.key == Some(3)).expect("a keyed row").id();
+            sheet.face.pick(&row);
+            let project = sheet.project().expect("the row's project is chosen");
+            let one = |title: &str, summary: &str, slug: &str| FeatureChoice { title: title.to_string().into(), area: "Hosting".into(), summary: summary.to_string().into(), slug: slug.to_string().into(), kind: Kind::Feature };
+            sheet.catalog = Some((project.clone(), vec![one("Cloudflare cache", "Clearing the edge", "cache"), one("Store deploy", "Putting the store on Cloudflare", "store-deploy"), one("Login", "Letting a person in", "login")]));
+            press(sheet, "tab", window, cx);
+            write(sheet, "c", window, cx);
+            assert!(asked.borrow().is_empty(), "one letter is too few to read");
+            write(sheet, "loudflare", window, cx);
+            project
+        });
+        assert_eq!(asked.borrow().last(), Some(&(project.clone(), "cloudflare".to_string())), "typing in the feature blank asks what the words are about");
+
+        sheet.update_in(cx, |sheet, _, cx| {
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy"], "the word match alone");
+            sheet.set_meaning("elsewhere", "cloudflare", vec!["login".to_string()], cx);
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy"], "an answer for another project is dropped");
+            sheet.set_meaning(&project, "cloudflare", vec!["login".to_string(), "store-deploy".to_string(), "gone".to_string()], cx);
+            assert_eq!(titles(sheet), ["Cloudflare cache", "Store deploy", "Login"], "the meaning's rows follow the word matches, none twice");
+        });
+        sheet.update_in(cx, |sheet, window, cx| {
+            write(sheet, "s", window, cx);
+            sheet.set_meaning(&project, "cloudflare", vec!["login".to_string()], cx);
+            assert!(titles(sheet).is_empty(), "an answer for words no longer in the blank is dropped");
+        });
     }
 }

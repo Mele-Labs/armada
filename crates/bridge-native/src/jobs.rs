@@ -20,7 +20,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState, WaitingSource};
 
 use crate::assets::icon_path;
-use crate::dropdown::{under, Dropdown, Entry, Picked};
+use crate::dropdown::{under, Dropdown, Entry, Picked, Row as MenuRow};
 use crate::fleet::{BuildAct, FleetConnection};
 use crate::job_view::JobView;
 use crate::keymap::Act;
@@ -30,13 +30,15 @@ use crate::look::{token, ActiveLook, Look};
 
 pub(crate) mod judging;
 
-actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow]);
+actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow, StartSubProject]);
 
 /// The list's keys the registry does not carry yet: Shift+F10 for a row's menu, as Electron binds
 /// it in `Deck.tsx`, and `h` for the Job this one took over from, whose registry row waits on the look.
 /// ← and → fold and unfold a parent's sub-Jobs; Electron's list does not fold, so they have no registry row.
+/// ⇧S starts a sub project of the Jobs under the keys, whose registry row is owed.
 pub fn bind(cx: &mut App) {
     cx.bind_keys([
+        KeyBinding::new("shift-s", StartSubProject, Some("list")),
         KeyBinding::new("shift-f10", RowMenu, Some("list")),
         KeyBinding::new("h", Earlier, Some("list")),
         KeyBinding::new("left", FoldRow, Some("list")),
@@ -100,13 +102,23 @@ pub enum Group {
     /// Headed by the state a Job stands in: Needs you, Ready to try, Working, Waiting on ci.
     #[default]
     State,
+    /// Headed by each feature a Job writes to now, as its row's `features` names it: a Job stands under each one.
+    Feature,
+    /// Headed by each area a Job writes to a feature of, once an area.
+    Area,
     /// Headed by the project, as the list was before the view button.
     Project,
     /// No headings: every Job in one list, by title.
     List,
 }
 
-const GROUPS: [(Group, &str, &str); 3] = [(Group::State, "state", "By state"), (Group::Project, "project", "By project"), (Group::List, "list", "One list")];
+const GROUPS: [(Group, &str, &str); 5] = [
+    (Group::State, "state", "By state"),
+    (Group::Feature, "feature", "By feature"),
+    (Group::Area, "area", "By area"),
+    (Group::Project, "project", "By project"),
+    (Group::List, "list", "One list"),
+];
 
 impl Group {
     fn id(self) -> &'static str {
@@ -151,6 +163,15 @@ fn view_label(scope: Scope, group: Group) -> String {
 }
 
 mod asleep_mac;
+mod board;
+mod board_clashes;
+mod leads;
+#[cfg(test)]
+mod leads_tests;
+mod name_sheet;
+mod built;
+#[cfg(test)]
+mod built_tests;
 #[cfg(test)]
 mod prioritise_tests;
 #[cfg(test)]
@@ -239,6 +260,10 @@ struct Row {
     asleep: bool,
     /// He pressed End and Fleet still serves the Job live: drawn ended, with this line in place of what it is doing.
     ending: Option<SharedString>,
+    /// A muted line under the row, by feature: the other features it writes to.
+    aside: Option<SharedString>,
+    /// The Job is drawn above already, under another heading: the keys pass this row by.
+    again: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -354,11 +379,10 @@ impl View {
         }
     }
 
-    /// The menu's View group: a label and a switch for each field.
+    /// The menu's Job Card row: the switches for each field open beside it, and stay open as they are flipped.
     fn entries(self) -> Vec<Entry> {
-        std::iter::once(Entry::Label("View"))
-            .chain(VIEW_FIELDS.iter().zip(self.0).map(|((id, label), on)| Entry::Toggle { id, label: (*label).into(), on }))
-            .collect()
+        let switches = VIEW_FIELDS.iter().zip(self.0).map(|((id, label), on)| Entry::Row(MenuRow::new(id, *label).ticked(on).keeps_open())).collect();
+        vec![Entry::Row(MenuRow::new("job_card", "Job Card").icon("sliders-horizontal").keeps_open().acts_on_arrival(switches))]
     }
 }
 
@@ -439,9 +463,16 @@ fn standing_of(job: &SessionRecord) -> (u8, u8) {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Stand {
     Needs,
+    /// Ready to try, and the running preview holds its build: he can try it now.
+    InPreview,
+    /// Ready to try with no preview offer, as a Job of a repository without a preview is.
     Ready,
+    /// Ready to try on a build the running preview does not hold yet: still checking, off the list, or waiting on Refresh.
+    NotInPreview,
     Working,
     Ci,
+    /// Its turn ended and nothing runs, but a watch, a Job it started or its pull request keeps it open.
+    Waiting,
     /// Held for a slot, a limit or another Job, or stopped: nothing runs and nothing asks him.
     Held,
     /// Alive and quiet: its turn ended with nothing for him.
@@ -459,6 +490,9 @@ impl Stand {
             Stand::Working => "Working",
             Stand::Ci => "Waiting on ci",
             Stand::Ready => "Ready to try",
+            Stand::InPreview => "In your preview",
+            Stand::NotInPreview => "Not in your preview yet",
+            Stand::Waiting => "Waiting on",
             Stand::Held => "Held",
             Stand::Idle => "Idle",
             Stand::Done => "Done",
@@ -473,7 +507,8 @@ impl Stand {
             Stand::Needs => token::STATUS_AWAITING_REVIEW,
             Stand::Working => token::STATUS_RUNNING,
             Stand::Ci => token::STATUS_NOT_STARTED,
-            Stand::Ready => token::STATUS_COMPLETED_SUCCESS,
+            Stand::Ready | Stand::InPreview => token::STATUS_COMPLETED_SUCCESS,
+            Stand::NotInPreview | Stand::Waiting => token::STATUS_NOT_STARTED,
             Stand::Held => token::STATUS_HANDED_IN,
             Stand::Idle | Stand::Done | Stand::Ended | Stand::Saved => token::FG_MUTED,
         }
@@ -482,8 +517,10 @@ impl Stand {
 
 /// The state group a Job stands in, from Fleet's mark. A Job whose only open item is a Ready to try stands there, not
 /// under Needs you; one with a question or a failure stays under Needs you. A Job with a pull request whose checks
-/// still run, and no work of its own going, is Waiting on ci. Anything else follows Fleet's group for it.
-fn stand_in(job: &SessionRecord) -> Stand {
+/// still run, and no work of its own going, is Waiting on ci. A Ready Job that offered a build stands by where the running
+/// preview has it, as `builds` says. A Job with nothing going that something else keeps open is Waiting on. Anything else
+/// follows Fleet's group for it.
+fn stand_in(job: &SessionRecord, builds: &built::Builds) -> Stand {
     if job.state == SessionState::Ended || crate::move_to_mac::moved(job) {
         return Stand::Ended;
     }
@@ -495,7 +532,11 @@ fn stand_in(job: &SessionRecord) -> Stand {
         || mark.group == JobGroup::Ready
         || (mark.lamp == JobLamp::Needs && open().next().is_some() && open().all(|item| item.source == WaitingSource::ReadyToTry))
     {
-        return Stand::Ready;
+        return match builds.get(job.id.as_str()) {
+            None => Stand::Ready,
+            Some(built::Built::In) => Stand::InPreview,
+            Some(_) => Stand::NotInPreview,
+        };
     }
     if matches!(mark.lamp, JobLamp::Needs | JobLamp::Failed) {
         return Stand::Needs;
@@ -508,6 +549,9 @@ fn stand_in(job: &SessionRecord) -> Stand {
     });
     if checking && mark.lamp != JobLamp::Running {
         return Stand::Ci;
+    }
+    if !job.held_open_by.is_empty() && job.running.is_empty() && mark.lamp != JobLamp::Running && mark.group == JobGroup::Done {
+        return Stand::Waiting;
     }
     // A Job Fleet marks Done has its own group, apart from the quiet ones Fleet files with it.
     if mark.state == JobState::Done {
@@ -524,7 +568,7 @@ fn stand_in(job: &SessionRecord) -> Stand {
 
 /// Where a Job stands as By state words it, and the hue its group wears: what a chip for the Job elsewhere is drawn in.
 pub(crate) fn stand_of(job: &SessionRecord) -> (&'static str, crate::look::Token) {
-    let stand = stand_in(job);
+    let stand = stand_in(job, &built::Builds::default());
     (stand.words(), stand.hue())
 }
 
@@ -539,6 +583,8 @@ struct Head {
     name: SharedString,
     count: usize,
     stand: Option<Stand>,
+    /// A feature's, an area's or No feature's heading, which draws no count.
+    lead: Option<leads::Lead>,
 }
 
 /// One line of the list: a group's heading over its Jobs, or a Job.
@@ -725,7 +771,9 @@ pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
         if named { item.text.clone() } else { format!("{kind}: {}", item.text) }
     });
     let running = job.running.first().filter(|_| !waits).map(|one| one.what.clone());
-    let line = waiting.or(running).or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
+    // A Job something else keeps open says what, never the last step of a turn that has ended.
+    let held = (!waits).then(|| built::held_said(job)).flatten();
+    let line = waiting.or(running).or(held).or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
     Some(crate::job_view::plain_of(&line)).filter(|line| !line.is_empty())
 }
 
@@ -763,6 +811,27 @@ fn lines_grouped(
     group: Group,
     hide_done: bool,
 ) -> Vec<Line> {
+    lines_led(jobs, ideas, scope, query, order, names, project, asleep, group, hide_done, &leads::Leads::default(), &built::Builds::default())
+}
+
+/// [`lines_grouped`] with the sub projects: by feature a Job stands under each feature its row's `features` names, by area
+/// once under each area, and a Job under none stands under No feature, last. `builds` says where each Job's offered build
+/// stands against the running preview.
+#[allow(clippy::too_many_arguments)]
+fn lines_led(
+    jobs: &[SessionRecord],
+    ideas: &[crate::queued::QueuedIdea],
+    scope: Scope,
+    query: &str,
+    order: &[String],
+    names: &Names,
+    project: Option<&str>,
+    asleep: &[crate::pairing::Unreachable],
+    group: Group,
+    hide_done: bool,
+    leads: &leads::Leads,
+    builds: &built::Builds,
+) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
     let project = project.map(|id| names.same.get(id).map_or(id, String::as_str));
@@ -796,7 +865,7 @@ fn lines_grouped(
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
     // With the Done Jobs switch off, the Jobs Fleet marks Done are left out in every grouping.
-    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| !hide_done || stand_in(job) != Stand::Done).collect();
+    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| !hide_done || stand_in(job, builds) != Stand::Done).collect();
     // Jobs on a Mac that is asleep stand apart, under its fold.
     let (sleeping, picked): (Vec<&SessionRecord>, Vec<&SessionRecord>) = picked.into_iter().partition(|job| asleep_on(job).is_some());
     // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
@@ -810,8 +879,8 @@ fn lines_grouped(
             up = starter_of(starter);
         }
     }
-    // By state a Job and its starter may stand in different groups, so no starter is drawn only for its place.
-    if group == Group::State {
+    // By state or by feature a Job and its starter may stand in different groups, so no starter is drawn only for its place.
+    if matches!(group, Group::State | Group::Feature | Group::Area) {
         places.clear();
     }
     let picked: Vec<&SessionRecord> = if places.is_empty() {
@@ -823,9 +892,47 @@ fn lines_grouped(
         kept
     };
     let now = chrono::Utc::now();
+    // The Jobs a sub project's heading may hold: those listed, but for a starter drawn only for its place.
+    let shown: Vec<&SessionRecord> = picked.iter().copied().filter(|job| !places.contains(job.id.as_str())).collect();
     // Each group by its key, its words, the state it stands for where it has one, and its Jobs.
     let mut projects: Vec<(String, String, Option<Stand>, Vec<&SessionRecord>)> = Vec::new();
+    // What each feature, area and No feature heading leads to, by its key.
+    let mut led: HashMap<String, leads::Lead> = HashMap::new();
+    let shelves = leads::shelves(jobs);
     match group {
+        Group::Feature | Group::Area => {
+            let mut none = Vec::new();
+            for job in picked {
+                let held: Vec<&leads::Shelf> = shelves.iter().filter(|shelf| shelf.jobs.contains(&job.id.as_str())).collect();
+                if held.is_empty() {
+                    none.push(job);
+                }
+                for shelf in held {
+                    let (key, name, lead) = match group {
+                        Group::Feature => (shelf.key.clone(), shelf.title, leads::Lead::Feature { project: shelf.project.to_string(), slug: shelf.slug.to_string() }),
+                        _ => (shelf.area_key.clone(), shelf.area_title, leads::Lead::Area),
+                    };
+                    match projects.iter_mut().find(|(held, ..)| *held == key) {
+                        // By area a Job in two features of one area stands under it once.
+                        Some((.., held)) => {
+                            if !held.iter().any(|one| one.id == job.id) {
+                                held.push(job);
+                            }
+                        }
+                        None => {
+                            led.insert(key.clone(), lead);
+                            projects.push((key, name.to_string(), None, vec![job]));
+                        }
+                    }
+                }
+            }
+            // Headings stand in the libraries' order, so a Job's move never moves one.
+            projects.sort_by_key(|(key, ..)| shelves.iter().position(|shelf| shelf.key == *key || shelf.area_key == *key));
+            if !none.is_empty() {
+                led.insert(NO_FEATURE.to_string(), leads::Lead::NoFeature);
+                projects.push((NO_FEATURE.to_string(), "No feature".to_string(), None, none));
+            }
+        }
         Group::Project => {
             for job in picked {
                 let (key, name) = group_of(job, names);
@@ -839,7 +946,7 @@ fn lines_grouped(
         }
         Group::State => {
             for job in picked {
-                let stand = stand_in(job);
+                let stand = stand_in(job, builds);
                 match projects.iter_mut().find(|(_, _, held, _)| *held == Some(stand)) {
                     Some((.., held)) => held.push(job),
                     None => projects.push((format!("stand:{}", stand.words()), stand.words().to_string(), Some(stand), vec![job])),
@@ -868,6 +975,7 @@ fn lines_grouped(
         waiting.sort_by_cached_key(|idea| idea.title().to_string().to_lowercase());
     }
     let idea_key = |idea: &crate::queued::QueuedIdea| match group {
+        Group::Feature | Group::Area => NO_FEATURE.to_string(),
         Group::Project => idea_group(idea).0,
         Group::State => format!("stand:{}", Stand::Saved.words()),
         Group::List => "list".to_string(),
@@ -876,6 +984,10 @@ fn lines_grouped(
         let key = idea_key(idea);
         if !projects.iter().any(|(held, ..)| *held == key) {
             match group {
+                Group::Feature | Group::Area => {
+                    led.insert(key.clone(), leads::Lead::NoFeature);
+                    projects.push((key, "No feature".to_string(), None, Vec::new()));
+                }
                 Group::Project => projects.push((key, idea_group(idea).1, None, Vec::new())),
                 Group::State => projects.push((key, Stand::Saved.words().to_string(), Some(Stand::Saved), Vec::new())),
                 Group::List => projects.push((key, String::new(), None, Vec::new())),
@@ -887,17 +999,100 @@ fn lines_grouped(
     }
     let headed = match group {
         Group::Project => projects.len() > 1,
-        Group::State => true,
+        Group::State | Group::Feature | Group::Area => true,
         Group::List => false,
     };
     projects.extend(asleep_mac::groups(&sleeping, asleep, names).into_iter().map(|(key, name, held)| (key, name, None, held)));
+    let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
+        id: job.id.as_str().to_string().into(),
+        title: title_of(job),
+        project: group_of(job, names).1.into(),
+        paused: paused(job),
+        prioritised: job.prioritised && job.state != SessionState::Ended,
+        snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
+        slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
+        ended: job.state == SessionState::Ended,
+        handing_off: handing_off(job),
+        kids: None,
+        earlier: spent(job, "replaces").map(|id| id.to_string().into()),
+        depth,
+        through: through.to_vec(),
+        ends: last,
+        started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), group_of(one, names).1.into())),
+        slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
+        branch: attached(job, "branch").map(|branch| branch.to_string().into()),
+        pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
+        last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
+        // A Job that went to the other Mac is ended here, as Fleet's mark for it says.
+        mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { mark_of(job) },
+        issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
+            let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
+            let title = one.detail.get("title").cloned().unwrap_or_default();
+            (number.into(), title.into())
+        }),
+        flow: flow_of(job),
+        track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
+        // A Ready Job's offered build says where the running preview has it, in every grouping.
+        now: builds.get(job.id.as_str()).filter(|_| matches!(stand_in(job, builds), Stand::InPreview | Stand::NotInPreview)).map(built::Built::said).or_else(|| now_of(job)).map(Into::into),
+        queued: None,
+        place: places.contains(job.id.as_str()),
+        mac: job.mac.clone().map(Into::into),
+        moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
+        moved: crate::move_to_mac::moved(job),
+        answer: job.answer_unread,
+        asleep: asleep_on(job).is_some(),
+        ending: None,
+        aside: None,
+        again: false,
+    };
+    fn under<'a>(
+        parent: &str,
+        depth: usize,
+        through: &[bool],
+        held: &[&'a SessionRecord],
+        row_of: &dyn Fn(&SessionRecord, usize, &[bool], bool) -> Row,
+        lines: &mut Vec<Line>,
+    ) {
+        let children: Vec<&&SessionRecord> = held.iter().filter(|job| starter_of(job) == Some(parent)).collect();
+        for (at, child) in children.iter().enumerate() {
+            let last = at + 1 == children.len();
+            lines.push(Line::Job(row_of(child, depth, through, last)));
+            let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
+            under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
+        }
+    }
+    // Each sub project of the listed Jobs heads them on top, in every grouping: its Jobs nested under it, as sub-Jobs are, and
+    // each still in its own group below. One with no Job listed is not drawn.
     let mut lines = Vec::new();
+    for sub in &leads.subs {
+        let members = leads.members(sub, &shown);
+        if members.is_empty() {
+            continue;
+        }
+        lines.push(Line::Group(Head { name: sub.name.clone().into(), count: members.len(), stand: None, lead: Some(leads::Lead::SubProject { id: sub.id.clone() }) }));
+        let held: Vec<&SessionRecord> = members.iter().map(|(job, _)| *job).collect();
+        let roots: Vec<&SessionRecord> = held.iter().copied().filter(|job| !starter_of(job).is_some_and(|id| held.iter().any(|one| one.id.as_str() == id))).collect();
+        let from = lines.len();
+        for (at, root) in roots.iter().enumerate() {
+            let last = at + 1 == roots.len();
+            lines.push(Line::Job(row_of(root, 1, &[], last)));
+            under(root.id.as_str(), 2, &[!last], &held, &row_of, &mut lines);
+        }
+        for line in &mut lines[from..] {
+            if let Line::Job(row) = line {
+                row.aside = members.iter().find(|(job, _)| job.id.as_str() == row.id.as_ref()).and_then(|(_, title)| title.as_deref()).map(leads::joined);
+            }
+        }
+    }
+    // By project one project draws no heading, unless a sub project heads Jobs over it.
+    let headed = headed || (group == Group::Project && !lines.is_empty());
     for (key, name, stand, held) in projects {
         if !asleep_mac::open_line(&key, asleep, &mut lines) && headed {
             // Its Jobs but for a starter drawn only for its place, and its ideas.
             let count = held.iter().filter(|job| !places.contains(job.id.as_str())).count() + waiting.iter().filter(|idea| idea_key(idea) == key).count();
-            lines.push(Line::Group(Head { name: name.clone().into(), count, stand }));
+            lines.push(Line::Group(Head { name: name.clone().into(), count, stand, lead: led.get(&key).cloned() }));
         }
+        let from = lines.len();
         for idea in waiting.iter().filter(|idea| idea_key(idea) == key) {
             lines.push(Line::Job(Row {
                 id: format!("queued:{}", idea.id).into(),
@@ -932,71 +1127,38 @@ fn lines_grouped(
                 answer: false,
                 asleep: false,
                 ending: None,
+                aside: None,
+                again: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
-        let row_of = |job: &SessionRecord, depth: usize, through: &[bool], last: bool| Row {
-            id: job.id.as_str().to_string().into(),
-            title: title_of(job),
-            project: group_of(job, names).1.into(),
-            paused: paused(job),
-            prioritised: job.prioritised && job.state != SessionState::Ended,
-            snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
-            slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
-            ended: job.state == SessionState::Ended,
-            handing_off: handing_off(job),
-            kids: None,
-            earlier: spent(job, "replaces").map(|id| id.to_string().into()),
-            depth,
-            through: through.to_vec(),
-            ends: last,
-            started_by: starter_of(job).and_then(|id| jobs.iter().find(|one| one.id.as_str() == id)).map(|one| (title_of(one), group_of(one, names).1.into())),
-            slot: attached(job, "slot").map(|slot| slot.rsplit('/').next().unwrap_or(slot).to_string().into()),
-            branch: attached(job, "branch").map(|branch| branch.to_string().into()),
-            pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
-            last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
-            // A Job that went to the other Mac is ended here, as Fleet's mark for it says.
-            mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { mark_of(job) },
-            issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
-                let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
-                let title = one.detail.get("title").cloned().unwrap_or_default();
-                (number.into(), title.into())
-            }),
-            flow: flow_of(job),
-            track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
-            now: now_of(job).map(Into::into),
-            queued: None,
-            place: places.contains(job.id.as_str()),
-            mac: job.mac.clone().map(Into::into),
-            moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
-            moved: crate::move_to_mac::moved(job),
-            answer: job.answer_unread,
-            asleep: asleep_on(job).is_some(),
-            ending: None,
-        };
-        fn under<'a>(
-            parent: &str,
-            depth: usize,
-            through: &[bool],
-            held: &[&'a SessionRecord],
-            row_of: &dyn Fn(&SessionRecord, usize, &[bool], bool) -> Row,
-            lines: &mut Vec<Line>,
-        ) {
-            let children: Vec<&&SessionRecord> = held.iter().filter(|job| starter_of(job) == Some(parent)).collect();
-            for (at, child) in children.iter().enumerate() {
-                let last = at + 1 == children.len();
-                lines.push(Line::Job(row_of(child, depth, through, last)));
-                let on: Vec<bool> = through.iter().copied().chain([!last]).collect();
-                under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
-            }
-        }
         for root in held.iter().filter(|job| !starter_of(job).is_some_and(listed)) {
             lines.push(Line::Job(row_of(root, 0, &[], true)));
             under(root.id.as_str(), 1, &[], &held, &row_of, &mut lines);
         }
+        // By feature a row names the other features its Job writes to, under each heading it stands under.
+        if group == Group::Feature && led.get(&key).is_some_and(|lead| matches!(lead, leads::Lead::Feature { .. })) {
+            for line in &mut lines[from..] {
+                if let Line::Job(row) = line {
+                    row.aside = leads::also_under(&leads::titles_of(&shelves, &row.id), &name);
+                }
+            }
+        }
+    }
+    // A Job drawn a second time, under another heading, is passed by the keys.
+    let mut seen: std::collections::HashSet<SharedString> = std::collections::HashSet::new();
+    for line in &mut lines {
+        if let Line::Job(row) = line {
+            if row.queued.is_none() && !seen.insert(row.id.clone()) {
+                row.again = true;
+            }
+        }
     }
     lines
 }
+
+/// The key of the No feature heading, by feature and by area.
+const NO_FEATURE: &str = "no-feature";
 
 /// `lines` with each parent's sub-Jobs folded away where `folds` shuts it, and its row told what stands under
 /// it: a folded parent keeps their glyphs, one that needs him first, so folding hides no need. A parent drawn only
@@ -1267,6 +1429,16 @@ pub struct JobsList {
     selected: Vec<SharedString>,
     /// The row a ⇧-click or ⇧↓ selects from: the last one clicked, toggled or extended from.
     anchor: Option<SharedString>,
+    /// The projects' libraries the feature groupings read (`leads`), when they were last asked for, and the read under way.
+    leads: leads::Leads,
+    /// Where each Job's offered build stands against the running preview, from the offers Fleet last listed.
+    builds: built::Builds,
+    leads_at: Option<std::time::Instant>,
+    leads_read: Option<Task<()>>,
+    /// The sheet that names a sub project, while it is open.
+    naming: Option<(Entity<name_sheet::NameSheet>, Subscription)>,
+    /// A feature's or a sub project's board, with the picks as they stood when it opened: a Job opened since stands in its place.
+    board: Option<(Entity<board::LeadBoard>, u64)>,
 }
 
 /// How the Jobs list on mock Jobs is grouped while a walk plays. A walk about the view button opens by state, as a first start does;
@@ -1371,10 +1543,15 @@ impl JobsList {
                 this.hold_asked_titles(&mut jobs);
                 this.hold_ending(&mut jobs);
             }
+            let builds = built::Builds::of(held.offers.as_ref());
             if !unmoved && (jobs != this.jobs || names != this.names) {
                 this.jobs = jobs;
                 this.names = names;
+                this.builds = builds;
                 this.place_new();
+                this.relist(cx);
+            } else if builds != this.builds {
+                this.builds = builds;
                 this.relist(cx);
             }
             if operator != this.operator {
@@ -1387,6 +1564,7 @@ impl JobsList {
             if this.resume_open() {
                 cx.notify();
             }
+            this.refresh_leads(false, cx);
         });
         let (scope, group, order) = read_deck();
         crate::queued::begin(true, cx);
@@ -1467,6 +1645,12 @@ impl JobsList {
             _removed: None,
             selected: Vec::new(),
             anchor: None,
+            leads: leads::Leads::default(),
+            builds: built::Builds::default(),
+            leads_at: None,
+            leads_read: None,
+            naming: None,
+            board: None,
         };
         if fleet_held {
             this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
@@ -1769,11 +1953,6 @@ impl JobsList {
         true
     }
 
-    /// The Operator's session is shut again: the Job that was open before it is open once more.
-    pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
-        self.open_quietly(was, cx);
-    }
-
     /// A Job opens as no pick does: the Job's box does not take the keys. For a place over the Jobs screen that draws one of its Job's parts.
     pub fn open_quietly(&mut self, id: Option<SharedString>, cx: &mut Context<Self>) {
         self.opened = id.clone();
@@ -1915,7 +2094,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        let mut lines = lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done);
+        let mut lines = lines_led(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done, &self.leads, &self.builds);
         if !self.ending.is_empty() {
             for line in lines.iter_mut() {
                 if let Line::Job(row) = line {
@@ -2106,9 +2285,11 @@ impl JobsList {
     /// What the keys can land on at this line: a Job, or the fold of a Mac asleep, by the id they carry.
     fn stop_at(&self, at: usize) -> Option<SharedString> {
         match self.lines.get(at)? {
+            Line::Job(row) if row.again => None,
             Line::Job(row) => Some(row.id.clone()),
             Line::Asleep(shelf) => Some(shelf.id()),
-            Line::Group(_) => None,
+            // A feature's or a sub project's heading, whose board Enter opens.
+            Line::Group(head) => head.lead.as_ref().and_then(leads::Lead::stop),
         }
     }
 
@@ -2316,6 +2497,8 @@ impl JobsList {
             // An idea's row starts it: ↵ is the press with no pointer (`QueuedRow`).
             if let Some(idea) = self.focused_idea() {
                 crate::dispatch::start_queued(idea, cx);
+            } else if let Some(lead) = self.focused_lead() {
+                self.open_board(lead, window, cx);
             } else if let Some((mac, open)) = self.focused_shelf() {
                 self.set_shelf(&mac, !open, cx);
             } else if self.focused.is_some() {
@@ -2653,7 +2836,7 @@ impl JobsList {
             },
             act("name", "Name it for me", Some("wand-sparkles"), false),
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
-            act("try", "Try it in your app", None, false),
+            act("try", "Try it in your app", Some("flask-conical"), false),
             act("judge", "Judge", Some("scale"), false),
             // Fleet carries Close to the Mac that holds the Job, so it stays on.
             match self.record(&id).and_then(|job| crate::pairing::refusal_to(job, "/sessions/close", cx)) {
@@ -2669,14 +2852,17 @@ impl JobsList {
         // Move to the other Mac, or bring the Job here, under Snooze: the Job's own state acts stand together.
         let mut after = if row.snoozed.is_some() { 2 } else { 3 };
         if let Some(offer) = self.record(&id).and_then(|job| crate::move_to_mac::offer(job, crate::pairing::macs(cx))) {
-            entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
+            entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: Some("arrow-right-left"), danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
             after += 1;
         }
         // Move to a project, after Move to Mac: it reaches the whole selection where this row is in it.
         if let Some(job) = self.record(&id).filter(|job| crate::move_to_project::movable(job)) {
             let off = crate::pairing::refusal_to(job, crate::move_to_project::ROUTE, cx).map(Into::into);
-            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: None, danger: false, key: Some("\u{21e7}P".into()), off });
+            entries.insert(after, Entry::Item { id: "move_project", label: "Move to project".into(), icon: Some("folder-input"), danger: false, key: Some("\u{21e7}P".into()), off });
+            after += 1;
         }
+        // Start a sub project, after Move to project: it groups the whole selection where this row is in it.
+        entries.insert(after, Entry::Item { id: "sub_project", label: "Start a sub project".into(), icon: Some("boxes"), danger: false, key: Some("\u{21e7}S".into()), off: None });
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
         let row_folded = row.kids.as_ref().map(|kids| kids.folded);
@@ -2706,6 +2892,13 @@ impl JobsList {
                     cx.defer_in(window, move |this, window, cx| {
                         let ids = this.reached_by(&job);
                         this.open_project_picker(ids, Some(at), from_keys, None, window, cx);
+                    });
+                }
+                "sub_project" => {
+                    let job = job.clone();
+                    cx.defer_in(window, move |this, window, cx| {
+                        let ids = this.reached_by(&job);
+                        this.open_name_sheet(ids, Some(at), window, cx);
                     });
                 }
                 "judge" => this.judge_job(&job, window, cx),
@@ -2749,10 +2942,12 @@ impl JobsList {
         let mut entries = Vec::new();
         if let Some(folded) = row_folded {
             let label = if folded { "Unfold sub-Jobs" } else { "Fold sub-Jobs" };
-            entries.push(Entry::Act { id: "fold", label: label.into(), icon: None, danger: false });
+            let icon = if folded { "unfold-vertical" } else { "fold-vertical" };
+            entries.push(Entry::Act { id: "fold", label: label.into(), icon: Some(icon), danger: false });
         }
         let label = if all_unfold { "Unfold all sub-Jobs" } else { "Fold all sub-Jobs" };
-        entries.push(Entry::Act { id: "fold_all", label: label.into(), icon: None, danger: false });
+        let icon = if all_unfold { "chevrons-up-down" } else { "chevrons-down-up" };
+        entries.push(Entry::Act { id: "fold_all", label: label.into(), icon: Some(icon), danger: false });
         entries.push(Entry::Rule);
         entries
     }
@@ -2823,6 +3018,7 @@ impl JobsList {
             self.group = *group;
             self.keep();
             self.relist(cx);
+            self.refresh_leads(true, cx);
         } else if let Some((scope, ..)) = SHOWS.iter().find(|(_, held, _)| *held == id) {
             self.scope = *scope;
             self.keep();
@@ -3005,7 +3201,7 @@ impl JobsList {
         let look = cx.look();
         let view = self.view;
         let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
-        let focused = self.focused.as_ref() == Some(&row.id);
+        let focused = self.focused.as_ref() == Some(&row.id) && !row.again;
         // The row stands for the earlier Job too: it is open when that one is.
         let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
@@ -3105,8 +3301,9 @@ impl JobsList {
                 .child(last)
                 .tooltip(tip("Last turn".into()))
         });
+        let aside = row.aside.clone().map(|aside| meta(look).min_w_0().truncate().text_color(look.color(token::FG_SUBTLE)).child(aside));
         let tagged = issue.is_some() || pr.is_some();
-        let under = tagged || flow.is_some() || now.is_some();
+        let under = tagged || flow.is_some() || now.is_some() || aside.is_some();
         let lamp_ink = look.color(lamp);
         // A folded parent keeps its sub-Jobs' glyphs in a strip, one that needs him first: folding hides no need.
         let strip_of = row.kids.as_ref().filter(|kids| kids.folded && !kids.strip.is_empty()).map(|kids| {
@@ -3348,7 +3545,7 @@ impl JobsList {
             .when(row.asleep, |strip| strip.opacity(0.6))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
             .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
-            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .when(!row.again, |strip| strip.child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full()))
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
                 strip.child(div().absolute().inset_0().rounded(radius).with_animation(
@@ -3403,7 +3600,8 @@ impl JobsList {
                         .gap(look.length(token::SPACE_1))
                         .when(tagged, |lines| lines.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(issue).children(pr)))
                         .children(flow)
-                        .children(now),
+                        .children(now)
+                        .children(aside),
                 )
             })
             .when(!row.place, |strip| {
@@ -3515,6 +3713,10 @@ impl JobsList {
 
     fn render_line(&self, at: usize, cx: &mut Context<Self>) -> gpui::AnyElement {
         match &self.lines[at] {
+            Line::Group(head) if head.lead.is_some() => {
+                let head = head.clone();
+                self.render_lead(at, &head, cx)
+            }
             Line::Group(head) => {
                 let look = cx.look();
                 let hue = head.stand.map_or(token::STATUS_NOT_STARTED, Stand::hue);
@@ -3540,6 +3742,11 @@ impl JobsList {
                     name,
                 )
                 .into_any_element()
+            }
+            // A Job's second row carries its element ids under its own place, so no two rows share one.
+            Line::Job(row) if row.again => {
+                let row = row.clone();
+                div().id(("again", at)).flex_none().flex().flex_col().child(self.render_job(at, &row, cx)).into_any_element()
             }
             Line::Job(row) => {
                 let row = row.clone();
@@ -3741,6 +3948,7 @@ impl Render for JobsList {
                     .on_action(cx.listener(Self::on_earlier))
                     .on_action(cx.listener(Self::on_fold_row))
                     .on_action(cx.listener(Self::on_unfold_row))
+                    .on_action(cx.listener(Self::on_start_sub_project))
                     .track_scroll(&self.scroll)
                     .overflow_y_scroll()
                     .size_full()
@@ -3765,6 +3973,7 @@ impl Render for JobsList {
             .children(card)
             .children(self.menu.as_ref().map(|open| open.menu.clone()))
             .children(self.filter.as_ref().map(|open| open.menu.clone()))
+            .children(self.naming.as_ref().map(|(sheet, _)| sheet.clone()))
     }
 }
 
@@ -3810,8 +4019,8 @@ pub struct JobsScreen {
     drawn: Rc<std::cell::Cell<u64>>,
     /// The Cockpit's home: the Operator's page, drawn on the right while no Job is open.
     home: Option<Entity<crate::operator::page::OperatorPageView>>,
-    /// The floor plan that stands in the page's place while the Operator is off, and the redraw it asks for when that changes.
-    floor: Option<(Entity<crate::features::floor_home::Floor>, Subscription)>,
+    /// The home that stands in the page's place while the Operator is off, and the redraw it asks for when that changes.
+    home_blocks: Option<(Entity<crate::home::HomeScreen>, Subscription)>,
     _drawn_with: Subscription,
 }
 
@@ -3950,7 +4159,7 @@ impl JobsScreen {
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, floor: None, _drawn_with: drawn_with }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, home_blocks: None, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -3974,10 +4183,14 @@ impl JobsScreen {
         cx.notify();
     }
 
-    /// The floor plan stands where the page does while the Operator is off.
-    pub(crate) fn set_floor(&mut self, floor: Entity<crate::features::floor_home::Floor>, cx: &mut Context<Self>) {
-        let sub = cx.subscribe(&floor, |_, _, _: &crate::features::floor_home::Moved, cx| cx.notify());
-        self.floor = Some((floor, sub));
+    /// The home of blocks stands where the page does while the Operator is off.
+    pub(crate) fn set_home_blocks(&mut self, blocks: Entity<crate::home::HomeScreen>, cx: &mut Context<Self>) {
+        let sub = cx.subscribe(&blocks, |_, _, event: &crate::home::HomeEvent, cx| {
+            if matches!(event, crate::home::HomeEvent::Moved) {
+                cx.notify();
+            }
+        });
+        self.home_blocks = Some((blocks, sub));
         cx.notify();
     }
 
@@ -4025,8 +4238,8 @@ impl JobsScreen {
             .flex()
             .flex_col()
             .children(hosts.then(|| div().absolute().size_full().invisible().child(self.view.clone())))
-            .child(match self.floor.as_ref().filter(|(floor, _)| floor.read(cx).is_up(cx)) {
-                Some((floor, _)) => div().flex_1().min_h_0().child(floor.clone()),
+            .child(match self.home_blocks.as_ref().filter(|(blocks, _)| blocks.read(cx).is_up(cx)) {
+                Some((blocks, _)) => div().flex_1().min_h_0().child(blocks.clone()),
                 None => div().flex_1().min_h_0().child(page),
             })
             .into_any_element()
@@ -4376,9 +4589,11 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(match self.home.clone().filter(|_| self.list.read(cx).at_home()) {
-                                    Some(page) => self.home_area(page, cx),
-                                    None => self.job_area(window, cx),
+                                .child(match (self.list.read(cx).board(), self.home.clone().filter(|_| self.list.read(cx).at_home())) {
+                                    // A feature's or a sub project's board stands where a Job opens.
+                                    (Some(board), _) => board.into_any_element(),
+                                    (None, Some(page)) => self.home_area(page, cx),
+                                    (None, None) => self.job_area(window, cx),
                                 }),
                         ),
                 )
@@ -4936,8 +5151,12 @@ mod tests {
         view.flip("view:now");
         assert!(view.on("view:now"));
         let entries = view.entries();
-        assert!(matches!(entries[0], Entry::Label("View")));
-        assert_eq!(entries.len(), VIEW_FIELDS.len() + 1);
+        let [Entry::Row(card)] = entries.as_slice() else { panic!("the main menu holds one Job Card row") };
+        assert_eq!(card.label.as_ref(), "Job Card");
+        assert!(card.icon.is_some());
+        let ticks: Vec<_> = card.acts().iter().map(|entry| match entry { Entry::Row(row) => (row.id, row.ticked), _ => panic!("a switch is a row") }).collect();
+        assert_eq!(ticks.len(), VIEW_FIELDS.len());
+        assert_eq!(ticks.iter().find(|(id, _)| *id == "view:now"), Some(&("view:now", Some(true))));
     }
 
     fn tree() -> Vec<SessionRecord> {
@@ -5573,7 +5792,7 @@ mod tests {
         };
         assert_eq!(
             words(view_entries(Scope::Needs, Group::Project, true, false)),
-            ["# Group", "  By state", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Done Jobs true", "Root Jobs only true"]
+            ["# Group", "  By state", "  By feature", "  By area", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Done Jobs true", "Root Jobs only true"]
         );
         assert_eq!(words(view_entries(Scope::Active, Group::State, false, false))[1..2], ["x By state"]);
     }

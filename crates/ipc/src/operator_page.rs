@@ -173,6 +173,9 @@ pub struct OperatorTurnItem {
     /// other item. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub card: Option<crate::OperatorCard>,
+    /// Whose Operator the item is: its project, name and accent. Absent on an item no project's Operator holds. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator: Option<crate::OperatorTag>,
 }
 
 /// What the Operator is reading now.
@@ -384,6 +387,10 @@ pub struct OperatorFeedEntry {
     /// What was said: how a card was settled, what a Job asked or sent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub said: Option<String>,
+    /// Whose Operator the line is. Absent on a line kept before each project had one, and on one read from the ledger.
+    /// Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator: Option<crate::OperatorTag>,
 }
 
 /// `operator_page`: the whole page.
@@ -421,10 +428,17 @@ pub struct OperatorPage {
     /// The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// The newest Operator session, ended ones too: the thread the page draws while none runs, so the talk is
+    /// never gone. The same as `session_id` while one runs. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub talk_session_id: Option<SessionId>,
     /// What the Operator may do unasked in each served project, `acts` absent where he has not said.
     /// Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub operator_acts: Vec<crate::ProjectOperatorActs>,
+    /// Each project's Operator: what it is set to and the session that runs it. `session_id` above is the first running one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operators: Vec<crate::ProjectOperatorSettings>,
 }
 
 /// `operator_answer`: one press on an item.

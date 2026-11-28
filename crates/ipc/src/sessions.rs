@@ -937,6 +937,22 @@ pub enum WaitingSource {
     /// a reminder comes due. Answering it here is refused and Approve all passes it by. Dismissing it puts away only the cards open then, so a card offered later raises it again.
     /// Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
     ReadyToTry,
+    /// Fleet: a Job sent a `raise_conflict` naming files, so the two Jobs did not agree which lands first. Derived on
+    /// every read from the kept clash while it waits, never kept in the Job's list, and **raised whether the Operator
+    /// is on or off**: id `clash:<a>:<b>`, the two addresses sorted, text `Which lands first, "<sender>" or
+    /// "<other>"?`, an `answer` act whose `target` is the id, and exactly two options, the sender's title (choice 0)
+    /// and the other's (choice 1), each with a description of who waits. **It stands in place of the conflict's
+    /// `job_conflict` item**, before his choice and after it, so one ask is one item. His choice is kept as the clash's order,
+    /// `ruled` on both Jobs' `clashes`, and both Jobs are told it. The Job that raised it holds the item. Dismissing
+    /// it is refused. Listed only while the Job is live. Since 27 Nov 2026.
+    ClashOrder,
+    /// Fleet: the orchestrator of a sub project called `all_done`, or every Job of the sub project merged or ended. On the
+    /// orchestrator's list, derived on every read from the sub project, never kept in the Job's list: id
+    /// `goal_met:<sub project id>`, text `Goal met?`, an `answer` act whose `target` is the id, `goal_met` carrying the
+    /// goal and the pull requests that landed, and exactly two options, `Agree` (choice 0), which folds the sub project
+    /// away, and `Not yet` (choice 1), which keeps it open until the orchestrator next calls `all_done`. **Neither sends
+    /// the agent a word.** Dismissing it is refused. Listed only while the Job is live. Since 27 Nov 2026.
+    GoalMet,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -1081,6 +1097,9 @@ pub struct WaitingItem {
     /// from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact: Option<String>,
+    /// On a `goal_met` item only: the sub project's goal and what landed. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal_met: Option<crate::GoalMet>,
     /// Its place among the Job's open asks, 1 first: the Job's own order from `order_waiting`, else Fleet's
     /// fallback. 0 on a list that is not a Job's open asks, such as the closed ones. `docs/concepts/session/waiting-on-the-person.md`.
     #[serde(default, skip_serializing_if = "is_unplaced")]
@@ -1589,7 +1608,7 @@ pub struct SessionRecord {
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub side_job: bool,
-    /// The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+    /// The Operator's own session: one for each project, hosted with no repository, no slot and no Manifest, which
     /// Bridge keeps out of the Jobs list. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub operator: bool,
@@ -1734,6 +1753,11 @@ pub struct SessionRecord {
     /// waits on none. Since 14 Nov 2026. `docs/practices/protocol/a-jobs-wait-on-a-held-item.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub claim_waits: Vec<ClaimWait>,
+    /// Each clash this Job is one of two in: files both write, raised with `raise_conflict` or settled with
+    /// `settle_clash`, the same on the other Job's record. Empty where it has none. Since 27 Nov 2026.
+    /// `docs/concepts/fleet.md`, *Claims a Job holds*.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clashes: Vec<crate::JobClash>,
     /// Whether the Job holds claims its project's store has not taken yet, because the store did not
     /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -1742,6 +1766,26 @@ pub struct SessionRecord {
     /// `list_job_questions` names which. Absent where none waits. Since 17 Nov 2026. `docs/concepts/job-story.md`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub answer_unread: bool,
+    /// The features the Job writes to now: each feature of a library it filed a written file under, once, in the library's
+    /// order, while it is live and holds a slot. The Jobs list groups by feature and by area from these. Empty for a Job that
+    /// writes to none and for one that has ended. Since 27 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<SessionFeature>,
+}
+
+/// A feature a Job writes to, with enough of its library to draw its heading and its area's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionFeature {
+    /// The project whose library holds it, by id.
+    pub project: String,
+    pub slug: String,
+    pub title: String,
+    /// The slug of its area, and the area's title.
+    pub area: String,
+    pub area_title: String,
+    /// Its area's place in the library and its own place in the area, so headings stand in the library's order.
+    pub area_place: u32,
+    pub place: u32,
 }
 
 /// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is

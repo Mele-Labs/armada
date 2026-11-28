@@ -53,6 +53,7 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
         .map_err(|why| why.to_string())?;
         cx.run_until_parked();
         cx.update_window(handle.into(), |_, _, cx| store::shown(JOB, cx)).map_err(|why| why.to_string())?;
+        cx.update_window(handle.into(), |_, window, cx| view.update(cx, |view, cx| drop(view.story_of(JOB, window, cx)))).map_err(|why| why.to_string())?;
         let draw = |cx: &mut HeadlessAppContext| -> Result<(), String> {
             for _ in 0..3 {
                 cx.run_until_parked();
@@ -66,8 +67,8 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
             view.update(cx, |view, cx| {
                 let id: gpui::SharedString = JOB.into();
                 let (marks, _) = view.rail_marks(&id, cx);
-                if let (Some(page), Some(mark)) = (view.pages.get(&id), marks.get(1)) {
-                    page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(mark.item), offset_in_item: px(0.) });
+                if let (Some(page), Some(item)) = (view.pages.get(&id), marks.iter().filter_map(|bar| bar.at).nth(1)) {
+                    page.list.scroll_to(gpui::ListOffset { item_ix: page.entry(item), offset_in_item: px(0.) });
                 }
                 cx.notify();
             })

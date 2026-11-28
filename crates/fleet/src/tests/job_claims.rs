@@ -1,6 +1,7 @@
 //! A live Job's claims in its project's store, with two Macs on one store and one beads remote: a
 //! second Job on a held item waits naming the first and carries on once it closes, a person's beads
-//! item is never taken, two Jobs on one file are both told and both carry on, a Job keeps working
+//! item is never taken, two Jobs on one file are both told and both carry on, a Job that started
+//! the writer is told nothing, a Job keeps working
 //! while the store is down and its claims go out when it answers, and a renewal is one call a Job
 //! every five minutes, taken again once its claims lapsed.
 
@@ -195,6 +196,33 @@ async fn two_jobs_writing_one_file_are_both_told_and_both_carry_on() {
     }
 }
 
+/// Confirmed 25-26 Nov 2026: a Job that started others and wrote nothing was told four times that a
+/// Job "also writes" a path its plan named, once naming its own child.
+#[tokio::test]
+async fn a_job_that_started_the_writer_is_told_nothing_and_the_writers_are_told_of_each_other() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let (home, work) = (mac("home", &shared, &remote).await, mac("work", &shared, &remote).await);
+    let parent = home.job("Report operator issues").await;
+    let child = home.job("Operator thread and composer").await;
+    let third = work.job("Librarian on the dashboard").await;
+    crate::tests::document_answers::plan_recorded(&home.rig, &parent).await;
+    home.rig.fleet.started_linked(parent.as_str(), child.as_str(), home.rig.manifest.as_str(), None).await.expect("linked");
+    home.writes(&child, "crates/store");
+    work.writes(&third, "crates/store");
+
+    home.pass(1).await;
+    work.pass(1).await;
+    home.pass(300).await;
+
+    let to_parent = home.told(&parent).await;
+    assert!(to_parent.is_empty(), "the parent writes nothing: {to_parent:?}");
+    assert_ne!(holder_of(&shared, ClaimKind::File, "crates/store").as_deref(), Some(parent.as_str()), "its plan's paths are its children's to claim");
+    let to_child = home.told(&child).await;
+    assert!(to_child.len() == 1 && to_child[0].contains("Job \"Librarian on the dashboard\" on octocat's Mac work also writes `crates/store`"), "{to_child:?}");
+    let to_third = work.told(&third).await;
+    assert!(to_third.len() == 1 && to_third[0].contains("Job \"Operator thread and composer\" on octocat's Mac home also writes `crates/store`"), "{to_third:?}");
+}
+
 /// Confirmed 16 Nov 2026: each Fleet restart told every Job again of every file another Job writes,
 /// and of every item it waits on.
 #[tokio::test]
@@ -279,5 +307,43 @@ async fn a_renewal_is_one_call_a_job_every_five_minutes_and_lapsed_claims_are_ta
     home.pass(60).await;
     for path in ["src/a.rs", "src/b.rs"] {
         assert_eq!(holder_of(&shared, ClaimKind::File, path).as_deref(), Some(job.as_str()), "{path} taken again");
+    }
+}
+
+/// The owner's ruling, 27 Nov 2026: Fleet tells both writers of a file, and the two settle which lands first between
+/// them. Once they record it, neither is told of that file again, and both rows carry it.
+#[tokio::test]
+async fn two_jobs_that_settle_a_shared_file_are_not_told_of_it_again_and_both_rows_carry_it() {
+    let (shared, remote) = (FakeStore::new(), FakeBeadsRemote::new());
+    let home = mac("home", &shared, &remote).await;
+    let one = home.job("Tidy the log").await;
+    let two = home.job("Quiet the log").await;
+    home.writes(&one, "src/log.rs");
+    home.writes(&two, "src/log.rs");
+
+    home.pass(1).await;
+
+    let (told, other) = match home.told(&one).await.is_empty() {
+        true => (two.clone(), one.clone()),
+        false => (one.clone(), two.clone()),
+    };
+    let word = home.told(&told).await;
+    let address = crate::session_host::address_of(other.as_str());
+    assert!(word.len() == 1 && word[0].contains(&format!("also writes `src/log.rs`. Message it at {address}")) && word[0].contains("`settle_clash`") && word[0].contains("`raise_conflict`"), "{word:?}");
+    assert!(home.told(&other).await.is_empty(), "the holder hears at its renewal");
+
+    let settle = ipc::SettleClash { with: address, files: vec!["src/log.rs".into()], first: ipc::ClashFirst::Them, why: "Its change is the smaller one.".into(), session_id: Some(told.clone()) };
+    let settled = Arc::clone(&home.rig.fleet).settle_clash(None, settle).await.expect("settled");
+    assert_eq!((settled.standing, settled.first.as_ref()), (ipc::ClashStanding::Agreed, Some(&other)));
+
+    home.pass(300).await;
+    home.pass(300).await;
+
+    assert!(home.told(&other).await.is_empty(), "the holder is not told of a file the two settled: {:?}", home.told(&other).await);
+    assert_eq!(home.told(&told).await, word, "nor is the Job that settled it told again");
+    for job in [&one, &two] {
+        let clashes = home.record(job).await.clashes;
+        let [clash] = clashes.as_slice() else { panic!("one clash on {}: {clashes:?}", job.as_str()) };
+        assert_eq!((clash.files.as_slice(), clash.first.as_ref(), clash.why.as_str()), (["src/log.rs".to_string()].as_slice(), Some(&other), "Its change is the smaller one."));
     }
 }

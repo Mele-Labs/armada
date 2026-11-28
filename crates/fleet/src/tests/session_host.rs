@@ -1581,7 +1581,7 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
     let peer: std::net::SocketAddr = "127.0.0.1:50999".parse().unwrap();
     let caller = api::Caller::at(peer);
     assert!(
-        rig.fleet.words_reach_at(caller).is_none(),
+        rig.fleet.words_reach_at(caller).await.is_none(),
         "no process, no session"
     );
 
@@ -1589,6 +1589,7 @@ async fn a_call_on_a_hosted_sessions_connection_is_its_own_ask_and_its_door_offe
     let reach = rig
         .fleet
         .words_reach_at(caller)
+        .await
         .expect("a hosted session's connection");
     assert!(reach.is_a_hosted_session());
     assert!(reach.may("ask_the_person"));

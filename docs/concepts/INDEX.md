@@ -36,7 +36,7 @@ assuming it is restated here.
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
 | [native-bridge.md](native-bridge.md) | The Bridge, built natively in Rust on gpui to replace Classic: what was decided, what shipped by switch day and what native does not have yet |
-| [operator.md](operator.md) | The one agent session per Mac across every project: its cards, its page, what it may do unasked, and what went |
+| [operator.md](operator.md) | One agent session for each project: its cards, its page, what it may do unasked, and what went |
 | [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [project.md](project.md) | A list of tasks and linked issues one person keeps for one repository in Bridge's Projects tab, with a `task_done` question when a Job or a pull request finishes one |
 | [pull-review.md](pull-review.md) | Bridge's Reviews tab: the pull requests waiting on a person, a page for each, and the review he writes on one |

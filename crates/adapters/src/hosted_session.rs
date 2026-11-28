@@ -28,6 +28,7 @@ use ipc::SessionMode;
 use serde::Serialize;
 
 use crate::harness::HeadlessAgent;
+use crate::operator_prompt::OperatorPrompt;
 
 /// What the ledger calls the harness a hosted session runs in: the name the
 /// mod in a terminal session reports under, so the two are one harness.
@@ -84,6 +85,16 @@ pub const SESSION_RULES: &str = include_str!("session_rules.md");
 /// unasked. Told in place of [`SESSION_RULES`] to the Operator's own session and to no other.
 pub const OPERATOR_RULES: &str = include_str!("operator_rules.md");
 
+/// [`OPERATOR_RULES`] with the story kinds written in from `story_kinds.toml`, so the Operator knows the kinds the
+/// dispatch sheet offers and no copy of them is kept in its rules.
+pub fn operator_rules() -> String {
+    let kinds: Vec<String> = ipc::story_kinds::story_kinds()
+        .iter()
+        .map(|kind| format!("- `{}`, {}, \"{} …\": {}", kind.id, kind.name, kind.opening, kind.starts))
+        .collect();
+    OPERATOR_RULES.replace("{story_kinds}", &kinds.join("\n"))
+}
+
 /// What a Job is told of its own id. **Here and not only in the mod's `armadaSession` note**, because
 /// an organization's Claude Code can pass over the mod's prompt hooks, and a start argument is
 /// Fleet's own. `docs/contracts/agent-prompt/5f-the-job-rules.md`.
@@ -130,8 +141,8 @@ pub struct HostedLaunch {
     skills_off: Vec<String>,
     /// Whether the CLI is asked for its thinking summaries.
     thinking_summaries: bool,
-    /// The Operator's own session, told [`OPERATOR_RULES`] where a Job is told [`SESSION_RULES`].
-    operator: bool,
+    /// The Operator's own session, told its [`OperatorPrompt`] where a Job is told [`SESSION_RULES`].
+    operator: Option<OperatorPrompt>,
 }
 
 impl HostedLaunch {
@@ -200,7 +211,7 @@ impl HostedLaunch {
             subagent_cache_ttl: None,
             skills_off: Vec::new(),
             thinking_summaries: false,
-            operator: false,
+            operator: None,
         })
     }
 }
@@ -257,9 +268,9 @@ impl HostedLaunch {
         self
     }
 
-    /// This is the Operator's session: its system prompt carries the Operator's rules and not a Job's.
-    pub fn as_operator(mut self) -> HostedLaunch {
-        self.operator = true;
+    /// This is the Operator's session: its system prompt carries `prompt` and not a Job's rules, and it runs in `prompt`'s style.
+    pub fn as_operator(mut self, prompt: OperatorPrompt) -> HostedLaunch {
+        self.operator = Some(prompt);
         self
     }
 
@@ -334,7 +345,7 @@ struct Settings<'a> {
     #[serde(rename = "skillOverrides", skip_serializing_if = "BTreeMap::is_empty")]
     skill_overrides: BTreeMap<&'a str, &'static str>,
     #[serde(rename = "outputStyle", skip_serializing_if = "Option::is_none")]
-    output_style: Option<&'static str>,
+    output_style: Option<&'a str>,
     hooks: Hooks<'a>,
 }
 
@@ -386,7 +397,7 @@ impl HeadlessAgent {
             available_models: &hosted.models,
             enforce_available_models: !hosted.models.is_empty(),
             skill_overrides: hosted.skills_off.iter().map(|name| (name.as_str(), SKILL_HIDDEN)).collect(),
-            output_style: hosted.operator.then_some(OPERATOR_STYLE),
+            output_style: hosted.operator.as_ref().map(|prompt| prompt.style.as_str()),
             hooks: Hooks {
                 pre_tool_use: [Matched {
                     matcher: GATED_TOOLS,
@@ -419,8 +430,8 @@ impl HeadlessAgent {
         ];
         // One argument, since the CLI reads the last of several. The rules lead, then the Job's id; a note and a fork's note add to them.
         // The Operator is not a Job, so it is told no Job's id.
-        let named = (!hosted.operator).then(|| job_named(&hosted.session));
-        let rules = if hosted.operator { OPERATOR_RULES } else { SESSION_RULES };
+        let named = hosted.operator.is_none().then(|| job_named(&hosted.session));
+        let rules = hosted.operator.as_ref().map_or_else(|| SESSION_RULES.to_string(), OperatorPrompt::told);
         let told: Vec<&str> = [Some(rules.trim()), named.as_deref(), hosted.note.as_deref(), hosted.fork_note.as_deref()]
             .into_iter()
             .flatten()

@@ -2,14 +2,19 @@
 //! field for this Mac's token or the words of what broke. What is drawn is worked out in `metric.rs`; List, Table and Cards are
 //! the board's own (`view.rs`).
 
-use gpui::{canvas, div, point, prelude::*, px, size, AnyElement, Bounds, Context, Corners, FontWeight, PathBuilder, Role, SharedString};
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
+use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use gpui_component::input::Input;
 use ipc::{MetricAnswer, MetricCredential, MetricReading, MetricState};
 
 use super::board::Board;
 use super::layout::{BlockKind, View};
-use super::metric::{self, Plot};
+use super::metric;
 use super::model::{Press, Shown};
+use crate::graph::compile;
+use crate::graph::plot::{GraphPlot, Inks};
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::settings::view::ring_colour;
@@ -82,61 +87,39 @@ impl Board {
         }
     }
 
-    /// The series as a line in time, with the clock at each end. Rows that carry a time are the series; otherwise it is what
-    /// Fleet kept from its readings. A single reading is a dot at the right end, and the line starts at the next.
+    /// The series as an area in time, drawn by the thread's graph compiler: its time axis, a faint grid, the metric's unit
+    /// and a readout under the pointer. Rows that carry a time are the series; otherwise it is what Fleet kept from its
+    /// readings. A single reading is a dot at the right end with its clock under it, and the line starts at the next.
     fn metric_graph(&self, reading: &MetricReading, look: &Look) -> AnyElement {
         let plot = metric::plot(reading);
-        let points: Vec<(f32, f32)> = plot.points().iter().map(|(at, value)| (at.timestamp_millis() as f32, *value as f32)).collect();
-        let (Some(first), Some(last)) = (plot.points().first(), plot.points().last()) else { return div().into_any_element() };
-        let single = points.len() < 2;
-        let (line, base) = (look.color(token::SKETCH_BLUE), look.color(token::BORDER_DEFAULT));
-        let (from, to) = (points[0].0, points[points.len() - 1].0);
-        let low = points.iter().map(|(_, value)| *value).fold(f32::INFINITY, f32::min);
-        let high = points.iter().map(|(_, value)| *value).fold(f32::NEG_INFINITY, f32::max);
-        let drawing = canvas(
-            |_, _, _| {},
-            move |bounds: Bounds<gpui::Pixels>, _, window, _| {
-                let pad = px(4.);
-                let (width, height) = (bounds.size.width - pad * 2.0, bounds.size.height - pad * 2.0);
-                let at = |time: f32, value: f32| {
-                    let across = if to > from { (time - from) / (to - from) } else { 1. };
-                    let up = if high > low { (value - low) / (high - low) } else { 0.5 };
-                    point(bounds.origin.x + pad + width * across, bounds.origin.y + pad + height * (1. - up))
-                };
-                let mut floor = PathBuilder::stroke(px(1.));
-                floor.move_to(point(bounds.origin.x, bounds.origin.y + bounds.size.height));
-                floor.line_to(point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height));
-                if let Ok(path) = floor.build() {
-                    window.paint_path(path, base);
-                }
-                let mut stroke = PathBuilder::stroke(px(1.5));
-                for (step, (time, value)) in points.iter().enumerate() {
-                    let here = at(*time, *value);
-                    if step == 0 { stroke.move_to(here) } else { stroke.line_to(here) }
-                }
-                if let Ok(path) = stroke.build() {
-                    window.paint_path(path, line);
-                }
-                if let Some((time, value)) = points.last() {
-                    window.paint_quad(gpui::fill(Bounds::centered_at(at(*time, *value), size(px(6.), px(6.))), line).corner_radii(Corners::all(px(3.))));
-                }
-            },
-        )
-        .w_full()
-        .h(look.length(token::H_ROW_UNIT) * 2.0);
-        let ends = div()
-            .flex()
-            .justify_between()
-            .text_size(look.length(token::TEXT_2XS))
-            .text_color(look.color(token::FG_SUBTLE))
-            .child(SharedString::from(if single { String::new() } else { metric::axis(first.0) }))
-            .child(SharedString::from(metric::axis(last.0)));
-        let source = match plot {
-            _ if single => "One reading so far; the line starts at the next",
-            Plot::Rows(_) => "Graph of the rows",
-            Plot::Kept(_) => "Graph of the readings kept",
-        };
-        labelled(div().id(SharedString::from(format!("metric-{}-graph", reading.id))).flex().flex_col().gap(look.length(token::SPACE_1)).tooltip(tip(source)).child(drawing).child(ends), Role::Image, format!("Graph of {}", reading.title)).into_any_element()
+        let Some(last) = plot.points().last() else { return div().into_any_element() };
+        let single = plot.points().len() < 2;
+        let unit = reading.answer.as_ref().and_then(metric::headline).and_then(|head| head.unit);
+        let chart = metric::graph_spec(&reading.title, plot.points(), unit.as_deref()).ok().and_then(|spec| compile::compile(&spec, &[], &BTreeMap::<String, Vec<ipc::graph::Row>>::new()).ok());
+        let Some(mut chart) = chart else { return div().into_any_element() };
+        // The block is too short for value labels to read: the grid says the shape, and the readout the value and its unit.
+        chart.y.shown = false;
+        let row = look.length(token::H_ROW_UNIT) * 2.0;
+        let under = look.length(token::SPACE_1) + look.length(token::LEADING_2XS);
+        if single {
+            // One time has no span to lay an axis along: the dot stands at the right end, its clock under it.
+            chart.x.low = chart.x.high - 1.;
+            chart.x.shown = false;
+        }
+        let drawing = div().w_full().h(if single { row } else { row + under }).child(GraphPlot::new(SharedString::from(format!("metric-{}-plot", reading.id)), Rc::new(chart), Inks::of(look)));
+        let clock = single.then(|| {
+            div()
+                .flex()
+                .justify_end()
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(look.color(token::FG_SUBTLE))
+                .child(SharedString::from(metric::axis(last.0)))
+        });
+        let graph = div().id(SharedString::from(format!("metric-{}-graph", reading.id))).flex().flex_col().gap(look.length(token::SPACE_1)).child(drawing).children(clock);
+        // The readout says what each point is; a lone dot says why there is no line yet.
+        let graph = if single { graph.tooltip(tip("One reading so far; the line starts at the next")) } else { graph };
+        labelled(graph, Role::Image, format!("Graph of {}", reading.title)).into_any_element()
     }
 
     /// The picture the tool rendered, as a card with the address's host and an open glyph; a press opens it in the browser.

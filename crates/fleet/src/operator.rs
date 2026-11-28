@@ -23,20 +23,30 @@ mod dispatching;
 mod elsewhere;
 mod erroring;
 mod feed;
+mod fleet_cards;
+mod gating;
 mod hearing;
+mod holding;
 mod journal;
 mod orders;
 mod paging;
 mod placing;
 mod raising;
+mod reaching;
 mod reviewing;
+pub(crate) mod routing;
 mod seat;
 mod session;
+mod settings;
 mod sources;
 mod sourcing;
 mod telling;
 mod turning;
 pub(crate) use turning::utc_millis;
+#[cfg(test)]
+pub(crate) use cards::CHAT_MODE;
+#[cfg(test)]
+pub(crate) use fleet_cards::FLEET_CARD;
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -50,6 +60,8 @@ pub use hearing::keep_the_ends_told;
 pub use orders::{Order, Orders};
 pub use placing::{Outcome, Place};
 pub use raising::keep_the_raises;
+pub use session::keep_the_operator_up;
+pub(crate) use settings::operator_tag_in;
 pub(crate) use seat::Seat;
 pub use sources::{BridgeError, NewIssue, Note, Report};
 pub(crate) use sourcing::Sources;

@@ -327,7 +327,8 @@ where
             let hinted = state.proposal.hint.is_some() && state.proposal.hint == session.title;
             let person: Vec<ProposedField> = [
                 (ProposedField::Title, session.title.is_some() && !hinted),
-                (ProposedField::Workflow, hosting.workflow.is_some()),
+                // Chosen as none, an agent's start on a kind with no workflow, is a pick too.
+                (ProposedField::Workflow, hosting.workflow.is_some() || hosting.workflow_chosen),
                 (ProposedField::Model, set(&hosting.model)),
                 (ProposedField::Effort, set(&hosting.effort)),
             ]

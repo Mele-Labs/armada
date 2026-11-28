@@ -54,6 +54,13 @@ impl Extracted {
         let asks = self.asks.into_iter().filter(|one| !asks::only_approving(&one.sentence)).enumerate();
         Self { asks: asks.map(|(index, one)| Ask { index, ..one }).collect(), ..self }
     }
+
+    /// Without the asks that only point at the Job's open Ready to try card, which asks him itself; the rest
+    /// are numbered again among themselves.
+    pub(crate) fn beside_a_card(self) -> Self {
+        let asks = self.asks.into_iter().filter(|one| !asks::only_at_the_card(&one.sentence)).enumerate();
+        Self { asks: asks.map(|(index, one)| Ask { index, ..one }).collect(), ..self }
+    }
 }
 
 /// The sentences the head reads: the close with its headings left out.

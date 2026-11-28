@@ -45,7 +45,8 @@ where
         let (manifest, cwd) = match (marked, start.root.take()) {
             _ if loose.is_some() => (None, loose.clone().unwrap_or_default()),
             (Marked::ModsFolder, _) => (None, self.mods_dir().to_string_lossy().into_owned()),
-            (Marked::Operator, _) => (None, self.operator_dir().to_string_lossy().into_owned()),
+            // Each project's Operator has a folder of its own under the Operators' folder.
+            (Marked::Operator, _) => (None, self.operator_dir().join(start.project.as_deref().unwrap_or_default()).to_string_lossy().into_owned()),
             (_, Some(root)) => {
                 let repository = self.repository_named(Some(&root))?;
                 let manifest = repository
@@ -67,6 +68,8 @@ where
         // The project the Job is for: it must be his, and hold the Job's repository.
         let project = match (&manifest, start.project.as_deref().map(str::trim).filter(|one| !one.is_empty())) {
             (Some(repository), Some(project)) if !rooted => Some(self.project_started_for(project, repository).await?),
+            // An Operator is for a project and holds no repository.
+            (None, Some(project)) if marked == Marked::Operator => Some(self.operator_project_known(project).await?),
             _ => None,
         };
         // A root that has a Manifest by now is a plain start on it, not Setup's.

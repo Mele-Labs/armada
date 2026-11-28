@@ -33,7 +33,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The commit the Job's checkout stands at, empty where it has none or git would not say.
-    async fn commit_of_job(&self, job: &str) -> String {
+    pub(super) async fn commit_of_job(&self, job: &str) -> String {
         let Some(standing) = self.writing_in(&Who::Session(job.to_string())).await else {
             return String::new();
         };
@@ -181,6 +181,8 @@ where
                 None => created.push(slug),
             }
         }
+        drop(store);
+        self.feature_writes_refiled().await;
         Ok(FeaturesUpserted { created, updated, areas: upsert.areas.len() as u32 })
     }
 }

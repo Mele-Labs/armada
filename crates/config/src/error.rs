@@ -332,6 +332,17 @@ pub enum Fault {
     /// too, so a single step can plan and keep its own tasks current, which
     /// `revert` does.
     FollowsPlanWithNoPlanStep,
+    /// **A `${name}` a `walks:` command is not given.** Fleet puts a value where a name it knows is
+    /// written and leaves the rest as text, so a misspelt one would reach the program verbatim.
+    NotAPlaceholder { value: String, legal: Vec<&'static str> },
+    /// **A `walks:` command that never names a value it needs.** `list` that never names `${binary}`
+    /// runs nothing Fleet built, and an `open` that never names `${walk}` cannot say which to open.
+    LeavesOutPlaceholder { placeholder: &'static str },
+    /// A `walks.binary` or `walks.seed` that names nothing inside the tree a build leaves.
+    NotAWalkPath {
+        value: String,
+        why: crate::manifest::BadSeedPath,
+    },
     Ends(crate::workflow::EndFault),
 }
 
@@ -582,6 +593,20 @@ impl fmt::Display for Fault {
             Fault::NotAServeDir { value, why } => write!(
                 f,
                 "is `{value}`, which cannot name the folder a server starts in: {why}"
+            ),
+            Fault::NotAPlaceholder { value, legal } => write!(
+                f,
+                "names `{value}`, which this command is not given. It is given a value for {}, \
+                 written `${{name}}`",
+                Listed(legal, "no name")
+            ),
+            Fault::LeavesOutPlaceholder { placeholder } => write!(
+                f,
+                "never names `${{{placeholder}}}`, which this command needs to do what it is for"
+            ),
+            Fault::NotAWalkPath { value, why } => write!(
+                f,
+                "is `{value}`, which cannot name something inside the tree a build is made in: {why}"
             ),
             Fault::RunStartsACommand { value } => write!(
                 f,

@@ -35,6 +35,7 @@ const SOURCE: &str = "crates/ipc/src";
 /// The wire types `apps/pocket/src` imports by name.
 pub const ROOTS: &[&str] = &[
     "AnswerDocument",
+    "AnswerItems",
     "AnswerPart",
     "AnswerReadyToTry",
     "AnswerSessionAsk",
@@ -50,8 +51,10 @@ pub const ROOTS: &[&str] = &[
     "DeliveryChoice",
     "DismissJudgeNote",
     "DismissWaiting",
+    "DoneWaiting",
     "HeldOpenBy",
     "HostToPage",
+    "ItemsSettled",
     "JobArtifact",
     "JobThread",
     "JudgeTypes",
@@ -77,6 +80,7 @@ pub const ROOTS: &[&str] = &[
     "StartSessionRun",
     "StartWaitingNow",
     "ThreadReadyToTry",
+    "ToReview",
     "TuneSession",
     "VoteCast",
     "WaitingItem",

@@ -43,6 +43,8 @@ pub(super) struct Edge {
     pub(super) from: usize,
     pub(super) to: Node,
     pub(super) label: Option<String>,
+    /// The source files that name it.
+    pub(super) files: Vec<String>,
 }
 
 /// A repository read: its parts, their pieces and the edges between them.

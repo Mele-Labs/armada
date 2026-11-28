@@ -84,7 +84,7 @@ impl Librarian {
 
 /// The parts that have work behind them. Drift's is its free half: the model half runs only on a press of Check
 /// (`check_docs`). Links and Retire share one free step, which reads features and linked docs against the code.
-const BUILT: &[LibrarianPart] = &[LibrarianPart::Links, LibrarianPart::Drift, LibrarianPart::Retire, LibrarianPart::SinceYouLooked, LibrarianPart::Gists];
+const BUILT: &[LibrarianPart] = &[LibrarianPart::Links, LibrarianPart::Drift, LibrarianPart::Retire, LibrarianPart::SinceYouLooked, LibrarianPart::Gists, LibrarianPart::Pictures];
 
 const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
 
@@ -214,6 +214,19 @@ where
                     let counted = upkeep::keep(&mut *self.store().lock().await, project, &at, &asked, &seen).map_err(|why| failed(&step.id, why))?;
                     ran.extend(set.parts.iter().copied().filter(|part| matches!(part, LibrarianPart::Links | LibrarianPart::Retire)));
                     tell(&step.id, LibrarianStepState::Done, steps::upkeep_said(counted));
+                }
+                steps::TAKE_PICTURES => {
+                    let taken = self.pictures_taken(project, &roots).await.map_err(|why| failed(&step.id, why))?;
+                    let (state, said) = match (taken.screens, taken.tied, taken.took, taken.failed.first()) {
+                        (0, ..) => (LibrarianStepState::Skipped, steps::PICTURES_UNTIED.to_string()),
+                        (_, 0, ..) => (LibrarianStepState::Skipped, steps::PICTURES_UNREACHED.to_string()),
+                        (_, _, 0, Some(why)) if taken.current == 0 => (LibrarianStepState::Failed, format!("No picture could be taken: {why}")),
+                        _ => {
+                            ran.push(LibrarianPart::Pictures);
+                            (LibrarianStepState::Done, steps::pictures_said(taken.took, taken.current, &taken.failed))
+                        }
+                    };
+                    tell(&step.id, state, said);
                 }
                 steps::WRITE_GISTS => {
                     let calls_left = share.saturating_sub(spent.saturating_add(calls));

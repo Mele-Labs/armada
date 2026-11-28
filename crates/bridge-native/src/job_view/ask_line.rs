@@ -611,7 +611,7 @@ mod tests {
             cx,
             "job-view",
             "mock-01",
-            size(px(1440.), px(900.)),
+            size(px(1440.), px(2000.)),
             |jobs| {
                 let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
                 job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
@@ -638,7 +638,7 @@ mod tests {
             cx,
             "job-view",
             "mock-01",
-            size(px(1440.), px(900.)),
+            size(px(1440.), px(2000.)),
             |jobs| {
                 let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
                 job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
@@ -690,7 +690,7 @@ mod tests {
             cx,
             "job-view",
             "mock-01",
-            size(px(1440.), px(900.)),
+            size(px(1440.), px(2000.)),
             |jobs| {
                 let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
                 job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));

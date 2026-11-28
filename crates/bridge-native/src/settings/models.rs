@@ -35,6 +35,8 @@ pub enum Slot {
     ProposerEffort,
     Retro,
     SecondOpinion,
+    Operator,
+    OperatorEffort,
     Downshift,
 }
 
@@ -51,12 +53,14 @@ impl Slot {
             Slot::ProposerEffort => "effort.proposer",
             Slot::Retro => "models.retro",
             Slot::SecondOpinion => "models.secondOpinion",
+            Slot::Operator => "models.operator",
+            Slot::OperatorEffort => "effort.operator",
             Slot::Downshift => "plan.downshiftTo",
         }
     }
 
     fn effort(self) -> bool {
-        matches!(self, Slot::Effort | Slot::JudgeEffort | Slot::ProposerEffort)
+        matches!(self, Slot::Effort | Slot::JudgeEffort | Slot::ProposerEffort | Slot::OperatorEffort)
     }
 }
 
@@ -69,7 +73,7 @@ pub struct Run {
     pub effort: Option<Slot>,
 }
 
-pub const RUNS: [Run; 8] = [
+pub const RUNS: [Run; 9] = [
     Run { label: "Jobs", says: "The model a Job's own thread starts on.", model: Slot::Jobs, effort: None },
     Run { label: "Drones", says: "The model each step's Drone works on, and how hard it thinks.", model: Slot::Drones, effort: Some(Slot::Effort) },
     Run { label: "Reviews", says: "The model that reviews a pull request.", model: Slot::Reviews, effort: None },
@@ -77,6 +81,7 @@ pub const RUNS: [Run; 8] = [
     Run { label: "Proposer", says: "The model that writes a Job's plan, and how hard it thinks.", model: Slot::Proposer, effort: Some(Slot::ProposerEffort) },
     Run { label: "Retro", says: "The model that writes a Job's retro.", model: Slot::Retro, effort: None },
     Run { label: "Second opinion", says: "The model asked for a second read.", model: Slot::SecondOpinion, effort: None },
+    Run { label: "Operator", says: "The model that rules on what arrives, and how hard it thinks.", model: Slot::Operator, effort: Some(Slot::OperatorEffort) },
     Run { label: "Step down to", says: "The model a run moves to when plan usage runs low.", model: Slot::Downshift, effort: None },
 ];
 

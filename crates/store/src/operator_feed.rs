@@ -14,6 +14,8 @@ pub struct KeptFeed {
     pub title: String,
     pub session_id: Option<String>,
     pub said: Option<String>,
+    /// The project of the Operator the line belongs to. Absent on a line kept before each project had one.
+    pub project: Option<String>,
 }
 
 impl Store {
@@ -22,8 +24,8 @@ impl Store {
         let doing = "keeping a line of the Operator's feed";
         self.conn
             .execute(
-                "INSERT INTO operator_feed (at, kind, title, session_id, said) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![line.at, line.kind, line.title, line.session_id, line.said],
+                "INSERT INTO operator_feed (at, kind, title, session_id, said, project) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![line.at, line.kind, line.title, line.session_id, line.said, line.project],
             )
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
@@ -35,11 +37,11 @@ impl Store {
         let doing = "reading the Operator's feed";
         let mut statement = self
             .conn
-            .prepare("SELECT at, kind, title, session_id, said FROM operator_feed WHERE at >= ?1 ORDER BY at DESC, n DESC LIMIT 200")
+            .prepare("SELECT at, kind, title, session_id, said, project FROM operator_feed WHERE at >= ?1 ORDER BY at DESC, n DESC LIMIT 200")
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         let rows = statement
-            .query_map(params![since], |row| Ok(KeptFeed { at: row.get(0)?, kind: row.get(1)?, title: row.get(2)?, session_id: row.get(3)?, said: row.get(4)? }))
+            .query_map(params![since], |row| Ok(KeptFeed { at: row.get(0)?, kind: row.get(1)?, title: row.get(2)?, session_id: row.get(3)?, said: row.get(4)?, project: row.get(5)? }))
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)

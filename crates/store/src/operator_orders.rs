@@ -82,6 +82,41 @@ impl Store {
             .map_err(failed("keeping a message to the Operator"))
     }
 
+    /// Keep a send he made while no Operator session ran, and say its number. `talk` is the send as JSON.
+    pub fn add_operator_held_send(&mut self, talk: &str, at: &str) -> Result<i64, WriteError> {
+        self.conn
+            .execute("INSERT INTO operator_held_sends (talk, at) VALUES (?1, ?2)", params![talk, at])
+            .map(|_| self.conn.last_insert_rowid())
+            .map_err(failed("keeping a send to the Operator until it is up"))
+    }
+
+    /// Kept send `n` as JSON again, where it has not been told: the project he picked for it is in it now.
+    pub fn route_operator_held_send(&mut self, n: i64, talk: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE operator_held_sends SET talk = ?2 WHERE n = ?1 AND delivered_at IS NULL", params![n, talk])
+            .map(|changed| changed > 0)
+            .map_err(failed("routing a kept send to a project's Operator"))
+    }
+
+    /// The sends not yet told to a session, oldest first, each with its number.
+    pub fn operator_held_sends(&self) -> Result<Vec<(i64, String)>, WriteError> {
+        let doing = "reading the sends kept for the Operator";
+        let mut statement = self
+            .conn
+            .prepare("SELECT n, talk FROM operator_held_sends WHERE delivered_at IS NULL ORDER BY n")
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Kept send `n` was told to the session that came up.
+    pub fn deliver_operator_held_send(&mut self, n: i64, at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE operator_held_sends SET delivered_at = ?2 WHERE n = ?1", params![n, at])
+            .map(|_| ())
+            .map_err(failed("marking a kept send told to the Operator"))
+    }
+
     /// The last `limit` messages of the conversation, oldest first.
     pub fn operator_talk(&self, limit: u32) -> Result<Vec<KeptTalk>, WriteError> {
         let doing = "reading the conversation with the Operator";

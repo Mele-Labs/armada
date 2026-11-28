@@ -15,13 +15,13 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 
 - **A change he would see does not land until he has looked at it** (1 Oct).
   Never send screenshots (2 Oct: "Dont send me pictures. I prefer walks.").
-- **Native work reaches him through his preview, not a walk** (13 Nov). Offer
-  the branch with `offer_preview` and its preview note (`about`, `look`, `steps`;
-  `preview-app` has the example); he presses Refresh preview and takes notes on
-  it with ⌥⌘A. A native walk is only for a state a live Fleet cannot reach, such
-  as Fleet down or a refused send. It plays from the build behind his preview in
-  one press, never from a Job's slot, so show it once he has refreshed onto a
-  preview holding it: `show_window` refuses a walk that build does not play.
+- **Every screen he approves is a native walk of the real Bridge, built by
+  Fleet from the Job's own branch** (27 Nov). Show it with `show_window` on
+  `armada://walk/<name>`. His
+  Ship it lands the change. His Approve means you offer the branch with
+  `offer_preview` and its preview note (`about`, `look`, `steps`; `preview-app`
+  has the example), and he takes notes on it with ⌥⌘A. The rule, with the look
+  check, is `docs/practices/native-bridge.md`, *The design loop*.
 - **A web page of another app is shown with `show_window`**, a walk with
   `steps` when it needs one. Serve one page per walk: stop the old port before
   serving a new one, and tell him to reload, since a loaded tab keeps its old
