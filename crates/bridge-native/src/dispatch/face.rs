@@ -230,6 +230,7 @@ pub enum Glyph {
     Issue,
     Bug,
     Terminal,
+    Feature,
 }
 
 impl Glyph {
@@ -241,6 +242,7 @@ impl Glyph {
             Glyph::Issue => "ticket",
             Glyph::Bug => "bug",
             Glyph::Terminal => "terminal",
+            Glyph::Feature => "layers",
         }
     }
 }
@@ -254,6 +256,8 @@ pub struct Row {
     pub standing: Option<SharedString>,
     /// What choosing it writes into the request.
     pub insert: SharedString,
+    /// The slug of the feature the row is, which the sheet keeps to tag it when the request is sent.
+    pub feature: Option<SharedString>,
 }
 
 /// Which menu is open, by its trigger.
@@ -265,7 +269,7 @@ pub enum Trigger {
 
 /// What the `@` and `#` menus can offer, and how a typed query narrows it
 /// (`DP/SessionMenu.tsx:52-123`, `:321-352`): Jobs whose title holds the query, then up to
-/// [`FILE_ROWS`] files once something follows the `@`; issues and pull requests, numbers first.
+/// [`FEATURE_ROWS`] of the project's features, then up to [`FILE_ROWS`] files once something follows the `@`; issues and pull requests, numbers first.
 #[derive(Clone, Debug, Default)]
 pub struct Mentions {
     pub jobs: Vec<Offered>,
@@ -274,6 +278,7 @@ pub struct Mentions {
 }
 
 pub const FILE_ROWS: usize = 5;
+pub const FEATURE_ROWS: usize = 5;
 pub const NUMBERED_ROWS: usize = 6;
 
 #[derive(Clone, Debug)]
@@ -289,13 +294,14 @@ impl Mentions {
     /// The menu's label (`DP/SessionMenu.tsx:353-358`).
     pub fn label(trigger: Trigger, query: &str) -> &'static str {
         match trigger {
-            Trigger::At if query.is_empty() => "Jobs",
-            Trigger::At => "Tag a Job or a file",
+            Trigger::At if query.is_empty() => "Jobs and features",
+            Trigger::At => "Tag a Job, a feature or a file",
             Trigger::Hash => "Tag an issue or pull request",
         }
     }
 
-    pub fn rows(&self, trigger: Trigger, query: &str) -> Vec<Row> {
+    /// `features` are those of the project the sheet's repository is in: a feature whose title, area or slug holds the query.
+    pub fn rows(&self, trigger: Trigger, query: &str, features: &[super::story::FeatureChoice]) -> Vec<Row> {
         let needle = query.to_lowercase();
         match trigger {
             Trigger::At => {
@@ -305,7 +311,21 @@ impl Mentions {
                     says: None,
                     standing: None,
                     insert: format!("@{} ", one.title).into(),
+                    feature: None,
                 });
+                let featured = features
+                    .iter()
+                    .filter(|one| one.kind == super::story::Kind::Feature)
+                    .filter(|one| [&one.title, &one.area, &one.slug].iter().any(|text| text.to_lowercase().contains(&needle)))
+                    .take(FEATURE_ROWS)
+                    .map(|one| Row {
+                        glyph: Glyph::Feature,
+                        name: one.title.clone(),
+                        says: Some(one.area.clone()).filter(|area| !area.is_empty()),
+                        standing: None,
+                        insert: format!("@{} ", one.title).into(),
+                        feature: Some(one.slug.clone()),
+                    });
                 let files = self
                     .files
                     .iter()
@@ -318,8 +338,9 @@ impl Mentions {
                         says: None,
                         standing: None,
                         insert: format!("@{path} ").into(),
+                        feature: None,
                     });
-                jobs.chain(files).collect()
+                jobs.chain(featured).chain(files).collect()
             }
             Trigger::Hash => {
                 let numbered = !needle.is_empty() && needle.chars().all(|ch| ch.is_ascii_digit());
@@ -354,6 +375,7 @@ impl Mentions {
                         says: Some(one.title.clone()),
                         standing: one.standing.clone(),
                         insert: format!("{} {} ", one.reference, one.title).into(),
+                        feature: None,
                     })
                     .collect()
             }

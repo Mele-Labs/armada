@@ -262,6 +262,7 @@ impl DispatchSheet {
                     says: None,
                     standing: None,
                     insert: one.title.clone(),
+                    feature: None,
                 })
                 .collect();
             listbox("Jobs", &rows, active, look, cx.listener(|this, at: &usize, _, cx| this.wait_on(*at, cx)))

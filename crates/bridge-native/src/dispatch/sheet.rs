@@ -149,6 +149,9 @@ pub struct DispatchSheet {
     catalog: Option<(String, Vec<FeatureChoice>)>,
     /// The project whose catalog was asked for and has not answered.
     features_asked: Option<String>,
+    /// The features picked from the `@` list as `(project, slug, title)`: the words hold only `@<title>`, so the sheet keeps what it
+    /// stood for until the request is sent.
+    features_tagged: Vec<(String, String, String)>,
     /// The states ⌘Z goes back to, newest last, and the ones it came from, for ⌘Y.
     past: Vec<Shape>,
     future: Vec<Shape>,
@@ -239,6 +242,7 @@ impl DispatchSheet {
             opening: 0,
             catalog: None,
             features_asked: None,
+            features_tagged: Vec::new(),
             past: Vec::new(),
             future: Vec::new(),
             run: None,
@@ -437,6 +441,15 @@ impl DispatchSheet {
         (self.files.clone(), self.drawn.clone())
     }
 
+    /// The features picked from `@` whose `@<title>` is still in `words`, as the tags the first message carries.
+    pub(super) fn features_held(&self, words: &str) -> Vec<SessionTag> {
+        self.features_tagged
+            .iter()
+            .filter(|(_, _, title)| words.contains(&format!("@{title}")))
+            .map(|(project, slug, title)| SessionTag { kind: ipc::TagKind::Feature, id: format!("{project}/{slug}"), title: title.clone(), url: None })
+            .collect()
+    }
+
     /// The tools picked, as the tags the first message carries.
     pub(super) fn tools_held(&self) -> Vec<SessionTag> {
         self.tools.iter().map(|one| one.tag.clone()).collect()
@@ -457,6 +470,10 @@ impl DispatchSheet {
         self.tools_open = None;
         self.opening = 0;
         self.untouched = false;
+        // `@` lists the project's features: they are asked for as the first one is typed, where no sentence has asked.
+        if words.get(..cursor).is_some_and(|before| before.contains('@')) {
+            self.want_features_for_at(cx);
+        }
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
         cx.notify();
@@ -662,12 +679,31 @@ impl DispatchSheet {
         cx.emit(Asked::ReadFeatures(project));
     }
 
+    /// Ask for the catalog of the project the picker names, once, for `@`'s feature rows.
+    fn want_features_for_at(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project() else { return };
+        if self.catalog.as_ref().is_some_and(|(held, _)| *held == project) || self.features_asked.as_ref() == Some(&project) {
+            return;
+        }
+        self.features_asked = Some(project.clone());
+        cx.emit(Asked::ReadFeatures(project));
+    }
+
     /// The app's answer to [`Asked::ReadFeatures`]: the project's features, or none where Fleet could not say.
     pub fn set_features(&mut self, project: String, features: Vec<FeatureChoice>, cx: &mut Context<Self>) {
         if self.features_asked.as_ref() == Some(&project) {
             self.features_asked = None;
         }
         self.catalog = Some((project, features));
+        // An `@` typed before the catalog came takes its feature rows now.
+        if self.story.is_none() && self.menu.as_ref().map_or(true, |menu| menu.trigger == Trigger::At) {
+            let words = self.words(cx);
+            let cursor = self.request.read(cx).cursor().min(words.len());
+            if words.get(..cursor).is_some_and(|before| before.contains('@')) {
+                let active = self.menu.as_ref().map_or(0, |menu| menu.active);
+                self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty()).map(|menu| Menu { active: active.min(menu.rows.len() - 1), ..menu });
+            }
+        }
         cx.notify();
     }
 
@@ -825,13 +861,19 @@ impl DispatchSheet {
                 return None;
             }
         }
-        let rows = self.face.mentions.rows(trigger, &query);
+        let rows = self.face.mentions.rows(trigger, &query, &self.features());
         Some(Menu { trigger, from: at, query, rows, active: 0 })
     }
 
     pub(super) fn choose_row(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(menu) = self.menu.take() else { return };
         let Some(row) = menu.rows.get(at).cloned() else { return };
+        if let (Some(slug), Some(project)) = (row.feature.as_ref(), self.project()) {
+            let held = (project, slug.to_string(), row.name.to_string());
+            if !self.features_tagged.contains(&held) {
+                self.features_tagged.push(held);
+            }
+        }
         let words = self.words(cx);
         let cursor = self.request.read(cx).cursor().min(words.len());
         let next = format!("{}{}{}", &words[..menu.from], row.insert, &words[cursor..]);

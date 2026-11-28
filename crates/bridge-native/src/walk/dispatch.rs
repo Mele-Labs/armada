@@ -17,7 +17,7 @@ pub static STEPS: [Step; 54] = [
     step("⌥7 picks sample-docs by hand, a folder in no project, without opening the list", Verb::Key("alt-7"), "combobox", "Repository sample-docs"),
     answer("Fleet took the Job: the sheet goes and the draft is cleared", "answer-start", "heading", "armada"),
     step("⌘N opens a sheet with nothing kept: the send cleared the draft", Verb::Key("cmd-n"), "dialog", "Dispatch"),
-    step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs"),
+    step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs and features"),
     step("↓ moves down the Jobs", Verb::Key("down"), "option", "Native Bridge foundation"),
     step("Enter tags the Job in the words", Verb::Key("enter"), "textbox", "Request"),
     answer("A tagged Job's brief waits on it: the sentence stands over the request", "waiting", "group", "Start condition"),

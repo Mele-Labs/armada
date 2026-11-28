@@ -229,6 +229,9 @@ pub(super) struct Catalog {
     pub models_asked: bool,
     pub issues: HashMap<String, Vec<ipc::TrackedIssue>>,
     pub issues_asked: HashSet<String>,
+    /// Each project's features, by project id, as `@` offers them, and the projects asked for.
+    pub features: HashMap<String, Vec<super::offer::Featured>>,
+    pub features_asked: HashSet<String>,
     /// The last file search answered, and the query it answered.
     pub files: Option<(String, Vec<String>)>,
     /// The repository's files on mock data, narrowed as Fleet narrows them.

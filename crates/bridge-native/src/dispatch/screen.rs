@@ -688,7 +688,8 @@ impl DispatchScreen {
         let plain = self.wait_read.as_ref().is_some_and(|read| read.reading.plain);
         let after = tagged.as_ref().filter(|_| !plain).and_then(|_| self.sheet.read(cx).wait.as_ref().map(live::after_of));
         let named = tagged.filter(|_| plain).map(|tagged| SessionTag { kind: TagKind::Session, id: tagged.id.to_string(), title: tagged.title.to_string(), url: None });
-        let mentions = first_mentions(named, self.sheet.read(cx).tools_held());
+        let held = self.sheet.read(cx);
+        let mentions = first_mentions(named, [held.tools_held(), held.features_held(&begin.words)].concat());
         // A wait's request is the brief it starts on, and nothing is sent to it.
         let send = after.is_none();
         let start = ipc::StartSession {

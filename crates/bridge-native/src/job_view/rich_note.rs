@@ -1,6 +1,6 @@
 //! The box a person writes back to an agent in: Ask for changes on a card, a page part or a document, and Answer in words
 //! on a question. It is the Job's message box in small, not a copy of it: pictures pasted or files dropped become a tray of
-//! tiles, `@` offers Jobs and files and a Job picked is a chip, and the words are drawn and sent as a message's are
+//! tiles, `@` offers Jobs, features and files and a Job or a feature picked is a chip, and the words are drawn and sent as a message's are
 //! (`format.rs`).
 //!
 //! What it holds beyond the words is read back as the answer's `extras`: the files as uploads, the chips as mentions. A box
@@ -19,17 +19,21 @@ use ipc::AnswerExtras;
 
 use super::composer::{attached, clipped_keyed, encoded_files, read_files, tray, words_area, Attached, Kept, KeptTag};
 use super::format::{draw, enter_in, sent_text};
-use super::offer::{at_rows, mention_of, offer_list_at, put_pick, token_at, Offer, Row};
+use super::offer::{at_rows, featured_of, mention_of, offer_list_at, put_pick, token_at, Featured, Offer, Row};
 use super::JobView;
 use crate::fleet::FleetConnection;
 use crate::look::ActiveLook;
 
-/// What `@` can offer, read by the host when the note opens: Fleet and the repository for the files, and the Jobs by id and title.
+/// What `@` can offer, read by the host when the note opens: Fleet and the repository for the files, the Jobs by id and title,
+/// and the features of the Job's project, which the note reads itself where the host held none.
 #[derive(Default)]
 pub(crate) struct Scope {
     pub fleet: Option<Entity<FleetConnection>>,
     pub manifest: Option<String>,
     pub jobs: Vec<(String, String)>,
+    /// The project the Job is in, by id.
+    pub project: Option<String>,
+    pub features: Vec<Featured>,
     /// The repository's files on mock data, narrowed as Fleet narrows them.
     pub mock_files: Vec<String>,
 }
@@ -49,6 +53,8 @@ pub(crate) struct RichNote {
     /// The last file search answered, and the query it answered.
     found: Option<(String, Vec<String>)>,
     lookup: Option<Task<()>>,
+    /// The project's features have been asked for.
+    features_asked: bool,
     _typing: Subscription,
 }
 
@@ -76,7 +82,7 @@ impl RichNote {
                 this.refresh_offer(window, cx);
             }
         });
-        RichNote { input, name: name.into(), files: Vec::new(), next_key: 0, offer: None, scope, found: None, lookup: None, _typing: typing }
+        RichNote { input, name: name.into(), files: Vec::new(), next_key: 0, offer: None, scope, found: None, lookup: None, features_asked: false, _typing: typing }
     }
 
     pub fn input(&self) -> &Entity<TextareaState> {
@@ -145,15 +151,16 @@ impl RichNote {
             return;
         };
         self.want_files(&query, window, cx);
+        self.want_features(window, cx);
         let files = self.found.as_ref().filter(|(asked, _)| *asked == query).map(|(_, paths)| paths.clone());
         let loading = files.is_none();
         let stale = files.or_else(|| self.found.as_ref().map(|(_, paths)| paths.clone())).unwrap_or_default();
-        let rows: Vec<Row> = at_rows(&self.scope.jobs, stale, &query);
+        let rows: Vec<Row> = at_rows(&self.scope.jobs, &self.scope.features, stale, &query);
         if rows.is_empty() && !loading {
             self.put_offer(None, cx);
             return;
         }
-        let label = "Tag a Job or a file";
+        let label = "Tag a Job, a feature or a file";
         let current = self.offer.as_ref().map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
         self.put_offer(Some(Offer { label, rows, current, from, to: cursor, query, loading, within: None, held: super::offer::Held::default() }), cx);
     }
@@ -165,6 +172,28 @@ impl RichNote {
             cx.emit(Resized);
         }
         cx.notify();
+    }
+
+    /// Read the Job's project's features once where the host held none: from Fleet off the main thread. Mock data is the host's.
+    fn want_features(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(fleet), Some(project)) = (self.scope.fleet.clone(), self.scope.project.clone()) else { return };
+        if !self.scope.features.is_empty() || self.features_asked {
+            return;
+        }
+        let Some(port) = fleet.read(cx).held().port() else { return };
+        self.features_asked = true;
+        let asked = crate::features::wire::library(port, &project, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = asked.await;
+            let _ = this.update_in(cx, |this, window, cx| match answer {
+                Ok(library) => {
+                    this.scope.features = featured_of(&project, &library);
+                    this.refresh_offer(window, cx);
+                }
+                Err(_) => this.features_asked = false,
+            });
+        })
+        .detach();
     }
 
     /// Ask Fleet for the files a query names, 150 ms after the last key.
@@ -340,7 +369,7 @@ impl gpui::Render for RichNote {
 }
 
 impl JobView {
-    /// What `@` can offer in a box opened on the shown Job: its repository's files and the other Jobs that are not over.
+    /// What `@` can offer in a box opened on the shown Job: its repository's files, its project's features and the other Jobs that are not over.
     pub(super) fn note_scope(&self, cx: &App) -> Scope {
         let Some(id) = self.shown.as_ref() else { return Scope::default() };
         let manifest = self.record(id, cx).and_then(|job| job.manifest_id.as_ref().map(|id| id.as_str().to_string()));
@@ -352,7 +381,16 @@ impl JobView {
             .filter(|job| job.id.as_str() != id.as_str() && job.state != ipc::SessionState::Ended)
             .filter_map(|job| job.title.as_ref().map(|title| (job.id.as_str().to_string(), title.clone())))
             .collect();
-        Scope { fleet: self.fleet.clone(), manifest, jobs, mock_files: self.composer.catalog.mock_files.clone() }
+        let project = self.record(id, cx).and_then(|job| job.hosted.as_ref()).and_then(|hosted| hosted.project.clone()).filter(|project| !project.trim().is_empty());
+        // Read once by the Job's box where Fleet is live; on mock data the walks' own library.
+        let features = project
+            .as_ref()
+            .map(|project| match self.fleet {
+                Some(_) => self.composer.catalog.features.get(project).cloned().unwrap_or_default(),
+                None => featured_of(project, &crate::features::mock::library_of(project)),
+            })
+            .unwrap_or_default();
+        Scope { fleet: self.fleet.clone(), manifest, jobs, project, features, mock_files: self.composer.catalog.mock_files.clone() }
     }
 }
 

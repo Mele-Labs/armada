@@ -1,9 +1,9 @@
 //! What typing in the message box offers (`SessionComposer.tsx`, `tokenAt`, section 4.4): `/` at the
-//! start lists the agent's commands, `@` at the start of a word lists other Jobs and then files, and
+//! start lists the agent's commands, `@` at the start of a word lists other Jobs, then the project's features and then files, and
 //! `#` lists the repository's issues and pull requests.
 //!
-//! The list hangs over the box. ↑ and ↓ move, Enter and Tab choose, Esc closes. A Job or a number
-//! chosen becomes one atomic chip in the text; a file or a command is plain text.
+//! The list hangs over the box. ↑ and ↓ move, Enter and Tab choose, Esc closes. A Job, a number
+//! or a feature chosen becomes one atomic chip in the text; a file or a command is plain text.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -182,6 +182,7 @@ pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
         TagKind::Terminal => "terminal",
         TagKind::Tool => "tool",
         TagKind::Request => "request",
+        TagKind::Feature => "feature",
     };
     let one_line = title.replace(['\n', '\r'], " ");
     // A request's chip reads its tool and its name; the words it stands for are `@<name>`, which the thread finds it by.
@@ -201,6 +202,7 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
         "terminal" => TagKind::Terminal,
         "tool" => TagKind::Tool,
         "request" => TagKind::Request,
+        "feature" => TagKind::Feature,
         _ => return None,
     };
     let tag_id = parts.next()?.to_string();
@@ -209,8 +211,44 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
     Some(ipc::SessionTag { kind, id: tag_id, title: title.to_string(), url })
 }
 
-/// What `@` offers: the Jobs whose titles hold the query, at most five, then the files `found` for it, at most five.
-pub(crate) fn at_rows(jobs: &[(String, String)], found: Vec<String>, query: &str) -> Vec<Row> {
+/// A feature of a project's catalog as `@` offers it.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Featured {
+    pub project: String,
+    pub slug: String,
+    pub title: String,
+    pub area: String,
+    pub area_slug: String,
+    /// The project's name, drawn at the row's right where the list reads several projects' features.
+    pub named: Option<String>,
+}
+
+/// The features of `library` that `@` offers, in its order. A feature the Operator has yet to bring to him is none of the catalog.
+pub(crate) fn featured_of(project: &str, library: &ipc::FeatureLibrary) -> Vec<Featured> {
+    library
+        .areas
+        .iter()
+        .flat_map(|area| {
+            area.features.iter().filter(|row| row.state != ipc::FeatureState::Pending).map(move |row| Featured {
+                project: project.to_string(),
+                slug: row.slug.clone(),
+                title: row.title.clone(),
+                area: area.title.clone(),
+                area_slug: area.slug.clone(),
+                named: None,
+            })
+        })
+        .collect()
+}
+
+/// Whether a feature's title, area, area's slug or slug holds the query, whatever the capitals. `lowered` is lower case.
+fn feature_named(feature: &Featured, lowered: &str) -> bool {
+    lowered.is_empty() || [&feature.title, &feature.area, &feature.area_slug, &feature.slug].iter().any(|text| text.to_lowercase().contains(lowered))
+}
+
+/// What `@` offers: the Jobs whose titles hold the query, at most five, then the features it names, at most five, then the
+/// files `found` for it, at most five.
+pub(crate) fn at_rows(jobs: &[(String, String)], features: &[Featured], found: Vec<String>, query: &str) -> Vec<Row> {
     let lowered = query.to_lowercase();
     let mut rows: Vec<Row> = jobs
         .iter()
@@ -227,6 +265,18 @@ pub(crate) fn at_rows(jobs: &[(String, String)], found: Vec<String>, query: &str
         .collect();
     if let Some(first) = rows.first_mut() {
         first.group = Some("Jobs");
+    }
+    let before = rows.len();
+    rows.extend(features.iter().filter(|feature| feature_named(feature, &lowered)).take(5).map(|feature| Row {
+        group: None,
+        glyph: "layers",
+        name: feature.title.clone(),
+        says: feature.area.clone(),
+        project: feature.named.clone(),
+        pick: Pick::Tag { kind: TagKind::Feature, id: format!("{}/{}", feature.project, feature.slug), title: feature.title.clone(), url: None },
+    }));
+    if let Some(first) = rows.get_mut(before) {
+        first.group = Some("Features");
     }
     let before = rows.len();
     rows.extend(found.into_iter().take(5).map(|path| {
@@ -326,12 +376,24 @@ impl JobView {
                     .filter(|job| self.reporting.is_none() && job.id.as_str() != id.as_str() && job.state != ipc::SessionState::Ended)
                     .filter_map(|job| job.title.as_ref().map(|title| (job.id.as_str().to_string(), title.clone())))
                     .collect();
+                // The Operator offers the features of every project of his, each row naming its project; a Job its own project's.
+                let projects: Vec<(String, String)> = if self.is_beside(&id) {
+                    self.own_projects(cx)
+                } else {
+                    self.record(&id, cx).and_then(|job| job.hosted.as_ref()).and_then(|hosted| hosted.project.clone()).filter(|project| !project.trim().is_empty()).map(|project| (project.clone(), project)).into_iter().collect()
+                };
+                let beside = self.is_beside(&id);
+                self.want_features(&projects, window, cx);
+                let features: Vec<Featured> = projects
+                    .iter()
+                    .flat_map(|(project, name)| self.composer.catalog.features.get(project).into_iter().flatten().map(move |one| Featured { named: beside.then(|| name.clone()), ..one.clone() }))
+                    .collect();
                 let files = self.composer.catalog.files.as_ref().filter(|(asked, _)| *asked == query).map(|(_, paths)| paths.clone());
                 loading = files.is_none();
                 let stale = files.or_else(|| self.composer.catalog.files.as_ref().map(|(_, paths)| paths.clone())).unwrap_or_default();
-                let rows = at_rows(&jobs, stale, &query);
+                let rows = at_rows(&jobs, &features, stale, &query);
                 self.want_files(&id, &query, window, cx);
-                ("Tag a Job or a file", rows)
+                ("Tag a Job, a feature or a file", rows)
             }
         };
         if rows.is_empty() && !loading {
@@ -402,6 +464,47 @@ impl JobView {
             });
         })
         .detach();
+    }
+
+    /// Read each project's features once, for `@`: from Fleet off the main thread, or the walks' own on the mock. A read that fails
+    /// is asked for again, and the list holds no features meanwhile.
+    fn want_features(&mut self, projects: &[(String, String)], window: &mut Window, cx: &mut Context<Self>) {
+        for (project, _) in projects {
+            if !self.composer.catalog.features_asked.insert(project.clone()) {
+                continue;
+            }
+            if self.fleet.is_none() {
+                self.composer.catalog.features.insert(project.clone(), featured_of(project, &crate::features::mock::library_of(project)));
+                continue;
+            }
+            let Some(port) = self.port(cx) else {
+                self.composer.catalog.features_asked.remove(project);
+                continue;
+            };
+            let asked = crate::features::wire::library(port, project, cx);
+            let project = project.clone();
+            cx.spawn_in(window, async move |this, cx| {
+                let answer = asked.await;
+                let _ = this.update_in(cx, |this, window, cx| {
+                    match answer {
+                        Ok(library) => {
+                            this.composer.catalog.features.insert(project.clone(), featured_of(&project, &library));
+                            // The list the person is looking at takes the rows that came in.
+                            if this.beside_has_keys(window, cx) {
+                                this.on_beside(|this| this.refresh_offer(window, cx));
+                            } else if this.composer.offer.is_some() {
+                                this.refresh_offer(window, cx);
+                            }
+                        }
+                        Err(_) => {
+                            this.composer.catalog.features_asked.remove(&project);
+                        }
+                    }
+                    cx.notify();
+                });
+            })
+            .detach();
+        }
     }
 
     /// Read each project's issues once, for the Operator's `#`: the tracker the project names, as `list_project_issues` answers.

@@ -1611,6 +1611,7 @@ pub(super) fn tag_kind(kind: TagKind) -> &'static str {
         TagKind::Terminal => "Terminal",
         TagKind::Tool => "Tool",
         TagKind::Request => "Request",
+        TagKind::Feature => "Feature",
     }
 }
 
@@ -1757,6 +1758,7 @@ fn tag_glyph(kind: TagKind) -> &'static str {
         TagKind::Terminal => "terminal",
         TagKind::Tool => "wrench",
         TagKind::Request => "arrow-right-left",
+        TagKind::Feature => "layers",
     }
 }
 

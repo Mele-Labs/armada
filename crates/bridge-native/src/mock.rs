@@ -284,6 +284,14 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.title = None;
         }
     }
+    // The composer walk's Jobs of Armada are in its project, so `@` offers the project's features.
+    if scenario == "job-view-composer" {
+        for one in sessions.iter_mut().filter(|one| one.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")) {
+            if let Some(hosted) = one.hosted.as_mut() {
+                hosted.project = Some("armada".to_string());
+            }
+        }
+    }
     if scenario == "needs-long" {
         let asked = ipc::decode::<WaitingItem>("long item", NEEDS_LONG_ASK.as_bytes()).map_err(|why| why.to_string())?;
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
