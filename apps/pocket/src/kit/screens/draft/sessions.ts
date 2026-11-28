@@ -785,6 +785,11 @@ export type SessionActivity = {
   }[];
   /** The last sentence the agent wrote this turn, for a surface that draws what it said beside what it does. */
   said?: string;
+  /** The newest lines each running background command wrote, by the id of the call that started it. */
+  tails?: readonly {
+    call: string;
+    lines: readonly string[];
+  }[];
 };
 
 /** A control pressed on a Session whose answer is still coming: Pause or Resume, Auto land, and Approve on the plan. */

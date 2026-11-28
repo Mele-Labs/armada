@@ -930,6 +930,12 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                         approval,
                       })}
                   working={session.turn.state === "working"}
+                  {...(session.activity?.tails === undefined
+                    ? {}
+                    : {
+                        tails: session.activity.tails,
+                      })}
+                  onStop={() => void run(() => acts.stop({ session_id: id }))}
                   onAnswer={onAnswer}
                   onOpenSession={openJob}
                   onOpenFile={(path) => go(filePath(machine.origin, id, path))}

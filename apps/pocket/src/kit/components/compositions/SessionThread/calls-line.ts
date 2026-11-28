@@ -142,6 +142,71 @@ export function commandOf(line: string): string {
     : name;
 }
 
+/**
+ * What a shell line does by the command it runs, after any `cd x &&`: `grep`, `rg` and `find` search, `cat`, `sed -n`,
+ * `head` and `tail` read. `about` is cut from the line: the pattern and places searched, or the last word of a read.
+ */
+function shellDoing(line: string):
+  | {
+      family: Family;
+      about: string;
+    }
+  | undefined {
+  const all = bodyOf(line);
+  const pipe = all.indexOf("|");
+  const words = pipe === -1 ? all : all.slice(0, pipe);
+  // `cat > file <<EOF` writes: a line that sends its output to a file is no read.
+  if (words.some((word) => word.includes(">") && !word.startsWith("2>"))) return undefined;
+  const name = words[0]?.split("/").pop() ?? "";
+  const family: Family | undefined =
+    name === "grep" || name === "rg" || name === "find"
+      ? "search"
+      : name === "cat" || name === "head" || name === "tail" || (name === "sed" && words[1] === "-n")
+        ? "read"
+        : undefined;
+  if (family === undefined) return undefined;
+  if (family === "search") {
+    const first = words.slice(1).findIndex((word) => !word.startsWith("-"));
+    if (first === -1) return undefined;
+    return {
+      family,
+      about: words.slice(first + 1).join(" "),
+    };
+  }
+  const last = words.length > 1 ? words[words.length - 1] : undefined;
+  return last === undefined
+    ? undefined
+    : {
+        family,
+        about: last,
+      };
+}
+
+/** A call's family, and the call with what it is about where a shell line reads or searches. */
+function seen(call: { tool: string; detail: string }): {
+  family: Family | undefined;
+  call: {
+    tool: string;
+    detail: string;
+  };
+} {
+  if (call.tool === "Bash") {
+    const doing = shellDoing(call.detail);
+    if (doing !== undefined)
+      return {
+        family: doing.family,
+        call: {
+          tool: call.tool,
+          detail: doing.about,
+        },
+      };
+  }
+  return {
+    family: familyOf(call.tool),
+    call,
+  };
+}
+
 const isCheck = (line: string): boolean => CHECK.test(bodyOf(line).join(" "));
 
 const clip = (said: string): string =>
@@ -193,13 +258,13 @@ export function callsLine(
   }[],
   working: boolean,
 ): string {
-  const calls = rows.map((row) => toolOf(row.text));
+  const calls = rows.map((row) => seen(toolOf(row.text)));
   const last = calls
-    .map((one) => familyOf(one.tool))
+    .map((one) => one.family)
     .filter((family): family is Family => family !== undefined)
     .pop();
-  if (last === undefined) return calls[calls.length - 1]?.tool ?? "";
-  const of = calls.filter((one) => familyOf(one.tool) === last);
+  if (last === undefined) return calls[calls.length - 1]?.call.tool ?? "";
+  const of = calls.filter((one) => one.family === last).map((one) => one.call);
   // A briefed agent is named by its description, which is already a phrase.
   const described = last === "agent" ? of[of.length - 1]!.detail : "";
   if (described !== "") return clip(described);
@@ -215,7 +280,7 @@ export function callLine(
   },
   working: boolean,
 ): string {
-  return familyOf(toolOf(row.text).tool) === undefined
+  return seen(toolOf(row.text)).family === undefined
     ? clip(row.text)
     : callsLine(
         [
@@ -223,4 +288,24 @@ export function callLine(
         ],
         working,
       );
+}
+
+/** What a call does, by the tile it takes in a run's card: its glyph and hue. */
+export type CallKind = "read" | "run" | "edit" | "search" | "agent" | "web" | "message" | "other";
+
+/** The kind a call's tile draws. A watch or an ask is drawn plain. */
+export function kindOf(text: string): CallKind {
+  const family = seen(toolOf(text)).family;
+  return family === undefined || family === "watch" || family === "ask" ? "other" : family;
+}
+
+/** What a running call works on, for the card's running box: a command's first line after `$ `, else the path or pattern. */
+export function workingOn(text: string): string | undefined {
+  const call = toolOf(text);
+  const detail = call.detail.trim();
+  if (detail === "") return undefined;
+  const first = detail.split("\n", 1)[0] ?? "";
+  const family = familyOf(call.tool);
+  if (family === "run") return `$ ${first}`;
+  return family === "read" || family === "edit" || family === "search" ? first : undefined;
 }

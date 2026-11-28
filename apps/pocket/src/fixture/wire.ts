@@ -1079,6 +1079,45 @@ export function fixtureMacs(
         replaces: "c0",
       },
       tool("p1-4", ago(now, 2), "Read apps/pocket/src/Home.tsx"),
+      // A run of calls with the agent's thoughts between them, the last still running: the live card.
+      {
+        kind: "tool",
+        id: "p1-6",
+        at: ago(now, 1.9),
+        text: "Grep itemsOf apps/pocket/src",
+      },
+      tool("p1-7", ago(now, 1.8), "Read apps/pocket/src/Job.tsx"),
+      {
+        kind: "reasoning",
+        id: "p1-8",
+        at: ago(now, 1.6),
+        text: "The Draft screen reads the brief from the Job's record, so the box starts from it.",
+      },
+      tool("p1-9", ago(now, 1.4), "Edit apps/pocket/src/Draft.tsx"),
+      {
+        kind: "reasoning",
+        id: "p1-10",
+        at: ago(now, 1),
+        text: "Run the Draft screen's tests before the next screen.",
+      },
+      {
+        kind: "tool",
+        id: "p1-11",
+        at: ago(now, 0.4),
+        text: "Bash cd apps/pocket && npx vitest run src/acceptance.test.tsx -t Draft",
+        description: "Run the Draft screen's tests",
+      },
+    ],
+  };
+  p1.session.activity = {
+    tails: [
+      {
+        call: "p1-11",
+        lines: [
+          " ✓ src/acceptance.test.tsx > Draft > keeps the brief in the box",
+          " ✓ src/acceptance.test.tsx > Draft > sends the brief on Send",
+        ],
+      },
     ],
   };
   p1.session.attachments = [

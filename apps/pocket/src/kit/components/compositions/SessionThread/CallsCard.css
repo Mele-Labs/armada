@@ -1,0 +1,325 @@
+/* A run of tool calls as one card: the native Bridge's take A, in the tokens' own values. */
+
+.armada-calls-card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-2) + var(--space-1) * 0.5);
+  min-width: 0;
+  padding: var(--space-3) calc(var(--space-3) + var(--space-1) * 0.5);
+  border-radius: calc(var(--radius-lg) + var(--space-1));
+  border: var(--border-width, 1px) solid var(--border-subtle);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card, none);
+  list-style: none;
+}
+
+/* The glow is approved for the live card alone. */
+.armada-calls-card[data-live] {
+  border-color: color-mix(in srgb, var(--status-running) 45%, transparent);
+  box-shadow:
+    var(--shadow-card, 0 0 0 transparent),
+    0 0 var(--space-4) color-mix(in srgb, var(--status-running) 8%, transparent);
+}
+
+.armada-calls-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-calls-card__head:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+}
+
+.armada-calls-card__headline {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+  animation: armada-calls-card-slide 350ms ease-in-out;
+}
+
+/* While the agent thinks the headline pulses in opacity. */
+.armada-calls-card__headline[data-thinking] {
+  animation:
+    armada-calls-card-slide 350ms ease-in-out,
+    armada-calls-card-pulse var(--duration-pulse, 2s) ease-in-out infinite;
+}
+
+@keyframes armada-calls-card-slide {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-3) + var(--space-1) * 0.5));
+  }
+}
+
+@keyframes armada-calls-card-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.armada-calls-card__time {
+  flex: none;
+  min-height: var(--leading-sm);
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-sm);
+  color: var(--fg-subtle);
+}
+
+.armada-calls-card__chevron {
+  flex: none;
+  width: var(--space-4);
+  height: var(--leading-sm);
+  color: var(--fg-subtle);
+}
+
+.armada-calls-card__strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-height: calc(var(--space-4) + var(--space-1));
+}
+
+/* Folded, the strip is one line beside the run's words. */
+.armada-calls-card__strip--one {
+  flex: none;
+  flex-wrap: nowrap;
+  max-width: 60%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.armada-calls-card__tile {
+  --hue: var(--fg-muted);
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-4) + var(--space-1));
+  height: calc(var(--space-4) + var(--space-1));
+  border-radius: var(--radius-md);
+  border: var(--border-width, 1px) solid transparent;
+  background: color-mix(in srgb, var(--hue) 15%, transparent);
+  color: color-mix(in srgb, var(--hue) 70%, white);
+}
+
+.armada-calls-card__tile[data-kind="read"],
+.armada-calls-card__tile[data-kind="search"],
+.armada-calls-card__tile[data-kind="web"] {
+  --hue: var(--tool-look);
+}
+
+.armada-calls-card__tile[data-kind="edit"] {
+  --hue: var(--tool-change);
+}
+
+.armada-calls-card__tile[data-kind="run"] {
+  --hue: var(--tool-run);
+}
+
+/* The rest are drawn plain. */
+.armada-calls-card__tile[data-kind="agent"],
+.armada-calls-card__tile[data-kind="message"],
+.armada-calls-card__tile[data-kind="other"] {
+  background: color-mix(in srgb, var(--fg-muted) 6%, transparent);
+  color: var(--fg-muted);
+}
+
+.armada-calls-card__tile[data-running] {
+  --hue: var(--status-running);
+  background: color-mix(in srgb, var(--hue) 15%, transparent);
+  color: color-mix(in srgb, var(--hue) 70%, white);
+  border-color: color-mix(in srgb, var(--hue) 45%, transparent);
+}
+
+.armada-calls-card__tile svg {
+  width: var(--space-3);
+  height: var(--space-3);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.armada-calls-card__fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.armada-calls-card__spin {
+  animation: armada-calls-card-turn 1s linear infinite;
+}
+
+@keyframes armada-calls-card-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.armada-calls-card__sum {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The box under the strip while a call runs: what it works on, its count, Stop, and what it wrote. */
+.armada-calls-card__running {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-1) var(--space-1) var(--space-1) calc(var(--space-2) + var(--space-1) * 0.5);
+  border-radius: var(--radius-lg);
+  border: var(--border-width, 1px) solid var(--border-subtle);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-sm);
+}
+
+.armada-calls-card__doing {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--fg-default);
+}
+
+.armada-calls-card__command {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--h-control-sm, 24px);
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.armada-calls-card__doing .armada-calls-card__time {
+  min-height: var(--h-control-sm, 24px);
+}
+
+.armada-calls-card__output {
+  min-width: 0;
+  padding-right: var(--space-1);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.armada-calls-card__open {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) * 0.5);
+  margin: 0;
+  padding: var(--space-1) 0 0;
+  border-top: var(--border-width, 1px) solid var(--border-subtle);
+  list-style: none;
+}
+
+.armada-calls-card__thought {
+  min-width: 0;
+  padding: var(--space-2) 0 calc(var(--space-1) * 0.5);
+  font-size: calc(var(--text-2xs) + 0.5px);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-calls-card__call {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: calc(var(--space-1) * 0.5) 0;
+  border-radius: var(--radius-sm);
+}
+
+.armada-calls-card__call:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+}
+
+.armada-calls-card__line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.armada-calls-card__phrase {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--space-4) + var(--space-1));
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.armada-calls-card__call .armada-calls-card__time {
+  min-height: calc(var(--space-4) + var(--space-1));
+}
+
+.armada-calls-card__door {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--space-4) + var(--space-1));
+  color: var(--fg-subtle);
+}
+
+.armada-calls-card__door svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.armada-calls-card__peer {
+  color: var(--accent);
+  white-space: pre;
+}
+
+.armada-calls-card__note {
+  min-width: 0;
+  padding-left: calc(var(--space-4) + var(--space-1) + var(--space-2));
+  font-size: var(--text-2xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-calls-card__headline,
+  .armada-calls-card__headline[data-thinking],
+  .armada-calls-card__spin {
+    animation: none;
+  }
+}
