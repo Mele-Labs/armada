@@ -489,17 +489,61 @@ The box's card says what it drafted, and Undo takes out each draft still pending
 An ask from the box itself drafts the same way.
 The keys go Draft as Pending, Read them, then the box, and Tab past the box gives them back to the list.
 
+## Pictures
+
+A feature is shown by what it looks like in the running app, as People in Photos shows a person by a face.
+Each picture belongs to one feature, and the feature's page carries every one it has.
+
+| Part | Where it comes from |
+|---|---|
+| The file | Copied by Fleet under its support folder, at `feature-pictures/<project>/<feature id>/<picture id>.png` |
+| Where it came from | `url`, the page's address, or `screen`, the name of a native screen that has none, such as a walk's |
+| Commit | The Job's checkout, the running server's checkout, or the kept native build |
+| When, and its size | Taken at, width and height read off the PNG's header, and its bytes |
+| Who took it | A Job and its id, or the librarian |
+
+**A Job keeps a picture of a screen it built** with `add_feature_picture`: the feature's slug, the PNG's path on this Mac, and `url` or `screen`.
+The path is what `browser_screenshot` answered, or a picture a native walk's `--shots` wrote.
+Fleet copies the file, so the Job's scratch folder may go, and keeps the commit the Job's checkout stands at.
+
+**The cover is the newest standing picture.**
+`list_features` carries each feature's cover as `cover`, and `get_feature_page` carries every standing picture newest first as `pictures`.
+`get_feature_picture` serves one picture's bytes by its id.
+
+**Not this feature** is his press on a picture, `remove_feature_picture`, with `why` where he says what is wrong.
+The page and the list stop carrying it, and the cover moves to the next.
+The row and its file stay, marked removed with when and `why`, so what he taught is kept: the librarian never takes that page or screen again for that feature.
+His `why` is also kept as a rule of the catalog, a Not this feature about the feature, as `reject_in_catalog` keeps one, so it reaches every catalog tell; see [His rules](#his-rules).
+A press with no words keeps no rule.
+
+> **Rule.** A removed picture is marked, never deleted.
+> Why: his "not this one" is the signal the gallery learns from, and a deleted row would lose it.
+
+**The librarian's `pictures` part takes one picture a feature** on a run, once he turns it on (it ships off, since it starts a headless browser for each feature), of the screen the feature is tied to.
+A feature is tied to the screen its newest standing picture shows, a Job's or the librarian's.
+Where it has none, it is tied to the page its own files route to in a web app that routes by file: Next's `app/…/page.tsx` and `pages/…`, and SvelteKit's `routes/…/+page.svelte`, the shortest route first.
+A route with a segment filled in at request time, such as `[id]`, has no one address and ties nothing.
+A page is taken on the project's running server, a main checkout's before a Job's slot's, at the path the picture or the route gives, by Playwright's headless shell at 1280 by 800.
+A native screen is taken as the first step of the walk of that name in Armada's kept build, played with `--walk <name> --check --shots`, where a repository of the project holds the native Bridge.
+Neither opens a window on his screen.
+The librarian's take replaces its own last take of the same screen and never a Job's picture, and a screen whose app stands at the commit of that take is not taken again.
+Where no feature is tied to a screen, or no app of the project is running, the step says so and takes nothing.
+It costs no model.
+
+> **Rule.** The librarian takes only a screen it can tie to a feature, and never guesses one.
+> Why: a picture of the wrong screen is worse than none, and a person's Not this feature should be the exception, not the work.
+
 ## Librarian
 
 The librarian is the Fleet work that keeps a project's catalog current.
-It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
+It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked`, `gists` and `pictures`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built into a run so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, `gists`, the free part of `drift`, `retire`, `links` and `pictures` are built into a run so far, and a run does nothing else but keep its record.
 The model's part of `drift` is built and runs only on his press of Check on a feature's page, never in a run.
 
 Settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
-`features.librarianParts` names the parts a run does, all nine as it ships.
+`features.librarianParts` names the parts a run does, all ten as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
 `features.librarianAskShare` is the night his asks spend from, apart from that share, and is in [Asking the librarian](#asking-the-librarian).
 
@@ -591,7 +635,7 @@ The facts then wait: the part's next run reads from the last run that did it.
 A word Fleet cannot read means `on_press`.
 
 **The Catch up card shows a run's steps, each as it moves.**
-`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `write_gists` last among them where `gists` is on, then `read_through`.
+`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `take_pictures` where `pictures` is on, `write_gists` last among them where `gists` is on, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
@@ -750,6 +794,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature, the glossary terms it introduced and its gists of the docs it read |
+| `add_feature_picture` | The calling Job keeps a picture of a screen it built under its feature |
+| `remove_feature_picture` | His Not this feature on a picture, with why |
+| `get_feature_picture` | One picture's bytes |
 | `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
@@ -792,4 +839,6 @@ What the library would hold in the clear there is in [Central store](../contract
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
 - The check that marks a doc or ticket link `gone`.
+- The gallery on the native Features page: Fleet serves the pictures, and Bridge draws none yet.
+- A picture of a web page behind a sign in, and a route a framework does not spell in its file names.
 - The Ask box on a feature's page: Fleet answers `feature:<slug>`, and Bridge mounts the box on the Dashboard and the empty Features page alone.

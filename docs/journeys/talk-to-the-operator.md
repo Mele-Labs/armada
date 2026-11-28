@@ -33,11 +33,17 @@ A screenshot or a file goes with the words: attach it, paste it or drop it on th
 Nothing marks what kind of thing it is.
 The Operator reads your words: it starts a Job, folds the work into one already running, asks you on a card, or keeps it as an idea.
 
+**Your words go to one project's Operator.**
+Fleet picks it from the card you tagged, the screen you are on, the Job you have open, and what your words name.
+Where none is sure, Fleet puts up a card, "Which project is this for?", with up to four projects.
+Your pick sends the words you wrote to that project's Operator and no other.
+
 **With no session running, nothing hears you.**
 The composer and a press on a card are refused with `fleet.operator_session_not_running`, and the card stands. A dispatch starts as you asked.
 
 **A question is answered by reading.**
-Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads the Job, the issue or the code across every project before it answers.
+Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads the Job, the issue or the code of its project before it answers.
+A Job, a pull request or a repository of another project is held, and Fleet asks you on a card whether to let it through, hand it to that project's Operator or refuse it.
 
 ## What the Operator does without asking
 
@@ -57,6 +63,11 @@ Armada starts at `act_then_tell`.
 **A change you would see, or a decision that is yours, is always a card.**
 No value lowers this.
 
+**Each project also sets what its Operator may use.**
+Starting Jobs, merging pull requests, ending Jobs and filing issues are each on or off, and Fleet refuses what is off.
+A project may ask its decisions in the talk instead of on cards.
+[Operator](../concepts/operator.md), *What he sets for each project*, lists every setting.
+
 ## What stays yours
 
 **A question a Job asks stays in that Job's own Needs you.**
@@ -69,8 +80,8 @@ It never comments on, labels or edits an issue or a pull request for you.
 
 ## What is already decided
 
-- **Words reach the right repository whichever one is open.**
-  The work a thought belongs to is often in another repository, and one Operator serves the Mac.
+- **Words reach the right project's Operator whichever screen is open.**
+  Each project has its own Operator, and Fleet picks the one your words are for from the card, the screen, the Job you have open and what the words name.
 
 ## Related
 

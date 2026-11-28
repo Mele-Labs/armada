@@ -20,6 +20,7 @@ fn feature(area: &str, slug: &str, title: &str, summary: &str) -> FeatureRow {
         health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
         retire: None,
         planned: false,
+        cover: None,
     }
 }
 
@@ -328,6 +329,7 @@ pub fn page(slug: &str) -> FeaturePage {
             },
         ],
         floor_plan: Some(floor_plan()),
+        pictures: Vec::new(),
     }
 }
 

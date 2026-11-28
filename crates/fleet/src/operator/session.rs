@@ -1,11 +1,12 @@
-//! The Operator as one agent: a hosted session per Mac with Fleet's tools, which puts cards in front
+//! The Operator as one agent: a hosted session per project with Fleet's tools, which puts cards in front
 //! of the person and which Fleet tells what it used to rule on. `crates/ipc/operations/raise_card.toml`.
 //!
 //! **It has no repository, no slot and no Manifest.** It starts in a folder of its own under the
 //! Operator's home, as a Mod Job starts in the mods folder where Armada's own repository is not served,
 //! so the door answers it without a Manifest and offers it the reads and acts that name their
-//! repository themselves. While `features.operator` is on and none runs, one starts the moment the switch goes on or a send waits, and the tick starts one where that did not;
-//! turning the switch off ends it. A hand on at the context limit keeps `operator` on the successor.
+//! repository themselves. **One runs for each project** while `features.operator` is on, the project's own switch is on and
+//! none runs for it: it starts the moment the switch goes on or a send for it waits, and the tick starts one where that did
+//! not. Either switch off ends it. A hand on at the context limit keeps `operator` and the project on the successor.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,9 +15,8 @@ use tokio::task::JoinHandle;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use config::settings as keys;
 use ipc::operator_page::OperatorFeedKind;
-use ipc::{CloseSession, ManifestId, Notice, SendSessionMessage, SessionId, SessionTag, SessionUpload, SessionVoice, StartSession};
+use ipc::{CloseSession, ManifestId, Notice, SendSessionMessage, SessionId, SessionTag, SessionUpload, SessionVoice};
 
 use crate::daemon::Fleet;
 use super::arriving::{Arrival, Arrived};
@@ -68,15 +68,28 @@ where
         self.hosts().of(id).state().operator
     }
 
-    /// The folder the Operator's session runs in, beside its journal.
+    /// The folder the Operators' sessions run in, beside its journal. Each project's is under it, named for the project.
     pub(crate) fn operator_dir(&self) -> PathBuf {
         let journal = self.journal_dir();
         journal.parent().map(|home| home.join("session")).unwrap_or_else(|| journal.join("session"))
     }
 
-    /// The live Operator session's id, where one runs.
-    pub(crate) async fn operator_session_id(&self) -> Option<String> {
-        self.store().lock().await.live_operator_hosting().ok().flatten().map(|hosting| hosting.session_id)
+    /// `project`'s live Operator session's id, where one runs.
+    pub(crate) async fn operator_session_id(&self, project: &str) -> Option<String> {
+        self.store().lock().await.live_operator_hosting_of(project).ok().flatten().map(|hosting| hosting.session_id)
+    }
+
+    /// Every live Operator session as its project and id, oldest first. A session of no project, which an earlier Fleet
+    /// started, has the empty project.
+    pub(crate) async fn operator_sessions(&self) -> Vec<(String, String)> {
+        let hostings = self.store().lock().await.live_operator_hostings().unwrap_or_default();
+        hostings.into_iter().map(|hosting| (hosting.project.unwrap_or_default(), hosting.session_id)).collect()
+    }
+
+    /// The project the Operator session `session_id` is for, where it is one.
+    pub(crate) async fn operator_project_of(&self, session_id: &str) -> Option<String> {
+        let hosting = self.store().lock().await.hosting(session_id).ok().flatten()?;
+        hosting.project.filter(|_| hosting.operator)
     }
 
     /// Refuse a caller that is not the Operator's session, and name the session otherwise.
@@ -100,101 +113,131 @@ where
         }
     }
 
-    /// Once a tick: start the Operator's session while the switch is on and none runs, and end it once
-    /// the switch is off. While it is on, a picked card nothing settled in time comes back to the front.
+    /// Once a tick, after each repository in no project has become one: start the session of every project whose Operator runs
+    /// (the machine's switch on and the project's own) and has none, and end the session of every project whose does not. While
+    /// the machine's switch is on, a picked card nothing settled in time comes back to the front.
     pub(crate) async fn operator_session_kept(self: &Arc<Self>) {
         let _one = self.operator_seat().session.lock().await;
-        let live = self.operator_session_id().await;
-        match (self.operator_on(), live) {
-            (true, None) => match self.operator_session_started().await {
-                Ok(id) => self.held_sends_delivered(&id).await,
-                Err(why) => self.operator_warned("the Operator's session did not start", format!("{why:?}")),
-            },
-            // A send kept while none ran, where another start won the race to tell it.
-            (true, Some(id)) => self.held_sends_delivered(&id).await,
-            (false, Some(id)) => {
-                if let Err(why) = self.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await {
-                    self.operator_warned("the Operator's session did not end", format!("{why:?}"));
-                }
+        self.operator_loose_projects_made().await;
+        let wanted = self.operator_projects_wanted().await;
+        let live = self.operator_sessions().await;
+        for project in &wanted {
+            match live.iter().find(|(has, _)| has == project) {
+                // A send kept while none ran, where another start won the race to tell it.
+                Some((_, id)) => self.held_sends_delivered(project, id).await,
+                None => match self.operator_session_started(project).await {
+                    Ok(id) => self.held_sends_delivered(project, &id).await,
+                    Err(why) => self.operator_warned("an Operator's session did not start", format!("{project}: {why:?}")),
+                },
             }
-            _ => {}
+        }
+        for (_, id) in live.iter().filter(|(has, _)| !wanted.contains(has)) {
+            if let Err(why) = self.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(id) }).await {
+                self.operator_warned("an Operator's session did not end", format!("{id}: {why:?}"));
+            }
         }
         if self.operator_on() {
             self.cards_stalled_returned().await;
         }
     }
 
-    /// Start the Operator's session on the Operator model, and send its first turn.
-    async fn operator_session_started(self: &Arc<Self>) -> Result<String, Refusal> {
-        let dir = self.operator_dir();
+    /// The projects whose Operator should run now: each of his own while the machine's switch is on and its own is.
+    pub(super) async fn operator_projects_wanted(&self) -> Vec<String> {
+        if !self.operator_on() {
+            return Vec::new();
+        }
+        let kept = self.store().lock().await.projects().map(|kept| kept.projects).unwrap_or_default();
+        let mut wanted = Vec::new();
+        for one in kept {
+            if self.operator_settings_of(&one.id).await.on {
+                wanted.push(one.id);
+            }
+        }
+        wanted
+    }
+
+    /// Start `project`'s Operator session on its model and effort, and send its first turn.
+    async fn operator_session_started(self: &Arc<Self>, project: &str) -> Result<String, Refusal> {
+        let dir = self.operator_dir().join(project);
         std::fs::create_dir_all(&dir).map_err(|why| self.hosted_refusal("fleet.operator_session_folder", &format!("the Operator's folder could not be made: {why}")))?;
-        let (model, effort): (String, String) = {
-            let now = self.machine_settings().now();
-            (now.get(keys::MODELS_OPERATOR), now.get(keys::EFFORT_OPERATOR))
-        };
-        let start = StartSession {
-            project: None,
-            manifest_id: ManifestId::carried(""),
-            title: Some(TITLE.to_string()),
-            model: Some(model).filter(|model| !model.trim().is_empty()),
-            // "harness default" is no effort named: the harness picks.
-            effort: Some(effort).filter(|effort| crate::tuning::effort_of(effort).is_some()),
-            mode: None,
-            root: None,
-            fork: None,
-            request: None,
-            after: None,
-            held: false,
-            project_rows: Vec::new(),
-            on_your_words: None,
-            workflow: None,
-        };
+        let start = self.operator_start_of(project, Some(TITLE.to_string())).await;
         let id = self.started_hosted(start, Marked::Operator).await?.id.as_str().to_string();
         self.first_message_from(&id, SessionVoice::You, BEGIN).await?;
         Ok(id)
     }
 
-    /// Fleet's word to the Operator's session, where one runs. `false` where none does, or it could not
+    /// Fleet's word to `project`'s Operator session, where one runs. `false` where none does, or it could not
     /// be told, and the caller goes on as it did before the session.
-    pub(crate) async fn operator_told(self: &Arc<Self>, text: &str) -> bool {
-        let Some(id) = self.operator_session_id().await else { return false };
+    pub(crate) async fn operator_told(self: &Arc<Self>, project: &str, text: &str) -> bool {
+        let Some(id) = self.operator_session_id(project).await else { return false };
         matches!(self.told_by_fleet(&id, text, Notice::Operator).await, Ok(true))
     }
 
-    /// Tell the Operator's session of `arrival`, once. **`false` where no session runs, or it could not be told**,
-    /// and the caller goes on as it did with the Operator off.
+    /// Tell the Operators whose project holds `arrival`'s repository of it, once each. **`false` where none runs, or none could
+    /// be told**, and the caller goes on as it did with the Operator off.
     pub(crate) async fn arrival_told(self: &Arc<Self>, arrival: &Arrival) -> bool {
         self.arrival_handed(arrival).await != Handed::NotRunning
     }
 
-    /// [`arrival_told`](Self::arrival_told), saying whether the session was told now or had been before.
+    /// [`arrival_told`](Self::arrival_told), saying whether a session was told now or all had been before. **An Operator hears
+    /// an arrival of a repository its project holds and of no other**; a repository two projects hold tells both, and says
+    /// it is shared with the other.
     pub(crate) async fn arrival_handed(self: &Arc<Self>, arrival: &Arrival) -> Handed {
-        if self.operator_session_id().await.is_none() {
-            return Handed::NotRunning;
+        let held = self.projects_held();
+        // An arrival of a project alone, such as a pending feature, is that project's and no other's.
+        let holding: Vec<(String, String)> = match arrival.project.as_str() {
+            "" => held.holding(&ManifestId::carried(&arrival.manifest_id).to_domain()),
+            alone => held.running().filter(|one| one.id().as_str() == alone).collect(),
         }
+        .into_iter()
+        .map(|one| (one.id().as_str().to_string(), one.name().as_str().to_string()))
+        .collect();
+        let mut handed = Handed::NotRunning;
+        for (project, _) in &holding {
+            if self.operator_session_id(project).await.is_none() {
+                continue;
+            }
+            handed = handed.max(self.arrival_handed_to(project, &holding, arrival).await);
+        }
+        handed
+    }
+
+    /// `arrival`, told to `project`'s Operator once. `holding` is every project that holds the repository, as id and name.
+    async fn arrival_handed_to(self: &Arc<Self>, project: &str, holding: &[(String, String)], arrival: &Arrival) -> Handed {
         let now = self.now();
-        if !self.store().lock().await.keep_linked_told("operator", TOLD, &arrival.id, &now).unwrap_or(false) {
-            return Handed::Before;
+        let key = format!("{project}:{}", arrival.id);
+        {
+            let mut store = self.store().lock().await;
+            // What an earlier Fleet told its one Operator is told already.
+            if store.linked_was_told("operator", TOLD, &arrival.id).unwrap_or(false) || !store.keep_linked_told("operator", TOLD, &key, &now).unwrap_or(false) {
+                return Handed::Before;
+            }
         }
         let repository = self.board_repository(&arrival.manifest_id).map(|name| format!(" in {name}")).unwrap_or_default();
+        let others: Vec<&str> = holding.iter().filter(|(one, _)| one != project).map(|(_, name)| name.as_str()).collect();
+        let shared = match others.is_empty() {
+            true => String::new(),
+            false => format!("\n\nThis repository is shared with {}: {} hears it too.", if others.len() == 1 { "the project" } else { "the projects" }, others.join(", ")),
+        };
         let text = format!(
-            "{}{repository}: {}\n\n{}\n\nSettle it with your own tools, or put a card in front of him where it is his to decide.",
+            "{}{repository}: {}\n\n{}{shared}\n\nSettle it with your own tools, or put a card in front of him where it is his to decide.",
             arrival.arrived.said(),
             arrival.subject,
             arrival.words
         );
-        if !self.operator_told(&text).await {
+        if !self.operator_told(project, &text).await {
             return Handed::NotRunning;
         }
         let kind = if matches!(arrival.arrived, Arrived::Conflict | Arrived::Held) { OperatorFeedKind::Asked } else { OperatorFeedKind::Told };
         let session = Some(arrival.session_id.as_str()).filter(|id| !id.is_empty());
-        self.feed_kept(kind, &arrival.subject, session, Some(arrival.arrived.said())).await;
+        self.feed_kept(Some(project), kind, &arrival.subject, session, Some(arrival.arrived.said())).await;
         Handed::Now
     }
 
-    /// Each send he made while no session ran, told to session `id` in the order he sent them. One the session was not
+    /// Each send he made for `project` while its Operator ran no session, told to session `id` in the order he sent them. A
+    /// send is kept with the project it was routed to, so no Operator is told another project's words. One the session was not
     /// told stays kept for the next start or tick.
-    async fn held_sends_delivered(self: &Arc<Self>, id: &str) {
+    pub(super) async fn held_sends_delivered(self: &Arc<Self>, project: &str, id: &str) {
         let held = match self.store().lock().await.operator_held_sends() {
             Ok(held) => held,
             Err(why) => return self.operator_warned("the sends kept for the Operator were not read", format!("{why:?}")),
@@ -208,10 +251,13 @@ where
                     continue;
                 }
             };
-            if self.operator_session_id().await.as_deref() != Some(id) {
+            if talk.project.as_deref() != Some(project) {
+                continue;
+            }
+            if self.operator_session_id(project).await.as_deref() != Some(id) {
                 return;
             }
-            if let Err(why) = self.talk_delivered(talk).await {
+            if let Err(why) = self.talk_delivered(project, talk).await {
                 return self.operator_warned("a send kept for the Operator was not told to it", format!("{why:?}"));
             }
             if let Err(why) = self.store().lock().await.deliver_operator_held_send(n, self.now().as_str()) {
@@ -220,10 +266,10 @@ where
         }
     }
 
-    /// The person's words to the Operator's session, as he wrote them, with the files and tags he sent. A refusal
+    /// The person's words to `project`'s Operator session, as he wrote them, with the files and tags he sent. A refusal
     /// says it is not running.
-    pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
-        let Some(id) = self.operator_session_id().await else {
+    pub(crate) async fn operator_told_as_him(self: &Arc<Self>, project: &str, text: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
+        let Some(id) = self.operator_session_id(project).await else {
             return Err(self.hosted_refusal(NOT_RUNNING, "the Operator's session is not running, so nothing here reaches it"));
         };
         let sent = SendSessionMessage { session_id: SessionId::carried(&id), text: text.to_string(), attachments, mentions, sketches: Vec::new() };
@@ -232,14 +278,14 @@ where
 }
 
 /// How the session came to hear of an arrival.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Handed {
     /// No session runs, or it could not be told.
     NotRunning,
-    /// It was told now.
-    Now,
     /// It had been told already.
     Before,
+    /// It was told now.
+    Now,
 }
 
 /// What `keep_linked_told` files an arrival told to the Operator's session under.

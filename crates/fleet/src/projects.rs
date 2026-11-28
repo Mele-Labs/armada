@@ -902,8 +902,8 @@ where
         self.project_board_saved(project, save).await
     }
 
-    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemMap, Refusal> {
-        self.system_map_read(project, part, feature).await
+    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>, lit: Option<String>) -> Result<ipc::SystemMap, Refusal> {
+        self.system_map_read(project, part, feature, lit).await
     }
 
     async fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemPartAnswers, Refusal> {

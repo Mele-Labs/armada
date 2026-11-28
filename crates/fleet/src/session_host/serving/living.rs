@@ -333,7 +333,10 @@ where
                     subagent_cache_ttl,
                     skills_off,
                     thinking_summaries,
-                    operator: hosting.operator,
+                    operator: match (hosting.operator, hosting.project.as_deref()) {
+                        (true, project) => Some(self.operator_prompt_of(project.unwrap_or_default()).await),
+                        (false, _) => None,
+                    },
                 };
                 let process = self.hosts().processes().start(&start, sink)?;
                 if hosting.ran {

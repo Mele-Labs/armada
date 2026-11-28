@@ -293,7 +293,11 @@ where
             return Err(reason_of("new job did not start", &why));
         }
         // The new Job is for the old one's project, from its start, so it takes the project's values as any Job does.
-        let project = self.started_project(old, hosting.project.clone(), &hosting.manifest_id).await;
+        let project = match hosting.operator {
+            // An Operator's successor is for the same project and holds no repository to join it through.
+            true => hosting.project.clone(),
+            false => self.started_project(old, hosting.project.clone(), &hosting.manifest_id).await,
+        };
         let begun = StartSession {
             project,
             manifest_id: ManifestId::carried(&hosting.manifest_id),
@@ -310,10 +314,15 @@ where
             on_your_words: None,
             workflow: None,
         };
-        // The Operator's successor is the Operator's: no repository to start in, and the mark carried.
-        let made = match hosting.operator {
-            true => self.started_hosted(begun, super::Marked::Operator).await,
-            false => self.started_hosted(begun, super::Marked::Plain).await,
+        // The Operator's successor is the Operator's: no repository to start in, and the mark carried. It starts on the
+        // model and effort the project's settings give now, which is why a change to them hands the session on.
+        let made = match (hosting.operator, hosting.project.as_deref()) {
+            (true, Some(operator)) => {
+                let start = self.operator_start_of(operator, begun.title.clone()).await;
+                self.started_hosted(StartSession { mode: begun.mode, ..start }, super::Marked::Operator).await
+            }
+            (true, None) => self.started_hosted(begun, super::Marked::Operator).await,
+            (false, _) => self.started_hosted(begun, super::Marked::Plain).await,
         }
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;
         let new = made.id.as_str().to_string();

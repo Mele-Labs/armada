@@ -56,6 +56,7 @@ mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
+mod feature_pictures;
 mod library_start;
 /// Groups of Jobs the owner named in the Jobs list.
 mod sub_projects;
@@ -204,6 +205,8 @@ pub mod operator_talk;
 pub mod operator_page;
 /// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
 pub mod operator_cards;
+/// What each project's Operator is set to. `crates/ipc/operations/list_operator_settings.toml`.
+pub mod operator_settings;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -412,6 +415,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_settings::{OperatorDecisions, OperatorRole, OperatorSettings, OperatorSettingsList, OperatorSettingsSet, OperatorStyle, OperatorTag, OperatorTools, OperatorToolsSet, ProjectOperatorSettings, SetOperatorSettings};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AnswerRetire, AreaSeed, ChangeFeature, DocGist, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
@@ -421,6 +425,7 @@ pub use features::{
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use feature_pictures::{AddFeaturePicture, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, PictureBy, RemoveFeaturePicture};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
@@ -610,7 +615,7 @@ pub use graphs::{
 };
 pub use projects::MergeProjects;
 pub use system_map::{
-    AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
+    AdditionAnswer, AnswerSystemAddition, LitFeature, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
 };
 pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{

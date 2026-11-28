@@ -10,4 +10,6 @@ Since 14 Nov 2026. `POST /operator/cards`, body `RaiseCard`: `kind` (`deal` or `
 **Only the Operator's own session may raise one.** The session is placed by its connection, as `all_done`'s is; any other caller is refused 422 `fleet.not_the_operator` with a sentence, and the Operator's tool list is the only one that offers it. **Fleet refuses, with `fleet.card_refused` and a sentence naming the part,** where the title or the read is empty, there are not two to four options, an option has no label or no cost, two options share a label, `repository` is no repository Fleet serves, a session is no Job Fleet knows, or `talk_of` is no card.
 
 **A card is a row of Your turn** (`OperatorTurnItem.card`), the options its item's with the cost as each one's `description` and the read and pick as its `read`. His press, his Later and his talk reach the Operator as messages carrying the card's id and title. Publishes `operator.page_changed`.
+
+**Refused**, 422 `fleet.operator_chat_mode` (since 28 Nov 2026), **where the Operator's project asks its decisions in the talk** (its `decisions` setting is `chat`): the sentence tells it to ask each decision in the talk as one question with two to four numbered options, its pick first and a cost on each.
 """

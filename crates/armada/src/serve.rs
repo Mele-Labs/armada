@@ -795,6 +795,8 @@ fn assemble(
         },
         // A project's metric tokens: one keychain item per tool, never in a file.
         metric_tokens: Arc::new(adapters::KeychainSecrets::metric_tokens_in_default_keychain()),
+        // A feature's picture: Playwright's headless shell, or the kept native Bridge's walk check.
+        capture: Arc::new(fleet::picture_capture::Headless),
     });
     Ok(fleet)
 }

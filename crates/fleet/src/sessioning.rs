@@ -707,6 +707,11 @@ where
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.ledger_unnamed("a job to show it for"))?;
+        if native {
+            if let Some(why) = self.walks_refused(&id, !variations.is_empty()).await {
+                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
+            }
+        }
         let group = show.group.as_deref().map(str::trim).filter(|group| !group.is_empty()).map(str::to_string);
         let harness = {
             let store = self.store().lock().await;
@@ -1150,6 +1155,14 @@ where
 
     async fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> Result<ipc::OperatorActsList, Refusal> {
         self.operator_acts_set(set).await
+    }
+
+    async fn list_operator_settings(&self) -> Result<ipc::OperatorSettingsList, Refusal> {
+        self.operator_settings_listed().await
+    }
+
+    async fn set_operator_settings(self: Arc<Self>, set: ipc::SetOperatorSettings) -> Result<ipc::OperatorSettingsList, Refusal> {
+        self.operator_settings_set(set).await
     }
 
     async fn ask_held(

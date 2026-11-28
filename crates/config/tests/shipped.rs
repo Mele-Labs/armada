@@ -238,6 +238,27 @@ fn this_repositorys_own_manifest_loads_and_states_its_patience() {
     assert_eq!(manifest.poke_limit(), None);
 }
 
+/// **This repository is read as declaring its native Bridge's walks**, until its `armada.yml` says so
+/// itself, so Fleet builds, lists, opens and pictures them with no constant of its own. The flags are the
+/// ones `bridge-native` reads.
+#[test]
+fn this_repositorys_own_manifest_is_read_as_declaring_how_the_native_bridges_walks_are_made() {
+    let manifest = config::Manifest::load(&root().join("armada.yml")).expect("it loads");
+    assert!(manifest.walks().is_none(), "armada.yml declares none yet: the built-in declaration stands in");
+    assert!(root().join("crates/bridge-native/Cargo.toml").is_file(), "it holds the native Bridge, which is what selects it");
+    let walks = config::Walks::native_bridge();
+    assert_eq!(walks.binary(), "crates/bridge-native/target/release/bridge-native");
+    assert!(walks.build().contains("--manifest-path crates/bridge-native/Cargo.toml"), "{}", walks.build());
+    assert_eq!(walks.list(), "${binary} --list-walks");
+    for flag in ["--walk ${walk}", "--job ${job}", "--url ${url}", "--fleet-port ${fleet_port}"] {
+        assert!(walks.open().contains(flag), "open lacks {flag}: {}", walks.open());
+    }
+    assert_eq!(walks.take(), Some("--take ${name}=${walk}"));
+    assert!(walks.shots().contains("--check --shots ${shots} --hold 0"), "{}", walks.shots());
+    assert!(walks.against().contains("--against ${against} --out ${out} --hold 0"), "{}", walks.against());
+    assert_eq!(walks.seed(), Some("crates/bridge-native/target"));
+}
+
 /// **Every shipped step says what it does.** Bridge draws the line at the
 /// approval gate, where a person meets a workflow's steps for the first time.
 #[test]

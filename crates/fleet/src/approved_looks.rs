@@ -21,9 +21,6 @@ use crate::daemon::Fleet;
 /// Under Fleet's support folder: `<job>/<walk>`, one folder a kept look.
 pub(crate) const DIR: &str = "approved-looks";
 
-/// How long the walk holds each step before its picture is taken, in milliseconds: none, since every walk that plays drew the same pictures twice and six replayed with no hold matched their held pictures (28 Nov 2026). The same on approval and replay.
-pub(crate) const HOLD_MS: &str = "0";
-
 /// What playing a walk headless may take, picture by picture.
 pub(crate) const PLAY_BUDGET: Duration = Duration::from_secs(150);
 
@@ -38,10 +35,10 @@ pub(crate) struct Played {
     pub(crate) stderr: String,
 }
 
-/// Play a walk with the binary's own arguments, in the folder the binary is kept in.
-pub(crate) async fn played(binary: &Path, args: &[String]) -> Result<Played, String> {
-    let run = tokio::process::Command::new(binary)
-        .args(args)
+/// Play a walk as `words` say, in the folder the binary is kept in.
+pub(crate) async fn played(binary: &Path, words: &[String]) -> Result<Played, String> {
+    let run = tokio::process::Command::new(&words[0])
+        .args(&words[1..])
         .current_dir(binary.parent().unwrap_or(Path::new("/")))
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -54,7 +51,7 @@ pub(crate) async fn played(binary: &Path, args: &[String]) -> Result<Played, Str
             let lines: Vec<&str> = stderr.lines().collect();
             Ok(Played { code: out.status.code(), stderr: lines[lines.len().saturating_sub(10)..].join("\n") })
         }
-        Ok(Err(why)) => Err(format!("the native Bridge could not be started: {why}")),
+        Ok(Err(why)) => Err(format!("the app could not be started: {why}")),
         Err(_) => Err(format!("the walk did not finish within {} seconds", PLAY_BUDGET.as_secs())),
     }
 }
@@ -86,6 +83,7 @@ struct Taking {
     url: String,
     commit: String,
     binary: PathBuf,
+    walks: config::Walks,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -120,9 +118,10 @@ where
         }
         .to_string();
         let Ok((_, hosting)) = self.session_and_hosting(session).await else { return };
+        let Some(walks) = self.walks_declared(&hosting.manifest_id) else { return };
         let home = self.host().home.clone();
-        let binary = crate::walk_builds::binary_of(&home, &crate::walk_builds::key_of(&hosting.manifest_id), &build.commit);
-        let taking = Taking { session: session.to_string(), walk, url: address.to_string(), commit: build.commit, binary };
+        let binary = crate::walk_builds::binary_of(&home, &crate::walk_builds::key_of(&hosting.manifest_id), &build.commit, &walks);
+        let taking = Taking { session: session.to_string(), walk, url: address.to_string(), commit: build.commit, binary, walks };
         let fleet = Arc::clone(self);
         tokio::spawn(async move { fleet.look_taken(taking).await });
     }
@@ -169,9 +168,11 @@ where
         }
         let _ = std::fs::remove_dir_all(into);
         std::fs::create_dir_all(into).map_err(|why| format!("{} could not be made: {why}", into.display()))?;
-        let args: Vec<String> =
-            ["--walk", &taking.walk, "--check", "--shots", &into.display().to_string(), "--hold", HOLD_MS].map(String::from).to_vec();
-        let played = played(&taking.binary, &args).await?;
+        let words = crate::walk_builds::words_of(
+            taking.walks.shots(),
+            &[("binary", &taking.binary.display().to_string()), ("walk", &taking.walk), ("shots", &into.display().to_string())],
+        )?;
+        let played = played(&taking.binary, &words).await?;
         if played.code != Some(0) {
             return Err(format!("the walk {} did not play (exit {:?}): {}", taking.walk, played.code, played.stderr));
         }

@@ -156,14 +156,14 @@ async fn a_project_over_one_folder_maps_and_answers_only_what_is_in_it() {
     let rig = rig(None);
     let project = a_project_over(&rig, &[Some("crates/bridge-native")]).await;
 
-    let map = rig.fleet.get_system_map(project.clone(), None, None).await.expect("mapped");
+    let map = rig.fleet.get_system_map(project.clone(), None, None, None).await.expect("mapped");
     let ids: Vec<&str> = map.parts.iter().map(|one| one.id.as_str()).collect();
     assert!(ids.contains(&"bridge-native"), "the folder's app is a part: {ids:?}");
     assert!(!ids.contains(&"server"), "the server outside the folder is not: {ids:?}");
     assert!(map.links.iter().all(|link| link.from != "server" && link.to != "server"), "nor is anything linked to it: {:?}", map.links);
     let slugs: Vec<&str> = map.features.iter().map(|one| one.slug.as_str()).collect();
     assert_eq!(slugs, ["jobs-list"], "only a feature with a file in the folder is listed");
-    match rig.fleet.get_system_map(project.clone(), None, Some("routing".to_string())).await {
+    match rig.fleet.get_system_map(project.clone(), None, Some("routing".to_string()), None).await {
         Err(Refusal::NotFound(why)) => assert_eq!(why.code.to_string(), "fleet.system_feature_unknown"),
         other => panic!("a feature outside the folder has no path: {other:?}"),
     }
@@ -191,7 +191,7 @@ async fn a_repository_listed_whole_is_read_whole() {
     let rig = rig(None);
     let project = a_project_over(&rig, &[None]).await;
 
-    let map = rig.fleet.get_system_map(project.clone(), None, None).await.expect("mapped");
+    let map = rig.fleet.get_system_map(project.clone(), None, None, None).await.expect("mapped");
     let ids: Vec<&str> = map.parts.iter().map(|one| one.id.as_str()).collect();
     assert!(ids.contains(&"bridge-native") && ids.contains(&"server"), "{ids:?}");
     assert_eq!(map.features.iter().map(|one| one.slug.as_str()).collect::<Vec<_>>(), ["jobs-list", "routing"]);

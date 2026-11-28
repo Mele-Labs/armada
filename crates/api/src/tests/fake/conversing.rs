@@ -13,12 +13,17 @@ use crate::{Conversations, Refusal};
 pub const SERVED_MANIFEST: &str = "armada";
 
 impl crate::Admitting for FakeDaemon {
-    fn words_reach_at(&self, caller: crate::Caller) -> Option<crate::WordsReach> {
+    async fn words_reach_at(&self, caller: crate::Caller) -> Option<crate::WordsReach> {
         let session = *self.session_on.lock().expect("not poisoned");
         if session.is_some() && caller.port() == session {
             let reach = crate::WordsReach::of_a_hosted_session();
             let operator = *self.session_is_the_operator.lock().expect("not poisoned");
-            return Some(if operator { reach.the_operator() } else { reach });
+            if !operator {
+                return Some(reach);
+            }
+            let off = self.operator_switched_off.lock().expect("not poisoned").clone();
+            let unsaid = self.operator_unsaid.lock().expect("not poisoned").clone();
+            return Some(reach.the_operator().without(&off, "is off for this project's Operator: Settings, Operator, Tools").until_said(&unsaid, "waits for him to say so: on a card or in the talk"));
         }
         let planted = *self.words_on.lock().expect("not poisoned");
         let (port, may) = planted?;
