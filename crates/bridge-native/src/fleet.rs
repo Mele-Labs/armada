@@ -163,6 +163,8 @@ pub struct Held {
     story_moved: Vec<ipc::StoryChanged>,
     /// The steps of a librarian run that started or ended (`librarian.step`), folded since the last take, oldest first.
     librarian_moved: Vec<ipc::LibrarianStepMoved>,
+    /// The notes a feature's Jobs sent were taken by one (`note.claimed`), folded since the last take, oldest first.
+    notes_claimed: Vec<ipc::NoteClaimed>,
     /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
     asides_moved: Vec<ipc::Aside>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -250,6 +252,7 @@ impl Held {
             for_you_moved: Vec::new(),
             story_moved: Vec::new(),
             librarian_moved: Vec::new(),
+            notes_claimed: Vec::new(),
             asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
@@ -430,6 +433,11 @@ impl Held {
     /// The librarian's steps that moved, folded since the last take, oldest first.
     pub fn take_librarian_moved(&mut self) -> Vec<ipc::LibrarianStepMoved> {
         std::mem::take(&mut self.librarian_moved)
+    }
+
+    /// The notes a Job took, folded since the last take, oldest first.
+    pub fn take_notes_claimed(&mut self) -> Vec<ipc::NoteClaimed> {
+        std::mem::take(&mut self.notes_claimed)
     }
 
     /// The asides that moved, each as Fleet sent it whole, folded since the last take, oldest first.
@@ -652,6 +660,7 @@ impl Held {
                         Event::SessionForYou(moved) => self.for_you_moved.push(moved),
                         Event::SessionStory(moved) => self.story_moved.push(moved),
                         Event::LibrarianStep(moved) => self.librarian_moved.push(moved),
+                        Event::NoteClaimed(claimed) => self.notes_claimed.push(claimed),
                         // An aside arrives whole: the side chat replaces the one it holds by its id.
                         Event::SessionAside(aside) => self.asides_moved.push(aside),
                         Event::JobThreadTail(tail) => {
@@ -824,6 +833,11 @@ impl EventEmitter<StoryMoved> for FleetConnection {}
 pub struct LibrarianStepsMoved(pub Vec<ipc::LibrarianStepMoved>);
 
 impl EventEmitter<LibrarianStepsMoved> for FleetConnection {}
+
+/// The notes sent to a feature's Jobs that one of them took, in one folded batch (`note.claimed`), for the layer's cards.
+pub struct NotesClaimed(pub Vec<ipc::NoteClaimed>);
+
+impl EventEmitter<NotesClaimed> for FleetConnection {}
 
 /// The asides that moved in one folded batch (`session.aside`), each whole, for a side chat to replace the one it holds.
 pub struct AsidesMoved(pub Vec<ipc::Aside>);
@@ -1503,6 +1517,7 @@ impl FleetConnection {
                     let for_you = this.held.take_for_you_moved();
                     let story = this.held.take_story_moved();
                     let librarian = this.held.take_librarian_moved();
+                    let claimed = this.held.take_notes_claimed();
                     let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived(crate::pairing::macs(cx));
                     let shells = this.held.take_shells();
@@ -1544,6 +1559,9 @@ impl FleetConnection {
                     }
                     if !librarian.is_empty() {
                         cx.emit(LibrarianStepsMoved(librarian));
+                    }
+                    if !claimed.is_empty() {
+                        cx.emit(NotesClaimed(claimed));
                     }
                     if !asides.is_empty() {
                         cx.emit(AsidesMoved(asides));

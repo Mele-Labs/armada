@@ -1225,6 +1225,10 @@ where
         self.annotation_done(caller, mark).await
     }
 
+    async fn claim_note(self: Arc<Self>, caller: Option<api::Caller>, claim: ipc::ClaimNote) -> Result<ipc::NoteClaimed, Refusal> {
+        self.note_claimed(caller, claim).await
+    }
+
     async fn resolve_pull_request_note(
         &self,
         caller: Option<api::Caller>,

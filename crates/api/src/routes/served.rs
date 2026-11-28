@@ -752,6 +752,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/annotation_done",
     },
     Route {
+        operation: "claim_note",
+        method: "POST",
+        path: "/sessions/claim_note",
+    },
+    Route {
         operation: "resolve_pull_request_note",
         method: "POST",
         path: "/sessions/pull_request_note_resolved",

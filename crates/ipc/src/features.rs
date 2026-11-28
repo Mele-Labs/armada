@@ -587,6 +587,9 @@ pub struct FeatureOfPath {
     /// The prefix that matched, where `how` is `prefix`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prefix: Option<String>,
+    /// The Jobs on the feature now, as `list_features` has them: the ones a note on the file goes to.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<FeatureJob>,
 }
 
 /// `get_features_of_path`: the features a file belongs to, the longest prefix first.

@@ -210,6 +210,7 @@ mod session_activity;
 mod session_tools_missing;
 mod debug_reporting;
 mod session_annotation_done;
+mod note_claims;
 mod session_note_artifacts;
 mod pull_request_notes;
 mod session_dispute;

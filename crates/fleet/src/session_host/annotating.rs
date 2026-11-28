@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::annotations::{is_note_id, marked_done, note_read, unsent, NoteRead, NotMarked};
+use ipc::annotations::{is_note_id, marked_done, note_read, resent_to, unsent, NoteRead, NotMarked};
 use ipc::{AnnotationMarked, MarkAnnotationDone, SessionNote};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -264,6 +264,34 @@ where
             };
         }
         changed
+    }
+
+    /// The note `note_id` is `job`'s now, called `title`: its file names the Job in `sent`, so the Job may mark it done,
+    /// and the other Jobs it was sent to give their artifact of it back. Nothing here refuses the claim it follows.
+    pub(crate) async fn note_moved_to(&self, note_id: &str, job: &str, title: &str, others: &[String]) {
+        let at = self.now().as_str().to_string();
+        let file = self.notes_root(job).await.and_then(|root| note_file(&root, note_id));
+        if let Some(path) = file {
+            let moved = std::fs::read(&path).ok().and_then(|bytes| resent_to(&bytes, job, title, &at).ok());
+            if let Some(Err(why)) = moved.map(|bytes| written(&path, &bytes)) {
+                eprintln!("job {job}: note {} was not rewritten as its own: {why}", path.display());
+            }
+        }
+        let target = format!("{TARGET_PREFIX}{note_id}");
+        let mut moved = Vec::new();
+        {
+            let mut store = self.store().lock().await;
+            for other in others {
+                let Ok(held) = store.attachments_of(&Holder::session(other)) else { continue };
+                let Some(row) = held.iter().find(|one| one.kind == ARTIFACT && one.target == target && one.state == AttachmentState::Standing) else { continue };
+                if store.follow(row, AttachmentState::GivenBack, &row.detail, &at).unwrap_or(false) {
+                    moved.push(other.clone());
+                }
+            }
+        }
+        for other in moved {
+            let _ = self.published_hosted(&other).await;
+        }
     }
 
     /// The root of the repository `id` is in, under which its notes are looked for.

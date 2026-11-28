@@ -205,7 +205,7 @@ impl Beside {
             return;
         }
         let place: Place = of_path::place_of(&subject.raw, subject.root.as_deref());
-        if place.files.is_empty() && place.components.is_empty() {
+        if place.files.is_empty() && place.components.is_empty() && place.named.is_empty() {
             return self.got(subject.key, Vec::new(), cx);
         }
         match source {
@@ -237,6 +237,14 @@ impl Beside {
         let chips = found.into_iter().map(|feature| Chip { feature, focus: cx.focus_handle().tab_stop(true) }).collect();
         self.reads.insert(key, Read::Done(chips));
         cx.notify();
+    }
+
+    /// The features of the note `key`, once read: none while the read is out.
+    pub(super) fn features_of(&self, key: &str) -> Vec<Mapped> {
+        match self.reads.get(key) {
+            Some(Read::Done(chips)) => chips.iter().map(|chip| chip.feature.clone()).collect(),
+            _ => Vec::new(),
+        }
     }
 
     /// The chips of the opened note's card, once read.

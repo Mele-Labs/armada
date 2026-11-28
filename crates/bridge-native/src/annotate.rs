@@ -13,13 +13,14 @@
 //!
 //! **Available in every build**, shipped or not: the owner chose it over Electron's development-build gate.
 
+mod drawn_by;
 pub mod live;
 mod panel;
 pub mod store;
 pub mod tools;
 
 use std::cell::Cell;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -96,9 +97,22 @@ pub(crate) struct Note {
     /// The window as it was when the note was held: the send burns the ring and number into it.
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     pub status: Status,
-    /// The Job it went to, once Fleet took it.
+    /// The Job it went to, once Fleet took it, or the feature whose Jobs it went to.
     pub sent: Option<SharedString>,
     pub tools: Entity<Tools>,
+}
+
+impl Note {
+    /// Where it went, as the card and the panel say it: to a Job, or to a feature's Jobs and then the Job that took it.
+    pub(crate) fn sent_line(&self) -> Option<String> {
+        let sent = &self.raw["sent"];
+        let title = sent["title"].as_str().unwrap_or_default();
+        match sent["feature"].as_str() {
+            Some(_) if sent["sessionId"].as_str().is_some_and(|id| !id.is_empty()) => Some(format!("{title} took it")),
+            Some(feature) => Some(format!("Sent to {feature}'s Jobs")),
+            None => self.sent.as_ref().map(|title| format!("Sent to Job {title}")),
+        }
+    }
 }
 
 /// A note as it was saved, for a layer that reads them again when it comes on.
@@ -115,6 +129,9 @@ pub struct Saved {
 pub enum Asked {
     /// Notes, to a Job; `None` starts a new held Job with the notes' words.
     Send { to: Option<Offered>, notes: Vec<String> },
+    /// Notes, to the live Jobs on the feature `feature` of `project`, those on `features` by slug and on the features the
+    /// files `paths` draw, or to a Job Fleet starts for it where none is live.
+    ToFeature { feature: String, project: String, paths: Vec<String>, features: Vec<String>, notes: Vec<String> },
 }
 
 impl EventEmitter<Asked> for Layer {}
@@ -167,6 +184,8 @@ pub struct Layer {
     pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
+    /// The features each live Job writes to, by its id, so the picker lists the Jobs on a note's features first.
+    worked: HashMap<SharedString, Vec<ipc::SessionFeature>>,
     /// The session of the Operator while one runs: the picker's first choice, and none while it does not.
     pub operator: Option<SharedString>,
     menu: Option<Menu>,
@@ -181,7 +200,11 @@ pub struct Layer {
     keys_were: Option<FocusHandle>,
     card_focus: FocusHandle,
     /// The opened card's Send to job and Start job: a saved note opens on Send to job, so the send is all keys.
+    /// Where the note maps to a feature, the first is the send to its Jobs and Send to job takes `card_pick`.
     card_keys: (FocusHandle, FocusHandle),
+    card_pick: FocusHandle,
+    /// A note just saved with no Job live opens on Start job; once its feature is read the keys move to the feature's send.
+    steer: bool,
     /// ⌘V on the opened card reads a picture off the clipboard before anything else does.
     paste: Option<Subscription>,
     deleting_card: bool,
@@ -212,6 +235,7 @@ impl Layer {
             sending_session: None,
             opened: None,
             targets,
+            worked: HashMap::new(),
             operator: None,
             menu: None,
             split_at: Rc::default(),
@@ -224,6 +248,8 @@ impl Layer {
             keys_were: None,
             card_focus: cx.focus_handle(),
             card_keys: (cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)),
+            card_pick: cx.focus_handle().tab_stop(true),
+            steer: false,
             paste: None,
             deleting_card: false,
             listing: false,
@@ -464,10 +490,13 @@ impl Layer {
             Held::Window { .. } => ("window".to_string(), String::new(), None),
             Held::Page(page) => (page.read.selector.clone(), page.read.words.name.clone(), Some(path.clone())),
         };
+        let shown = drawn_by::shown_now(self.screen.as_deref(), cx);
         let mut raw = json!({
             "id": key, "status": "open", "text": noted.said, "component": null, "owners": [], "ownersFrom": "parent",
             "selector": selector, "element": { "tag": on, "text": name, "label": label },
             "screen": self.screen, "layer": null, "location": "/", "scenario": null,
+            "paths": drawn_by::paths_now(self.screen.as_deref(), cx),
+            "features": shown.1, "openJob": shown.0,
             "box": { "x": f32::from(ring.origin.x), "y": f32::from(ring.origin.y), "width": f32::from(ring.size.width), "height": f32::from(ring.size.height) },
             "window": { "width": f32::from(view.width), "height": f32::from(view.height) },
             "createdAt": now, "updatedAt": now,
@@ -534,6 +563,7 @@ impl Layer {
         // or Enter picks one, Esc closes. With no Job live the keys wait on Start job.
         self.open_note(id, window, cx);
         let start = if self.no_target() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
+        self.steer = self.no_target();
         window.defer(cx, move |window, cx| window.focus(&start, cx));
     }
 
@@ -560,6 +590,85 @@ impl Layer {
         cx.notify();
     }
 
+    /// The default send of a note that maps to a feature: to the live Jobs on it, the first to claim it taking it, or to a
+    /// Job Fleet starts for it where none is live.
+    pub(crate) fn send_to_feature(&mut self, ids: Vec<u32>, cx: &mut Context<Self>) {
+        let ids: Vec<u32> = ids.into_iter().filter(|id| self.note(*id).is_some_and(|note| note.status == Status::Open && note.sent.is_none())).collect();
+        let Some(feature) = ids.first().and_then(|id| self.feature_of(*id, cx)) else { return };
+        if self.sending.is_some() {
+            return;
+        }
+        let mut paths: Vec<String> = Vec::new();
+        for note in self.notes.iter().filter(|note| ids.contains(&note.id)) {
+            for path in crate::features::of_path::place_of(&note.raw, None).files {
+                if !paths.contains(&path) {
+                    paths.push(path);
+                }
+            }
+        }
+        let features = self.features_of_notes(&ids, cx).into_iter().filter(|one| one.project == feature.project).map(|one| one.slug).collect();
+        let notes = self.notes.iter().filter(|note| ids.contains(&note.id)).map(|note| note.said.clone()).collect();
+        self.sending = Some(if feature.jobs.is_empty() { format!("Starting a Job for {}", feature.title) } else { format!("Sending to {}'s Jobs", feature.title) }.into());
+        self.sending_session = None;
+        self.sending_ids = ids;
+        self.said = None;
+        self.opened = None;
+        self.paste = None;
+        cx.emit(Asked::ToFeature { feature: feature.title, project: feature.project, paths, features, notes });
+        cx.notify();
+    }
+
+    /// The first feature the note maps to, with the Jobs on every feature it maps to, once its card has read them.
+    /// None for a note whose screen is drawn by no file it knows.
+    pub(crate) fn feature_of(&self, id: u32, cx: &App) -> Option<crate::features::of_path::Mapped> {
+        let note = self.note(id)?;
+        let place = crate::features::of_path::place_of(&note.raw, None);
+        if place.files.is_empty() && place.named.is_empty() {
+            return None;
+        }
+        let found = self.beside.read(cx).features_of(&note.key);
+        let mut first = found.first()?.clone();
+        for other in &found[1..] {
+            for job in &other.jobs {
+                if !first.jobs.iter().any(|seen| seen.session_id == job.session_id) {
+                    first.jobs.push(job.clone());
+                }
+            }
+        }
+        Some(first)
+    }
+
+    /// Fleet sent the notes to the feature's Jobs: each says so until one of them takes it.
+    pub fn sent_to_feature(&mut self, feature: &str, cx: &mut Context<Self>) {
+        self.sending = None;
+        let ids = std::mem::take(&mut self.sending_ids);
+        let title = format!("{feature}'s Jobs");
+        for note in self.notes.iter_mut().filter(|note| ids.contains(&note.id)) {
+            note.sent = Some(title.clone().into());
+            // No Job holds it yet, so no Job's `mark_annotation_done` is served until one claims it.
+            note.raw["sent"] = json!({ "at": store::now(), "sessionId": "", "title": title, "feature": feature });
+        }
+        for id in ids {
+            self.changed(id, cx);
+        }
+        self.said = Some(Said::naming("Sent to ", &title, "", false));
+        cx.notify();
+    }
+
+    /// Fleet says which Job took the note `key`: the first to claim it, or the one it gave it to.
+    pub fn claimed(&mut self, key: &str, session: &str, title: &str, cx: &mut Context<Self>) {
+        let Some(note) = self.notes.iter_mut().find(|note| note.key == key) else { return };
+        let feature = note.raw["sent"]["feature"].as_str().map(str::to_string);
+        note.sent = Some(title.to_string().into());
+        note.raw["sent"] = json!({ "at": store::now(), "sessionId": session, "title": title });
+        if let Some(feature) = feature {
+            note.raw["sent"]["feature"] = json!(feature);
+        }
+        let id = note.id;
+        self.changed(id, cx);
+        cx.notify();
+    }
+
     /// The Operator's session while one runs, as Fleet says it now.
     pub fn set_operator(&mut self, session: Option<SharedString>, cx: &mut Context<Self>) {
         if self.operator != session {
@@ -579,6 +688,35 @@ impl Layer {
             self.targets = targets;
             cx.notify();
         }
+    }
+
+    /// The features each live Job writes to, as Fleet says them now.
+    pub fn set_worked(&mut self, worked: HashMap<SharedString, Vec<ipc::SessionFeature>>, cx: &mut Context<Self>) {
+        if self.worked != worked {
+            self.worked = worked;
+            cx.notify();
+        }
+    }
+
+    /// Every feature the notes map to, each once: as their cards read them, else as the screen named them.
+    fn features_of_notes(&self, ids: &[u32], cx: &App) -> Vec<crate::features::of_path::Mapped> {
+        let mut found: Vec<crate::features::of_path::Mapped> = Vec::new();
+        for note in ids.iter().filter_map(|id| self.note(*id)) {
+            let read = self.beside.read(cx).features_of(&note.key);
+            let read = if read.is_empty() { crate::features::of_path::place_of(&note.raw, None).named } else { read };
+            for one in read {
+                if !found.iter().any(|seen| seen.slug == one.slug && seen.project == one.project) {
+                    found.push(one);
+                }
+            }
+        }
+        found
+    }
+
+    /// The picker's Jobs for these notes, suggested first.
+    fn bands_for(&self, ids: &[u32], cx: &App) -> Vec<Band> {
+        let open = ids.iter().filter_map(|id| self.note(*id)).find_map(|note| note.raw["openJob"].as_str().map(str::to_string));
+        bands(&self.targets, &self.worked, open.as_deref(), &self.features_of_notes(ids, cx))
     }
 
     /// The live Job whose Browser tab every one of these notes was made over, if it is one Job.
@@ -709,6 +847,7 @@ impl Layer {
 
     fn close_card(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.opened = None;
+        self.steer = false;
         self.paste = None;
         self.deleting_card = false;
         self.refocus(window, cx);
@@ -722,7 +861,7 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        let entries = picker_entries(self.operator.is_some(), &self.targets);
+        let entries = picker_entries(self.operator.is_some(), &self.bands_for(&ids, cx));
         let operator = self.operator.is_some();
         let dropdown = cx.new(|cx| {
             let menu = Dropdown::new("Send to a Job", entries, at, corner, true, cx);
@@ -744,8 +883,8 @@ impl Layer {
         let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
             this.menu = None;
             // Esc goes back to the card's Send to job where a card is open.
-            if this.opened.is_some() {
-                let send = this.card_keys.0.clone();
+            if let Some(id) = this.opened {
+                let send = if this.feature_of(id, cx).is_some() { this.card_pick.clone() } else { this.card_keys.0.clone() };
                 window.focus(&send, cx);
             } else {
                 this.refocus(window, cx);
@@ -822,20 +961,68 @@ const OPERATOR_TIP: &str = "Sends these notes to the Operator's thread";
 
 /// The picker's rows after its search: the Operator first while its session runs, then the live Jobs, the
 /// first nine rows taking ⌥1–9 as Classic's picker and the dispatch chips do.
-fn picker_entries(operator: bool, targets: &[Offered]) -> Vec<Entry> {
+/// One run of the picker's Jobs, under a quiet label where it is suggested.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Band {
+    pub label: Option<SharedString>,
+    pub jobs: Vec<Offered>,
+}
+
+/// The live Jobs in the order the picker lists them: the Job open where the notes were made; the Jobs on each of their
+/// features, under its title; the Jobs on another feature of one of those areas, under the area's title; then every other
+/// Job. Each Job once, in Fleet's order within its band; a band with no Job is left out.
+pub(crate) fn bands(targets: &[Offered], worked: &HashMap<SharedString, Vec<ipc::SessionFeature>>, open: Option<&str>, features: &[crate::features::of_path::Mapped]) -> Vec<Band> {
+    let mut placed: HashSet<SharedString> = HashSet::new();
+    let mut out: Vec<Band> = Vec::new();
+    let mut band = |label: Option<SharedString>, on: &dyn Fn(&Offered) -> bool, placed: &mut HashSet<SharedString>| {
+        let jobs: Vec<Offered> = targets.iter().filter(|job| !placed.contains(&job.id) && on(job)).cloned().collect();
+        placed.extend(jobs.iter().map(|job| job.id.clone()));
+        if !jobs.is_empty() {
+            out.push(Band { label, jobs });
+        }
+    };
+    let writes = |job: &Offered| worked.get(&job.id).map(Vec::as_slice).unwrap_or_default();
+    band(Some("Open Job".into()), &|job| open == Some(job.id.as_ref()), &mut placed);
+    for feature in features {
+        band(Some(feature.title.clone().into()), &|job| writes(job).iter().any(|one| one.project == feature.project && one.slug == feature.slug), &mut placed);
+    }
+    let mut areas: Vec<(&str, &str)> = Vec::new();
+    for feature in features.iter().filter(|feature| !feature.area.is_empty()) {
+        if !areas.contains(&(feature.project.as_str(), feature.area.as_str())) {
+            areas.push((feature.project.as_str(), feature.area.as_str()));
+        }
+    }
+    for (project, area) in areas {
+        band(Some(area.to_string().into()), &|job| writes(job).iter().any(|one| one.project == project && one.area_title == area), &mut placed);
+    }
+    band(None, &|_| true, &mut placed);
+    out
+}
+
+fn picker_entries(operator: bool, bands: &[Band]) -> Vec<Entry> {
     let keyed = |at: usize| (at < 9).then(|| SharedString::from(format!("⌥{}", at + 1)));
-    let first = usize::from(operator);
-    std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
-        .chain(operator.then(|| Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None }))
-        .chain(targets.iter().enumerate().map(|(at, job)| Entry::Item {
-            id: id_of(format!("job:{}", job.id)),
-            label: job.title.clone(),
-            icon: Some("square-terminal"),
-            danger: false,
-            key: keyed(first + at),
-            off: None,
-        }))
-        .collect()
+    let mut entries = vec![Entry::Search { label: "Find a Job", to_rule: false }];
+    if operator {
+        entries.push(Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None });
+    }
+    let mut at = usize::from(operator);
+    let mut suggested = false;
+    for band in bands {
+        match &band.label {
+            Some(label) => {
+                entries.push(Entry::Label(id_of(label.to_string())));
+                suggested = true;
+            }
+            // The rest stand apart from the suggested Jobs above them.
+            None if suggested => entries.push(Entry::Rule),
+            None => {}
+        }
+        for job in &band.jobs {
+            entries.push(Entry::Item { id: id_of(format!("job:{}", job.id)), label: job.title.clone(), icon: Some("square-terminal"), danger: false, key: keyed(at), off: None });
+            at += 1;
+        }
+    }
+    entries
 }
 
 /// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
@@ -924,13 +1111,15 @@ fn keyed(look: &Look, part: Stateful<Div>, focus: Option<(&FocusHandle, bool)>) 
 
 /// Send to job, then Start job, both in sight: the send leads, and its press opens the live Jobs beside
 /// it, or sends to `own`, the Job whose Browser tab the notes were made over. `pending` names a send under
-/// way, drawn turning in Start job's place. `name` tells Send to job apart where two are drawn at once.
+/// way, drawn turning in Start job's place. `name` tells Send to job apart where two are drawn at once. Where
+/// the send to a feature's Jobs leads instead, `lead` is false and Send to job is drawn as the second choice.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sends(
     look: &Look,
     cx: &App,
     id: &str,
     name: &str,
+    lead: bool,
     off: bool,
     no_jobs: bool,
     pending: Option<SharedString>,
@@ -943,12 +1132,13 @@ pub(crate) fn sends(
     let busy = pending.is_some();
     let send_off = off || busy || no_jobs;
     let measure = canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full();
-    let to = Btn::new(SharedString::from(format!("{id}-send")), "Send to job", Weight::Primary)
+    let caret = look.color(if lead { token::TEXT_ON_ACCENT } else { token::FG_MUTED });
+    let to = Btn::new(SharedString::from(format!("{id}-send")), "Send to job", if lead { Weight::Primary } else { Weight::Secondary })
         .disabled(send_off)
         .draw(look, cx)
         .relative()
         .child(measure)
-        .when(own.is_none(), |to| to.child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT))));
+        .when(own.is_none(), |to| to.child(glyph("chevron-down", look.length(token::SPACE_3), caret)));
     let to = keyed(look, to, keys.map(|(keys, on)| (&keys.0, on[0])))
         .when(no_jobs && !busy, |to| to.tooltip(tip("No Job is live")))
         .when_some(own.filter(|_| !send_off), |to, title| to.tooltip(tip(format!("To {title}"))))
@@ -984,6 +1174,12 @@ impl Render for Layer {
         if !self.on {
             return div().into_any_element();
         }
+        // A note saved with no Job live opened on Start job: once its feature is read, the feature's send leads.
+        if self.steer && self.card_keys.1.is_focused(window) && self.opened.is_some_and(|id| self.feature_of(id, cx).is_some()) {
+            self.steer = false;
+            let lead = self.card_keys.0.clone();
+            window.defer(cx, move |window, cx| window.focus(&lead, cx));
+        }
         let look = cx.look();
         let view = window.viewport_size();
         // Everything here is placed in the window's own coordinates, which is where the labelled
@@ -1000,6 +1196,9 @@ impl Render for Layer {
             let open = note.status == Status::Open;
             let dispatchable = open && note.sent.is_none();
             let off = self.sending.is_some();
+            // The send to the note's feature leads where it maps to one: it takes the keys Send to job had.
+            let feature = dispatchable.then(|| self.feature_of(id, cx)).flatten();
+            let picking = (self.card_pick.clone(), self.card_keys.1.clone());
             let ids = vec![id];
             let again = ids.clone();
             let dropped = note.tools.clone();
@@ -1046,8 +1245,9 @@ impl Render for Layer {
                 .child(div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(note.path.clone()))
                 .child(div().text_size(look.length(token::TEXT_SM)).child(note.said.clone()))
                 .child(note.tools.clone())
-                .children(note.sent.clone().map(|title| {
-                    div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(format!("Sent to Job {title}"))
+                .children(feature.as_ref().map(|feature| self.feature_send(id, feature, off, look, window, cx)))
+                .children(note.sent_line().map(|line| {
+                    labelled(div().id("note-sent").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(line.clone()), Role::Status, line)
                 }))
                 .child(
                     div()
@@ -1056,17 +1256,19 @@ impl Render for Layer {
                         .items_center()
                         .gap(look.length(token::SPACE_2))
                         .children(dispatchable.then(|| {
+                            let keys = if feature.is_some() { &picking } else { &self.card_keys };
                             sends(
                                 look,
                                 cx,
                                 "note",
                                 "Send to job",
+                                feature.is_none(),
                                 off,
                                 self.no_target(),
                                 None,
                                 self.own_job(&[id]).map(|job| job.title),
                                 Rc::clone(&self.card_at),
-                                Some((&self.card_keys, [self.card_keys.0.is_focused(window), self.card_keys.1.is_focused(window)])),
+                                Some((keys, [keys.0.is_focused(window), keys.1.is_focused(window)])),
                                 cx.listener(move |this, _, window, cx| {
                                     let from = Rc::clone(&this.card_at);
                                     this.open_menu_by(again.clone(), &from, window, cx)
@@ -1123,6 +1325,7 @@ impl Layer {
                 cx,
                 "annotate",
                 "Send to job",
+                true,
                 false,
                 self.no_target(),
                 pending.clone(),
@@ -1234,6 +1437,32 @@ impl Layer {
         ))
     }
 
+    /// The send to the note's feature: "<Feature>'s Jobs" with the Jobs named under it, or "Start a Job for <Feature>"
+    /// where none is live. It holds the keys Send to job holds on a note with no feature, so Enter sends it.
+    fn feature_send(&self, id: u32, feature: &crate::features::of_path::Mapped, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> impl IntoElement {
+        let named: Vec<&str> = feature.jobs.iter().map(|job| job.title.trim()).filter(|title| !title.is_empty()).collect();
+        let (label, icon, said) = if feature.jobs.is_empty() {
+            (format!("Start a Job for {}", feature.title), "square-plus", format!("Starts a Job for {} with this note", feature.title))
+        } else if let [one] = named.as_slice() {
+            (format!("{}'s Jobs", feature.title), "users", format!("Sends this note to {one}, the one Job on {}", feature.title))
+        } else {
+            (format!("{}'s Jobs", feature.title), "users", format!("Sends this note to every Job on {}", feature.title))
+        };
+        let button = Btn::new("note-feature", label.clone(), Weight::Primary).icon(icon).disabled(off).draw(look, cx).tooltip(tip(said));
+        let lead = &self.card_keys.0;
+        let button = keyed(look, button, Some((lead, lead.is_focused(window)))).when(!off, |button| button.on_click(cx.listener(move |this, _, _, cx| this.send_to_feature(vec![id], cx))));
+        let who = (!feature.jobs.is_empty()).then(|| {
+            let line = match named.as_slice() {
+                [] => "The first to claim it takes it.".to_string(),
+                // One Job alone is given the note: there is nobody to claim it from.
+                [one] => format!("{one} gets it."),
+                [rest @ .., last] => format!("{} and {last}. The first to claim it takes it.", rest.join(", ")),
+            };
+            div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(line)
+        });
+        div().flex().flex_col().items_start().gap(look.length(token::SPACE_1)).child(labelled(button, Role::Button, label)).children(who)
+    }
+
     fn make_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.search.is_some() {
             return;
@@ -1269,7 +1498,7 @@ mod tests {
 
     #[test]
     fn the_operator_is_the_pickers_first_row_while_its_session_runs() {
-        let entries = picker_entries(true, &jobs());
+        let entries = picker_entries(true, &bands(&jobs(), &HashMap::new(), None, &[]));
         assert!(matches!(entries[0], Entry::Search { .. }));
         assert!(matches!(&entries[1], Entry::Item { id: "operator", icon: Some("bot"), .. }));
         assert_eq!(
@@ -1279,8 +1508,42 @@ mod tests {
     }
 
     #[test]
+    fn the_picker_lists_the_open_job_then_the_features_jobs_then_the_areas_then_the_rest() {
+        let job = |id: &str, title: &str| Offered { id: id.to_string().into(), title: title.to_string().into() };
+        let live = vec![job("a", "Audit docs"), job("b", "Fix the rail"), job("c", "Add rank votes"), job("d", "Open one"), job("e", "Tidy usage")];
+        let writes = |slug: &str, area: &str| ipc::SessionFeature { project: "p1".into(), slug: slug.into(), title: slug.into(), area: area.into(), area_title: area.into(), area_place: 0, place: 0 };
+        let worked: HashMap<SharedString, Vec<ipc::SessionFeature>> = [
+            ("b".into(), vec![writes("voting", "Takes")]),
+            ("c".into(), vec![writes("ranks", "Takes")]),
+            ("d".into(), vec![writes("voting", "Takes")]),
+            ("e".into(), vec![writes("usage", "Usage")]),
+        ]
+        .into_iter()
+        .collect();
+        let voting = crate::features::of_path::Mapped { project: "p1".into(), slug: "voting".into(), title: "Voting".into(), area: "Takes".into(), jobs: Vec::new() };
+        let banded = bands(&live, &worked, Some("d"), &[voting]);
+        let said: Vec<(Option<&str>, Vec<&str>)> = banded.iter().map(|band| (band.label.as_deref(), band.jobs.iter().map(|job| job.title.as_ref()).collect())).collect();
+        assert_eq!(
+            said,
+            [(Some("Open Job"), vec!["Open one"]), (Some("Voting"), vec!["Fix the rail"]), (Some("Takes"), vec!["Add rank votes"]), (None, vec!["Audit docs", "Tidy usage"])],
+            "each Job once, in its first band"
+        );
+        let entries = picker_entries(false, &banded);
+        assert!(matches!(entries[1], Entry::Label("Open Job")) && matches!(entries[3], Entry::Label("Voting")));
+        assert!(entries.iter().any(|entry| matches!(entry, Entry::Rule)), "the rest stand apart");
+        assert_eq!(labels(&entries).iter().map(|(_, key)| key.clone().unwrap_or_default()).collect::<Vec<_>>(), ["⌥1", "⌥2", "⌥3", "⌥4", "⌥5"], "the keys run down the bands");
+
+        // No suggestion: one band, no label and no rule, as before.
+        let plain = bands(&live, &worked, None, &[]);
+        assert_eq!(plain.len(), 1);
+        assert!(!picker_entries(false, &plain).iter().any(|entry| matches!(entry, Entry::Rule | Entry::Label(_))));
+        // A band with no Job draws nothing: the open Job is not live.
+        assert!(bands(&live, &worked, Some("gone"), &[]).iter().all(|band| band.label.is_none()));
+    }
+
+    #[test]
     fn no_operator_row_is_offered_when_none_runs() {
-        let entries = picker_entries(false, &jobs());
+        let entries = picker_entries(false, &bands(&jobs(), &HashMap::new(), None, &[]));
         assert_eq!(labels(&entries), vec![("Fix the merge line".into(), Some("⌥1".into())), ("Audit the docs index".into(), Some("⌥2".into()))]);
         assert!(!entries.iter().any(|entry| matches!(entry, Entry::Item { id: "operator", .. })));
     }

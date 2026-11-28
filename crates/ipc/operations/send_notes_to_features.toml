@@ -1,0 +1,18 @@
+[operations.send_notes_to_features]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Notes the owner left on a screen, sent to every live job on the features that own the screen's files, or to a job started for them where none is live"
+notes = """
+`POST /sessions/notes_to_features`, body `SendNotesToFeatures`: `manifest_id`, `project?`, `paths` (the files and folders that draw the screen, from the repository root), `features?` (slugs: the features the screen shows, such as the open Job's), `words` and `notes` (each a `SessionNote` with its `note_id`). **202**, answered with `NotesRouted`: `features` (their titles), and either `offered` (the jobs the notes went to) or `started` (the job started for them).
+
+**Fleet takes the features named in `features`, then maps each path to the features that own it**, as `get_features_of_path` does, and sends the notes to every job on those features that is live and holds a slot, as `list_features` names them. Each note carries a line naming the other jobs it went to, and asking the job to call `claim_note` with its id if the change is its own: the first claim takes it.
+
+**Unclaimed, a note is given away.** Three minutes after the send (`note_claims::UNCLAIMED_AFTER`), a note no job claimed goes to the live job that last wrote one of the paths, else to the first job it was sent to; that job and the others are told, and `note.claimed` is published with `given`.
+
+**No live job on the features: Fleet starts one at once**, not held, with `words` as its request and the notes as its first turn, and it holds the notes from the start.
+
+**Refusals.** Features and paths that name no feature are a 422 `fleet.notes_no_feature`, and Bridge offers its Job picker instead. An empty `notes` is a 422 `fleet.session_notes_empty`. A note with no `note_id` is a 422 `fleet.notes_unnamed`.
+
+`docs/concepts/feature-catalog.md`, *A note on a screen*.
+"""

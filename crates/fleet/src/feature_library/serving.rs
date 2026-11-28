@@ -35,6 +35,7 @@ where
         let mut features = Vec::new();
         for one in self.projects_asked(&store, caller, project.as_deref())? {
             let loaded = Loaded::read(&store, &one).map_err(|why| self.ledger_fault(why))?;
+            let on = self.jobs_on_features(&store, &loaded.project)?;
             for owner in loaded.map.owners(manifest_id.as_deref(), &path) {
                 let area = loaded.areas.iter().find(|area| area.slug == owner.feature.area).map(|area| area.title.clone()).unwrap_or_else(|| owner.feature.area.clone());
                 features.push(FeatureOfPath {
@@ -47,6 +48,7 @@ where
                         How::Filed => PathHow::Filed,
                     },
                     prefix: owner.prefix.map(str::to_string),
+                    jobs: on.get(&owner.feature.id).cloned().unwrap_or_default(),
                 });
             }
         }

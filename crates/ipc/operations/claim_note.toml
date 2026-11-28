@@ -1,0 +1,17 @@
+[operations.claim_note]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Claim a note the owner left on a screen, which Fleet sent to every job on that screen's feature. Pass the note's id as note_id. Claim it only if the change it asks for is yours. The first claim takes it; a later one is refused, naming the job that took it"
+notes = """
+`POST /sessions/claim_note`, body `ClaimNote`: `note_id` and an optional `session_id`. **200**, answered with `NoteClaimed`: `note_id`, `session_id` and `title` of the job that holds it now.
+
+**The job is the one whose process holds the connection**, as `mark_annotation_done`'s is; `session_id` is read only where the connection places none.
+
+**The first claim takes the note.** Fleet keeps who took it, rewrites the note's `sent` to name that job (so its `mark_annotation_done` is served), gives the other jobs' note artifacts back, tells each of them in its thread which job took it, and publishes `note.claimed`. A second claim by the job that holds it answers the same, and changes nothing.
+
+**Refusals.** A note Fleet did not send to several jobs is a 404 `fleet.note_unknown`. A job the note was not sent to is a 422 `fleet.note_not_offered`. A note another job holds is a 409 `fleet.note_taken`, whose message names that job, whether it claimed the note or Fleet gave it.
+
+`agent_access` is `Yes`: the job is the one that knows whether the note is its own. `docs/concepts/feature-catalog.md`, *A note on a screen*.
+"""

@@ -277,6 +277,7 @@ impl Layer {
                         cx,
                         "selection",
                         "Send selected notes to job",
+                        true,
                         busy || chosen_sendable.is_empty(),
                         self.no_target(),
                         None,
@@ -443,9 +444,7 @@ impl Layer {
                     Role::Button,
                     note.said.clone(),
                 ))
-                .children(note.sent.clone().map(|title| {
-                    div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(format!("Sent to Job {title}"))
-                }))
+                .children(note.sent_line().map(|line| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(line)))
                 .child(
                     div()
                         .flex()

@@ -479,6 +479,21 @@ impl OperatorScreen {
         (self.front, job)
     }
 
+    /// The Job the window shows: the one open on the Jobs screen, or over the Cockpit's page.
+    pub fn job_shown(&self, cx: &App) -> Option<SharedString> {
+        let list = self.jobs.read(cx).list.read(cx);
+        match self.front {
+            Front::Jobs => list.opened_id(),
+            Front::Cockpit if !list.at_home() => list.opened_id(),
+            _ => None,
+        }
+    }
+
+    /// The feature whose page the Features place shows, where it shows one.
+    pub fn feature_shown(&self, cx: &App) -> Option<crate::features::of_path::Mapped> {
+        (self.front == Front::Features).then(|| self.features.as_ref()?.read(cx).open_feature(cx)).flatten()
+    }
+
     /// The Jobs list, whose opened Job is part of [`Self::at`].
     pub fn list(&self, cx: &App) -> Entity<crate::jobs::JobsList> {
         self.jobs.read(cx).list.clone()

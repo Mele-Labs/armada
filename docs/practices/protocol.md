@@ -2250,3 +2250,25 @@ Fleet already files each written file under the features that own it, so the row
 **When it goes out.** Fleet publishes `session.changed` for a Job whose features moved when it files the Job's writes, and files every Job's writes again after `upsert_features`.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older row carries no `features`, which reads as none.
+
+## A note on a screen goes to its feature's Jobs: `send_notes_to_features`, `claim_note`, `note.claimed`, and `FeatureOfPath.jobs`
+
+Since 27 Nov 2026. `docs/concepts/feature-catalog.md`, *A note on a screen*.
+The owner ruled it on 27 Nov 2026: Fleet routes a note by rule and the Jobs decide whose it is.
+**Additive only**: two operations, two routes, one event kind, one optional field on an existing type and the types they carry, and a store table.
+The protocol ID moves with `crates/ipc/src`, the operation files and the route table, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `send_notes_to_features` (`POST /sessions/notes_to_features`, `agent_access = "No"`) | Bridge sends, Fleet answers 202 | `SendNotesToFeatures` `{ manifest_id, project?, paths, words, notes }`, each note a `SessionNote` with its `note_id`; answered with `NotesRouted` `{ features, offered?, started? }`, `offered` and `started` being `FeatureJob`s. One Job in `offered` was given the notes at once, with nothing to claim |
+| `claim_note` (`POST /sessions/claim_note`, `agent_access = "Yes"`) | The Job sends, Fleet answers 200 | `ClaimNote` `{ note_id, session_id? }`; answered with `NoteClaimed` `{ note_id, session_id, title, given? }` |
+| `note.claimed` | Fleet publishes, Bridge reads | `NoteClaimed`, once a note, when a claim takes it or Fleet gives it away, to a Job it offered it or to one it started because those had all ended |
+| `FeatureOfPath` (`get_features_of_path`) | Fleet writes, Bridge reads | Gains `jobs`, absent when empty: the `FeatureJob`s on the feature now, as `list_features` has them |
+
+**New refusals**: `fleet.notes_no_feature` (422) for paths no feature owns, `fleet.notes_unnamed` (422) for a note with no id, `fleet.note_unknown` (404), `fleet.note_not_offered` (422), and `fleet.note_taken` (409), whose message names the Job that holds the note.
+**A note sent to a feature's Jobs is written with `sent.sessionId` empty** and `sent.feature` its feature's title, until a claim names the Job; Fleet's `NoteRead` requires the field, so it is written empty and not left out.
+**The store gains `note_claims`**, one row a note, so a claim survives a restart; it keeps the note as sent, the project and his words, so a note whose Jobs all ended starts a Job of its own; `20261127T1400Z-note_claims.table.sql`, additive.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet sends no `jobs`, which a newer Bridge reads as none, and so offers "Start a Job for <Feature>"; an older Fleet answers the new routes 404, which Bridge words as a send that failed.
+**The event stream.** One new kind, small and rare: a note at most once. Not replayed on a resync; the note's file names the Job in `sent`.

@@ -295,6 +295,9 @@ pub enum Event {
     // One step of a project's librarian run started or ended. `docs/concepts/feature-catalog.md`, *Librarian*.
     #[serde(rename = "librarian.step")]
     LibrarianStep(crate::LibrarianStepMoved),
+    // A note sent to a feature's Jobs went to one: the first to claim it, or the one Fleet gave it to.
+    #[serde(rename = "note.claimed")]
+    NoteClaimed(crate::NoteClaimed),
     // A background act failed after its request was answered, so the refusal rides the stream.
     #[serde(rename = "act.failed")]
     ActFailed(ActFailed),

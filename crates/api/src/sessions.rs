@@ -959,6 +959,19 @@ pub(crate) async fn mark_annotation_done<D: Sessions>(
     }
 }
 
+/// The agent claims a note Fleet sent it and other Jobs. 200 with who holds it; 409 where another Job took
+/// it first. **The session is placed by the connection**, as `mark_annotation_done`'s is.
+pub(crate) async fn claim_note<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let claim: ipc::ClaimNote = match ipc::decode_body("which note is claimed", &body) {
+        Ok(claim) => claim,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().claim_note(crate::acting::asking(), claim).await {
+        Ok(claimed) => answer(StatusCode::OK, &claimed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent resolves a pull request note Bridge sent it. 200 with the note; 422 for one that is not
 /// there, not this session's, or already resolved. **The session is placed by the connection.**
 pub(crate) async fn resolve_pull_request_note<D: Sessions>(

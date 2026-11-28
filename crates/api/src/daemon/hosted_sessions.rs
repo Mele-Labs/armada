@@ -144,6 +144,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         notes: ipc::SendSessionNotes,
     ) -> impl Future<Output = Result<ipc::NotesSent, Refusal>> + Send;
 
+    /// `send_notes_to_features`: notes on a screen, sent to every live Job on the features its files map to, or
+    /// to a Job started for them where none is live.
+    fn send_notes_to_features(
+        self: Arc<Self>,
+        sent: ipc::SendNotesToFeatures,
+    ) -> impl Future<Output = Result<ipc::NotesRouted, Refusal>> + Send;
+
     /// `answer_session_ask`. [`Refusal::IllegalMove`] where nothing is waiting.
     fn answer_session_ask(
         &self,

@@ -1,0 +1,10 @@
+[operations."note.claimed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A note sent to a feature's jobs went to one of them: the first to claim it, or the one Fleet gave it to"
+notes = """
+Carries `NoteClaimed`: `note_id`, `session_id`, `title`, and `given` where Fleet gave the note rather than a job claiming it.
+
+Published once a note, when `claim_note` takes it or when Fleet gives an unclaimed one away. Bridge's note card reads "<Job> took it" from it. Not replayed on a resync: the note's file names the job in `sent`, which Bridge reads again.
+"""

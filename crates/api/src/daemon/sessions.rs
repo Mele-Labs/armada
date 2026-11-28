@@ -766,6 +766,14 @@ pub trait Sessions: Send + Sync + 'static {
         mark: ipc::MarkAnnotationDone,
     ) -> impl Future<Output = Result<ipc::AnnotationMarked, Refusal>> + Send;
 
+    /// `claim_note` — the agent takes a note Fleet sent it and other Jobs. `caller` places a hosted session as
+    /// `finish_up`'s does. [`Refusal::IllegalMove`] where another Job holds it.
+    fn claim_note(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        claim: ipc::ClaimNote,
+    ) -> impl Future<Output = Result<ipc::NoteClaimed, Refusal>> + Send;
+
     /// `resolve_pull_request_note` — the agent marks done a pull request note Bridge sent it.
     /// `caller` places a hosted session as `finish_up`'s does. [`Refusal::Unacceptable`] for a note
     /// not found, not sent to this session, or already resolved.

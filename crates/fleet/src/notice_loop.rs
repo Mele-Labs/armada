@@ -156,6 +156,8 @@ where
             fleet.librarians_due().await;
             // The files each Job wrote, filed under the features that own them.
             fleet.feature_writes_filed().await;
+            // A note on a screen no Job claimed in time, given to the Job that last wrote the screen's files.
+            fleet.notes_given_away().await;
             // The clashes of every repository, pushed when the set moved.
             fleet.clashes_published().await;
             // What main's moves made stale in the test map, read again where that costs nothing.

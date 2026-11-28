@@ -233,6 +233,10 @@ where
         self.notes_sent(notes).await
     }
 
+    async fn send_notes_to_features(self: Arc<Self>, sent: ipc::SendNotesToFeatures) -> Result<ipc::NotesRouted, Refusal> {
+        self.notes_to_features(sent).await
+    }
+
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
         self.session_ask_answered(said, true).await
     }
