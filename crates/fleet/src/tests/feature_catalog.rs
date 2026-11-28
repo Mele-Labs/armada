@@ -46,18 +46,28 @@ fn code(refused: Refusal) -> (u16, String) {
 async fn started(rig: &Rig) -> String {
     switched(rig, true).await;
     rig.fleet.operator_session_kept().await;
-    let id = rig.fleet.operator_session_id().await.expect("started");
+    let id = super::operator_session::live(rig).await.expect("started");
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id) }).await;
     id
 }
 
+/// What every Operator was told that holds `containing`. A feature is told to the Operator of its own project, which is
+/// not the one a repository in no project became, so it is counted over them all.
 fn heard(rig: &Rig, containing: &str) -> usize {
-    rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
+    rig.stand_in
+        .starts()
+        .iter()
+        .filter_map(|start| rig.stand_in.process_of(&start.session))
+        .map(|process| process.sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count())
+        .sum()
 }
 
 pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
-    rig.fleet.add_project(NewProject { name: "Armada".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone()
+    let project = rig.fleet.add_project(NewProject { name: "Armada".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone();
+    // Its Operator runs from the next tick, where the Operator is on.
+    rig.fleet.operator_session_kept().await;
+    project
 }
 
 /// The repository holds what the seed's marker names, so the seed describes it.
@@ -668,8 +678,9 @@ async fn with_the_operator_on_fleet_files_no_note_itself() {
 #[tokio::test]
 async fn bridge_and_the_operator_keep_the_catalog_and_a_jobs_agent_does_not() {
     let rig = rig();
-    started(&rig).await;
+    // The project first, so the Operator that starts is its own and the Job's process is the second the stand-in starts.
     let project = a_project(&rig).await;
+    started(&rig).await;
     libraried(&rig, &project).await;
     a_job_in(&rig, &project).await;
     assert!(rig.fleet.session_holding(&api::Caller::at(format!("127.0.0.1:{JOB_PORT}").parse().unwrap())).is_some(), "the Job's agent is placed");

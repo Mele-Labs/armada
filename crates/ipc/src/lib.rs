@@ -198,6 +198,8 @@ pub mod operator_talk;
 pub mod operator_page;
 /// The Operator's cards and its per-project values. `crates/ipc/operations/raise_card.toml`.
 pub mod operator_cards;
+/// What each project's Operator is set to. `crates/ipc/operations/list_operator_settings.toml`.
+pub mod operator_settings;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.
@@ -406,6 +408,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
+pub use operator_settings::{OperatorDecisions, OperatorRole, OperatorSettings, OperatorSettingsList, OperatorSettingsSet, OperatorTag, OperatorTools, OperatorToolsSet, ProjectOperatorSettings, SetOperatorSettings};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AnswerRetire, AreaSeed, ChangeFeature, DocGist, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,

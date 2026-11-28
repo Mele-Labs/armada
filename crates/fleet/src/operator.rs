@@ -32,6 +32,7 @@ mod raising;
 mod reviewing;
 mod seat;
 mod session;
+mod settings;
 mod sources;
 mod sourcing;
 mod telling;

@@ -33,11 +33,12 @@ fn a_talk_carries_his_files_and_tags_and_one_sent_without_them_still_reads() {
         about: Some("turn:31".into()),
         attachments: vec![SessionUpload { name: "shot.png".into(), media_type: "image/png".into(), data: "iVBORw0K".into() }],
         mentions: vec![SessionTag { kind: TagKind::Issue, id: "12".into(), title: "Toasts".into(), url: None }],
+        project: Some("shop".into()),
     };
     let sent = serde_json::to_string(&talk).expect("writes");
     assert_eq!(crate::decode::<TalkToOperator>("a talk", sent.as_bytes()).expect("reads"), talk);
     let older = crate::decode::<TalkToOperator>("a talk", br#"{"words":"Which Jobs are running?"}"#).expect("reads");
-    assert_eq!((older.attachments.is_empty(), older.mentions.is_empty()), (true, true));
-    let bare = serde_json::to_string(&TalkToOperator { words: "hi".into(), about: None, attachments: Vec::new(), mentions: Vec::new() }).expect("writes");
+    assert_eq!((older.attachments.is_empty(), older.mentions.is_empty(), older.project), (true, true, None));
+    let bare = serde_json::to_string(&TalkToOperator { words: "hi".into(), about: None, attachments: Vec::new(), mentions: Vec::new(), project: None }).expect("writes");
     assert_eq!(bare, r#"{"words":"hi"}"#, "an empty list is left off the wire");
 }

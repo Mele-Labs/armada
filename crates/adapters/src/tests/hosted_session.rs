@@ -7,6 +7,7 @@ use ipc::SessionMode;
 use super::harness::value_after;
 use crate::harness::HeadlessAgent;
 use crate::hosted_session::{reads_only, HostedLaunch, HostedRefused, SESSION_RULES};
+use crate::OperatorPrompt;
 use crate::{init_commands, inside_a_subagent, sent_message, viewed_image, written_document, written_job_page};
 
 const ID: &str = "7b1f3c52-9a40-4d27-8c1e-3f0d5a6b9e11";
@@ -210,9 +211,9 @@ fn every_launch_tells_the_job_its_id_once_after_the_rules() {
 /// mod's Operator style, so the person's style, the `Armada` one among them, never reaches it.
 #[test]
 fn the_operator_is_told_no_job_id_and_runs_with_its_own_style() {
-    let operator = rendered(&launching(false, SessionMode::Auto).as_operator());
+    let operator = rendered(&launching(false, SessionMode::Auto).as_operator(OperatorPrompt::default()));
     let told = appended(&operator);
-    assert!(told.starts_with("You are the Operator"), "{told}");
+    assert!(told.contains("You are the Operator of one project"), "{told}");
     assert!(!told.contains("job id"), "{told}");
     assert!(!told.contains(rules()), "{told}");
     let settings = value_after(&operator, "--settings").expect("settings");
@@ -225,7 +226,7 @@ fn the_operator_is_told_no_job_id_and_runs_with_its_own_style() {
 /// start; its rules keep no copy, and no placeholder is left in what it is told.
 #[test]
 fn the_operator_is_told_every_story_kind_from_the_file() {
-    let told = appended(&rendered(&launching(false, SessionMode::Auto).as_operator()));
+    let told = appended(&rendered(&launching(false, SessionMode::Auto).as_operator(OperatorPrompt::default())));
     assert!(!told.contains("{story_kinds}"), "{told}");
     assert!(told.contains("`kind` on `start_another_job`"), "{told}");
     for kind in ipc::story_kinds::story_kinds() {
@@ -902,4 +903,19 @@ fn a_launch_without_connectors_tells_the_cli_not_to_fetch_them() {
         "{:?}",
         on.environment().vars()
     );
+}
+
+/// An Operator's prompt is his words, then its role's rules, then the Operator's rules, then his own addition, and its
+/// output style is the one he picked.
+#[test]
+fn the_operator_prompt_is_his_words_then_the_role_then_the_rules_then_his_addition() {
+    let prompt = OperatorPrompt { words: "WORDS: watch the billing repository.".into(), role: ipc::OperatorRole::Reviewer, extra: "EXTRA: never mention weather.".into(), style: "terse".into() };
+    let rendered = rendered(&launching(false, SessionMode::Auto).as_operator(prompt));
+    let told = appended(&rendered);
+    let at = |needle: &str| told.find(needle).unwrap_or_else(|| panic!("{needle} is told: {told}"));
+    let (words, role, rules, extra) = (at("WORDS:"), at("Your role is reviewer"), at("You are the Operator of one project"), at("EXTRA:"));
+    assert!(words < role && role < rules && rules < extra, "order {words} {role} {rules} {extra}");
+    assert!(!told.contains("Your role is copilot"), "{told}");
+    let settings = value_after(&rendered, "--settings").expect("settings");
+    assert!(settings.contains("\"outputStyle\":\"terse\""), "{settings}");
 }

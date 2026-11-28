@@ -94,9 +94,25 @@ where
         row.filter(|row| row.settled_at.is_none() && row.card.is_some()).ok_or_else(unknown)
     }
 
-    /// `raise_card`.
+    /// The project whose Operator card `row` belongs to: the project of the session that raised it. An item Fleet raised
+    /// names none, so it is the project whose Operator runs and whose repository the item is in.
+    pub(crate) async fn card_project(&self, row: &KeptTurn) -> Option<String> {
+        if let Some(project) = &row.project {
+            return Some(project.clone());
+        }
+        let held = self.projects_held();
+        for one in held.holding(&ipc::ManifestId::carried(&row.manifest_id).to_domain()) {
+            if self.operator_session_id(one.id().as_str()).await.is_some() {
+                return Some(one.id().as_str().to_string());
+            }
+        }
+        None
+    }
+
+    /// `raise_card`. The card belongs to the project of the Operator that raised it.
     pub(crate) async fn card_raised(self: &Arc<Self>, caller: Option<api::Caller>, card: RaiseCard) -> Result<CardRaised, Refusal> {
-        self.operator_called(caller)?;
+        let raiser = self.operator_called(caller)?;
+        let project = self.operator_project_of(&raiser).await;
         let (title, read) = (card.title.trim(), card.read.trim());
         if title.is_empty() || read.is_empty() {
             return Err(self.card_refused("a card has a title and a read, and one of them is empty"));
@@ -145,6 +161,7 @@ where
             pick: card.options.first().map(|one| one.label.trim().to_string()),
             raised_at: at.as_str().to_string(),
             card: ipc::encode(&shown).ok(),
+            project,
             ..KeptTurn::default()
         };
         let n = self.store().lock().await.add_operator_turn(&row).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.card_refused("that card stands already"))?;
@@ -196,7 +213,7 @@ where
         let row = self.card_open(&settle.card).await?;
         let at = self.now();
         self.store().lock().await.settle_operator_turn(row.n, at.as_str(), Some(&format!("{SETTLED}{said}"))).map_err(|why| self.ledger_fault(why))?;
-        self.feed_kept(OperatorFeedKind::Settled, &Self::card_title(&row), None, Some(said)).await;
+        self.feed_kept(row.project.as_deref(), OperatorFeedKind::Settled, &Self::card_title(&row), None, Some(said)).await;
         Ok(OperatorCardSettled { card: settle.card })
     }
 
@@ -214,7 +231,8 @@ where
         if !item.options.iter().any(|option| option.label == label) {
             return Err(self.hosted_refusal("fleet.operator_answer_not_offered", &format!("{label} is not an option this card offers")));
         }
-        let Some(session) = self.operator_session_id().await else {
+        let project = self.card_project(row).await.unwrap_or_default();
+        let Some(session) = self.operator_session_id(&project).await else {
             return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would reach it. Turn the Operator off and on to start it"));
         };
         let at = self.now();
@@ -277,31 +295,55 @@ where
                 Self::card_title(&row),
                 row.picked.as_deref().unwrap_or_default()
             );
-            let _ = self.operator_told(&text).await;
+            let project = self.card_project(&row).await.unwrap_or_default();
+            let _ = self.operator_told(&project, &text).await;
         }
     }
 
     /// Card `row` sent back with Later until `until`: the Operator is told when it comes back.
     pub(crate) async fn card_sent_later(self: &Arc<Self>, row: &KeptTurn, until: &str) {
-        let Some(session) = self.operator_session_id().await else { return };
+        let project = self.card_project(row).await.unwrap_or_default();
+        let Some(session) = self.operator_session_id(&project).await else { return };
         let text = format!("He sent card turn:{} \"{}\" back with Later. It comes back at {until}.", row.n, Self::card_title(row));
         let _ = self.told_of_his_act(&session, &text).await;
     }
 
-    /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **Refused with
-    /// `fleet.operator_session_not_running`** where no session runs, since nothing would hear them. A card he talks
-    /// about is named to the session. The files and tags he sent go with the words, card or none. The session's
-    /// answer is its thread, not this reply.
+    /// Whose Operator hears `talk`: the project of the card `about` names, else the project the talk names, else the one
+    /// project whose Operator runs. `None` where those say none. **The seam the router takes over**, with no memory and no model.
+    pub(crate) async fn talk_routed(&self, talk: &TalkToOperator) -> Option<String> {
+        if let Some(row) = self.card_row_of(talk.about.as_deref()).await {
+            return self.card_project(&row).await;
+        }
+        if let Some(project) = talk.project.clone().filter(|project| !project.is_empty()) {
+            return Some(project);
+        }
+        match self.operator_sessions().await.as_slice() {
+            [(project, _)] => Some(project.clone()),
+            _ => None,
+        }
+    }
+
+    /// The card `id` names, where it is a card Fleet holds.
+    async fn card_row_of(&self, id: Option<&str>) -> Option<KeptTurn> {
+        let n = turn_number(id?)?;
+        self.store().lock().await.operator_turn_item(n).ok().flatten().filter(|row| row.card.is_some())
+    }
+
+    /// `talk_to_operator`: his words, delivered to the Operator's session of the project [`talk_routed`](Self::talk_routed)
+    /// names, as he wrote them. **Refused with `fleet.operator_session_not_running`** where that project has no session, since
+    /// nothing would hear them. A card he talks about is named to the session. The files and tags he sent go with the words,
+    /// card or none. The session's answer is its thread, not this reply.
     pub(crate) async fn operator_talked(self: &Arc<Self>, talk: TalkToOperator) -> Result<OperatorSaid, Refusal> {
-        let TalkToOperator { words, about, attachments, mentions } = talk;
-        let running = self.operator_session_id().await.is_some();
+        let project = self.talk_routed(&talk).await.unwrap_or_default();
+        let TalkToOperator { words, about, attachments, mentions, project: _ } = talk;
+        let running = self.operator_session_id(&project).await.is_some();
         let card = match about.as_deref() {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,
         };
         match (running, card) {
-            (true, Some(card)) => self.card_talked_about(card, &words, attachments, mentions).await?,
-            (true, None) => self.operator_told_as_him(&words, attachments, mentions).await?,
+            (true, Some(card)) => self.card_talked_about(card, &project, &words, attachments, mentions).await?,
+            (true, None) => self.operator_told_as_him(&project, &words, attachments, mentions).await?,
             (false, _) => return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it")),
         }
         Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
@@ -315,11 +357,11 @@ where
 
     /// His words about a card, as he wrote them, with a short tag naming it. Refused where the card is not
     /// one Fleet holds or the Operator's session is not running.
-    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, words: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
+    pub(crate) async fn card_talked_about(self: &Arc<Self>, id: &str, project: &str, words: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
         self.card_known(id).await?;
         let n = turn_number(id).unwrap_or_default();
         let row = self.store().lock().await.operator_turn_item(n).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.card_refused(&format!("{id} is no card Fleet holds")))?;
         let tag = format!("[About card turn:{n} \"{}\"]", Self::card_title(&row));
-        self.operator_told_as_him(&format!("{tag}\n{words}"), attachments, mentions).await
+        self.operator_told_as_him(project, &format!("{tag}\n{words}"), attachments, mentions).await
     }
 }

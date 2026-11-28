@@ -80,6 +80,9 @@ pub struct TalkToOperator {
     /// The `@` and `#` tags in the words.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mentions: Vec<SessionTag>,
+    /// The project whose Operator he is talking to, where he has one in front of him. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 /// The Log row an answer rests on.

@@ -1574,7 +1574,7 @@ mod tests {
 
     /// His words as a talk, with nothing sent beside them.
     fn said(words: &str, about: Option<&str>) -> TalkToOperator {
-        TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
+        TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None }
     }
 
     /// The page with the Jobs screen made beside it, as the app holds them: its Job view draws the Operator's thread and box.

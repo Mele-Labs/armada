@@ -694,6 +694,12 @@ pub trait Sessions: Send + Sync + 'static {
     /// `set_operator_acts` — one project's value, or unset. [`Refusal::NotFound`] for a project he has none of.
     fn set_operator_acts(&self, set: ipc::SetOperatorActs) -> impl Future<Output = Result<ipc::OperatorActsList, Refusal>> + Send;
 
+    /// `list_operator_settings` — each project's Operator, and the output styles he may pick.
+    fn list_operator_settings(&self) -> impl Future<Output = Result<ipc::OperatorSettingsList, Refusal>> + Send;
+
+    /// `set_operator_settings` — what one project's Operator is. [`Refusal::NotFound`] for a project he has none of.
+    fn set_operator_settings(self: std::sync::Arc<Self>, set: ipc::SetOperatorSettings) -> impl Future<Output = Result<ipc::OperatorSettingsList, Refusal>> + Send;
+
     /// `ask_held` — the agent asks whether a pull request or a branch should land. `caller` places a hosted
     /// session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
     /// neither or both of `pull` and `branch`, or one the Job's repository does not have.

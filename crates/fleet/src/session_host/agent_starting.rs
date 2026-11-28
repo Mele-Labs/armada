@@ -373,7 +373,8 @@ where
         drop(store);
         // What the Operator's own session starts is on its page's feed.
         if self.session_is_the_operator(caller) {
-            self.feed_kept(ipc::operator_page::OperatorFeedKind::Dispatched, &title, Some(new), None).await;
+            let project = self.operator_project_of(caller).await;
+            self.feed_kept(project.as_deref(), ipc::operator_page::OperatorFeedKind::Dispatched, &title, Some(new), None).await;
         }
         Ok(())
     }

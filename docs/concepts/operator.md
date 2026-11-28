@@ -2,7 +2,7 @@
 
 **What it is:** One agent on your Mac that watches every project, puts one decision at a time in front of you, and does the rest.
 
-> One long-running agent session per Mac, with Fleet's tools, across every project Fleet serves.
+> One long-running agent session per project, with Fleet's tools, in each project of his.
 > It shows you things the way your Settings ask: a picture first, a table over a paragraph, a page for anything long, takes for options that look different, a walk for something to press.
 > Every decision is one card, with two to four options, its pick first and a cost on each, in whatever form suits that decision.
 > What only happened goes to a feed of what happened since you last looked.
@@ -29,9 +29,12 @@ Nothing waits in a list to be found.
 It runs for as long as its context lasts, holds Fleet's tools, and keeps what it has learned of the week in that context.
 It reads code and pull requests, starts, messages and ends Jobs, and lands pull requests.
 
-**There is one per Mac, across every project.**
-Order and usage are shared across repositories, so it sees every project's Jobs at once.
-What it may do unasked is set for each project.
+**There is one for each project.**
+It hears the arrivals of the repositories its project holds and his words sent to it, and no other project's.
+A repository two projects hold tells both, and the text names the other.
+A repository in no project becomes a project of its own, so it has an Operator.
+The machine's `features.operator` switch is the master, and each project has its own, on by default.
+What it is set to, and what it may do unasked, is set for each project: `list_operator_settings`, `set_operator_settings`.
 
 **It hands on when its context fills.**
 A fresh copy takes over with the open cards, the saved level of each project, what it waits on and what you told it in the talk.
@@ -326,7 +329,7 @@ The Operator replaced it.
 
 | What Helm did | What happens now |
 |---|---|
-| One live Job per repository, with a slot and a branch on its first write | One Operator session per Mac |
+| One live Job per repository, with a slot and a branch on its first write | One Operator session per project |
 | Its talk box | The composer under the card |
 | Questions waiting on you in the dock | Stay in Needs you |
 | Authoring a workflow, driving a Studio, breaking a goal into Jobs | The Operator starts a Job for it, or does it |

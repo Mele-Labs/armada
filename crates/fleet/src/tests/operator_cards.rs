@@ -90,7 +90,7 @@ fn heard(rig: &Rig, containing: &str) -> usize {
 
 /// His words to the Operator, about `about` where it names a card, with nothing sent beside them.
 pub(super) fn said(words: &str, about: Option<&str>) -> TalkToOperator {
-    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
+    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None }
 }
 
 fn option(label: &str, cost: &str) -> CardOption {
@@ -219,13 +219,15 @@ async fn the_operators_acts_are_a_value_per_project_that_is_unset_until_he_says(
     assert_eq!(unknown.status(), 404);
 }
 
-fn arrival(id: &str, subject: &str) -> Arrival {
+/// What arrives in the rig's one repository, which its one project holds.
+fn arrival(rig: &Rig, id: &str, subject: &str) -> Arrival {
     Arrival {
         id: id.into(),
         arrived: Arrived::Report,
         source: Source::Agent,
         session_id: String::new(),
-        manifest_id: String::new(),
+        manifest_id: rig.manifest.as_str().to_string(),
+        project: String::new(),
         subject: subject.into(),
         words: "The scrollback is lost on a resize.".into(),
     }
@@ -236,8 +238,8 @@ async fn while_the_operators_session_runs_what_arrives_is_told_to_it_once_and_fl
     let rig = rig();
     let id = started(&rig).await;
 
-    assert!(rig.fleet.hand_once(arrival("report:1", "Scrollback is lost")).await, "handed");
-    assert!(rig.fleet.hand_once(arrival("report:1", "Scrollback is lost")).await, "handed again");
+    assert!(rig.fleet.hand_once(arrival(&rig, "report:1", "Scrollback is lost")).await, "handed");
+    assert!(rig.fleet.hand_once(arrival(&rig, "report:1", "Scrollback is lost")).await, "handed again");
     eventually(|| async { heard(&rig, "Scrollback is lost") >= 1 }).await;
     assert_eq!(heard(&rig, "Scrollback is lost"), 1, "told once");
     assert!(page(&rig).await.feed.iter().any(|one| one.kind == OperatorFeedKind::Told && one.title == "Scrollback is lost"), "and on the feed");

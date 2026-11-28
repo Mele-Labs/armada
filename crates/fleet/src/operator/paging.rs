@@ -77,7 +77,9 @@ where
             (grouped(turn), working, self.digest_read(&store, &since), kept, feed)
         };
         let acts = self.operator_acts_listed().await.map(|list| list.projects).unwrap_or_default();
-        let session_id = if on { self.operator_session_id().await.map(|id| SessionId::carried(&id)) } else { None };
+        let operators = self.operator_settings_projects().await;
+        // The first running Operator, for a Bridge that still draws one.
+        let session_id = if on { operators.iter().find_map(|one| one.session_id.clone()) } else { None };
         let mut digest = digest;
         digest.handled.log = self.journal_file_now().await;
         Ok(OperatorPage {
@@ -93,6 +95,7 @@ where
             feed,
             session_id,
             operator_acts: acts,
+            operators,
         })
     }
 

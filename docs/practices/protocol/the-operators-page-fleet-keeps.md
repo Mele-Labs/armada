@@ -2,7 +2,7 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 14 Nov 2026. The Operator is one agent session per Mac, and its page is one card in front with the cards queued behind it and a feed beside them.
+Since 14 Nov 2026. The Operator is one agent session for each project, and its page is one card in front with the cards queued behind it and a feed beside them.
 Fleet keeps the cards, the feed and each project's level, and serves them as one page.
 Bridge draws it.
 `docs/concepts/operator.md` says what the page is for.

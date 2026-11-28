@@ -1139,6 +1139,14 @@ where
         self.operator_acts_set(set).await
     }
 
+    async fn list_operator_settings(&self) -> Result<ipc::OperatorSettingsList, Refusal> {
+        self.operator_settings_listed().await
+    }
+
+    async fn set_operator_settings(self: Arc<Self>, set: ipc::SetOperatorSettings) -> Result<ipc::OperatorSettingsList, Refusal> {
+        self.operator_settings_set(set).await
+    }
+
     async fn ask_held(
         self: Arc<Self>,
         caller: Option<api::Caller>,

@@ -425,6 +425,9 @@ pub struct OperatorPage {
     /// Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub operator_acts: Vec<crate::ProjectOperatorActs>,
+    /// Each project's Operator: what it is set to and the session that runs it. `session_id` above is the first running one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operators: Vec<crate::ProjectOperatorSettings>,
 }
 
 /// `operator_answer`: one press on an item.

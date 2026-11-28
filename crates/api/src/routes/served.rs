@@ -817,6 +817,16 @@ const ROUTES: &[Route] = &[
         path: "/operator/acts",
     },
     Route {
+        operation: "list_operator_settings",
+        method: "GET",
+        path: "/operator/settings",
+    },
+    Route {
+        operation: "set_operator_settings",
+        method: "POST",
+        path: "/operator/settings",
+    },
+    Route {
         operation: "report_bridge_error",
         method: "POST",
         path: "/operator/errors",
