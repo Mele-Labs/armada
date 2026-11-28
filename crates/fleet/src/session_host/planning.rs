@@ -11,7 +11,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    ApprovePlan, AttachmentReport, Instant, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord,
+    ApprovePlan, AttachmentReport, Instant, PlanGate, PlanHold, PlanHoldWhy, RecordPlan, SendPlanChanges, SessionFact, SessionId, SessionRecord,
     SessionReport, SessionRow, WaitingActKind, WaitingItem, WaitingSource, WireError, DOCUMENT_ASKED, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, SKETCH_DRAWN, SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT,
 };
@@ -238,6 +238,17 @@ where
             .ok_or_else(|| {
                 self.hosted_refusal(PLAN_UNNAMED, "a plan needs a job to record it for, and this call places none")
             })?;
+        // A screen he would see is approved on its native walk. A sketch or a prototype shows flow and a mock is no more
+        // than a take of one, so none of them is the look gate.
+        if let Some(group) = checked.groups.iter().zip(groups_seen).find(|(group, seen)| **seen && group.gate == PlanGate::SketchApproved).map(|(group, _)| group) {
+            return Err(self.hosted_refusal(
+                PLAN_REFUSED,
+                &format!(
+                    "the plan was not recorded: the group `{}` is one he would see, and a screen he sees is approved on its native walk, so end it on `walk_approved` and show the walk with `show_window` on `armada://walk/<name>`, not on `sketch_approved`",
+                    group.title
+                ),
+            ));
+        }
         let (session, before) = {
             let store = self.store().lock().await;
             let session = store

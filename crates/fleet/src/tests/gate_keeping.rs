@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{
     ApprovePlan, AttachmentReport, PlanGate, PlanGroupInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport,
     ShowWindow, WaitingSource,
@@ -371,4 +371,77 @@ async fn a_jobs_ended_gate_raises_no_needs_you_item_and_still_holds_all_done() {
     assert!(held.done_since.is_none(), "the call is held while the gate is open");
     assert_eq!(held.plan.as_ref().and_then(|plan| plan.held.as_ref()).map(|on| on.group.as_str()), Some("g1"));
     assert!(held.waiting_for.iter().all(|one| one.source != WaitingSource::Gate), "it is not his to approve: {:?}", held.waiting_for);
+}
+
+/// A sketch of one hi-fi mock of a screen, shown asking him, and its `drawn` as he reads it.
+async fn mock_sketch(rig: &Rig, id: &SessionId) -> ipc::ArtifactPart {
+    let scene = r##"{"nodes":[{"id":"m","kind":"mock","x":0,"y":0,"w":300,"title":"Ready screen","html":"<b class=\"a\">x</b>","css":".a{color:red}"}],"edges":[]}"##;
+    let body = format!(r#"{{"title":"Ready screen","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str());
+    let show: ipc::ShowSketch = ipc::decode("a sketch to show", body.as_bytes()).unwrap();
+    rig.fleet.show_sketch(None, show).await.expect("drawn");
+    let held = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
+    held.into_iter().flat_map(|one| one.parts).find(|part| part.asks).expect("a part that asks")
+}
+
+fn approving(id: &SessionId, artifact: &str, part: &ipc::ArtifactPart) -> ipc::AnswerPart {
+    ipc::AnswerPart {
+        session_id: id.clone(),
+        artifact: artifact.into(),
+        part: part.id.clone(),
+        drawn: part.drawn.clone(),
+        how: ipc::PartHow::Approved,
+        take: None,
+        words: None,
+        notes: Default::default(),
+        extras: Default::default(),
+    }
+}
+
+#[tokio::test]
+async fn his_approve_of_a_sketch_that_carries_a_mock_of_a_screen_closes_no_walk_gate() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, plan(&id, vec![gated(None, "Ready screen", PlanGate::WalkApproved)])).await;
+    let part = mock_sketch(&rig, &id).await;
+
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    Arc::clone(&rig.fleet).answer_part(approving(&id, &part.id, &part)).await.expect("approved");
+
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "a mock he approved is no walk he approved");
+    assert_eq!(closed_groups(&read(&rig, &id).await), [false], "the walk gate is still open");
+}
+
+#[tokio::test]
+async fn a_prototype_asks_him_nothing_so_no_approve_of_it_closes_a_walk_gate() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, plan(&id, vec![gated(None, "Ready screen", PlanGate::WalkApproved)])).await;
+    let folder = rig.fleet.scratch_of(id.as_str()).join("scenes");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("ready.html"), "<scene/>").unwrap();
+    let show = ipc::ShowPrototype { title: "Ready screen".into(), scene: "ready.html".into(), state: None, for_line: None, session_id: Some(id.clone()) };
+    Arc::clone(&rig.fleet).show_prototype(None, show).await.expect("shown");
+
+    let artifact = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().next().expect("the artifact");
+    let part = artifact.parts.first().cloned().expect("the prototype");
+    assert!(!part.asks, "a prototype shows flow and asks nothing");
+    let refused = Arc::clone(&rig.fleet).answer_part(approving(&id, &artifact.id, &part)).await.expect_err("nothing to approve");
+    assert_eq!(refused.error().code, "fleet.part_not_open");
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty());
+    assert!(read(&rig, &id).await.waiting_for.iter().all(|one| !one.id.starts_with("sketch:")), "and no Needs you item");
+}
+
+#[tokio::test]
+async fn a_group_he_would_see_cannot_end_on_a_sketch_approval_and_the_refusal_names_the_walk() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let sketched = plan(&id, vec![gated(None, "Ready screen", PlanGate::SketchApproved)]);
+
+    let said = rig.fleet.record_plan_seen(None, sketched.clone(), false, vec![true]).await.expect_err("refused").error().message.clone();
+    assert!(said.contains("show_window") && said.contains("armada://walk/") && said.contains("walk_approved"), "{said}");
+    assert!(read(&rig, &id).await.plan.is_none(), "nothing was recorded");
+
+    rig.fleet.record_plan_seen(None, sketched.clone(), false, vec![false]).await.expect("a group he would not see may end on a sketch");
+    let walked = plan(&id, vec![gated(None, "Ready screen", PlanGate::WalkApproved)]);
+    rig.fleet.record_plan_seen(None, walked, false, vec![true]).await.expect("a group he would see ends on its walk");
 }

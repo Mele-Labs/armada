@@ -20,13 +20,17 @@ A scene is not that workflow's output and needs neither.
 **Rule.** A prototype is a screen he can click through, in place of a still mock.
 Why: a mock shows one state, and a scene shows each state the agent declared and the presses between them.
 
+**Rule.** A prototype shows flow and never the look, so it asks him nothing: it has no Approve and raises no Needs you item (owner, 27 Nov 2026).
+Why: approving a prototype approves an assumption that an agent can carry it into the app's style, and he approves an exact look.
+A screen he would see is approved on its native walk, `armada://walk/<name>` with the gate `walk_approved`, and Fleet refuses a plan group he would see that ends on `sketch_approved`.
+
 | Where | What it does |
 |---|---|
 | The Prototype tab | Draws the scene in a frame: an accent hairline, and a band naming it a Prototype with its title |
 | A view tile, or a part with `goes` | Steps to that state; a tile names the state by its `title` over its `says` |
 | Pop out, or ⌥⌘P in the tab | Draws the scene in a window of its own |
 | ⌥⌘A, in the tab, the review sheet or the window | Starts a note, which names the part by its `data-part` and goes to the prototype's own Job |
-| Approve, or a note sent back | Goes through the artifact as for any other part |
+| A note | Reaches the Job as a message, as a note on a sketch that asks nothing does |
 
 The state he pressed stays across a redraw, unless the agent's call names a new `state`.
 

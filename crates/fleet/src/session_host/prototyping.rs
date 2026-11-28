@@ -126,7 +126,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `show_prototype`: the scene read now, put as a part that asks, under the scene's file name.
+    /// `show_prototype`: the scene read now, put as a part that asks nothing, under the scene's file name. A prototype
+    /// shows flow and never the look, so there is nothing to approve: it goes to his thread and Artifacts, and his note
+    /// on it reaches the Job as a message.
     pub(crate) async fn prototype_shown(self: Arc<Self>, caller: Option<api::Caller>, show: ShowPrototype) -> Result<SessionRecord, Refusal> {
         let checked = show.checked().map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
         let (id, harness) = self.prototype_job(caller, show.session_id.as_ref()).await?;
@@ -136,7 +138,7 @@ where
             .map_err(|why| self.hosted_refusal(PART_REFUSED, &format!("the prototype was not shown: {why}")))?;
         // The rest at their defaults, so a field another branch adds to `CheckedPart` needs nothing here.
         #[allow(clippy::needless_update)]
-        let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: true, ..CheckedPart::default() };
+        let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: false, ..CheckedPart::default() };
         self.prototype_placed(&id, &harness, &part, checked.said).await
     }
 

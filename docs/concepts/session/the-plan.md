@@ -37,6 +37,9 @@ A merge from before the group was recorded closes nothing of it; Fleet knows tha
 `show_window` takes an optional `group`, a plan group's id, and the `window` row keeps it.
 A group gated on `walk_approved` closes when every walk shown for it since the plan was first recorded stands approved, so a feature Job has one stop for each part he would see.
 A replaced or taken-back walk waits on nothing, as it does for the walks of no group.
+**A group he would see never ends on `sketch_approved`** (owner, 27 Nov 2026).
+A sketch or a prototype shows flow and never the look, and an Approve of one never closes a `walk_approved` gate, so a group with `seen: true` and that gate is refused at `record_plan`, the refusal naming the native walk.
+A mock of a screen may still be a take he picks between, which is a choice and not the look gate.
 `group` is refused with the ids the plan has when the current plan has no such group, or says the Job has no plan.
 **A new walk for a group opens its gate again** (owner, 8 Nov 2026).
 The close row is not edited or deleted: the gate reads its newest close against when a walk was last shown for the group (`session_gate_walks`), and a walk shown after the close opens it.

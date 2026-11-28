@@ -57,7 +57,7 @@ async fn a_scene_named_as_a_path_is_refused_and_nothing_is_written() {
 }
 
 #[tokio::test]
-async fn a_scene_and_the_fixtures_it_names_are_read_into_a_part_that_asks() {
+async fn a_scene_and_the_fixtures_it_names_are_read_into_a_part_that_asks_nothing() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     let folder = scenes_of(&rig, &id);
@@ -68,7 +68,9 @@ async fn a_scene_and_the_fixtures_it_names_are_read_into_a_part_that_asks() {
     Arc::clone(&rig.fleet).show_prototype(None, shown(&id, "ready.html", Some("full"))).await.expect("shown");
 
     let (part, held) = prototype(&rig, &id).await;
-    assert_eq!((part.content.kind(), part.asks, part.state, part.revision), (PartKind::Prototype, true, PartState::Open, 1));
+    assert_eq!((part.content.kind(), part.asks, part.state, part.revision), (PartKind::Prototype, false, PartState::Open, 1), "flow only: nothing is put to him");
+    let artifact = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().next().expect("the artifact");
+    assert_eq!((artifact.state, artifact.item), (ipc::ArtifactState::Reading, None), "it raises no Needs you item");
     assert_eq!(held.markup, SCENE);
     assert_eq!(held.fixtures.iter().map(|one| (one.name.as_str(), one.text.as_str())).collect::<Vec<_>>(), [("jobs.json", r#"[{"id":1}]"#)], "only the fixture it names");
     assert_eq!((held.scene_state.as_deref(), held.trouble), (Some("full"), None));
