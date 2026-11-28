@@ -423,6 +423,13 @@ pub static WALKS: &[Walk] = &[
         steps: &crate::usage_page::walk::STEPS,
     },
     Walk {
+        name: "vitals",
+        title: "Vitals: this Mac against its limits, tile by tile",
+        screen: Screen::Reviews,
+        scenario: "vitals-stall",
+        steps: &crate::vitals::walk::STEPS,
+    },
+    Walk {
         name: "kit",
         title: "Kit: the setup you work with, kind by kind",
         screen: Screen::Reviews,

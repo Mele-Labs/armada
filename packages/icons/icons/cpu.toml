@@ -18,3 +18,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 29 Oct 2026 for the walk `processes`, tooltip `System`. The chip is the machine's, so the key reads as processes, CPU, memory and disk. Refused: `server`, Fleet's; `hard-drive`, a held disk; `activity`, reserved to the Asker view."
+
+[[icons.cpu.usage]]
+  means = "The Load tile on the Vitals page: the load averages and the busy cores against the load limit"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. The same chip as Flight control's System key: what the machine runs."

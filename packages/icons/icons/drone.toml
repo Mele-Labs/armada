@@ -26,3 +26,10 @@
   size = "14px"
   status = "Specified"
   notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Subagent`, in the running hue. A press opens its thread in a tab beside Thread."
+
+[[icons.drone.usage]]
+  means = "The Drones tile on the Vitals page: Drones running against Drones at once"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. A Drone, drawn as the object, beside the Subagents view's reservation."

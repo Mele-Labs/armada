@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "A Logbook entry of kind convention. Never a size, a layout or a measurement on a canvas."
   notes = "Proposed 22 Oct 2026 for the walk `logbook`. Tooltip `Convention`."
+
+[[icons.ruler.usage]]
+  means = "The Vitals page's tile of limits that have no reading to draw against"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. Against the reservation, which keeps it to a Logbook convention. The owner rules on it with the page."

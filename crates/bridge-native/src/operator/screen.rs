@@ -34,6 +34,8 @@ pub enum Front {
     Features,
     /// Where the burn was wasted. No place in the strip: it is reached by name from the palette.
     Usage,
+    /// This Mac against its limits. No place in the strip: it is reached by name from the palette or `open_vitals`.
+    Vitals,
 }
 
 impl Front {
@@ -46,6 +48,7 @@ impl Front {
             Front::Kit => "kit",
             Front::Features => "project",
             Front::Usage => "usage",
+            Front::Vitals => "vitals",
         }
     }
 }
@@ -63,6 +66,7 @@ pub struct OperatorScreen {
     /// The Cockpit's home of blocks, in the page's place while the Operator is off.
     home_blocks: Option<Entity<crate::home::HomeScreen>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
+    vitals: Option<Entity<crate::vitals::VitalsScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
     fleet: Option<Entity<FleetConnection>>,
@@ -132,8 +136,10 @@ impl OperatorScreen {
         let kit = cx.new(|cx| crate::kit::KitScreen::live(fleet, window, cx));
         let features = cx.new(|cx| crate::project_board::ProjectScreen::live(fleet, Some(reviews.clone()), window, cx));
         let usage = cx.new(|cx| crate::usage_page::UsageScreen::live(fleet, cx));
+        let vitals = cx.new(|cx| crate::vitals::VitalsScreen::live(fleet, window, cx));
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
+        this.vitals = Some(vitals);
         this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
         this.make_home(Some(fleet), window, cx);
@@ -163,6 +169,7 @@ impl OperatorScreen {
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         // Made first: the mocks after it name scenarios of their own, and this one reads the scenario the walk named.
         let usage = cx.new(crate::usage_page::UsageScreen::mock);
+        let vitals = cx.new(|cx| crate::vitals::VitalsScreen::mock(window, cx));
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| {
             let mut reviews = crate::reviews::ReviewsScreen::mock(window, cx);
@@ -173,6 +180,7 @@ impl OperatorScreen {
         let features = cx.new(|cx| crate::project_board::ProjectScreen::mock(Some(reviews.clone()), window, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
+        this.vitals = Some(vitals);
         this.name_jobs(cx);
         this
     }
@@ -185,6 +193,7 @@ impl OperatorScreen {
     /// As [`Self::mock_cockpit`], with the feature library the Cockpit's floor draws given.
     pub fn mock_cockpit_holding(jobs: Entity<JobsScreen>, library: ipc::FeatureLibrary, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let usage = cx.new(crate::usage_page::UsageScreen::mock);
+        let vitals = cx.new(|cx| crate::vitals::VitalsScreen::mock(window, cx));
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| {
             let mut reviews = crate::reviews::ReviewsScreen::mock(window, cx);
@@ -195,6 +204,7 @@ impl OperatorScreen {
         let features = cx.new(|cx| crate::project_board::ProjectScreen::mock_holding(Some(reviews.clone()), library, window, cx));
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
+        this.vitals = Some(vitals);
         this.name_jobs(cx);
         this.make_home(None, window, cx);
         this
@@ -204,6 +214,13 @@ impl OperatorScreen {
     pub fn mock_usage(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this = Self::mock_reviews(jobs, window, cx);
         this.bring(Some(Front::Usage), window, cx);
+        this
+    }
+
+    /// As [`Self::mock_reviews`], with the Vitals page in front: `--mock vitals-stall` and its kin.
+    pub fn mock_vitals(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::mock_reviews(jobs, window, cx);
+        this.bring(Some(Front::Vitals), window, cx);
         this
     }
 
@@ -289,6 +306,7 @@ impl OperatorScreen {
                 Asked::Place("kit") => Some(Some(Front::Kit)),
                 Asked::Place("project") => Some(Some(Front::Features)),
                 Asked::Place("usage") => Some(Some(Front::Usage)),
+                Asked::Place("vitals") => Some(Some(Front::Vitals)),
                 _ => None,
             };
             match to {
@@ -324,7 +342,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, home_blocks: None, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, home_blocks: None, usage: None, vitals: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if matches!(front, Front::Operator | Front::Cockpit) {
@@ -400,7 +418,7 @@ impl OperatorScreen {
         });
         // In the Cockpit the Operator and the Jobs screen are one place.
         let to = if self.cockpit && matches!(to, Front::Operator | Front::Jobs) { Front::Cockpit } else { to };
-        if to == self.front || (to == Front::Reviews && self.reviews.is_none()) || (to == Front::Kit && self.kit.is_none()) || (to == Front::Features && self.features.is_none()) || (to == Front::Usage && self.usage.is_none()) {
+        if to == self.front || (to == Front::Reviews && self.reviews.is_none()) || (to == Front::Kit && self.kit.is_none()) || (to == Front::Features && self.features.is_none()) || (to == Front::Usage && self.usage.is_none()) || (to == Front::Vitals && self.vitals.is_none()) {
             return;
         }
         if self.front == Front::Reviews {
@@ -421,6 +439,11 @@ impl OperatorScreen {
         if self.front == Front::Usage {
             if let Some(usage) = &self.usage {
                 usage.update(cx, |usage, cx| usage.leave(cx));
+            }
+        }
+        if self.front == Front::Vitals {
+            if let Some(vitals) = &self.vitals {
+                vitals.update(cx, |vitals, cx| vitals.leave(cx));
             }
         }
         // The Operator's session was opened over the page: coming back to the page puts the Job that was open before it back.
@@ -474,6 +497,11 @@ impl OperatorScreen {
             Front::Usage => {
                 if let Some(usage) = &self.usage {
                     usage.update(cx, |usage, cx| usage.enter(window, cx));
+                }
+            }
+            Front::Vitals => {
+                if let Some(vitals) = &self.vitals {
+                    vitals.update(cx, |vitals, cx| vitals.enter(window, cx));
                 }
             }
         }
@@ -797,6 +825,11 @@ impl Render for OperatorScreen {
                 let title = crate::chrome::title_row(window, cx);
                 let usage = self.usage.clone().map(|usage| usage.into_any_element());
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(usage)).into_any_element()
+            }
+            Front::Vitals => {
+                let title = crate::chrome::title_row(window, cx);
+                let vitals = self.vitals.clone().map(|vitals| vitals.into_any_element());
+                div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(vitals)).into_any_element()
             }
         };
         // ⌘K and the bar's search open the Jobs screen's palette over whichever place is in front; the Jobs screen

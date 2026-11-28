@@ -32,3 +32,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 18 Oct 2026 for the walks `first-run` and `runs-at-scale`. The first row of the places asked when a repository is added, and the mark on a row of how a repository runs, tooltips `On this Mac` and `Kept on this Mac`. Nothing is written into the repository. The same meaning it has everywhere else: this machine."
+
+[[icons.laptop.usage]]
+  means = "The Vitals page's head: this Mac's load, memory, Checks and disk against their limits"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. Refused: `activity`, reserved to the Asker view, and `gauge`, which is never a load."

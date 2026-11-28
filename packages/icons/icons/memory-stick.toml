@@ -1,0 +1,7 @@
+[icons.memory-stick]
+  means = "A memory module seen from the side, its pins along the foot: memory, drawn as the object"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Memory in use on this Mac. Never disk, which is `hard-drive`, and never a cache or a store."
+  notes = "Proposed 28 Nov 2026 for the Memory tile on the Vitals page, a mock the owner has not looked at yet; he may rule it out. No glyph in the registry drew memory: `hard-drive` is disk and `database` the central store."
