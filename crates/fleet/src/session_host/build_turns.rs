@@ -7,7 +7,7 @@ use std::time::Instant;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 
-use crate::build_turns::{memory_pressure, send, Contender, LISTING, TURN};
+use crate::build_turns::{send, Contender, LISTING, TURN};
 use crate::daemon::Fleet;
 
 /// What a Job whose builds run again is told.
@@ -33,8 +33,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Hold every live Job's builds but one while the fifteen-minute load is at or over
-    /// [`checks_runner::LOAD_LIMIT`], and let them go when it falls. Logs each change of turn.
+    /// Hold every live Job's builds but one while the machine is short by
+    /// [`crate::limits::gate_limits`], and let them go when it recovers. Logs each change of turn.
     pub(crate) async fn builds_taken_in_turns(self: &Arc<Self>) {
         // A store that will not answer is asked again on the next look.
         let Ok(ids) = self.store().lock().await.live_session_ids_oldest_first() else {
@@ -51,10 +51,10 @@ where
                 job,
             })
             .collect();
+        let limits = crate::limits::gate_limits(&self.machine_settings().now());
         let fleet = Arc::clone(self);
         let looked = tokio::task::spawn_blocking(move || {
-            let load = checks_runner::fifteen_minute_load().filter(|load| *load >= f64::from(checks_runner::LOAD_LIMIT));
-            let pressure = memory_pressure();
+            let short = limits.short(&checks_runner::machine_reading());
             let Some(listing) = std::process::Command::new("ps")
                 .args(LISTING)
                 .output()
@@ -68,10 +68,10 @@ where
             let mut turns = fleet.build_turns().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let held_before = turns.jobs_held();
             let now = Instant::now();
-            let loaded = turns.loaded(load.is_some(), pressure, now);
-            let why = match load {
-                Some(load) => format!("the fifteen-minute load is {load:.0}, at or over {}", checks_runner::LOAD_LIMIT),
-                None => "memory is short".to_string(),
+            let loaded = turns.loaded(short, now);
+            let why = match short {
+                Some(checks_runner::Short::Load { load, limit, window }) => format!("the {window} load is {load}, at or over {limit}"),
+                _ => "memory is short".to_string(),
             };
             let signals = turns.look(
                 loaded,

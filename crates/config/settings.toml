@@ -76,6 +76,27 @@ notes = """
 **The value lives in settings.json under `limits.checksAtOnce`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*. A save moves Fleet's places and the machine's Check slots it holds (`checks_runner::CheckSlots::resize`) from the next Check; one running keeps its slot. An `armada check` already running counts by the number it started with.
 """
 
+[settings.check-start-gate]
+name = "When Checks wait for the machine"
+scope = "Machine"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+**Enforced, for the whole machine**, by every process that takes the machine's Check slots (`checks_runner::CheckSlots::watching`) and by Fleet's build turns (`fleet::build_turns`). Five values, each live: an `armada check` reads them at most every ten seconds, and Fleet at each look.
+
+- `limits.memoryPressureLevel`, shipped 2: at or over the kernel's memory pressure level, the machine is short.
+- `limits.loadLimit`, shipped 0 (off), and `limits.loadWindow`, shipped 1: at or over the limit in the 1-, 5- or 15-minute load average, the machine is short.
+- `limits.checksWhileShort`, shipped 1: while short, another Check starts only while fewer slots than this are in use. The first always starts.
+- `limits.checkStartSpacingSeconds`, shipped 60: beside a running Check, at most one starts in this long, so a gate that opens never lets every waiting Check in at once.
+
+**Memory decides, and load only when asked**: the owner's choice of 28 Nov 2026, after Checks stalled for an hour. The fifteen-minute load at 24 held Checks one at a time; the moment it dipped under, seven started in one look into a machine with 23 GB compressed and swap at 6.9 of 8 GB, and the load went from 17 to 49 while the cores busy fell from 9.7 to 7. On his 18-core M5 Pro the load read 2 to 3 times the cores busy, and the operating system schedules CPU, as `limits.memorySparePercent` already rules for Drones. `docs/concepts/manifest.md`, *How many Checks run at once*.
+
+**The value lives in settings.json under `limits.*`** (live), as each of the keys above.
+"""
+
 [settings.disk-headroom-floor-for-spawning]
 name = "Disk headroom floor for spawning"
 scope = "Machine"
