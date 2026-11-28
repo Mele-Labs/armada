@@ -3,11 +3,13 @@ ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Operator"
-description = "Merge a feature into another, rename it, or move it to another area. Give project, feature (its slug), and either into (the slug to fold it into), or slug and title (what it becomes), or area (the slug of an area the project keeps). Use it for a pending feature a Job named, once he has chosen, and for two seeded features that are one"
+description = "Merge a feature into another, rename it, or move it to another area. Give project, feature (its slug), and either into (the slug to fold it into), or slug and title (what it becomes), or area (the slug of an area the project keeps), and why, his words, where he gave a reason. Use it for a pending feature a Job named, once he has chosen, and for two seeded features that are one"
 notes = """
-`POST /features/change`, body `ChangeFeature` `{ project, feature, into?, slug?, title?, area? }`. Answers `FeatureChanged` `{ feature, merged_into? }`: the slug the feature has now.
+`POST /features/change`, body `ChangeFeature` `{ project, feature, into?, slug?, title?, area?, why? }`. Answers `FeatureChanged` `{ feature, merged_into?, rule? }`: the slug the feature has now, and the id of the rule `why` became.
 
-**`into` folds the feature into another.** Its path prefixes and entry points join the target's, its links, the files Jobs wrote under it and the asks filed under it become the target's, and a section the target never wrote is copied. The target keeps its id, its state and its `added_at`, so a merge never back-dates the catalog. **`slug` renames it** and `title` retitles it; either alone is allowed. **`area` moves it** to an area the project keeps, and changes nothing else: an area the project does not keep is refused 422 `fleet.feature_area_unknown`. `slug`, `title` and `area` may be given together. `into` with any of them, and a call that changes nothing, are refused 422 `fleet.feature_change`.
+**`into` folds the feature into another.** Its path prefixes and entry points join the target's, its links (its Jobs, docs and pull requests among them), the files Jobs wrote under it, the Jobs that named it in a trailer, its docs' checks and the asks filed under it become the target's, and a section the target never wrote is copied. The target keeps its id, its state and its `added_at`, so a merge never back-dates the catalog. **`slug` renames it** and `title` retitles it; either alone is allowed. **`area` moves it** to an area the project keeps, and changes nothing else: an area the project does not keep is refused 422 `fleet.feature_area_unknown`. `slug`, `title` and `area` may be given together. `into` with any of them, and a call that changes nothing, are refused 422 `fleet.feature_change`.
+
+**`why` is kept as a rule of the project's catalog**, with the slugs it was about and when (`list_catalog_rules`), in the same call: a blank `why` keeps none, and a refused call keeps neither.
 
 **The old slug stays as an alias** of the feature it became, so a `Feature:` trailer already in git, or an act that still names it, files under the right feature and makes no new pending one. `list_features`, the pages and `file_ask` all take an alias. `upsert_features` of a slug that is an alias keeps a feature by it and takes the alias away: that is how a merge is undone.
 

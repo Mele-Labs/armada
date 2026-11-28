@@ -17,6 +17,7 @@
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
 mod feature_catalog;
+mod catalog_rules;
 mod feature_health;
 mod proposer_choices;
 mod feature_decisions;
@@ -44,6 +45,7 @@ mod agent_starts;
 mod asides;
 mod agent_starts_at_once;
 mod agent_starts_project;
+mod operator_always_chat;
 mod operator_cards;
 mod operator_dispatches;
 mod operator_elsewhere;
@@ -343,6 +345,8 @@ mod turn_usage;
 mod session_notes;
 mod terminal_session;
 mod native_walk;
+mod approved_looks;
+mod walk_builds;
 mod thread_keeping;
 mod thread_fold;
 mod thread_view;

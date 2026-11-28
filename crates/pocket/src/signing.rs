@@ -43,7 +43,7 @@ fn key_of(pairing: &Pairing, device: &str) -> Option<(Vec<u8>, bool)> {
 pub const SKEW: i64 = 60;
 /// A dispatch or message carries its pictures as base64, so a signed request may weigh as much as Fleet takes
 /// of one (`MOST_A_MESSAGE_MAY_BE`); a 1 MiB cap answered a Mac-to-Mac dispatch with 413.
-const BODY_LIMIT: usize = 64 * 1024 * 1024;
+pub(crate) const BODY_LIMIT: usize = 64 * 1024 * 1024;
 
 pub(crate) fn verifying_key(spki: &[u8]) -> Option<VerifyingKey> {
     VerifyingKey::from_public_key_der(spki).ok()

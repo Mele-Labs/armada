@@ -123,6 +123,8 @@ enum Went {
 #[derive(Debug, PartialEq)]
 enum Act<'a> {
     Approved(&'a str),
+    /// Ship it on a walk: approved, and landed without a preview.
+    Shipped(&'a str),
     Answered { target: &'a str, said: &'a str },
     /// He did what a To do asked, with his note.
     Done { target: &'a str, said: &'a str },
@@ -142,6 +144,11 @@ fn act_of(text: &str) -> Option<Act<'_>> {
     if let Some(address) = text.strip_prefix("Approved: ") {
         if !address.is_empty() && !address.contains(char::is_whitespace) {
             return Some(Act::Approved(address));
+        }
+    }
+    if let Some(address) = text.strip_prefix("Shipped: ") {
+        if !address.is_empty() && !address.contains(char::is_whitespace) {
+            return Some(Act::Shipped(address));
         }
     }
     // Fleet's `done_told`: the To do, and his note under it.
@@ -181,7 +188,7 @@ fn approved_name(address: &str, rows: &[SessionRow]) -> String {
 /// The address an approval of a walk quotes, where these words are one.
 pub(super) fn approved_address(text: &str) -> Option<&str> {
     match act_of(text)? {
-        Act::Approved(address) => Some(address),
+        Act::Approved(address) | Act::Shipped(address) => Some(address),
         _ => None,
     }
 }
@@ -760,7 +767,7 @@ impl JobView {
             return Some(line);
         }
         Some(match item {
-            ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
+            ThreadItem::Row { row } => return self.with_graphs(row.id(), self.row(ix, row, page, look, now, window, cx), look, cx),
             ThreadItem::Calls { id, rows, .. } => {
                 // A dispute the agent called is one item, the record's, so its call is not drawn twice.
                 let rows = match (after, rows.split_last()) {
@@ -1246,6 +1253,7 @@ impl JobView {
         let quoted = if matches!(act, Act::Done { .. }) { "To do" } else { "Question" };
         let (label, icon, target, said) = match act {
             Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
+            Act::Shipped(address) => ("You shipped", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
             Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
             Act::Done { target, said } => ("Completed", "square-check-big", target.to_string(), said),
         };
@@ -1849,6 +1857,8 @@ mod tests {
     fn an_approval_and_an_answer_are_acts_and_other_words_are_not() {
         assert_eq!(act_of("Approved: http://localhost:5173/?walk=abc"), Some(Act::Approved("http://localhost:5173/?walk=abc")));
         assert_eq!(act_of("Approved: two words"), None);
+        assert_eq!(act_of("Shipped: armada://walk/jobs-list"), Some(Act::Shipped("armada://walk/jobs-list")));
+        assert_eq!(approved_address("Shipped: armada://walk/jobs-list"), Some("armada://walk/jobs-list"));
         assert_eq!(
             act_of("Re: Which branch?\nThe main one.\nFleet took this off your waiting list."),
             Some(Act::Answered { target: "Which branch?", said: "The main one." })

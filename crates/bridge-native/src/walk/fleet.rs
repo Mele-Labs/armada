@@ -35,9 +35,18 @@ pub struct NoteOn {
 
 /// The line Approve sends, as Electron's `approvedText`: `Approved A, Pennant: <address>`.
 pub(crate) fn approved(url: &str, take: Option<&Taken>) -> String {
+    verdict("Approved", url, take)
+}
+
+/// The line Ship it sends: Approve's, with the word `Shipped`, so the Job lands without a preview.
+pub(crate) fn shipped(url: &str, take: Option<&Taken>) -> String {
+    verdict("Shipped", url, take)
+}
+
+fn verdict(word: &str, url: &str, take: Option<&Taken>) -> String {
     match take {
-        Some((letter, name)) => format!("Approved {letter}, {name}: {url}"),
-        None => format!("Approved: {url}"),
+        Some((letter, name)) => format!("{word} {letter}, {name}: {url}"),
+        None => format!("{word}: {url}"),
     }
 }
 
@@ -45,10 +54,19 @@ impl WalkFleet {
     /// Approve, as Electron's bar sends it: the line Fleet's `walk_approval` reads, naming the
     /// take on screen where the walk has takes.
     pub fn approve(&self, take: Option<&Taken>) -> Result<(), String> {
+        self.say(approved(&self.url, take))
+    }
+
+    /// Ship it: the same line with `Shipped`, which lands the change without a preview in the app.
+    pub fn ship(&self, take: Option<&Taken>) -> Result<(), String> {
+        self.say(shipped(&self.url, take))
+    }
+
+    fn say(&self, text: String) -> Result<(), String> {
         let body = SendSessionMessageBody {
             message: SendSessionMessage {
                 session_id: SessionId::carried(self.job.clone()),
-                text: approved(&self.url, take),
+                text,
                 attachments: Vec::new(),
                 mentions: Vec::new(),
                 sketches: Vec::new(),
@@ -110,5 +128,12 @@ mod tests {
         let take = ("B".to_string(), "Brackets".to_string());
         assert_eq!(approved("armada://walk/jobs-lamps", Some(&take)), "Approved B, Brackets: armada://walk/jobs-lamps");
         assert_eq!(approved("armada://walk/jobs-list", None), "Approved: armada://walk/jobs-list");
+    }
+
+    #[test]
+    fn ship_it_says_shipped_with_the_same_take_suffix() {
+        let take = ("B".to_string(), "Brackets".to_string());
+        assert_eq!(shipped("armada://walk/jobs-lamps", Some(&take)), "Shipped B, Brackets: armada://walk/jobs-lamps");
+        assert_eq!(shipped("armada://walk/jobs-list", None), "Shipped: armada://walk/jobs-list");
     }
 }

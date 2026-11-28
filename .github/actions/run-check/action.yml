@@ -25,13 +25,36 @@ runs:
           echo "MACHINE $NAME cores=$WIDTH $(grep MemTotal /proc/meminfo)"
         fi
         set +e
+        # The least memory free and the most swap used while the Check ran, every 2s, so a
+        # compile creeping toward the runner's limit shows before it hangs a job.
+        # docs/practices/ci.md, *Memory on the runner*.
+        low="$RUNNER_TEMP/memory-$$"
+        if [ -r /proc/meminfo ]; then
+          (
+            least= most=0
+            while :; do
+              read -r free swap < <(awk '/MemAvailable/{a=$2} /SwapTotal/{t=$2} /SwapFree/{f=$2} END{print int(a/1024), int((t-f)/1024)}' /proc/meminfo)
+              if [ -z "$least" ] || [ "$free" -lt "$least" ]; then least=$free; fi
+              if [ "$swap" -gt "$most" ]; then most=$swap; fi
+              echo "$least $most" > "$low"
+              sleep 2
+            done
+          ) &
+          sampler=$!
+        fi
         start=$(date +%s)
         bash -c "$CMD" 2>&1 | tee check.log
         code=${PIPESTATUS[0]}
         secs=$(( $(date +%s) - start ))
         echo "RESULT $NAME exit=$code seconds=$secs"
+        memory=
+        if [ -n "${sampler:-}" ]; then
+          kill "$sampler" 2>/dev/null
+          read -r least most < "$low" 2>/dev/null && memory=", ${least} MB free at least, ${most} MB of swap at most"
+          echo "MEMORY $NAME least_free=${least}M most_swap=${most}M"
+        fi
         {
-          echo "### $NAME: exit $code, ${secs}s in the Check step"
+          echo "### $NAME: exit $code, ${secs}s in the Check step${memory}"
           if [ "$code" != 0 ]; then
             echo '```'
             tail -n 40 check.log

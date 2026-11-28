@@ -3,8 +3,9 @@
 **What it is:** One agent on your Mac that watches every project, puts one decision at a time in front of you, and does the rest.
 
 > One long-running agent session per Mac, with Fleet's tools, across every project Fleet serves.
-> It puts one card in front of you at a time: one decision, two to four options, its pick first, a cost on each.
-> Everything else goes to a feed of what happened since you last looked.
+> It shows you things the way your Settings ask: a picture first, a table over a paragraph, a page for anything long, takes for options that look different, a walk for something to press.
+> Every decision is one card, with two to four options, its pick first and a cost on each, in whatever form suits that decision.
+> What only happened goes to a feed of what happened since you last looked.
 > How much it does without asking is a value for each project.
 > When its context fills it hands on to a fresh copy.
 
@@ -17,6 +18,7 @@ Its page is in the native Bridge, and [Native Bridge](native-bridge.md) owns how
 ## What it is for
 
 **One agent watches what you are doing, and you talk to it.**
+It answers you as a copilot: a picture, a table, a page or takes, never only paragraphs.
 What needs a decision reaches you as a card with its read and its pick.
 What only happened goes to the feed.
 Nothing waits in a list to be found.
@@ -38,8 +40,11 @@ Its `session_id` is on the page, so the page follows the copy in front.
 **It is not a Job.**
 It has no Needs you list, no plan, no preview and no end, so the door offers it none of a Job's own acts: `waiting_for`, `all_done`, `finish_up`, `record_plan`, `offer_preview`, the Later items, `write_feature_sections`, and the asks a Job sends it.
 A call to one is refused, whatever it was told.
-Its prompt carries its own rules and no Job's id, no Logbook and none of how you work with Jobs.
+Its prompt carries its own rules and no Job's id and no Logbook.
+It does carry how you take things in, from your Settings, without a Job's own acts, and Fleet tells it when you change them.
+Those Settings are this Mac's, so they hold for every project.
 The mod sends none of its replies back to a list, and it runs with the mod's `Operator` output style whatever style you picked.
+That style leads with a picture or a table and keeps a decision on a card.
 
 **Detection stays Fleet's.**
 The Operator is told what Fleet saw and is never asked whether something happened.
@@ -48,6 +53,8 @@ The Operator is told what Fleet saw and is never asked whether something happene
 
 **One card is in front at a time.**
 A card is one decision: a title, its read, two to four options with the Operator's pick first, and a cost on each option.
+The Operator picks each decision's form: a table for one between Jobs or features, a mock for one about a screen, takes for options that look different, a page for a long read.
+It draws that in its thread and the card's read names it.
 Keys 1 to 4 pick an option.
 A card never holds a count or a status report.
 
@@ -66,10 +73,13 @@ A card never holds a count or a status report.
 | Open Next up, at the top of the right side | The cards queued behind the one in front, then the ideas the Operator kept, newest first. Pressing a card brings it to the front. The keys go into it: ↓ and ↑ move, Enter brings, Esc folds it |
 | Press a card working at the top of the feed | The card comes to the front to be read: its read, every option with your pick marked and none to press, and its steps. It has no Snooze and no Discuss. Esc puts the card that was in front back |
 | Press a kept idea in Next up | The idea comes to the front as a card with two options: Start it, which sends it as a dispatch, and Remove, which drops it. It has no Discuss and no Snooze. Esc puts the Operator's own card back |
-| Press See what it is doing on the status card | The Operator's own session opens as a Job's view does, with its thread. Esc, or the Operator place in the strip, comes back to the page |
 | Press Restart on a stopped status card | The Operator is switched off and on again. The card reads Starting until Fleet has started a new session |
 
 **The talk is the Operator's own session, under the card.**
+While the switch is on, the talk and the composer are always drawn, whatever state the session is in.
+With no session running, the talk is the newest session's thread, ended ones too, and with none ever started it is empty.
+A send with no session running is kept by Fleet, starts a session at once, and is told to it once it is up.
+With the switch off, the Cockpit stands in the page's place.
 The card, the talk and the composer share one width, with Next up and the feed in a panel of their own beside them.
 The talk is the session's thread, drawn as a Job's thread is, and follows its end unless you scrolled up.
 While it overflows its room, the card in front folds to one line: its title, the Operator's last act and a chevron.
@@ -91,7 +101,7 @@ The state comes from the Operator's own session record, never from the page, so 
 | Working, in green | A turn is running | What Fleet saw it doing, such as `Editing gate.rs`, and for how long. With nothing seen, `In a turn`, and for how long |
 | Watching, in the accent | Between turns | `Between turns. Last heard from 5m ago`, from when Fleet last heard from it, else its last turn, else when it last saw the session |
 | Stopped, in red, with a red frame | Its standing is stopped, its session ended, or Fleet recorded a stop | Why, in plain words. The title reads `The Operator stopped 25m ago` and the button reads Restart |
-| Starting, neutral | The switch is on and no session exists yet | `Fleet starts its session on the next tick`, with no button |
+| Starting, neutral | The switch is on and no session exists yet | `Fleet is starting its session`, with no button |
 | Off, muted | The switch is off | `Every Job asks you directly`. The title reads `The Operator is off` and the button reads Switch on |
 
 **A stopped Operator comes in front of any queued card.**
@@ -100,9 +110,9 @@ The talk and the composer dim, and the keys that answer a card wait, until it is
 
 Under the line, `Last act 5m ago` names the newest entry of the feed.
 It is left out when the feed is empty.
-The head's button, See what it is doing, opens the session as a Job.
+No button opens the Operator's session as a Job: the page is its thread.
 **Restart goes through the switch.**
-Fleet has no act that starts a stopped Operator's session again: it ends the session when `features.operator` goes off and starts one on the next tick once it is on, so Restart saves the setting off and then on.
+Fleet has no act that starts a stopped Operator's session again: it ends the session when `features.operator` goes off and starts one the moment it is on, so Restart saves the setting off and then on.
 
 **A card you picked is at the top of the feed until it is settled.**
 It shows the option you picked as its title, the card's own title under it, and a line for each step the Operator reports, such as a Job started, a pull request opened or a merge.
@@ -187,6 +197,7 @@ Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held
 
 **Both arrive in the Operator's session.**
 It may answer in the Job's thread, or put up a card.
+A conflict that names files is also Fleet's own question to him, which lands first, on the sending Job's Needs you whether the Operator is on or off ([Fleet](fleet.md), *Claims a Job holds*).
 
 ## How it acts
 

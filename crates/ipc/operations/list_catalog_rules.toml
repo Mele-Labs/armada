@@ -1,0 +1,14 @@
+[operations.list_catalog_rules]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "List the rules of a project's feature catalog, his reasons for how it is shaped, newest first"
+notes = """
+`GET /features/rules?project=`, answered with `CatalogRules` `{ project, rules }`. A `CatalogRule` is `id`, `text`, `act`, `features`, `areas`, `paths` and `at`.
+
+**`text` is his words**, from the `why` of `change_feature`, `change_area` or `reject_in_catalog`, or for a reject he gave no words for, what he rejected. `act` is what he did: `make_area`, `rename_area`, `split_area`, `merge_areas`, `merge_features`, `rename_feature`, `move_feature`, `not_this_feature` or `not_together`. `features`, `areas` and `paths` are what it was about, named as they were then: a later rename does not rewrite them. `at` is when.
+
+**The librarian and the Operator are handed the newest forty**, whole, in the question an ask of the librarian puts to the model and in each catalog tell Fleet gives the Operator. Neither reads this route.
+
+422 `fleet.feature_project` for a project Fleet does not hold. `agent_access` is `Bridge only`: the rules reach agents in what they are given.
+"""

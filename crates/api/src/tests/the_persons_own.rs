@@ -90,13 +90,25 @@ async fn a_job_cannot_change_the_slot_pool() {
 async fn a_job_cannot_keep_the_feature_catalog_and_bridge_can() {
     let app = wired();
     let upsert = ipc::encode(&ipc::UpsertFeatures { project: "p".into(), areas: Vec::new(), features: Vec::new() }).expect("encodes");
-    let change = ipc::encode(&ipc::ChangeFeature { project: "p".into(), feature: "f".into(), into: None, slug: None, title: Some("T".into()), area: None }).expect("encodes");
+    let change = ipc::encode(&ipc::ChangeFeature { project: "p".into(), feature: "f".into(), into: None, slug: None, title: Some("T".into()), area: None, why: None }).expect("encodes");
+    let area = ipc::encode(&ipc::ChangeArea { project: "p".into(), area: "a".into(), change: ipc::AreaChange::Make { title: "A".into() }, why: None }).expect("encodes");
+    let reject = ipc::encode(&ipc::RejectInCatalog {
+        project: "p".into(),
+        reject: ipc::CatalogReject::NotTogether,
+        features: vec!["f".into(), "g".into()],
+        areas: Vec::new(),
+        paths: Vec::new(),
+        why: None,
+    })
+    .expect("encodes");
+    let rule = ipc::encode(&ipc::DropCatalogRule { project: "p".into(), rule: "r-1".into() }).expect("encodes");
     let retire = ipc::encode(&ipc::AnswerRetire { project: "p".into(), slug: "f".into(), retire: false }).expect("encodes");
     let check = ipc::encode(&ipc::CheckDocs { project: "p".into(), slug: "f".into() }).expect("encodes");
     let flag = ipc::encode(&ipc::DocFlag { project: "p".into(), slug: "f".into(), target: "docs/a.md".into() }).expect("encodes");
     let draft = ipc::encode(&ipc::DraftModules { project: "p".into() }).expect("encodes");
     let docs = [("/features/docs/check", check), ("/features/docs/dismiss", flag.clone()), ("/features/docs/job", flag), ("/features/start/draft", draft)];
-    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change), ("/features/retire", retire)].into_iter().chain(docs) {
+    let rules = [("/features/areas/change", area), ("/features/reject", reject), ("/features/rules/drop", rule)];
+    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change), ("/features/retire", retire)].into_iter().chain(docs).chain(rules) {
         let (status, refused) = call(&app, "POST", uri, JOB, &body).await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{uri} from a Job");
         let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");

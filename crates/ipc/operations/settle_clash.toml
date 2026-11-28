@@ -1,0 +1,19 @@
+[operations.settle_clash]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Record the order this job and another job agreed for files both write, once Fleet told you the other job also writes them and you agreed it by message. Give with, the other job's address (s- and eight characters), files, the paths you agreed on, first, which of you lands first (me, them or both_go_on), and why, one sentence. Fleet keeps it on both jobs and stops telling the two of you about those files. If you cannot agree, call raise_conflict instead"
+notes = """
+`POST /sessions/settle_clash`, body `SettleClash`: `with`, `files`, `first` (`me`, `them` or `both_go_on`), `why` and an optional `session_id`. Answered with `JobClash`: `id`, `clash:<a>:<b>` with the two addresses sorted, `jobs` (this Job, then the other), `files`, `standing` `agreed`, `first` (the session that lands first, absent where both go on), `why` and `at`.
+
+**The job is the one whose process holds the connection**, as `raise_conflict`'s is. Only a job Fleet hosts is served, and an ended one is refused.
+
+**Fleet refuses, with `fleet.clash_refused` and a sentence naming the part,** where `with` is the sender, is not a Job address, has ended or no live Job Fleet keeps has it (the checks `raise_conflict` makes), where `files` is empty, and where `why` is empty.
+
+**One clash a pair.** A later `settle_clash` or `raise_conflict` naming files between the same two Jobs replaces it, its files joined to those kept. A path covers itself and every file under it.
+
+**What it changes.** Both Jobs' records carry it in `clashes`, so Bridge draws it on a feature's board, and the claims notice that another Job also writes a file is no longer sent to either of the two about a file it covers. The other Job is sent nothing: the two agreed it by message. Fleet writes nothing to a forge.
+
+`agent_access` is `Yes`: the two agents are the ones that agree the order.
+"""

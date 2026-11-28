@@ -135,3 +135,18 @@ where
         self.rewidened(limits.concurrency);
     }
 }
+
+/// What the machine's Check slots and Fleet's build turns hold work to, from
+/// the settings in force: the `check-start-gate` row of `config/settings.toml`.
+/// One reading for both, so a Check and a Job's build never wait on different
+/// rules.
+pub fn gate_limits(settings: &Resolved) -> checks_runner::GateLimits {
+    let whole = |key| u32::try_from(settings.get(key)).unwrap_or(0);
+    checks_runner::GateLimits {
+        pressure_level: whole(keys::MEMORY_PRESSURE_LEVEL),
+        load_limit: whole(keys::LOAD_LIMIT),
+        load_window: checks_runner::LoadWindow::of_minutes(settings.get(keys::LOAD_WINDOW)),
+        while_short: usize::try_from(settings.get(keys::CHECKS_WHILE_SHORT)).unwrap_or(1).max(1),
+        spacing: std::time::Duration::from_secs(u64::try_from(settings.get(keys::CHECK_START_SPACING_SECONDS)).unwrap_or(0)),
+    }
+}

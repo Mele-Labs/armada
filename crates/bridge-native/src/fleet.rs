@@ -1511,6 +1511,11 @@ impl FleetConnection {
         self.held.calls = Some(calls);
     }
 
+    /// His projects, as a read of them would hold them.
+    pub fn hold_projects(&mut self, projects: ipc::Projects) {
+        self.held.projects = Some(projects);
+    }
+
     /// The preview offers, as a read of them would hold them.
     pub fn hold_offers(&mut self, offers: ipc::PreviewOffers) {
         self.held.offers = Some(offers);

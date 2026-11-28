@@ -78,6 +78,11 @@ where
         };
         let acts = self.operator_acts_listed().await.map(|list| list.projects).unwrap_or_default();
         let session_id = if on { self.operator_session_id().await.map(|id| SessionId::carried(&id)) } else { None };
+        // The thread the page draws while none runs: the newest session's, so the talk is never gone.
+        let talk_session_id = match &session_id {
+            Some(id) => Some(id.clone()),
+            None => self.store().lock().await.newest_operator_hosting().ok().flatten().map(|hosting| SessionId::carried(&hosting.session_id)),
+        };
         let mut digest = digest;
         digest.handled.log = self.journal_file_now().await;
         Ok(OperatorPage {
@@ -92,6 +97,7 @@ where
             slots: self.slots_read().await,
             feed,
             session_id,
+            talk_session_id,
             operator_acts: acts,
         })
     }

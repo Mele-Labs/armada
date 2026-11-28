@@ -53,6 +53,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("walks", "Walks", "footprints"),
     ("loadout", "Loadout", "layers"),
     ("tokens", "Tokens", "chart-column"),
+    ("graphs", "Graphs", "chart-line"),
     ("prototype", "Prototype", "app-window"),
 ];
 

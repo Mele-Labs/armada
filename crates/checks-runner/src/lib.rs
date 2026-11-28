@@ -80,13 +80,14 @@ pub use narrow::{
 pub use priority::{Priority, PRIORITY_ENV};
 pub use reach::{reached, Reach};
 pub use run::{
-    end_group, run, run_stoppable, run_until, run_words, run_writing, run_writing_with_env, split, Attempt, Output, Stop,
+    children_cpu, end_group, run, run_stoppable, run_until, run_words, run_writing, run_writing_with_env, split, Attempt, Output, Stop,
     Writing,
     CAPTURE_LIMIT, GRACE,
 };
 pub use serving::Served;
 pub use slots::{
-    already_held, fifteen_minute_load, CheckSlots, Held, InUse, Loaded, AHEAD_ENV, HELD_ENV, LOAD_LIMIT,
+    already_held, machine_reading, CheckSlots, GateLimits, Held, InUse, LoadWindow, Reading, Short, Waits, AHEAD_ENV,
+    HELD_ENV,
 };
 pub use touched::{touched, Touched};
 pub use width::{resolve_width, CheckWidth, SOLE_TENANT_ENV, WIDTH_ENV};

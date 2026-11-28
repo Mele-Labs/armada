@@ -164,6 +164,12 @@ pub fn posted_to_mock(cx: &App) -> Vec<(String, String)> {
     view(cx).map(|view| view.read(cx).mock_posted.clone()).unwrap_or_default()
 }
 
+/// The session the Operator's thread and box on the page are drawn for, for tests.
+#[cfg(test)]
+pub fn operator_drawn_for(cx: &App) -> Option<SharedString> {
+    Some(view(cx)?.read(cx).beside.as_ref()?.id.clone())
+}
+
 /// The card the Operator's box names, for tests.
 #[cfg(test)]
 pub fn operator_tagged(cx: &App) -> Option<(String, SharedString)> {

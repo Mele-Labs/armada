@@ -193,6 +193,22 @@ where
         self.feature_changed(caller, change).await
     }
 
+    async fn change_area(&self, caller: Option<api::Caller>, change: ipc::ChangeArea) -> Result<ipc::AreaChanged, Refusal> {
+        self.area_changed(caller, change).await
+    }
+
+    async fn reject_in_catalog(&self, caller: Option<api::Caller>, reject: ipc::RejectInCatalog) -> Result<ipc::CatalogRuleKept, Refusal> {
+        self.catalog_rejected(caller, reject).await
+    }
+
+    async fn list_catalog_rules(&self, project: Option<String>) -> Result<ipc::CatalogRules, Refusal> {
+        self.catalog_rules_listed(project.unwrap_or_default()).await
+    }
+
+    async fn drop_catalog_rule(&self, caller: Option<api::Caller>, drop: ipc::DropCatalogRule) -> Result<ipc::CatalogRules, Refusal> {
+        self.catalog_rule_dropped(caller, drop).await
+    }
+
     async fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> Result<ipc::FeaturesHandedOver, Refusal> {
         self.features_handed_over(hand).await
     }

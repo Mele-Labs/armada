@@ -111,6 +111,28 @@ fn the_note_joins_a_take_in_part_and_an_answer_part_in_his_words() {
     assert!(buttons.ends_with("Answers: ask every question with two to four options, your pick first, a cost on each, one decision a question. A question without options is sent back."), "{buttons}");
 }
 
+/// The Operator's note is his Settings without a Job's own acts: no `all_done`, no done card, no
+/// `waiting_for`, and nothing Fleet sends back, since nothing checks the Operator's replies.
+#[test]
+fn the_operators_note_says_how_he_takes_things_in_with_no_jobs_acts() {
+    for take_in in [TakeIn::Read, TakeIn::Look, TakeIn::Listen] {
+        for answer_with in [AnswerWith::Type, AnswerWith::Talk, AnswerWith::Buttons] {
+            for look_results in [LookResults::PictureEvery, LookResults::PictureScreens, LookResults::WalkVisible] {
+                let one = Preferences { take_in, answer_with, look_results, ..Preferences::default() };
+                let note = ways::operator_note(&one);
+                for word in ["all_done", "waiting_for", "done card", "sent back", "Fleet checks it", "Jobs"] {
+                    assert!(!note.contains(word), "{word}: {note}");
+                }
+            }
+        }
+    }
+    let look = ways::operator_note(&prefs(TakeIn::Look, AnswerWith::Buttons));
+    assert!(look.contains("Results: lead every answer and result with a picture through show_sketch"), "{look}");
+    assert!(look.contains("Questions with options that look different: draw each option as a mock"), "{look}");
+    assert!(look.ends_with("Answers: ask every question with two to four options, your pick first, a cost on each, one decision a question."), "{look}");
+    assert!(ways::operator_note(&Preferences::default()).contains("Results: a short note in the thread for small work."));
+}
+
 #[test]
 fn the_plan_block_follows_how_he_takes_work_in_and_adds_the_buttons_line() {
     assert_eq!(ways::plan_block(&Preferences::default()), "", "every default adds none");

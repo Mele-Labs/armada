@@ -9,6 +9,7 @@
 //! `docs/concepts/scenes.md`, *Shot check before an offer*.
 
 pub mod compare;
+pub mod look;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -163,6 +164,16 @@ fn walk_pictures(walk: &'static Walk, wanted: &[usize], width: f32, height: f32)
     Ok((found, area))
 }
 
+/// `<stem>-side-by-side.png` and `<stem>-difference.png` of two pictures, written to `out`; their names.
+fn write_pair(out: &Path, stem: &str, left: &RgbaImage, right: &RgbaImage) -> Result<(String, String), String> {
+    let (both, gap) = (format!("{stem}-side-by-side.png"), format!("{stem}-difference.png"));
+    for (name, picture) in [(&both, compare::side_by_side(left, right)), (&gap, compare::difference(left, right))] {
+        let path = out.join(name);
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok((both, gap))
+}
+
 fn slug(state: &str) -> String {
     state.chars().map(|one| if one.is_ascii_alphanumeric() || one == '-' || one == '_' { one } else { '_' }).collect()
 }
@@ -204,11 +215,7 @@ pub fn run(args: &Args) -> Result<Report, String> {
             continue;
         };
         let score = compare::score(&shown, built);
-        let (both, gap) = (format!("{}-side-by-side.png", slug(state)), format!("{}-difference.png", slug(state)));
-        for (name, picture) in [(&both, compare::side_by_side(&shown, built)), (&gap, compare::difference(&shown, built))] {
-            let path = args.out.join(name);
-            picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
-        }
+        let (both, gap) = write_pair(&args.out, &slug(state), &shown, built)?;
         let status = if score.drifted() { Status::Drifted } else { Status::Matched };
         pairs.push(Pair { state: state.clone(), status, step: *step, mean: Some(score.mean), share: Some(score.share), side_by_side: Some(both), difference: Some(gap) });
     }

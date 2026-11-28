@@ -53,6 +53,8 @@ mod job_asks;
 mod features;
 /// A note on a screen sent to its features' live Jobs, and the Job that claims it.
 mod note_claims;
+/// Areas made, renamed, split and merged, his rejects, and the rules his reasons became.
+mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
@@ -185,6 +187,8 @@ pub mod ask_tools;
 pub mod story_kinds;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
+/// A graph a Job puts in its thread, as a subset of Vega-Lite, and the one reader of it.
+pub mod graph;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
 pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
@@ -416,6 +420,7 @@ pub use features::{
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
+pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
@@ -426,7 +431,7 @@ pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJo
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
-pub use job_asks::{HeldWithdrawn, WithdrawHeld};
+pub use job_asks::{ClashFirst, ClashStanding, HeldWithdrawn, JobClash, SettleClash, WithdrawHeld};
 pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
@@ -535,7 +540,7 @@ pub use hosted_sessions::{
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionWindow, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, PrioritiseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
-    TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy,
+    TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy, WalkBuild, WalkBuildState,
 };
 pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
@@ -1013,3 +1018,6 @@ pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKi
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
 pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};
+/// A native walk played against the pictures of the look he approved.
+mod look_checks;
+pub use look_checks::{LookReport, LookStep};

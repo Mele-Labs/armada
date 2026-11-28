@@ -1,4 +1,4 @@
-//! The contents rail on a Job's thread: thin bars down its right edge, one for each item of the Job's Story, oldest first,
+//! The contents rail on a Job's thread: thin bars down its right edge, a few pixels long at rest and growing to full length while the pointer or the keys are on it, one for each item of the Job's Story, oldest first,
 //! coloured by the Story's kind of row, all one length. The ask in view is fully lit and ringed. Hovering the bars opens a list
 //! beside them that names each item with the Story's title, what it says and when; pressing a bar or a row of an ask scrolls
 //! the thread to where the ask started, and any other opens the Story tab on that row. A thread with no Story items draws
@@ -36,21 +36,24 @@ mod tests;
 
 /// The rail's measures, from the approved mock (`rail.css`), where no token holds them.
 const BAR_H: f32 = 3.;
-/// Every bar is this long, the one in view too, so the bars line up on both edges; the one in view shows by colour alone.
+/// Every bar is this long while the rail is open, the one in view too, so the bars line up on both edges; the one in view shows by colour alone.
 const BAR_W: f32 = 20.;
+/// At rest the bars are this long, so the rail takes almost nothing of the thread until he goes to it.
+const BAR_REST_W: f32 = 4.;
+/// The column the pointer finds the bars in, at rest and open; the open bars grow out of it over the thread.
+const HIT_W: f32 = 12.;
 const BAR_RADIUS: f32 = 2.;
 const BAR_GAP: f32 = 11.;
 /// How lit a bar is while its ask is not the one in view.
 const BAR_REST: f32 = 0.55;
-const RAIL_SIDE: f32 = 6.;
-const RAIL_EDGE: f32 = 14.;
+const RAIL_EDGE: f32 = 4.;
 const LIST_W: f32 = 300.;
 const ROW_Y: f32 = 6.;
 /// The dot's drop, which sets it level with the first line of the title.
 const DOT_DROP: f32 = 6.;
 const MARK_EDGE: f32 = 2.;
-/// What the rail takes of the thread's width: its edge, a side, a bar, a side.
-const RAIL_WIDTH: f32 = RAIL_EDGE + RAIL_SIDE + BAR_W + RAIL_SIDE;
+/// What the rail takes of the thread's width, at rest: its edge and its column.
+const RAIL_WIDTH: f32 = RAIL_EDGE + HIT_W;
 
 /// What the rail remembers: whether the pointer is on it, where the keys are in the list, and the list's own focus.
 struct Rail {
@@ -147,8 +150,9 @@ impl JobView {
             let here = now == Some(at);
             let lit = ink(look, mark.item.kind);
             let bar = div()
+                .flex_none()
                 .h(px(BAR_H))
-                .w(px(BAR_W))
+                .w(px(if open { BAR_W } else { BAR_REST_W }))
                 .rounded(px(BAR_RADIUS))
                 .bg(if here { lit } else { lit.opacity(BAR_REST) })
                 .when(here, |bar| bar.shadow(vec![edge(look.color(token::BORDER_HIGHLIGHT), px(0.), look.length(token::BORDER_WIDTH), false)]));
@@ -174,7 +178,7 @@ impl JobView {
                 .id("thread-rail")
                 .mt(look.length(token::SPACE_12) + look.length(token::SPACE_2))
                 .py(look.length(token::SPACE_2))
-                .px(px(RAIL_SIDE))
+                .w(px(HIT_W))
                 .flex()
                 .flex_col()
                 .items_end()

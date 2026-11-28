@@ -336,6 +336,10 @@ mod review_walk_runs;
 mod review_walks;
 /// A native Bridge screen a Job shows, run from its own slot while the walk is open.
 mod native_walks;
+mod walk_builds;
+/// The look he approved on a native walk, kept as pictures and checked before the change lands.
+mod approved_looks;
+mod approved_looks_checking;
 /// Where a pull request's change runs, and the places Fleet remembers.
 mod walk_places;
 mod pull_request_notes;
