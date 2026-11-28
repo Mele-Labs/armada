@@ -12,7 +12,7 @@ The native Bridge, Pocket and the Operator page read it.
 | `list_to_review`, `GET /sessions/to_review?project=` (`agent_access = "No"`) | Fleet answers `ToReview` | `project?`, `groups[]`; every project's live Jobs, a Job in no project among them, where `project` is left out |
 | `ToReviewGroup` | Fleet writes | `{ head, items[] }`, none empty: each sub project, oldest started first, then each feature in its library's order, then `neither` |
 | `ToReviewHead` | Fleet writes | Tagged by `kind`: `sub_project { id, name, goal }`, `feature` (a `SessionFeature`) or `neither` |
-| `ToReviewItem` | Fleet writes | `{ kind, row, order, why?, job { id, title }, project?, sub_project?, features[], answer }`; `row` is the `NeedsYouRow` `get_needs_you` answers for the item |
+| `ToReviewItem` | Fleet writes | `{ kind, row, order, why?, job { id, title }, project?, sub_project?, features[], answer, operator_read? }`; `operator_read` is the item's `WaitingItem.operator_read`; `row` is the `NeedsYouRow` `get_needs_you` answers for the item |
 | `ToReviewKind` | Fleet writes | `plan`, `sketch`, `document`, `draft`, `ready_to_try`, `clash`, `goal_met`, `question`, `to_do`, `walk`, `command`, `pull_request`, `restart` or `done` |
 | `ToReviewAnswer` | Fleet writes | Tagged by `op`, each an existing operation: `answer_items`, `answer_waiting`, `answer_ready_to_try { cards[] }` with each card `{ branch, tip, about }`, `done_waiting`, `begin_session { session_id }`, `dismiss_waiting`, or `press`, where the row's act is the press |
 

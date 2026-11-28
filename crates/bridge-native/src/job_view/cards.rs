@@ -938,6 +938,7 @@ impl JobView {
                 Act::Archive => this.archive_card(ix, &key, &format!("draft:{title}"), window, cx),
                 Act::Open => this.open_draft_tab(&id, window, cx),
                 Act::Edit => this.open_box(ix, &key, Mode::Edit, &text, window, cx),
+                Act::Skip => {}
             }
         })
     }

@@ -17,18 +17,49 @@ const WINDOW_WITHDRAW_NOT_SHOWN: &str = "fleet.window_withdraw_not_shown";
 /// one approved between**: `Approved B, Needs you first: <address>`.
 const APPROVED: &str = "Approved";
 
-/// The address an Approve message approves, or `None` where the text is anything else. Exactly the
-/// two shapes Bridge sends, so a person's own sentence that begins with the word is not one. Read off the first
-/// line, so his notes under an approval leave it one.
-pub(crate) fn approved_address(text: &str) -> Option<&str> {
-    let rest = text.trim().lines().next()?.strip_prefix(APPROVED)?;
-    if let Some(address) = rest.strip_prefix(": ") {
-        return Some(address.trim());
+/// What the native walk bar's Ship it sends, in the same two shapes: the look is approved and the
+/// change is to land without a preview.
+const SHIPPED: &str = "Shipped";
+
+/// Which button on the walk bar he pressed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Pressed {
+    Approve,
+    ShipIt,
+}
+
+/// What the Job is told beside his words where the press was on a native walk: what each means for
+/// what it does next.
+pub(crate) fn pressed_told(pressed: Pressed, address: &str) -> Option<&'static str> {
+    if !address.starts_with(crate::native_walks::PREFIX) {
+        return None;
     }
-    let take = rest.strip_prefix(' ')?;
-    let mut letters = take.chars();
-    (letters.next()?.is_ascii_uppercase() && letters.as_str().starts_with(", ")).then_some(())?;
-    take.rsplit_once(": ").map(|(_, address)| address.trim())
+    Some(match pressed {
+        Pressed::Approve => "He approved the look: wire it, then offer a preview.",
+        Pressed::ShipIt => "He pressed Ship it: land the change without offering a preview.",
+    })
+}
+
+/// The address a walk press answers and which button it was, or `None` where the text is anything
+/// else. Exactly the two shapes Bridge sends, so a person's own sentence that begins with the word is
+/// not one. Read off the first line, so his notes under an approval leave it one.
+pub(crate) fn walk_pressed(text: &str) -> Option<(Pressed, &str)> {
+    let line = text.trim().lines().next()?;
+    [(APPROVED, Pressed::Approve), (SHIPPED, Pressed::ShipIt)].into_iter().find_map(|(word, pressed)| {
+        let rest = line.strip_prefix(word)?;
+        if let Some(address) = rest.strip_prefix(": ") {
+            return Some((pressed, address.trim()));
+        }
+        let take = rest.strip_prefix(' ')?;
+        let mut letters = take.chars();
+        (letters.next()?.is_ascii_uppercase() && letters.as_str().starts_with(", ")).then_some(())?;
+        take.rsplit_once(": ").map(|(_, address)| (pressed, address.trim()))
+    })
+}
+
+/// The address an Approve or a Ship it answers: either closes the walk.
+pub(crate) fn approved_address(text: &str) -> Option<&str> {
+    walk_pressed(text).map(|(_, address)| address)
 }
 
 /// The windows the Job showed that still stand: one artifact per page.
@@ -114,6 +145,16 @@ pub(crate) fn replaced(rows: &[SessionRow], walk: &str) -> bool {
     })
 }
 
+/// Whether the window on `walk` may ask him: **a native walk still building, or one that did not build,
+/// asks nothing**. A page, and a walk shown before walks were built from a Job's commit, carry no build.
+pub(crate) fn build_ready(rows: &[SessionRow], walk: &str) -> bool {
+    let build = rows.iter().rev().find_map(|row| match row {
+        SessionRow::Window { url, variations, build, .. } if url == walk || variations.iter().any(|take| take.url == walk) => Some(build),
+        _ => None,
+    });
+    build.and_then(Option::as_ref).is_none_or(|build| build.state == ipc::WalkBuildState::Ready)
+}
+
 /// The window on `walk`, page or take: the address it was shown on, from its newest row.
 pub(crate) fn window_of<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a str> {
     rows.iter().rev().find_map(|row| match row {
@@ -165,10 +206,10 @@ where
             return;
         };
         let open = rows.into_iter().rev().find_map(|row| match row {
-            SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, group, ended_at: None }
+            SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, group, build, ended_at: None }
                 if shown == url || variations.iter().any(|take| take.url == url) =>
             {
-                Some(SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, group, ended_at: Some(self.instant()) })
+                Some(SessionRow::Window { id, at, title, url: shown, variations, steps, origins, brief, group, build, ended_at: Some(self.instant()) })
             }
             _ => None,
         });

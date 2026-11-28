@@ -541,6 +541,7 @@ where
             .filter(|one| !super::walking::is_working(one) && !super::walking::is_changed(one))
             .filter(|one| super::walking::walk_approval(&rows, &one.target).is_none())
             .filter(|one| !super::walking::replaced(&rows, &one.target))
+            .filter(|one| super::walking::build_ready(&rows, &one.target))
             .map(|one| Window {
                 url: one.target.clone(),
                 title: one

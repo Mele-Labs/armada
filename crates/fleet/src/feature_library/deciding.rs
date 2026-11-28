@@ -19,6 +19,8 @@ pub(crate) const APPROVED: &str = "Approved";
 pub(crate) const ASKED_FOR_CHANGES: &str = "Asked for changes";
 /// What he chose on a Ready to try card.
 pub(crate) const LOOKS_GOOD: &str = "Looks good";
+/// His Skip on a Ready to try card: the look was approved on the walk, and the change lands untried.
+pub(crate) const SKIPPED: &str = "Skipped the preview";
 
 /// One answer of his, before it is kept.
 pub(crate) struct Decided<'a> {
@@ -149,9 +151,10 @@ where
 
     /// His Looks good on a Ready to try card. **One a branch at a tip**, whichever of the card's press or the build note's
     /// mark heard it.
-    pub(crate) async fn looked_good(&self, job: &str, branch: &str, tip: &str, about: &str, at: &str) {
+    pub(crate) async fn looked_good(&self, job: &str, branch: &str, tip: &str, about: &str, at: &str, skipped: bool) {
         let key = format!("ready:{branch}@{tip}");
-        self.owner_decision_filed(Decided { job, key, artifact: "", question: about, choice: LOOKS_GOOD, note: None, at }).await;
+        let choice = if skipped { SKIPPED } else { LOOKS_GOOD };
+        self.owner_decision_filed(Decided { job, key, artifact: "", question: about, choice, note: None, at }).await;
     }
 
     /// [`Self::owner_decision_kept`] for a caller that does not hold the store.
