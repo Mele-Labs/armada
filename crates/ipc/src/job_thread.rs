@@ -246,6 +246,8 @@ pub enum ThreadItem {
     },
     /// A `show_sketch` call whose sketch the ledger holds.
     Sketch(ThreadSketch),
+    /// A `show_graph` call: the graph it showed stands here. Since 27 Nov 2026.
+    Graph(ThreadGraph),
     /// A `show_file` call whose file the ledger holds, opened by the ledger's own path.
     File {
         id: String,
@@ -325,6 +327,27 @@ pub struct ThreadSketch {
     pub for_line: Option<crate::ArtifactFor>,
 }
 
+/// Where a `show_graph` call stands in the thread. **Bridge draws the graph `graph` names** from what
+/// `list_graphs` and `graphs.changed` carry, and the call's line where it holds no such graph, as for a
+/// call Fleet refused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThreadGraph {
+    pub id: String,
+    pub at: Instant,
+    /// The graph's id, as the call gave it.
+    pub graph: String,
+    /// An earlier call in the thread showed the same id, and the card stands there: this call replaced it in place.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub again: bool,
+}
+
+/// The id a `show_graph` call's row names: the tool, then the graph's id.
+pub fn graph_call_of(text: &str) -> Option<String> {
+    let (name, rest) = call_of(text)?;
+    let id = rest.trim();
+    (name == "show_graph" && !id.is_empty() && !id.contains(char::is_whitespace)).then(|| id.to_string())
+}
+
 /// A document card: one per page, its newest revision. The page's earlier revisions are its own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThreadDocument {
@@ -393,6 +416,7 @@ impl ThreadItem {
             | ThreadItem::NotStarted { id, .. }
             | ThreadItem::Judged { id, .. } => id,
             ThreadItem::Sketch(sketch) => &sketch.id,
+            ThreadItem::Graph(graph) => &graph.id,
             ThreadItem::Document(document) => &document.id,
             ThreadItem::Plan(plan) => &plan.id,
             ThreadItem::ReadyToTry(card) => &card.id,

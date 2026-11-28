@@ -123,6 +123,8 @@ mod for_you;
 mod waiting_order;
 /// The sub projects the owner started from the Jobs list.
 mod sub_projects;
+/// A Job's live graphs and the rows of its feeds. `docs/practices/protocol/a-job-shows-a-live-graph.md`.
+mod job_graphs;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -327,6 +329,7 @@ pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, Kep
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use waiting_order::KeptWaitingPlace;
 pub use sub_projects::KeptSubProject;
+pub use job_graphs::{KeptGraph, KeptGraphFeed, KeptGraphRowsAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};

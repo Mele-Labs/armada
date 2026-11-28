@@ -422,6 +422,7 @@ where
             requests: fittings.requests,
             metric_tokens: fittings.metric_tokens,
             metric_readings: Default::default(),
+            graphs_running: Default::default(),
             merge_end: Mutex::new(()),
             disk: Default::default(),
             building: crate::building::Building::default(),

@@ -109,6 +109,7 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
         | ThreadItem::Judged { at, .. } => Some(at),
         ThreadItem::ReadyToTry(card) => Some(&card.at),
         ThreadItem::Margin(card) => Some(&card.at),
+        ThreadItem::Graph(card) => Some(&card.at),
         ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
     }
 }
@@ -785,6 +786,8 @@ impl JobView {
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
             // A round of margin talk is not drawn here yet.
             ThreadItem::Margin(_) => return None,
+            // A `show_graph` call's place: Bridge draws its card from Fleet's graphs once it reads them.
+            ThreadItem::Graph(_) => return None,
         })
     }
 
