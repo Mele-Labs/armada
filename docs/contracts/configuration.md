@@ -859,6 +859,40 @@ when_base_moves:
   - code_graph
 ```
 
+## How a repository's walks are made
+
+Added 28 November 2026, with `walks`.
+
+| field | type | required | default | meaning |
+|---|---|---|---|---|
+| `walks.build` | command | yes | none | Builds the app in a tree of the Job's commit |
+| `walks.binary` | path in the tree | yes | none | The one file `build` leaves, which Fleet keeps by commit |
+| `walks.list` | command | yes | none | Prints the walks the program plays, one a line |
+| `walks.open` | command | yes | none | Opens one walk on the person's screen |
+| `walks.take` | command | no | none | What one take adds to `open` |
+| `walks.shots` | command | yes | none | Plays a walk with no window and writes a picture a step |
+| `walks.against` | command | yes | none | Plays it, compares it with the pictures kept, and writes `report.json` |
+| `walks.seed` | path in the tree | no | none | A folder a first build starts from, cloned from the preview checkout's |
+
+`concepts/manifest.md`, *Walks*, states the rule.
+A command is a `run` line with `${name}` in it: `list` is given `${binary}`; `open` `${binary}`, `${walk}`, `${job}`, `${url}` and `${fleet_port}`; `take` `${name}` and `${walk}`; `shots` `${binary}`, `${walk}` and `${shots}`; `against` those and `${against}` and `${out}`; `build` none.
+A command that names a `${...}` it is not given, or never names one it is given, is refused, and so is an unknown key and a `binary` or `seed` that is absolute, climbs out of the tree or holds `*` or `?`.
+Absent `walks` means the repository has no native walk, and `show_window` on `armada://walk/<name>` is refused, unless it holds `crates/bridge-native/Cargo.toml`: Fleet then reads the native Bridge's own declaration until `armada.yml` declares `walks:` itself.
+The root's to say: a workspace's file that names `walks` is refused.
+It is not `Live`: it is read from the Manifest Fleet started with, and a save that changes it is reported as frozen.
+
+```yaml
+walks:
+  build: cargo build --release
+  binary: target/release/app
+  list: ${binary} --list-walks
+  open: ${binary} --walk ${walk} --job ${job} --url ${url} --fleet-port ${fleet_port}
+  take: --take ${name}=${walk}
+  shots: ${binary} --walk ${walk} --check --shots ${shots} --hold 0
+  against: ${binary} --walk ${walk} --check --shots ${shots} --against ${against} --out ${out} --hold 0
+  seed: target
+```
+
 ## Open questions
 
 - **[foundations-as-a-job-gate]** What gates a Job against `verify-foundations`,

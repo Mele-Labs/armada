@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::LookReport;
 use store::KeptLook;
 
-use crate::approved_looks::{played, root_of, HOLD_MS};
+use crate::approved_looks::{played, root_of};
 use crate::daemon::Fleet;
 use crate::pull_owners::Owner;
 use crate::repositories::Served;
@@ -148,13 +148,20 @@ where
         if let Err(why) = std::fs::create_dir_all(&out) {
             return Compared::Unrun(format!("{} could not be made: {why}", out.display()));
         }
-        let args: Vec<String> = [
-            "--walk", &look.walk, "--check", "--shots", &out.join("shots").display().to_string(), "--against", &look.folder, "--out",
-            &out.display().to_string(), "--hold", HOLD_MS,
-        ]
-        .map(String::from)
-        .to_vec();
-        let played = match played(&binary, &args).await {
+        let words = match crate::walk_builds::words_of(
+            place.walks.against(),
+            &[
+                ("binary", &binary.display().to_string()),
+                ("walk", &look.walk),
+                ("shots", &out.join("shots").display().to_string()),
+                ("against", &look.folder),
+                ("out", &out.display().to_string()),
+            ],
+        ) {
+            Ok(words) => words,
+            Err(why) => return Compared::Unrun(format!("{} was not compared with the look he approved: {why}", look.url)),
+        };
+        let played = match played(&binary, &words).await {
             Ok(played) => played,
             Err(why) => return Compared::Unrun(format!("{} was not compared with the look he approved: {why}", look.url)),
         };

@@ -208,6 +208,8 @@ pub enum Frozen {
     Connectors,
     /// Read for `Setup`'s reason: what it names was resolved against the Commands at start.
     WhenBaseMoves,
+    /// Read for `Tracker`'s reason: Fleet builds a walk by what it read at start.
+    Walks,
 }
 
 impl Frozen {
@@ -225,6 +227,7 @@ impl Frozen {
             Frozen::TestMapShared => "test_map.shared",
             Frozen::Connectors => "connectors",
             Frozen::WhenBaseMoves => "when_base_moves",
+            Frozen::Walks => "walks",
         }
     }
 }
@@ -314,6 +317,7 @@ struct AtStart {
     test_map_shared: bool,
     connectors: bool,
     when_base_moves: Vec<String>,
+    walks: Option<crate::manifest::Walks>,
 }
 
 impl AtStart {
@@ -346,6 +350,7 @@ impl AtStart {
                 .iter()
                 .map(|step| step.name().to_string())
                 .collect(),
+            walks: manifest.walks().cloned(),
         }
     }
 
@@ -391,6 +396,9 @@ impl AtStart {
         }
         if self.when_base_moves != other.when_base_moves {
             changed.push(Frozen::WhenBaseMoves);
+        }
+        if self.walks != other.walks {
+            changed.push(Frozen::Walks);
         }
         changed
     }
