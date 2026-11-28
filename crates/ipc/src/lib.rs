@@ -56,6 +56,7 @@ mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
+mod feature_pictures;
 mod library_start;
 /// Groups of Jobs the owner named in the Jobs list.
 mod sub_projects;
@@ -187,6 +188,8 @@ pub mod story_kinds;
 pub mod time_format;
 /// A graph a Job puts in its thread, as a subset of Vega-Lite, and the one reader of it.
 pub mod graph;
+/// A Job's live graphs: the acts that show, feed and withdraw one, and `list_graphs` and `graphs.changed`.
+mod graphs;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
 pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
@@ -419,6 +422,7 @@ pub use features::{
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use feature_pictures::{AddFeaturePicture, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, PictureBy, RemoveFeaturePicture};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
@@ -557,9 +561,9 @@ pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
 pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, ReviewAsked, StandingCall, StandingCallKind, StandingCalls};
 pub use job_thread::{
-    against_of_detail, file_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
+    against_of_detail, file_call_of, graph_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
     SketchCall, CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead,
-    JobThreadTail, Lapsed, OpenCall, PlanCardState, ThreadAsk, ThreadDocument, ThreadHead, ThreadItem, ThreadPlan, ThreadSketch,
+    JobThreadTail, Lapsed, OpenCall, PlanCardState, ThreadAsk, ThreadDocument, ThreadGraph, ThreadHead, ThreadItem, ThreadPlan, ThreadSketch,
     ThreadTrail, TrailBay, TrailOpened,
     THREAD_ITEMS_MOST, THREAD_ITEMS_SERVED, THREAD_TAIL_MOST,
 };
@@ -599,6 +603,12 @@ pub use values_merging::VALUE_KEYS;
 pub use metrics::{
     MetricAnswer, MetricCall, MetricCredential, MetricHeader, MetricPoint, MetricReading, MetricReadings, MetricRecipe, MetricRow, MetricSaved,
     MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
+};
+pub use graphs::{
+    delta_of, feed_name_ok, recipe_rows, time_field, Better, FormAsked, GraphChecked, GraphDelta, GraphFedBy, GraphFeed, GraphForm, GraphHeadline,
+    GraphList, GraphPoints, GraphPointsTaken, GraphReading, GraphRecipe, GraphShown, GraphSince, GraphSource, GraphStat, GraphTone, GraphsChanged,
+    HeadlineAsked, ShowGraph, StatAsked, WithdrawGraph, GRAPHS_A_JOB, GRAPH_EVERY_SECS_LEAST, GRAPH_EVERY_SECS_MOST, GRAPH_FEED_KEPT,
+    GRAPH_POINTS_AT_MOST, GRAPH_TIME_FIELD,
 };
 pub use projects::MergeProjects;
 pub use system_map::{

@@ -17,18 +17,18 @@ use crate::scene::export;
 /// How an `<armada-sketch>` sits in the page: a framed block with its title above, the drawing scaled to the width it is given.
 const STYLE: &str = "<style>armada-sketch{display:block;margin:var(--space-4) 0;border:var(--edge-active) solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-sunken)}armada-sketch[title]::before{content:attr(title);display:block;padding:var(--space-2) var(--space-3);font-size:var(--text-xs);color:var(--fg-muted)}armada-sketch svg{display:block;inline-size:100%;block-size:auto}armada-take armada-sketch{margin:var(--space-3) 0 0}</style>";
 
-/// One sketch the scan found: where the element's content runs, and what it said.
-struct Found<'a> {
+/// One element the scan found: where its content runs, and what it said.
+pub(super) struct Found<'a> {
     /// Through the end of the opening tag.
-    content: usize,
+    pub(super) content: usize,
     /// Where the closing tag starts, or the page's end where none closes it.
-    close: usize,
-    tag: &'a str,
-    inner: &'a str,
+    pub(super) close: usize,
+    pub(super) tag: &'a str,
+    pub(super) inner: &'a str,
 }
 
 /// The attribute `name` of an opening tag, entities read; `None` where the tag does not carry it.
-fn attribute(tag: &str, name: &str) -> Option<String> {
+pub(super) fn attribute(tag: &str, name: &str) -> Option<String> {
     let lower = tag.to_ascii_lowercase();
     let mut from = 0;
     while let Some(found) = lower[from..].find(name) {
@@ -53,7 +53,7 @@ fn unescaped(text: &str) -> String {
 }
 
 /// The end of the opening tag that starts at `from`: after its `>`, not counting one inside a quoted value.
-fn tag_end(html: &str, from: usize) -> usize {
+pub(super) fn tag_end(html: &str, from: usize) -> usize {
     let mut quote: Option<char> = None;
     for (at, c) in html[from..].char_indices() {
         match (quote, c) {
@@ -66,20 +66,22 @@ fn tag_end(html: &str, from: usize) -> usize {
     html.len()
 }
 
-fn scan(html: &str) -> Vec<Found<'_>> {
+/// Each `<name>` element of the page, in order.
+pub(super) fn scan<'a>(html: &'a str, name: &str) -> Vec<Found<'a>> {
     let lower = html.to_ascii_lowercase();
+    let (open, closing) = (format!("<{name}"), format!("</{name}"));
     let mut found = Vec::new();
     let mut from = 0;
-    while let Some(at) = lower[from..].find("<armada-sketch") {
+    while let Some(at) = lower[from..].find(&open) {
         let start = from + at;
-        let after = start + "<armada-sketch".len();
+        let after = start + open.len();
         // `<armada-sketchy>` is not it.
         if !lower.as_bytes().get(after).is_some_and(|byte| byte.is_ascii_whitespace() || matches!(byte, b'>' | b'/')) {
             from = after;
             continue;
         }
         let content = tag_end(html, after);
-        let close = lower[content..].find("</armada-sketch").map_or(html.len(), |at| content + at);
+        let close = lower[content..].find(&closing).map_or(html.len(), |at| content + at);
         found.push(Found { content, close, tag: &html[start..content], inner: &html[content..close] });
         from = close;
     }
@@ -88,6 +90,11 @@ fn scan(html: &str) -> Vec<Found<'_>> {
 
 /// A sketch's scene as text: its first `<script type="application/json">`, else its `scene` attribute, as Fleet reads it.
 fn scene_of(found: &Found<'_>) -> Option<String> {
+    json_of(found).or_else(|| attribute(found.tag, "scene"))
+}
+
+/// The text of an element's first `<script type="application/json">`.
+pub(super) fn json_of(found: &Found<'_>) -> Option<String> {
     let lower = found.inner.to_ascii_lowercase();
     let mut from = 0;
     while let Some(at) = lower[from..].find("<script") {
@@ -100,7 +107,7 @@ fn scene_of(found: &Found<'_>) -> Option<String> {
         }
         from = open_end;
     }
-    attribute(found.tag, "scene")
+    None
 }
 
 /// `html` with each sketch's content replaced by what `draw` makes of it: its place among the page's sketches, its title and
@@ -108,7 +115,7 @@ fn scene_of(found: &Found<'_>) -> Option<String> {
 pub(super) fn drawn_with(html: &str, mut draw: impl FnMut(usize, &str, &str) -> Option<String>) -> String {
     let mut out = String::with_capacity(html.len());
     let mut at = 0;
-    for (index, found) in scan(html).into_iter().enumerate() {
+    for (index, found) in scan(html, "armada-sketch").into_iter().enumerate() {
         let title = attribute(found.tag, "title").unwrap_or_default();
         let Some(drawing) = scene_of(&found).and_then(|scene| draw(index, title.trim(), &scene)) else { continue };
         out.push_str(&html[at..found.content]);

@@ -496,7 +496,7 @@ DECIDED 18 Nov 2026 (owner): "I want the librarian to be on demand. It should ne
 
 The librarian is the Fleet work that keeps a project's feature catalog current, `docs/concepts/feature-catalog.md`, *Librarian*. This is the setting that says when it runs and what it does.
 
-**Four keys in settings.json, drawn on the Features page, `runs` first.** `features.librarianRuns` is `on_press`, `after_merges` or `nightly`. `features.librarianParts` lists the parts a run does, by name, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`; all nine as it ships, and a name that is no part is left out. `features.librarianModelShare` is how many model calls the model-written parts (`since_you_looked`, `gists` and model drift) may make in one night.
+**Four keys in settings.json, drawn on the Features page, `runs` first.** `features.librarianRuns` is `on_press`, `after_merges` or `nightly`. `features.librarianParts` lists the parts a run does, by name, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked`, `gists` and `pictures`; all but `pictures` as it ships, since it starts a headless browser for each feature, and a name that is no part is left out. `features.librarianModelShare` is how many model calls the model-written parts (`since_you_looked`, `gists` and model drift) may make in one night.
 
 **Asks have their own night: `features.librarianAskShare`, forty calls for each project.** An ask from the Ask box (`ask_librarian`) and a press of Rank with the librarian (`rank_with_librarian`) each spend one call from it, an ask the librarian answers by ranking spends a second, and a call that failed is still spent. Spent, an ask is refused until local midnight. It is apart from `features.librarianModelShare` so that asking does not starve Catch up. Forty is chosen and not measured. The count is kept in the store, so a restart does not reset it.
 
@@ -672,6 +672,23 @@ notes = """
 The top-level `when_base_moves:` key in the root `armada.yml`: a list of Commands from `commands:` that Fleet runs, in order, in the repository's own checkout each time that checkout stands at a new commit of the base branch. Each name resolves as a `setup.requires` entry does, so an undeclared, destructive or server name is refused, and an empty list is refused. A workspace's file that names it is refused.
 
 One run at a time per repository, at background priority behind every Check: a move during a run queues one more run, at the newest commit, and moves seen meanwhile are folded into it. A checkout held on another commit runs nothing until it reaches the base's tip. A failed Command is logged on Fleet's console and ends that run; it blocks no Job.
+
+Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
+"""
+
+[settings.manifest-walks]
+name = "How a repository's walks are made"
+scope = "Manifest only"
+default = "none"
+lifetime = "Daemon start"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Manifest"
+read_by = "fleet"
+notes = """
+The top-level `walks:` key in the root `armada.yml`: the commands Fleet runs to build a repository's own app from a Job's commit (`build`, and `binary`, the one file it leaves), to name the walks it plays (`list`), to open one on the person's screen (`open`, and `take` for each variation), and to play one with no window and keep or compare its pictures (`shots`, `against`). `seed` names a folder a first build starts from. Each command is a `run` line with `${name}` where Fleet puts a value, and a name it is not given, one it leaves out and an unknown key are refused. A workspace's file that names it is refused.
+
+Absent, the repository has no native walk and `show_window` on `armada://walk/<name>` is refused, naming `walks:`.
 
 Read when Fleet starts, so a save that changes it is reported as waiting for a restart.
 """

@@ -111,6 +111,7 @@ mod time_summary;
 mod timeline;
 mod timings;
 mod watches;
+mod job_graphs;
 mod tmp;
 
 use core_model::{Timestamp, Ulid};

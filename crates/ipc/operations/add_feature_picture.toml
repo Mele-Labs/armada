@@ -1,0 +1,19 @@
+[operations.add_feature_picture]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Keep a picture of a screen you built under its feature, so the Features page shows the feature by what it looks like. Give the feature's slug, `path`, a PNG on this Mac (what browser_screenshot answered, or a native walk's --shots picture), and `url`, the page's address, or `screen`, a native walk's name where it has none"
+notes = """
+`POST /features/pictures/add`, body `AddFeaturePicture`: `feature` (a slug), `path` (absolute), one of `url` and `screen`, and an optional `project` and `session_id`. Answered with `FeaturePictureAdded`: `feature`, the slug as the library keeps it, and `picture`, a `FeaturePicture`.
+
+**Fleet copies the file**, so the Job's scratch folder may go: under its support folder at `feature-pictures/<project>/<feature id>/<picture id>.png`. It reads the size off the PNG's own header, and keeps where it came from (`url` or `screen`), the commit the Job's checkout stands at, when, and the Job. The newest standing picture is the feature's cover.
+
+**The job is the one whose process holds the connection**, as `write_feature_sections`' is. Only a Job Fleet hosts attaches one, and an ended one is refused.
+
+**The librarian takes the screen again on its runs** (`pictures`): a page's `url` on the project's running server, at its path, and a `screen` as the native walk of that name in Armada's kept build.
+
+422 `fleet.feature_unknown` where no feature the Job's projects hold has that slug, `fleet.picture_source` where neither `url` nor `screen` is given, and `fleet.picture_unreadable` for a path that is not a PNG this Mac can read, or one over 20 MB.
+
+`agent_access` is `Yes`: only the Job that built a screen knows which feature it shows.
+"""

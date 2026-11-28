@@ -1,0 +1,15 @@
+[operations.withdraw_graph]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Stop a graph you showed with show_graph from being fed: its recipe stops and it takes no more rows from you. The card stays in the thread, drawn as it last stood and marked no longer live. Body: id and session_id. Showing the id again makes it live again. An id you showed no graph under is refused"
+notes = """
+`POST /sessions/graph/withdraw`, body `WithdrawGraph`: `id` and an optional `session_id`. Answered with the graph's `GraphShown`, `live` false, and publishes `graphs.changed`.
+
+**The job is the one whose process holds the connection** when Fleet hosts it; `session_id` is read only for a job in a terminal. An `id` the Job holds no graph under is 422 `fleet.graph_not_shown`, naming the ids it holds.
+
+**The rows stay**, and so does the card. `graph_points` still adds to a feed a withdrawn graph reads, since another graph may read it too; the withdrawn graph's card is drawn from its feeds as they stand. A graph's recipe also stops when its Job ends, without a call.
+
+`agent_access` is `Yes`: the Job knows when it has stopped watching.
+"""

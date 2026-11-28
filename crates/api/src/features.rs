@@ -158,6 +158,44 @@ pub(crate) async fn write_feature_sections<D: Features>(State(served): State<Ser
     }
 }
 
+/// A Job keeps a picture of a screen under a feature. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn add_feature_picture<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let add: ipc::AddFeaturePicture = match ipc::decode_body("a picture of a feature", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().add_feature_picture(crate::acting::asking(), add).await {
+        Ok(added) => answer(StatusCode::OK, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's Not this feature on a picture, or the Operator's. **Placed as `answer_retire` is.**
+pub(crate) async fn remove_feature_picture<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let remove: ipc::RemoveFeaturePicture = match ipc::decode_body("a picture to take off its feature", &body) {
+        Ok(remove) => remove,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().remove_feature_picture(crate::acting::asking(), remove).await {
+        Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?id=` on `get_feature_picture`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfPicture {
+    id: String,
+}
+
+/// One picture's bytes, as a PNG.
+pub(crate) async fn get_feature_picture<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfPicture>) -> Response {
+    match served.daemon().get_feature_picture(asked.id).await {
+        Ok(bytes) => crate::answers::file("picture.png", bytes),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator or the owner keeps areas and features. **Placed as `change_feature` is.**
 pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let upsert: ipc::UpsertFeatures = match ipc::decode_body("areas and features to keep", &body) {

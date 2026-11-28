@@ -79,12 +79,12 @@ fn an_act_names_its_feature_as_one_slug_or_a_list() {
 }
 
 #[test]
-fn the_librarian_names_nine_parts_and_says_where_it_stands() {
+fn the_librarian_names_ten_parts_and_says_where_it_stands() {
     use crate::{FeatureLibrary, LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
     assert_eq!(shape::of::<RunLibrarian>(), "{project: string}");
     assert_eq!(
         shape::of::<LibrarianRan>(),
-        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], stopped?: boolean}"
+        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists|pictures], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists|pictures], stopped?: boolean}"
     );
     let state = "{last_run?: string, read_through?: number, merged_since?: [number], steps?: [{id: string, title: string, detail: string, model?: boolean}], running?: {run: string, steps: [{step: string, state: running|done|skipped|failed, said?: string}]}}";
     assert_eq!(shape::of::<LibrarianState>(), state);
@@ -95,9 +95,9 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     assert_eq!(shape::of::<crate::RetireAnswered>(), "{project: string, slug: string, retired?: boolean}");
     assert_eq!(shape::of::<crate::RetireProposal>(), "{why: code_gone|unused, evidence: string}");
     let row = shape::of::<crate::FeatureRow>();
-    assert!(row.contains("retire?: {why: code_gone|unused, evidence: string}, planned?: boolean}"), "{row}");
+    assert!(row.contains("retire?: {why: code_gone|unused, evidence: string}, planned?: boolean, cover?: string}"), "{row}");
     assert_eq!(shape::of::<crate::LibrarianStepMoved>(), "{project: string, run: string, step: string, state: running|done|skipped|failed, said?: string}");
-    assert_eq!(LibrarianPart::ALL.len(), 9);
+    assert_eq!(LibrarianPart::ALL.len(), 10);
     for part in LibrarianPart::ALL {
         assert_eq!(LibrarianPart::from_name(part.name()), Some(part), "{} reads back by its name", part.name());
     }

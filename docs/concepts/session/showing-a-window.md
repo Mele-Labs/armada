@@ -94,6 +94,9 @@ The walk then reads open until it is approved or replaced.
 ## A native walk
 
 **A screen of the native Bridge is shown on `armada://walk/<name>`**, with no `steps`, `origins` or `sign_in`: its walk file in `crates/bridge-native` holds the steps.
+**Any repository's own app is shown the same way, where its `armada.yml` declares `walks:`** (`../manifest.md`, *Walks*): how it is built, listed, opened and pictured on mock data.
+Without it `show_window` on a walk's address is refused, naming `walks:`.
+What follows is read as those commands, and the native Bridge is one declaration of them.
 Each variation is another native walk's address.
 **Fleet builds the native Bridge from the Job's own commit**, so a new screen needs no preview refresh first.
 It takes the commit the Job's slot stands on, so only committed work is built.
@@ -102,7 +105,7 @@ A newer commit of the same walk replaces a queued older one.
 Each build is kept by commit, three to a repository, so a walk that is running is never overwritten.
 **The window row carries where the build stands**: Building, Ready or Failed, with the commit.
 While it is Building or Failed the walk raises no Needs you item, so he is asked only once a build opens.
-It is Ready when the built app names the walk and each take in `--list-walks`.
+It is Ready when the built app names the walk and each take in its `walks.list`, which for the native Bridge is `--list-walks`.
 A failed build is told to the Job in Fleet's own voice, with the last lines of the build or the walk it does not play, and is never his.
 A Job that holds no slot has no commit to build, and its row reads Failed.
 **A commit the Job makes afterwards is built again** where its turn ends and where a build ends, with no call from the Job, and the row goes back to Building.

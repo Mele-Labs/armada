@@ -1,0 +1,12 @@
+[operations.list_graphs]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "One Job's graphs in the order first shown, each card whole, and every row their feeds keep"
+notes = """
+`GET /sessions/graphs?session_id=`. Answered with `GraphList`: `session_id`, `graphs[]` (`GraphShown`, as `graphs.changed` carries them) and `feeds[]` (`GraphFeed`: `name`, `rows`, every row it keeps, oldest first, and `added`). A Job with no graphs answers empty lists; an id Fleet knows no Job by is 422 `fleet.no_such_session`.
+
+Bridge reads it when a Job is shown, and again where a `graphs.changed` feed's `added` says it missed an event.
+
+`agent_access` is `No`: the agent made the graphs and holds what it fed them.
+"""

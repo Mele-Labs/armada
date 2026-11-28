@@ -57,9 +57,14 @@ pub const ACCOUNT_CLIENT_ID: Words = Words("account.clientId");
 /// When the librarian may run. `on_press` is the only one Fleet honours until the owner changes it.
 pub const LIBRARIAN_RUN_MODES: &[&str] = &["on_press", "after_merges", "nightly"];
 
-/// The librarian's parts, as `features.librarianParts` names them, all of them on as it ships.
+/// The librarian's parts, as `features.librarianParts` names them.
 /// `fleet::feature_library::librarian::Part` is the same list in code, and a test holds the two together.
 pub const LIBRARIAN_PART_NAMES: &[&str] =
+    &["floor_plans", "links", "decisions", "health", "drift", "retire", "glossary", "since_you_looked", "gists", "pictures"];
+
+/// The parts on as it ships: every one but `pictures`, which starts a headless browser for each feature and stays
+/// off until its capture is proven on a running app.
+pub const LIBRARIAN_PARTS_SHIPPED: &[&str] =
     &["floor_plans", "links", "decisions", "health", "drift", "retire", "glossary", "since_you_looked", "gists"];
 
 /// The terminal programs Bridge knows how to open a folder in, and the one
@@ -310,9 +315,9 @@ pub(super) const FEATURES: &[Entry] = &[
         key: LIBRARIAN_PARTS.0,
         section: Section::Features,
         title: "Librarian parts",
-        description: "The parts a run does, one a line: floor_plans, links, decisions, health, drift, retire, glossary, since_you_looked, gists. A name that is no part is ignored.",
+        description: "The parts a run does, one a line: floor_plans, links, decisions, health, drift, retire, glossary, since_you_looked, gists, pictures. pictures is off as it ships. A name that is no part is ignored.",
         kind: Kind::TextList,
-        shipped: Shipped::TextList(LIBRARIAN_PART_NAMES),
+        shipped: Shipped::TextList(LIBRARIAN_PARTS_SHIPPED),
         applies: Applies::Live,
         row: Some("librarian"),
         env: None,

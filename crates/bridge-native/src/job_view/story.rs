@@ -39,7 +39,7 @@ pub(crate) mod mock;
 pub(crate) mod model;
 #[allow(dead_code)]
 pub(crate) mod shots;
-mod view;
+pub(crate) mod view;
 
 #[cfg(test)]
 mod tests;

@@ -23,6 +23,7 @@ fn row(slug: &str) -> FeatureRow {
         health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
         retire: None,
         planned: false,
+        cover: None,
     }
 }
 
@@ -49,6 +50,7 @@ impl Features for FakeDaemon {
             docs: Vec::new(),
             tickets: Vec::new(),
             floor_plan: None,
+            pictures: Vec::new(),
         })
     }
 
@@ -84,6 +86,30 @@ impl Features for FakeDaemon {
 
     async fn write_feature_sections(&self, _caller: Option<crate::Caller>, write: WriteFeatureSections) -> Result<FeatureSectionsWritten, Refusal> {
         Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], glossary: Vec::new(), gists: 0, owed: Vec::new() })
+    }
+
+    async fn add_feature_picture(&self, _caller: Option<crate::Caller>, add: ipc::AddFeaturePicture) -> Result<ipc::FeaturePictureAdded, Refusal> {
+        let picture = ipc::FeaturePicture {
+            id: String::from("pic-1"),
+            url: add.url,
+            screen: add.screen,
+            commit: None,
+            taken_at: ipc::Instant::carried("2026-11-28T09:00:00.000Z"),
+            width: 1,
+            height: 1,
+            bytes: 1,
+            by: ipc::PictureBy::Job,
+            job: None,
+        };
+        Ok(ipc::FeaturePictureAdded { feature: add.feature, picture })
+    }
+
+    async fn remove_feature_picture(&self, _caller: Option<crate::Caller>, remove: ipc::RemoveFeaturePicture) -> Result<ipc::FeaturePictureRemoved, Refusal> {
+        Ok(ipc::FeaturePictureRemoved { feature: String::from("voting-on-takes"), picture: remove.picture, cover: None, rule: None })
+    }
+
+    async fn get_feature_picture(&self, id: String) -> Result<Vec<u8>, Refusal> {
+        Ok(id.into_bytes())
     }
 
     async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {

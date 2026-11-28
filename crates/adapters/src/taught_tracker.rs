@@ -22,7 +22,7 @@ mod running;
 mod writes;
 
 pub use file::{problems, read, TrackerFile, MOST_BYTES};
-pub use metric::run_metric;
+pub use metric::{graph_recipe_problem, run_graph_recipe, run_metric};
 use file::{Call, Transport};
 use running::{failed_with, Escape, Fills};
 
