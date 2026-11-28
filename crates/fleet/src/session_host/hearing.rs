@@ -490,6 +490,8 @@ where
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.session_turn(id, named, began.as_deref(), &now);
+            // A walk built from a commit the Job has moved past is built again, with no one asking.
+            Box::pin(self.walk_builds_moved(id)).await;
         }
         if let Some(moving) = moving {
             self.moved_into(id, moving).await;

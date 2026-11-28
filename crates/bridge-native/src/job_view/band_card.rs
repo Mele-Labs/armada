@@ -354,6 +354,8 @@ pub(super) enum Act {
     Archive,
     Open,
     Edit,
+    /// Land it without trying it, on a Ready to try card.
+    Skip,
 }
 
 /// The act a key names on a card with nothing open in it. A and C answer and E edits only while it asks; D dismisses
@@ -744,7 +746,7 @@ impl JobView {
                     }
                     Act::Archive => this.archive_card(ix, &id, &page_name, window, cx),
                     Act::Open => this.open_document(&page_name, window, cx),
-                    Act::Edit => {}
+                    Act::Edit | Act::Skip => {}
                 }
             })
         };
