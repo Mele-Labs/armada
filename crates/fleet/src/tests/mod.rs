@@ -45,6 +45,7 @@ mod agent_starts;
 mod asides;
 mod agent_starts_at_once;
 mod agent_starts_project;
+mod operator_always_chat;
 mod operator_cards;
 mod operator_dispatches;
 mod operator_elsewhere;

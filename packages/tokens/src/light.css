@@ -88,6 +88,16 @@
   --ask-features: #A43E77;
   --ask-api-client: #97481F;
 
+  /* Chart series: the reference light steps, orange, aqua, yellow and magenta taken
+     darker to clear 3:1 on --bg-raised and 3.19:1 or more on --bg-sunken. Worst adjacent
+     pair under protan or deutan ΔE 8.7, unsimulated 17.6; the first three pass every pair. */
+  --chart-1: #2A78D6;
+  --chart-2: #DD5F2C;
+  --chart-3: #17946A;
+  --chart-4: #B07600;
+  --chart-5: #D2507F;
+  --chart-6: #6250D6;
+
   /* Diff */
   --diff-add-bg: #D8F0DF;
   --diff-add-fg: #1B6B3A;

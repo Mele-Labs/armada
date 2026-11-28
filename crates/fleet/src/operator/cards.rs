@@ -288,23 +288,34 @@ where
         let _ = self.told_of_his_act(&session, &text).await;
     }
 
-    /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **Refused with
-    /// `fleet.operator_session_not_running`** where no session runs, since nothing would hear them. A card he talks
-    /// about is named to the session. The files and tags he sent go with the words, card or none. The session's
-    /// answer is its thread, not this reply.
+    /// `talk_to_operator`: his words, delivered to the Operator's session as he wrote them. **With the switch on and no
+    /// session running, they are kept**, a session is started at once, and it is told them once it is up. Refused with
+    /// `fleet.operator_session_not_running` only with the switch off. A card he talks about is named to the session.
+    /// The files and tags he sent go with the words, card or none. The session's answer is its thread, not this reply.
     pub(crate) async fn operator_talked(self: &Arc<Self>, talk: TalkToOperator) -> Result<OperatorSaid, Refusal> {
+        if self.operator_session_id().await.is_some() {
+            self.talk_delivered(talk).await?;
+        } else if self.operator_on() {
+            let kept = ipc::encode(&talk).map_err(|why| self.hosted_refusal(super::session::NOT_RUNNING, &format!("the words could not be kept: {why}")))?;
+            self.store().lock().await.add_operator_held_send(&kept, self.now().as_str()).map_err(|why| self.ledger_fault(why))?;
+            self.operator_seat().wake.notify_one();
+        } else {
+            return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator is off, so nothing here would hear it"));
+        }
+        Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
+    }
+
+    /// His words told to the running session: about the card he named, where Fleet holds it, else as he wrote them.
+    pub(crate) async fn talk_delivered(self: &Arc<Self>, talk: TalkToOperator) -> Result<(), Refusal> {
         let TalkToOperator { words, about, attachments, mentions } = talk;
-        let running = self.operator_session_id().await.is_some();
         let card = match about.as_deref() {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,
         };
-        match (running, card) {
-            (true, Some(card)) => self.card_talked_about(card, &words, attachments, mentions).await?,
-            (true, None) => self.operator_told_as_him(&words, attachments, mentions).await?,
-            (false, _) => return Err(self.hosted_refusal(super::session::NOT_RUNNING, "the Operator's session is not running, so nothing here would hear it")),
+        match card {
+            Some(card) => self.card_talked_about(card, &words, attachments, mentions).await,
+            None => self.operator_told_as_him(&words, attachments, mentions).await,
         }
-        Ok(OperatorSaid { said: String::new(), cites: Vec::new(), job: None, started: None, order: None, forms: Vec::new(), moved: None, forgot: None, lifted: None })
     }
 
     /// `operator_talk`: the conversation kept before the session, read as it was kept.
