@@ -92,6 +92,8 @@ fn every_item_of_a_job_is_one_item_whose_row_is_its_needs_you_row_with_its_kind_
     const AT: &str = "2026-11-20T10:00:00Z";
     let mut approves = item("approve", Source::Agent, None, &["Approve", "Ask for changes"], 0, AT);
     approves.approves = true;
+    let mut which = item("which", Source::Agent, None, &["One", "Two"], 0, AT);
+    which.operator_read = Some(ipc::OperatorRead { read: "The plan names one".into(), pick: "One".into() });
     let waiting = vec![
         item("plan:3", Source::Plan, None, &[], 0, AT),
         item("sketch:Takes", Source::Sketch, None, &[], 0, AT),
@@ -99,7 +101,7 @@ fn every_item_of_a_job_is_one_item_whose_row_is_its_needs_you_row_with_its_kind_
         item("draft:7", Source::Draft, None, &[], 0, AT),
         item("try:job-a", Source::ReadyToTry, Some((Act::Message, "job-a")), &[], 0, AT),
         item("conflict:a:b", Source::JobConflict, Some((Act::Answer, "conflict:a:b")), &["Tell a to change", "Tell b", "Hold both"], 0, AT),
-        item("which", Source::Agent, None, &["One", "Two"], 0, AT),
+        which,
         item("card", Source::AskCard, Some((Act::Answer, "card")), &["Allow"], 0, AT),
         item("buy", Source::Agent, None, &[], 0, AT),
         item("run", Source::Agent, Some((Act::Run, "make it")), &[], 0, AT),
@@ -142,6 +144,8 @@ fn every_item_of_a_job_is_one_item_whose_row_is_its_needs_you_row_with_its_kind_
     for (id, kind, answer) in want {
         assert_eq!((of(id).kind, &of(id).answer), (kind, &answer), "{id}");
     }
+    assert_eq!(of("which").operator_read.as_ref().map(|read| read.pick.as_str()), Some("One"), "the Operator's pick rides along");
+    assert_eq!(of("card").operator_read, None);
     let first = of("plan:3");
     assert_eq!((first.job.id.as_str(), first.job.title.as_str(), first.project.as_deref()), ("job-a", "Job job-a", Some("shop")));
 }

@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::needs_you::NeedsYouRow;
-use crate::sessions::{SessionFeature, SessionId};
+use crate::sessions::{OperatorRead, SessionFeature, SessionId};
 
 /// Every item waiting on him, grouped: each sub project with one, oldest started first, then each feature in its
 /// library's order, then the items of Jobs in neither. No group is empty.
@@ -73,6 +73,9 @@ pub struct ToReviewItem {
     pub features: Vec<SessionFeature>,
     /// The operation that answers it here, with no Job to open.
     pub answer: ToReviewAnswer,
+    /// What the Operator read and the option it would pick, as the item's `WaitingItem.operator_read`. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator_read: Option<OperatorRead>,
 }
 
 /// The Job an item comes from.

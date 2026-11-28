@@ -165,6 +165,7 @@ pub(crate) fn to_review_of(project: Option<String>, jobs: Vec<JobWaiting>, subs:
                     project: filed.clone(),
                     sub_project: sub.map(|at| sub_project_wire(&subs[at])),
                     features: one.features.clone(),
+                    operator_read: item.operator_read.clone(),
                     row,
                 };
                 placed.push((place.clone(), head.clone(), item));
