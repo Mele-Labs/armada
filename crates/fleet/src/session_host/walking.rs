@@ -145,14 +145,15 @@ pub(crate) fn replaced(rows: &[SessionRow], walk: &str) -> bool {
     })
 }
 
-/// Whether the window on `walk` may ask him: **a native walk still building, or one that did not build,
-/// asks nothing**. A page, and a walk shown before walks were built from a Job's commit, carry no build.
-pub(crate) fn build_ready(rows: &[SessionRow], walk: &str) -> bool {
+/// Whether the window on `walk` reaches him: **a native walk still building reaches him at once, marked
+/// Building** (his ruling, 28 Nov 2026), and **one that did not build asks nothing**: the Job is told.
+/// A page, and a walk shown before walks were built from a Job's commit, carry no build.
+pub(crate) fn build_reaches_him(rows: &[SessionRow], walk: &str) -> bool {
     let build = rows.iter().rev().find_map(|row| match row {
         SessionRow::Window { url, variations, build, .. } if url == walk || variations.iter().any(|take| take.url == walk) => Some(build),
         _ => None,
     });
-    build.and_then(Option::as_ref).is_none_or(|build| build.state == ipc::WalkBuildState::Ready)
+    build.and_then(Option::as_ref).is_none_or(|build| build.state != ipc::WalkBuildState::Failed)
 }
 
 /// The window on `walk`, page or take: the address it was shown on, from its newest row.

@@ -66,6 +66,8 @@ pub enum Notice {
     ContextHandoff,
     /// A walk window could not show its page.
     WalkFailed,
+    /// A native walk is building from the Job's commit: it reaches him marked Building, and opens once built.
+    WalkBuilding,
     /// The owner moved the Session to another workflow.
     WorkflowChanged,
     /// How the work is delivered is being asked.
@@ -168,6 +170,7 @@ impl Notice {
             Notice::ReplyClaim => "reply_claim",
             Notice::ContextHandoff => "context_handoff",
             Notice::WalkFailed => "walk_failed",
+            Notice::WalkBuilding => "walk_building",
             Notice::WorkflowChanged => "workflow_changed",
             Notice::DeliveryAsked => "delivery_asked",
             Notice::DeliveryChosen => "delivery_chosen",

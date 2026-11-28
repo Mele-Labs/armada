@@ -25,7 +25,7 @@ pub(crate) const PREFIX: &str = "armada://walk/";
 
 /// The native Bridge of the build he runs, under `Armada/builds/current`: the one his preview
 /// restart kept, so a merged preview carries every offered branch's walks. Never a Job's slot.
-const APP: &str = "Armada.app/Contents/MacOS/Armada";
+pub(crate) const APP: &str = "Armada.app/Contents/MacOS/Armada";
 
 /// The walk's own bundle, under the support folder: the same binary, hard-linked, under another
 /// bundle id, so macOS keeps a walk's menu bar and Dock apart from his running native Bridge's.

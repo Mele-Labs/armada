@@ -293,6 +293,9 @@ where
     pub(crate) async fn walk_build_wanted(&self, session: &str, url: &str) -> (WalkBuild, Option<Ask>) {
         match self.walk_place(session).await {
             Ok((place, commit)) => {
+                if self.walk_in_his_build(&place.key, &commit, url).await {
+                    return (WalkBuild { state: WalkBuildState::Ready, commit, at: self.instant(), why: None }, None);
+                }
                 let build = WalkBuild { state: WalkBuildState::Building, commit: commit.clone(), at: self.instant(), why: None };
                 (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place }))
             }
@@ -302,6 +305,26 @@ where
                 (WalkBuild { state: WalkBuildState::Failed, commit: String::new(), at: self.instant(), why: Some(why) }, None)
             }
         }
+    }
+
+    /// **Nothing to build where the build he runs already holds `commit` and plays the walk**: its
+    /// binary is linked in as the build of `commit`, so the walk is Ready at once and opens from it.
+    async fn walk_in_his_build(&self, key: &str, commit: &str, url: &str) -> bool {
+        let Some(name) = crate::native_walks::walk_name(url) else { return false };
+        if !self.build_holds(self.preview_build().as_ref(), "", commit) {
+            return false;
+        }
+        let home = self.host().home.clone();
+        let his = crate::native_walks::running_build(&home).join(crate::native_walks::APP);
+        if !crate::native_walks::walks_of(&his).await.is_ok_and(|known| known.iter().any(|one| one == name)) {
+            return false;
+        }
+        let kept = binary_of(&home, key, commit);
+        if kept.is_file() {
+            return true;
+        }
+        let linked = kept.parent().map(std::fs::create_dir_all).transpose().and_then(|_| std::fs::hard_link(&his, &kept).or_else(|_| std::fs::copy(&his, &kept).map(|_| ())));
+        linked.is_ok()
     }
 
     /// The newest open native walk row on `url`, with the build it carries.

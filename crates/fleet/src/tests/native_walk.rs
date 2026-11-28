@@ -191,7 +191,7 @@ async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_pag
 }
 
 #[tokio::test]
-async fn a_native_walk_the_build_he_runs_lacks_is_shown_and_its_row_says_building_at_the_jobs_commit() {
+async fn a_native_walk_the_build_he_runs_lacks_reaches_him_at_once_marked_building_at_the_jobs_commit() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     let slot = leased(&rig, &id).await;
     assert!(!build(&rig).join(APP).exists(), "he has no build that plays it");
@@ -200,17 +200,20 @@ async fn a_native_walk_the_build_he_runs_lacks_is_shown_and_its_row_says_buildin
 
     let building = build_of(&rig, &id, URL).await.expect("a build on the row");
     assert_eq!((building.state, building.commit.as_str()), (WalkBuildState::Building, git(&slot, &["rev-parse", "HEAD"]).as_str()));
-    assert!(!waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "nothing asks him while it builds");
+    assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "it reaches him while it builds, marked Building");
+    let short = &building.commit[..7];
+    let sent = || rig.stand_in.process(1).sent.lock().unwrap().clone();
+    until(|| async { sent().iter().any(|line| line.contains(&format!("{URL} is building from {short}")) && line.contains("Do not tell him it is open yet")) }).await;
 }
 
 #[tokio::test]
-async fn a_build_that_plays_the_walk_and_its_takes_is_ready_and_only_then_asks_him() {
+async fn a_build_that_plays_the_walk_and_its_takes_is_ready_and_keeps_asking_him() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar", "footer"]));
     let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
     rig.fleet.show_window(None, ShowWindow { variations: takes, ..shown(&id, URL) }).await.expect("shown");
-    assert!(!waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "building");
+    assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "building, it asks him already");
 
     built_all(&rig).await;
 
@@ -281,7 +284,7 @@ async fn a_branch_that_moved_is_built_again_where_the_jobs_turn_ends_and_the_pre
 
     let building = build_of(&rig, &id, URL).await.expect("a build");
     assert_eq!((building.state, building.commit.as_str()), (WalkBuildState::Building, moved.as_str()), "no one asked");
-    assert!(!waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "nothing asks him while it builds again");
+    assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "it still reaches him while it builds again");
     let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
     assert!(refused.contains("still building"), "{refused}");
 
@@ -297,6 +300,37 @@ async fn a_branch_that_moved_is_built_again_where_the_jobs_turn_ends_and_the_pre
     for commit in [&first, &moved] {
         assert!(crate::walk_builds::binary_of(&home, &key, commit).is_file(), "the first build stays beside the second: {commit}");
     }
+}
+
+#[tokio::test]
+async fn a_walk_his_running_build_holds_at_the_jobs_commit_is_ready_at_once_and_nothing_is_built() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let slot = leased(&rig, &id).await;
+    let head = git(&slot, &["rev-parse", "HEAD"]);
+    // His build is the preview, at the Job's very commit, and plays the walk.
+    let root = Path::new(&rig.root);
+    std::fs::create_dir_all(root.join("scripts")).expect("scripts");
+    std::fs::write(root.join("scripts/restart-build"), "#!/bin/sh\n").expect("the wrapper");
+    git(root, &["init", "--quiet"]);
+    git(root, &["fetch", "--quiet", slot.to_str().expect("a path"), "HEAD"]);
+    let support = crate::runtime::support_dir(&rig.fleet.host().home);
+    std::fs::create_dir_all(&support).expect("support");
+    std::fs::write(support.join("restart-source"), format!("{}/.armada/preview", rig.root)).expect("source");
+    std::fs::write(support.join("restart-commit"), &head).expect("commit");
+    let app = build(&rig).join(APP);
+    std::fs::create_dir_all(app.parent().expect("a folder")).expect("his build");
+    std::fs::write(&app, "#!/bin/sh\necho sidebar\n").expect("his app");
+    std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).expect("runs");
+    builds_with(&rig, "exit 101".into());
+
+    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
+
+    assert_eq!(build_of(&rig, &id, URL).await.map(|build| (build.state, build.commit)), Some((WalkBuildState::Ready, head.clone())));
+    assert!(rig.fleet.walk_builds().next_for_test().is_none(), "nothing is asked to build");
+    assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")));
+    let home = rig.fleet.host().home.clone();
+    let key = crate::walk_builds::key_of(rig.fleet.repositories().first().expect("served").manifest().id().as_str());
+    assert!(crate::walk_builds::binary_of(&home, &key, &head).is_file(), "his build is kept as the build of the Job's commit");
 }
 
 #[tokio::test]
