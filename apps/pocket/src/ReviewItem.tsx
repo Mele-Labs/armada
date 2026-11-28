@@ -22,6 +22,7 @@ import {
   Rocket,
   ScrollText,
   SquareCheck,
+  Sparkles,
   SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
@@ -712,6 +713,20 @@ function DismissAct({ mac, item, onSaid }: FormProps) {
   );
 }
 
+/** What the Operator read in the item and the option it would pick, as native's review sheet draws it. */
+function OperatorNote({ read, pick }: { read: string; pick: string }) {
+  return (
+    <div className="pk-rv__operator" role="group" aria-label="Operator">
+      <span className="pk-rv__operator-head">
+        <Sparkles size={14} aria-hidden="true" />
+        Operator
+      </span>
+      <p>{read}</p>
+      {pick.trim() === "" ? null : <p>{`Would pick: ${pick}`}</p>}
+    </div>
+  );
+}
+
 export function ReviewItem({
   mac,
   item,
@@ -735,6 +750,7 @@ export function ReviewItem({
       <article className="pk-bc pk-rv" data-kind={item.kind} aria-label={item.row.text}>
         {HEADED(item) ? null : <FrameHead item={item} />}
         {item.why === undefined ? null : <p className="pk-rv__why">{item.why}</p>}
+        {item.operator_read === undefined ? null : <OperatorNote {...item.operator_read} />}
         <div className="pk-rv__body">
           <Form {...props} />
         </div>

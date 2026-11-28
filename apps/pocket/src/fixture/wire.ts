@@ -1273,6 +1273,10 @@ export function fixtureMacs(
               label: "Keep open",
             },
           ],
+          operator_read: {
+            read: "Every task in the tracker mod's plan is ticked, and its pull request merged.",
+            pick: "Mark done",
+          },
         },
         {
           id: "rule_act:41",

@@ -2065,6 +2065,27 @@ button.pk-send__title {
   color: var(--fg-muted);
   font-size: var(--text-xs);
 }
+.pk-rv__operator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--operator) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--operator) 8%, transparent);
+  font-size: var(--text-xs);
+  color: var(--fg-default);
+}
+.pk-rv__operator p {
+  margin: 0;
+}
+.pk-rv__operator-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--operator);
+  font-weight: var(--weight-heading);
+}
 .pk-rv__body {
   display: flex;
   flex-direction: column;
