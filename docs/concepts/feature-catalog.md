@@ -157,6 +157,10 @@ Fleet routes it by rule, and the Jobs decide whose it is.
 
 A note knows the screen it was made on, and Bridge keeps one map from each screen to the modules that draw it (`crates/bridge-native/src/annotate/drawn_by.rs`).
 Those paths map to features as any file does, by [Which feature owns a file](#which-feature-owns-a-file), and the Jobs on them are the ones `list_features` names.
+A whole screen's modules are too coarse to name one feature: no feature owns the folder that draws an open Job, which holds files of a dozen.
+So the note also names the features the screen shows: those the open Job writes to (`SessionRecord.features`), or the feature whose page is open.
+Fleet sends to the Jobs on those first, then to those on the features the paths map to.
+With no project picked in the title bar, Bridge reads the paths in each project Fleet lists, since Fleet reads a path only in a named project.
 
 | What Fleet finds | What happens to the note |
 |---|---|
@@ -170,6 +174,8 @@ Those paths map to features as any file does, by [Which feature owns a file](#wh
 
 In the note's card the first choice, and the one Enter takes, is "<Feature>'s Jobs", with the Jobs named under it and "The first to claim it takes it."; with one Job live the line reads "<Job> gets it.", and with none the choice reads "Start a Job for <Feature>".
 The Job picker and Start job stay beside it.
+The picker lists the Job open where the note was made first, under "Open Job"; then the Jobs on each of the note's features, under the feature's title; then the Jobs on other features of the same areas, under the area's title; then every other Job, set apart by a rule.
+Each Job is listed once, in its first band, and a band with no Job is not drawn; the filter and the ⌥1 to ⌥9 keys work across all of them.
 After the send the card reads "Sent to <Feature>'s Jobs", and "<Job> took it" once Fleet publishes `note.claimed`; sent to one Job, it reads "Sent to Job <Job>", as a send from the picker does.
 The wait is `note_claims::UNCLAIMED_AFTER`, chosen and not measured.
 

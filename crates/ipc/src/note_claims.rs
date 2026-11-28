@@ -16,6 +16,10 @@ pub struct SendNotesToFeatures {
     pub project: Option<String>,
     /// The files and folders that draw the screen, from the repository root.
     pub paths: Vec<String>,
+    /// The note's features by slug, as Bridge read them for its card: those the screen shows, the open Job's or the open
+    /// feature page's, then those `paths` map to. Fleet sends to their Jobs first. Since 27 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
     /// His words, the request of a Job started for the notes.
     pub words: String,
     /// The notes, each with its `note_id`.
@@ -25,7 +29,7 @@ pub struct SendNotesToFeatures {
 /// Where `send_notes_to_features` sent the notes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NotesRouted {
-    /// The features the paths map to, by title, the longest prefix first.
+    /// The note's features, by title: those named in `features`, then those the paths map to, the longest prefix first.
     pub features: Vec<String>,
     /// The live Jobs the notes went to. The first to claim a note takes it; one Job alone was given them at once.
     /// Empty where a Job was started.

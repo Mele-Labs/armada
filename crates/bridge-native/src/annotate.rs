@@ -20,7 +20,7 @@ pub mod store;
 pub mod tools;
 
 use std::cell::Cell;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -129,9 +129,9 @@ pub struct Saved {
 pub enum Asked {
     /// Notes, to a Job; `None` starts a new held Job with the notes' words.
     Send { to: Option<Offered>, notes: Vec<String> },
-    /// Notes, to the live Jobs on the feature `feature` of `project` that the files `paths` draw, or to a Job Fleet starts
-    /// for it where none is live.
-    ToFeature { feature: String, project: String, paths: Vec<String>, notes: Vec<String> },
+    /// Notes, to the live Jobs on the feature `feature` of `project`, those on `features` by slug and on the features the
+    /// files `paths` draw, or to a Job Fleet starts for it where none is live.
+    ToFeature { feature: String, project: String, paths: Vec<String>, features: Vec<String>, notes: Vec<String> },
 }
 
 impl EventEmitter<Asked> for Layer {}
@@ -184,6 +184,8 @@ pub struct Layer {
     pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
+    /// The features each live Job writes to, by its id, so the picker lists the Jobs on a note's features first.
+    worked: HashMap<SharedString, Vec<ipc::SessionFeature>>,
     /// The session of the Operator while one runs: the picker's first choice, and none while it does not.
     pub operator: Option<SharedString>,
     menu: Option<Menu>,
@@ -233,6 +235,7 @@ impl Layer {
             sending_session: None,
             opened: None,
             targets,
+            worked: HashMap::new(),
             operator: None,
             menu: None,
             split_at: Rc::default(),
@@ -487,11 +490,13 @@ impl Layer {
             Held::Window { .. } => ("window".to_string(), String::new(), None),
             Held::Page(page) => (page.read.selector.clone(), page.read.words.name.clone(), Some(path.clone())),
         };
+        let shown = drawn_by::shown_now(self.screen.as_deref(), cx);
         let mut raw = json!({
             "id": key, "status": "open", "text": noted.said, "component": null, "owners": [], "ownersFrom": "parent",
             "selector": selector, "element": { "tag": on, "text": name, "label": label },
             "screen": self.screen, "layer": null, "location": "/", "scenario": null,
             "paths": drawn_by::paths_now(self.screen.as_deref(), cx),
+            "features": shown.1, "openJob": shown.0,
             "box": { "x": f32::from(ring.origin.x), "y": f32::from(ring.origin.y), "width": f32::from(ring.size.width), "height": f32::from(ring.size.height) },
             "window": { "width": f32::from(view.width), "height": f32::from(view.height) },
             "createdAt": now, "updatedAt": now,
@@ -601,6 +606,7 @@ impl Layer {
                 }
             }
         }
+        let features = self.features_of_notes(&ids, cx).into_iter().filter(|one| one.project == feature.project).map(|one| one.slug).collect();
         let notes = self.notes.iter().filter(|note| ids.contains(&note.id)).map(|note| note.said.clone()).collect();
         self.sending = Some(if feature.jobs.is_empty() { format!("Starting a Job for {}", feature.title) } else { format!("Sending to {}'s Jobs", feature.title) }.into());
         self.sending_session = None;
@@ -608,7 +614,7 @@ impl Layer {
         self.said = None;
         self.opened = None;
         self.paste = None;
-        cx.emit(Asked::ToFeature { feature: feature.title, project: feature.project, paths, notes });
+        cx.emit(Asked::ToFeature { feature: feature.title, project: feature.project, paths, features, notes });
         cx.notify();
     }
 
@@ -616,7 +622,8 @@ impl Layer {
     /// None for a note whose screen is drawn by no file it knows.
     pub(crate) fn feature_of(&self, id: u32, cx: &App) -> Option<crate::features::of_path::Mapped> {
         let note = self.note(id)?;
-        if crate::features::of_path::place_of(&note.raw, None).files.is_empty() {
+        let place = crate::features::of_path::place_of(&note.raw, None);
+        if place.files.is_empty() && place.named.is_empty() {
             return None;
         }
         let found = self.beside.read(cx).features_of(&note.key);
@@ -681,6 +688,35 @@ impl Layer {
             self.targets = targets;
             cx.notify();
         }
+    }
+
+    /// The features each live Job writes to, as Fleet says them now.
+    pub fn set_worked(&mut self, worked: HashMap<SharedString, Vec<ipc::SessionFeature>>, cx: &mut Context<Self>) {
+        if self.worked != worked {
+            self.worked = worked;
+            cx.notify();
+        }
+    }
+
+    /// Every feature the notes map to, each once: as their cards read them, else as the screen named them.
+    fn features_of_notes(&self, ids: &[u32], cx: &App) -> Vec<crate::features::of_path::Mapped> {
+        let mut found: Vec<crate::features::of_path::Mapped> = Vec::new();
+        for note in ids.iter().filter_map(|id| self.note(*id)) {
+            let read = self.beside.read(cx).features_of(&note.key);
+            let read = if read.is_empty() { crate::features::of_path::place_of(&note.raw, None).named } else { read };
+            for one in read {
+                if !found.iter().any(|seen| seen.slug == one.slug && seen.project == one.project) {
+                    found.push(one);
+                }
+            }
+        }
+        found
+    }
+
+    /// The picker's Jobs for these notes, suggested first.
+    fn bands_for(&self, ids: &[u32], cx: &App) -> Vec<Band> {
+        let open = ids.iter().filter_map(|id| self.note(*id)).find_map(|note| note.raw["openJob"].as_str().map(str::to_string));
+        bands(&self.targets, &self.worked, open.as_deref(), &self.features_of_notes(ids, cx))
     }
 
     /// The live Job whose Browser tab every one of these notes was made over, if it is one Job.
@@ -825,7 +861,7 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        let entries = picker_entries(self.operator.is_some(), &self.targets);
+        let entries = picker_entries(self.operator.is_some(), &self.bands_for(&ids, cx));
         let operator = self.operator.is_some();
         let dropdown = cx.new(|cx| {
             let menu = Dropdown::new("Send to a Job", entries, at, corner, true, cx);
@@ -925,20 +961,68 @@ const OPERATOR_TIP: &str = "Sends these notes to the Operator's thread";
 
 /// The picker's rows after its search: the Operator first while its session runs, then the live Jobs, the
 /// first nine rows taking ⌥1–9 as Classic's picker and the dispatch chips do.
-fn picker_entries(operator: bool, targets: &[Offered]) -> Vec<Entry> {
+/// One run of the picker's Jobs, under a quiet label where it is suggested.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Band {
+    pub label: Option<SharedString>,
+    pub jobs: Vec<Offered>,
+}
+
+/// The live Jobs in the order the picker lists them: the Job open where the notes were made; the Jobs on each of their
+/// features, under its title; the Jobs on another feature of one of those areas, under the area's title; then every other
+/// Job. Each Job once, in Fleet's order within its band; a band with no Job is left out.
+pub(crate) fn bands(targets: &[Offered], worked: &HashMap<SharedString, Vec<ipc::SessionFeature>>, open: Option<&str>, features: &[crate::features::of_path::Mapped]) -> Vec<Band> {
+    let mut placed: HashSet<SharedString> = HashSet::new();
+    let mut out: Vec<Band> = Vec::new();
+    let mut band = |label: Option<SharedString>, on: &dyn Fn(&Offered) -> bool, placed: &mut HashSet<SharedString>| {
+        let jobs: Vec<Offered> = targets.iter().filter(|job| !placed.contains(&job.id) && on(job)).cloned().collect();
+        placed.extend(jobs.iter().map(|job| job.id.clone()));
+        if !jobs.is_empty() {
+            out.push(Band { label, jobs });
+        }
+    };
+    let writes = |job: &Offered| worked.get(&job.id).map(Vec::as_slice).unwrap_or_default();
+    band(Some("Open Job".into()), &|job| open == Some(job.id.as_ref()), &mut placed);
+    for feature in features {
+        band(Some(feature.title.clone().into()), &|job| writes(job).iter().any(|one| one.project == feature.project && one.slug == feature.slug), &mut placed);
+    }
+    let mut areas: Vec<(&str, &str)> = Vec::new();
+    for feature in features.iter().filter(|feature| !feature.area.is_empty()) {
+        if !areas.contains(&(feature.project.as_str(), feature.area.as_str())) {
+            areas.push((feature.project.as_str(), feature.area.as_str()));
+        }
+    }
+    for (project, area) in areas {
+        band(Some(area.to_string().into()), &|job| writes(job).iter().any(|one| one.project == project && one.area_title == area), &mut placed);
+    }
+    band(None, &|_| true, &mut placed);
+    out
+}
+
+fn picker_entries(operator: bool, bands: &[Band]) -> Vec<Entry> {
     let keyed = |at: usize| (at < 9).then(|| SharedString::from(format!("⌥{}", at + 1)));
-    let first = usize::from(operator);
-    std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
-        .chain(operator.then(|| Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None }))
-        .chain(targets.iter().enumerate().map(|(at, job)| Entry::Item {
-            id: id_of(format!("job:{}", job.id)),
-            label: job.title.clone(),
-            icon: Some("square-terminal"),
-            danger: false,
-            key: keyed(first + at),
-            off: None,
-        }))
-        .collect()
+    let mut entries = vec![Entry::Search { label: "Find a Job", to_rule: false }];
+    if operator {
+        entries.push(Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None });
+    }
+    let mut at = usize::from(operator);
+    let mut suggested = false;
+    for band in bands {
+        match &band.label {
+            Some(label) => {
+                entries.push(Entry::Label(id_of(label.to_string())));
+                suggested = true;
+            }
+            // The rest stand apart from the suggested Jobs above them.
+            None if suggested => entries.push(Entry::Rule),
+            None => {}
+        }
+        for job in &band.jobs {
+            entries.push(Entry::Item { id: id_of(format!("job:{}", job.id)), label: job.title.clone(), icon: Some("square-terminal"), danger: false, key: keyed(at), off: None });
+            at += 1;
+        }
+    }
+    entries
 }
 
 /// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
@@ -1414,7 +1498,7 @@ mod tests {
 
     #[test]
     fn the_operator_is_the_pickers_first_row_while_its_session_runs() {
-        let entries = picker_entries(true, &jobs());
+        let entries = picker_entries(true, &bands(&jobs(), &HashMap::new(), None, &[]));
         assert!(matches!(entries[0], Entry::Search { .. }));
         assert!(matches!(&entries[1], Entry::Item { id: "operator", icon: Some("bot"), .. }));
         assert_eq!(
@@ -1424,8 +1508,42 @@ mod tests {
     }
 
     #[test]
+    fn the_picker_lists_the_open_job_then_the_features_jobs_then_the_areas_then_the_rest() {
+        let job = |id: &str, title: &str| Offered { id: id.to_string().into(), title: title.to_string().into() };
+        let live = vec![job("a", "Audit docs"), job("b", "Fix the rail"), job("c", "Add rank votes"), job("d", "Open one"), job("e", "Tidy usage")];
+        let writes = |slug: &str, area: &str| ipc::SessionFeature { project: "p1".into(), slug: slug.into(), title: slug.into(), area: area.into(), area_title: area.into(), area_place: 0, place: 0 };
+        let worked: HashMap<SharedString, Vec<ipc::SessionFeature>> = [
+            ("b".into(), vec![writes("voting", "Takes")]),
+            ("c".into(), vec![writes("ranks", "Takes")]),
+            ("d".into(), vec![writes("voting", "Takes")]),
+            ("e".into(), vec![writes("usage", "Usage")]),
+        ]
+        .into_iter()
+        .collect();
+        let voting = crate::features::of_path::Mapped { project: "p1".into(), slug: "voting".into(), title: "Voting".into(), area: "Takes".into(), jobs: Vec::new() };
+        let banded = bands(&live, &worked, Some("d"), &[voting]);
+        let said: Vec<(Option<&str>, Vec<&str>)> = banded.iter().map(|band| (band.label.as_deref(), band.jobs.iter().map(|job| job.title.as_ref()).collect())).collect();
+        assert_eq!(
+            said,
+            [(Some("Open Job"), vec!["Open one"]), (Some("Voting"), vec!["Fix the rail"]), (Some("Takes"), vec!["Add rank votes"]), (None, vec!["Audit docs", "Tidy usage"])],
+            "each Job once, in its first band"
+        );
+        let entries = picker_entries(false, &banded);
+        assert!(matches!(entries[1], Entry::Label("Open Job")) && matches!(entries[3], Entry::Label("Voting")));
+        assert!(entries.iter().any(|entry| matches!(entry, Entry::Rule)), "the rest stand apart");
+        assert_eq!(labels(&entries).iter().map(|(_, key)| key.clone().unwrap_or_default()).collect::<Vec<_>>(), ["⌥1", "⌥2", "⌥3", "⌥4", "⌥5"], "the keys run down the bands");
+
+        // No suggestion: one band, no label and no rule, as before.
+        let plain = bands(&live, &worked, None, &[]);
+        assert_eq!(plain.len(), 1);
+        assert!(!picker_entries(false, &plain).iter().any(|entry| matches!(entry, Entry::Rule | Entry::Label(_))));
+        // A band with no Job draws nothing: the open Job is not live.
+        assert!(bands(&live, &worked, Some("gone"), &[]).iter().all(|band| band.label.is_none()));
+    }
+
+    #[test]
     fn no_operator_row_is_offered_when_none_runs() {
-        let entries = picker_entries(false, &jobs());
+        let entries = picker_entries(false, &bands(&jobs(), &HashMap::new(), None, &[]));
         assert_eq!(labels(&entries), vec![("Fix the merge line".into(), Some("⌥1".into())), ("Audit the docs index".into(), Some("⌥2".into()))]);
         assert!(!entries.iter().any(|entry| matches!(entry, Entry::Item { id: "operator", .. })));
     }

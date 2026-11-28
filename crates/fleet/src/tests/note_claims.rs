@@ -59,7 +59,7 @@ fn sent(project: &str, rig: &Rig) -> SendNotesToFeatures {
         crop: None,
         job: Vec::new(),
     };
-    SendNotesToFeatures { manifest_id: rig.manifest.clone(), project: Some(project.to_string()), paths: vec![SOMEWHERE.to_string()], words: "The rank chip clips".into(), notes: vec![note] }
+    SendNotesToFeatures { manifest_id: rig.manifest.clone(), project: Some(project.to_string()), paths: vec![SOMEWHERE.to_string()], features: Vec::new(), words: "The rank chip clips".into(), notes: vec![note] }
 }
 
 fn claim(id: &SessionId) -> ClaimNote {
@@ -194,6 +194,19 @@ async fn a_note_on_a_feature_no_job_is_on_starts_a_job_with_his_words_that_holds
     assert!(rig.card_message(&started.session_id).await.is_none(), "started at once, with no start card held");
     let kept = rig.fleet.store().lock().await.note_claim(NOTE).expect("read").expect("kept");
     assert_eq!((kept.claimed_by.as_str(), kept.given), (started.session_id.as_str(), true));
+}
+
+/// A note on an open Job's view: no feature owns the folder that draws it, so the screen names the Job's feature.
+#[tokio::test]
+async fn a_feature_the_screen_names_takes_the_note_to_its_jobs_where_no_feature_owns_the_paths() {
+    let rig = rig(None);
+    let (project, _, _) = two_on_voting(&rig).await;
+    let mut on_a_job = sent(&project, &rig);
+    on_a_job.paths = vec!["crates/elsewhere".into()];
+    on_a_job.features = vec![VOTING.to_string()];
+    let routed = Arc::clone(&rig.fleet).send_notes_to_features(on_a_job).await.expect("routed by the named feature");
+    assert_eq!(routed.features, [VOTING]);
+    assert_eq!(routed.offered.iter().map(|job| job.title.as_str()).collect::<Vec<_>>(), ["Fix the rail", "Add rank votes"]);
 }
 
 #[tokio::test]

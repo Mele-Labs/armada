@@ -176,6 +176,12 @@ impl Keeper {
     }
 }
 
+/// The screen of the window that keeps a history, for what it shows (`annotate::drawn_by`).
+pub fn screen(cx: &App) -> Option<Entity<OperatorScreen>> {
+    let keeper = cx.try_global::<Live>()?.0.upgrade()?;
+    Some(keeper.read(cx).screen.clone())
+}
+
 /// Where he is now in the window that keeps a history, for what is drawn there (`annotate::drawn_by`).
 pub fn now(cx: &App) -> Option<Place> {
     let keeper = cx.try_global::<Live>()?.0.upgrade()?;

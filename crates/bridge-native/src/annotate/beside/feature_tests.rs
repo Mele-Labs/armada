@@ -86,6 +86,18 @@ fn a_note_with_two_features_draws_a_chip_for_each(cx: &mut TestAppContext) {
     assert!(!drawn(cx, Role::Image, "Loading"), "the read is done");
 }
 
+/// A note made on an open Job's view: no feature owns the folder that draws it, so the note names the Job's own feature.
+#[gpui::test]
+fn a_note_naming_the_open_jobs_feature_sends_to_that_features_jobs(cx: &mut TestAppContext) {
+    let mut raw = note("on-a-job", None, None);
+    raw["paths"] = json!(["crates/bridge-native/src/job_view"]);
+    raw["features"] = json!([{ "project": crate::features::mock::PROJECT, "slug": "start-a-job", "title": "Start a Job", "area": "Running a Job" }]);
+    let (layer, cx) = open(cx, vec![raw]);
+    assert!(drawn(cx, Role::Button, "Start a Job's Jobs"), "the card's send names the feature");
+    let feature = layer.read_with(cx, |layer, cx| layer.feature_of(1, cx)).expect("the note maps to the feature it names");
+    assert_eq!(feature.jobs.iter().map(|job| job.title.as_str()).collect::<Vec<_>>(), ["Add the model picker to the start card"], "the Jobs on it now, as the library has them");
+}
+
 #[gpui::test]
 fn a_note_that_maps_to_no_feature_draws_no_chip_and_no_bones(cx: &mut TestAppContext) {
     let (layer, cx) = open(cx, vec![note("no-feature", Some("apps/desktop/src/renderer/src/elsewhere/Zebra.tsx"), Some("Zebra"))]);

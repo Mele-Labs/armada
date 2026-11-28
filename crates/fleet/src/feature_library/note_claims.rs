@@ -1,8 +1,8 @@
 //! A note on a screen goes to its features' live Jobs, and the first to claim it takes it. Fleet routes by rule; which
 //! Job's change a note is, the Jobs decide. `docs/concepts/feature-catalog.md`, *A note on a screen*.
 //!
-//! The paths that draw the screen map to features as any file does (`mapping`), and the Jobs on those features are the
-//! ones `list_features` names. One Job alone on them is given the note at once. Unclaimed after [`UNCLAIMED_AFTER`], a
+//! The features the screen showed, named by slug, and those the paths that draw it map to as any file does (`mapping`),
+//! are the note's; the Jobs on them are the ones `list_features` names. One Job alone on them is given the note at once. Unclaimed after [`UNCLAIMED_AFTER`], a
 //! note goes to the Job that last wrote one of the paths, else to the first it was sent to. With no Job live on the
 //! features, or none of those it was sent to live when the wait is over, Fleet starts one with his words.
 
@@ -116,16 +116,17 @@ where
                 let loaded = Loaded::read(&store, &one).map_err(|why| self.ledger_fault(why))?;
                 let on = self.jobs_on_features(&store, &loaded.project)?;
                 let (mut titles, mut ids, mut jobs): (Vec<String>, Vec<String>, Vec<FeatureJob>) = (Vec::new(), Vec::new(), Vec::new());
-                for path in &sent.paths {
-                    for owner in loaded.map.owners(Some(sent.manifest_id.as_str()), path.trim().trim_start_matches("./")) {
-                        if !titles.contains(&owner.feature.title) {
-                            titles.push(owner.feature.title.clone());
-                            ids.push(owner.feature.id.clone());
-                        }
-                        for job in on.get(&owner.feature.id).into_iter().flatten() {
-                            if !jobs.iter().any(|seen| seen.session_id == job.session_id) {
-                                jobs.push(job.clone());
-                            }
+                // The features the screen showed, by slug, then those its files map to.
+                let named = sent.features.iter().filter_map(|slug| loaded.feature_named(slug.trim()));
+                let owning = sent.paths.iter().flat_map(|path| loaded.map.owners(Some(sent.manifest_id.as_str()), path.trim().trim_start_matches("./")).into_iter().map(|owner| owner.feature));
+                for feature in named.chain(owning) {
+                    if !ids.contains(&feature.id) {
+                        titles.push(feature.title.clone());
+                        ids.push(feature.id.clone());
+                    }
+                    for job in on.get(&feature.id).into_iter().flatten() {
+                        if !jobs.iter().any(|seen| seen.session_id == job.session_id) {
+                            jobs.push(job.clone());
                         }
                     }
                 }

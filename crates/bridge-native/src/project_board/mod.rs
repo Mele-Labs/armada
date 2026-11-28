@@ -170,6 +170,11 @@ impl ProjectScreen {
         self.ask_box.clone()
     }
 
+    /// The feature whose page is open under the Features tab, while that tab is the one drawn.
+    pub fn open_feature(&self, cx: &gpui::App) -> Option<crate::features::of_path::Mapped> {
+        (self.tab == Tab::Features).then(|| self.features.read(cx).feature_open()).flatten()
+    }
+
     /// The feature library's screen under the Features tab, which the Cockpit's floor plan reads as well.
     pub fn library_screen(&self) -> Entity<FeaturesScreen> {
         self.features.clone()

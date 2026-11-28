@@ -892,12 +892,22 @@ impl DispatchScreen {
                 })
                 .collect()
         };
-        let targets = targets_of(list.read(cx).records());
-        layer.update(cx, |layer, cx| layer.set_targets(targets, cx));
+        // And the features each writes to, so the Jobs on a note's features are listed first.
+        let worked_of = |records: &[SessionRecord]| -> std::collections::HashMap<SharedString, Vec<ipc::SessionFeature>> {
+            records.iter().filter(|record| !record.features.is_empty()).map(|record| (record.id.as_str().to_string().into(), record.features.clone())).collect()
+        };
+        let (targets, worked) = (targets_of(list.read(cx).records()), worked_of(list.read(cx).records()));
+        layer.update(cx, |layer, cx| {
+            layer.set_targets(targets, cx);
+            layer.set_worked(worked, cx);
+        });
         let watched = layer.clone();
         self._subs.push(cx.observe(&list, move |_, list, cx| {
-            let targets = targets_of(list.read(cx).records());
-            watched.update(cx, |layer, cx| layer.set_targets(targets, cx));
+            let (targets, worked) = (targets_of(list.read(cx).records()), worked_of(list.read(cx).records()));
+            watched.update(cx, |layer, cx| {
+                layer.set_targets(targets, cx);
+                layer.set_worked(worked, cx);
+            });
         }));
         // The Operator's session is not in that list, so it is read from the jobs Fleet holds, where it is kept
         // with its own flag: the picker offers it first while one runs.
@@ -932,7 +942,7 @@ impl DispatchScreen {
     fn send_notes(&mut self, layer: Entity<Layer>, asked: &annotate::Asked, window: &mut Window, cx: &mut Context<Self>) {
         let (to, notes) = match asked {
             annotate::Asked::Send { to, notes } => (to, notes),
-            annotate::Asked::ToFeature { feature, project, paths, notes } => return self.send_to_feature(layer, feature, project, paths, notes, window, cx),
+            annotate::Asked::ToFeature { feature, project, paths, features, notes } => return self.send_to_feature(layer, feature, project, paths, features, notes, window, cx),
         };
         let Some(port) = self.fleet_port(cx) else {
             let title = to.as_ref().map_or_else(|| "a new Job".to_string(), |job| job.title.to_string());
@@ -1016,7 +1026,7 @@ impl DispatchScreen {
     /// The default send of a note on a feature: Fleet sends it to the feature's live Jobs, the first to claim it taking
     /// it, or starts a Job for it at once, which opens.
     #[allow(clippy::too_many_arguments)]
-    fn send_to_feature(&mut self, layer: Entity<Layer>, feature: &str, project: &str, paths: &[String], notes: &[String], window: &mut Window, cx: &mut Context<Self>) {
+    fn send_to_feature(&mut self, layer: Entity<Layer>, feature: &str, project: &str, paths: &[String], features: &[String], notes: &[String], window: &mut Window, cx: &mut Context<Self>) {
         let to = format!("{feature}'s Jobs");
         let (Some(port), Some(manifest)) = (self.fleet_port(cx), self.notes_repository(cx)) else {
             layer.update(cx, |layer, cx| layer.refused(&to, "Fleet is not connected", cx));
@@ -1024,8 +1034,8 @@ impl DispatchScreen {
         };
         let ink = notes_ink(cx);
         let outgoing = layer.read(cx).outgoing();
-        let (project, paths, words) = (project.to_string(), paths.to_vec(), notes.join("\n"));
-        let task = cx.background_spawn(async move { annotate::live::to_features(port, manifest, project, paths, words, outgoing, ink) });
+        let (project, paths, features, words) = (project.to_string(), paths.to_vec(), features.to_vec(), notes.join("\n"));
+        let task = cx.background_spawn(async move { annotate::live::to_features(port, manifest, project, paths, features, words, outgoing, ink) });
         let (list, feature) = (self.jobs.read(cx).list.clone(), feature.to_string());
         cx.spawn_in(window, async move |_, cx| {
             let answer = task.await;

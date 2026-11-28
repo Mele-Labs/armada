@@ -21,6 +21,8 @@ pub struct Place {
     pub files: Vec<String>,
     /// Component names, the innermost first.
     pub components: Vec<String>,
+    /// The features what the screen showed names outright: the open Job's, or the open feature page's.
+    pub named: Vec<Mapped>,
 }
 
 /// A feature a note maps to.
@@ -29,6 +31,8 @@ pub struct Mapped {
     pub project: String,
     pub slug: String,
     pub title: String,
+    /// The title of its area.
+    pub area: String,
     /// The Jobs on it now, which a note sent to the feature goes to.
     pub jobs: Vec<FeatureJob>,
 }
@@ -58,6 +62,13 @@ pub fn place_of(raw: &Value, root: Option<&Path>) -> Place {
             }
         }
     }
+    for one in raw["features"].as_array().into_iter().flatten() {
+        let field = |name: &str| one[name].as_str().unwrap_or_default().to_string();
+        let named = Mapped { project: field("project"), slug: field("slug"), title: field("title"), area: field("area"), jobs: Vec::new() };
+        if !named.slug.is_empty() && !place.named.iter().any(|seen| seen.slug == named.slug && seen.project == named.project) {
+            place.named.push(named);
+        }
+    }
     let owners = raw["owners"].as_array().into_iter().flatten();
     for name in [&raw["component"], &raw["definition"]["component"]].into_iter().chain(owners.take(6)) {
         if let Some(name) = name.as_str().map(str::trim).filter(|name| !name.is_empty()) {
@@ -74,7 +85,7 @@ pub fn merged(answers: &[FeaturesOfPath]) -> Vec<Mapped> {
     let mut found: Vec<Mapped> = Vec::new();
     for one in answers.iter().flat_map(|answer| &answer.features) {
         if !found.iter().any(|seen| seen.slug == one.slug && seen.project == one.project) {
-            found.push(Mapped { project: one.project.clone(), slug: one.slug.clone(), title: one.title.clone(), jobs: one.jobs.clone() });
+            found.push(Mapped { project: one.project.clone(), slug: one.slug.clone(), title: one.title.clone(), area: one.area.clone(), jobs: one.jobs.clone() });
         }
     }
     found.truncate(MOST);
@@ -129,13 +140,13 @@ pub fn by_component(library: &FeatureLibrary, names: &[String]) -> Vec<Mapped> {
         let found: Vec<Mapped> = library
             .areas
             .iter()
-            .flat_map(|area| &area.features)
-            .filter(|row| {
+            .flat_map(|area| area.features.iter().map(move |row| (area, row)))
+            .filter(|(_, row)| {
                 let mut held = words(&row.slug);
                 held.extend(words(&row.title));
                 wanted.iter().all(|word| held.contains(word))
             })
-            .map(|row| Mapped { project: library.project.clone(), slug: row.slug.clone(), title: row.title.clone(), jobs: row.jobs_now.clone() })
+            .map(|(area, row)| mapped_row(&library.project, area, row))
             .take(MOST)
             .collect();
         if !found.is_empty() {
@@ -143,6 +154,34 @@ pub fn by_component(library: &FeatureLibrary, names: &[String]) -> Vec<Mapped> {
         }
     }
     Vec::new()
+}
+
+fn mapped_row(project: &str, area: &ipc::FeatureAreaRow, row: &ipc::FeatureRow) -> Mapped {
+    Mapped { project: project.to_string(), slug: row.slug.clone(), title: row.title.clone(), area: area.title.clone(), jobs: row.jobs_now.clone() }
+}
+
+/// The feature `slug` as the library has it, with the Jobs on it now.
+pub fn of_slug(library: &FeatureLibrary, slug: &str) -> Option<Mapped> {
+    let (area, row) = library.areas.iter().flat_map(|area| area.features.iter().map(move |row| (area, row))).find(|(_, row)| row.slug == slug)?;
+    Some(mapped_row(&library.project, area, row))
+}
+
+/// The features `named` names, as the library has them now: with the Jobs on each, which a note sent to them goes to. One
+/// the library does not hold is kept as it was named, with no Jobs.
+pub fn named_in(library: &FeatureLibrary, named: &[Mapped]) -> Vec<Mapped> {
+    named.iter().map(|one| of_slug(library, &one.slug).unwrap_or_else(|| one.clone())).collect()
+}
+
+/// The named features first, then those `found` adds, each once and no more than [`MOST`].
+fn with_named(named: Vec<Mapped>, found: Vec<Mapped>) -> Vec<Mapped> {
+    let mut all = named;
+    for one in found {
+        if !all.iter().any(|seen| seen.slug == one.slug && seen.project == one.project) {
+            all.push(one);
+        }
+    }
+    all.truncate(MOST);
+    all
 }
 
 /// `GET /features/of_path?path=&project=&manifest_id=`: the features a file belongs to.
@@ -163,21 +202,35 @@ pub struct Wanted {
     pub projects: Vec<String>,
 }
 
-/// The features of a note's place, off the main thread: each file, and the component's name where no file mapped. A read
-/// Fleet refused is a feature fewer, never a failure of the note.
+/// The features of a note's place, off the main thread: those the screen named, then each file's, and the component's
+/// name where no file mapped. A read Fleet refused is a feature fewer, never a failure of the note.
 pub async fn resolve(wanted: Wanted, place: Place, cx: &gpui::AsyncApp) -> Vec<Mapped> {
-    let asks: Vec<_> = place.files.iter().map(|file| cx.update(|cx| of_path(wanted.port, wanted.project.as_deref(), file, cx))).collect();
-    let mut answers = Vec::new();
-    for ask in asks {
-        if let Ok(answer) = ask.await {
-            answers.push(answer);
+    let mut named = Vec::new();
+    for one in &place.named {
+        let read = cx.update(|cx| super::wire::library(wanted.port, &one.project, cx));
+        named.extend(match read.await {
+            Ok(library) => named_in(&library, std::slice::from_ref(one)),
+            Err(_) => vec![one.clone()],
+        });
+    }
+    // Fleet refuses a file read that names no project, so with none scoped each project it lists is asked in turn.
+    let asked: Vec<String> = wanted.project.clone().map_or_else(|| wanted.projects.clone(), |one| vec![one]);
+    for project in &asked {
+        let asks: Vec<_> = place.files.iter().map(|file| cx.update(|cx| of_path(wanted.port, Some(project), file, cx))).collect();
+        let mut answers = Vec::new();
+        for ask in asks {
+            if let Ok(answer) = ask.await {
+                answers.push(answer);
+            }
+        }
+        let found = merged(&answers);
+        if !found.is_empty() {
+            return with_named(named, found);
         }
     }
-    let found = merged(&answers);
-    if !found.is_empty() || place.components.is_empty() {
-        return found;
+    if !named.is_empty() || place.components.is_empty() {
+        return with_named(named, Vec::new());
     }
-    let asked: Vec<String> = wanted.project.clone().map_or_else(|| wanted.projects.clone(), |one| vec![one]);
     for project in asked {
         let read = cx.update(|cx| super::wire::library(wanted.port, &project, cx));
         if let Ok(library) = read.await {
@@ -203,12 +256,12 @@ pub fn mock_of_path(path: &str) -> FeaturesOfPath {
         .filter(|(prefix, _)| path.starts_with(prefix))
         .flat_map(|(prefix, slugs)| slugs.iter().map(move |slug| (*prefix, *slug)))
         .filter_map(|(prefix, slug)| {
-            let row = library.areas.iter().flat_map(|area| &area.features).find(|row| row.slug == slug)?;
+            let (area, row) = library.areas.iter().flat_map(|area| area.features.iter().map(move |row| (area, row))).find(|(_, row)| row.slug == slug)?;
             Some(FeatureOfPath {
                 project: library.project.clone(),
                 slug: row.slug.clone(),
                 title: row.title.clone(),
-                area: row.area.clone(),
+                area: area.title.clone(),
                 how: PathHow::Prefix,
                 prefix: Some(prefix.to_string()),
                 jobs: row.jobs_now.clone(),
@@ -220,11 +273,12 @@ pub fn mock_of_path(path: &str) -> FeaturesOfPath {
 
 /// The mock's reading of a place, as `resolve` reads Fleet's.
 pub fn mock_resolve(place: &Place) -> Vec<Mapped> {
+    let named = named_in(&super::mock::library(), &place.named);
     let answers: Vec<FeaturesOfPath> = place.files.iter().map(|file| mock_of_path(file)).collect();
     let found = merged(&answers);
-    if found.is_empty() {
+    if found.is_empty() && named.is_empty() {
         by_component(&super::mock::library(), &place.components)
     } else {
-        found
+        with_named(named, found)
     }
 }

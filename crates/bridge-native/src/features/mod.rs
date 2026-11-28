@@ -481,6 +481,12 @@ impl FeaturesScreen {
         self.cursor.as_deref().and_then(|slug| self.listed.find(slug))
     }
 
+    /// The feature whose page is open beside the list, as a note made on it names it (`annotate::drawn_by`).
+    pub fn feature_open(&self) -> Option<of_path::Mapped> {
+        let (slug, Load::Read(library)) = (self.opened.as_deref()?, &self.library) else { return None };
+        of_path::of_slug(library, slug)
+    }
+
     /// The feature whose page is open beside the list.
     #[cfg(test)]
     pub fn opened(&self) -> Option<&ipc::FeatureRow> {

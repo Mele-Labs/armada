@@ -205,7 +205,7 @@ impl Beside {
             return;
         }
         let place: Place = of_path::place_of(&subject.raw, subject.root.as_deref());
-        if place.files.is_empty() && place.components.is_empty() {
+        if place.files.is_empty() && place.components.is_empty() && place.named.is_empty() {
             return self.got(subject.key, Vec::new(), cx);
         }
         match source {
