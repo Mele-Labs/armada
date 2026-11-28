@@ -19,6 +19,9 @@ fn call(act: SessionCheckAct, slot: &str, name: &str) -> SessionCheckCall {
         outcome: None,
         took_ms: None,
         log: None,
+        tree: None,
+        queue_wait_ms: None,
+        cpu_ms: None,
     }
 }
 

@@ -76,6 +76,17 @@ pub struct SessionCheckCall {
     /// What the Check printed: all of it on `end`, what is new since the last one on `chunk`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log: Option<String>,
+    /// The git tree of the slot as the run begins, uncommitted changes included, so two runs of
+    /// the same tree can be matched. Only on `start`, and absent where it could not be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree: Option<String>,
+    /// How long the run waited for a place before it ran, in milliseconds. `took_ms` includes it.
+    /// Only on `end`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_wait_ms: Option<u64>,
+    /// User and system time of the run's child processes, in milliseconds. Only on `end`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu_ms: Option<u64>,
 }
 
 /// Where a failed run's log says it failed: the first location the failure names, relative to the
