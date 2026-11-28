@@ -117,6 +117,7 @@ mod document_answers;
 mod step_reading;
 mod taught_mods;
 mod watch_wire;
+mod graph_wire;
 /// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
 mod terminal_wire;
 mod workflow_changes;

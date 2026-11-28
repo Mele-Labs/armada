@@ -255,6 +255,7 @@ If your change touches `crates/ipc`, the route table in
 | [Two Jobs settle a clash: `settle_clash`, `SessionRecord.clashes` and `WaitingSource::ClashOrder`](protocol/two-jobs-settle-a-clash.md) |
 | [To review, across Jobs: `list_to_review`](protocol/to-review-across-jobs.md) |
 | [A sub project has an orchestrator: `goal`, `turn_into_orchestrator` and the `goal_met` card](protocol/a-sub-project-has-an-orchestrator.md) |
+| [A Job shows a live graph: `show_graph`, `graph_points`, `withdraw_graph`, `list_graphs` and `graphs.changed`](protocol/a-job-shows-a-live-graph.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
