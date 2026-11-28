@@ -3,15 +3,7 @@
 // because the store has already shown the Mac that this phone is his. The pairing link below is the other way.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  CircleCheck,
-  CircleDashed,
-  LoaderCircle,
-  RefreshCw,
-  ShieldX,
-  TriangleAlert,
-  Unplug,
-} from "lucide-react";
+import { CircleCheck, CircleDashed, RefreshCw, ShieldX, TriangleAlert, Unplug } from "lucide-react";
 import { Button } from "./kit/components/primitives/Button/Button";
 import { Skeleton } from "./kit/components/primitives/Skeleton/Skeleton";
 import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
@@ -99,7 +91,7 @@ function Mark({ state, refused }: { state: keyof typeof bucket; refused?: number
         ]
       : state === "pairing"
         ? [
-            LoaderCircle,
+            CircleDashed,
             "Pairing",
           ]
         : state === "ready"
@@ -123,16 +115,13 @@ function Mark({ state, refused }: { state: keyof typeof bucket; refused?: number
                 ];
   return (
     <Tooltip label={said}>
-      <span className="pk-glyph" data-bucket={bucket[state]} role="img" aria-label={said}>
-        <Glyph
-          size={16}
-          aria-hidden="true"
-          {...(state === "pairing"
-            ? {
-                className: "pk-spin",
-              }
-            : {})}
-        />
+      <span
+        className={state === "pairing" ? "pk-glyph pk-ring pk-ring--dot" : "pk-glyph"}
+        data-bucket={bucket[state]}
+        role="img"
+        aria-label={said}
+      >
+        {state === "pairing" ? null : <Glyph size={16} aria-hidden="true" />}
       </span>
     </Tooltip>
   );
@@ -461,8 +450,7 @@ export function YourMacs({ name }: { name: string }) {
             Cancel
           </Button>
         </div>
-        <p className="pk-signin__wait" role="status">
-          <LoaderCircle className="pk-spin" size={16} aria-hidden="true" />
+        <p className="pk-signin__wait pk-ring pk-ring--line" role="status">
           Waiting for GitHub
         </p>
       </div>

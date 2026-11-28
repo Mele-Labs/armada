@@ -12,7 +12,6 @@ import {
   Files,
   GitFork,
   Link as Linked,
-  LoaderCircle,
   Play,
   PowerOff,
   RefreshCw,
@@ -133,9 +132,7 @@ function WaitingAsk({
           <>
             {" "}
             <Tooltip label="Making a slot">
-              <span role="img" aria-label="Making a slot">
-                <LoaderCircle className="pk-spin" size={14} aria-hidden="true" />
-              </span>
+              <span className="pk-ring pk-ring--dot" role="img" aria-label="Making a slot" />
             </Tooltip>
           </>
         )}
