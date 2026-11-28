@@ -246,7 +246,7 @@ fn timer(job: &str, key: &str, at: &ipc::Instant, end: Option<&ipc::Instant>, ru
     let time = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE));
     if running {
         // The count goes on each frame the row is drawn.
-        time.with_animation(SharedString::from(format!("count:{key}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
+        time.with_animation(SharedString::from(format!("count:{key}")), crate::parts::ring::count_animation(), move |time, _| {
             time.child(elapsed_words(since.as_str(), &running_now(&job).to_rfc3339()).unwrap_or_default())
         })
         .into_any_element()
