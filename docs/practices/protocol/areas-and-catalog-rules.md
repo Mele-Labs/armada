@@ -15,8 +15,10 @@ Only the native Bridge reads it.
 | `drop_catalog_rule`, `POST /features/rules/drop` | Bridge sends `DropCatalogRule`, Fleet answers `CatalogRules` | `project` and `rule`, its id. The answer is the rules left |
 | `ChangeFeature.why`, `FeatureChanged.rule` | Bridge sends, Fleet answers | His words for a merge, rename or move, and the id of the rule they became. Absent, no rule is kept |
 
-**A split is one call**: Fleet keeps the new area right after the one split and moves the named features in one transaction, so Bridge no longer sends `upsert_features` with every area and then a `change_feature` for each feature.
-**`act` is a closed set**: `make_area`, `rename_area`, `split_area`, `merge_areas`, `merge_features`, `rename_feature`, `move_feature`, `not_this_feature` and `not_together`. A row whose act a Fleet does not know is left out of the list.
+**A split is one call**: Fleet keeps the new area right after the one split and moves the named features in one transaction, where Bridge sent `upsert_features` with every area and then a `change_feature` for each feature.
+The native Features screen still sends those two until its gallery is built.
+**`act` is a closed set**: `make_area`, `rename_area`, `split_area`, `merge_areas`, `merge_features`, `rename_feature`, `move_feature`, `not_this_feature` and `not_together`.
+A row whose act a Fleet does not know is left out of the list.
 
 **The acts are the person's**, as `change_feature` is: the Operator through the door, Bridge on the port, and a 403 `api.the_persons_own` from inside a Job.
 The read is Bridge's alone: the librarian and the Operator are handed the rules in what Fleet gives them.
