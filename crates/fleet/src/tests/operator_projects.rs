@@ -173,8 +173,11 @@ async fn a_change_to_what_the_session_starts_with_hands_it_on_and_the_successor_
     set_for(&rig, &a, OperatorSettingsSet { name: Some("Kit".into()), ..Default::default() }).await;
     assert_eq!(operator_of(&rig, &a).await.as_deref(), Some(old.as_str()), "a name applies on the next call");
 
-    // His words about what it is for are told at its start, so the session is handed on.
-    set_for(&rig, &a, OperatorSettingsSet { model: Some("claude-haiku-4-5".into()), role: Some(OperatorRole::Reviewer), ..Default::default() }).await;
+    // What it runs on and its role are told at its start, so the session is handed on. The model is one the machine has
+    // on: Fleet moves a session off a model that is switched off (`serving/living.rs`), whoever named it.
+    let was = rig.stand_in.starts().into_iter().find(|one| one.session == old).and_then(|one| one.model);
+    let other = rig.fleet.models_on().into_iter().find(|model| Some(model) != was.as_ref()).expect("a second model on");
+    set_for(&rig, &a, OperatorSettingsSet { model: Some(other.clone()), role: Some(OperatorRole::Reviewer), ..Default::default() }).await;
     // The hand puts a `replaced_by` on the old session, which is how the other hand-on tests find the successor.
     let replaced = || async {
         let all = api::Sessions::list_sessions(rig.fleet.as_ref(), None, None, None).await.expect("listed").sessions;
@@ -193,7 +196,7 @@ async fn a_change_to_what_the_session_starts_with_hands_it_on_and_the_successor_
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == new) }).await;
     let start = rig.stand_in.starts().into_iter().find(|one| one.session == new).expect("its process");
     let hosting = rig.fleet.store().lock().await.hosting(&new).expect("read").expect("hosted");
-    assert_eq!(start.model.as_deref(), Some("claude-haiku-4-5"), "the successor runs the new model; hosting {hosting:?}; live {all:?}");
+    assert_eq!(start.model.as_deref(), Some(other.as_str()), "the successor runs the new model; hosting {hosting:?}; live {all:?}");
     assert!(start.operator.as_ref().is_some_and(|prompt| prompt.role == OperatorRole::Reviewer), "and its new role: {start:?}");
     assert!(hosting.operator && hosting.project.as_deref() == Some(a.as_str()), "still the project's Operator: {hosting:?}");
     assert_eq!(operator_of(&rig, &a).await.as_deref(), Some(new.as_str()), "and the only one that runs");
