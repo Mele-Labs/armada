@@ -51,6 +51,7 @@ pub use hearing::keep_the_ends_told;
 pub use orders::{Order, Orders};
 pub use placing::{Outcome, Place};
 pub use raising::keep_the_raises;
+pub use session::keep_the_operator_up;
 pub(crate) use seat::Seat;
 pub use sources::{BridgeError, NewIssue, Note, Report};
 pub(crate) use sourcing::Sources;

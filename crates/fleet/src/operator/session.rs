@@ -5,11 +5,13 @@
 //! Operator's home, as a Mod Job starts in the mods folder where Armada's own repository is not served,
 //! so the door answers it without a Manifest and offers it the reads and acts that name their
 //! repository themselves. **One runs for each project** while `features.operator` is on, the project's own switch is on and
-//! none runs for it: the next tick starts it, and either switch off ends it. A hand on at the context limit keeps `operator`
-//! and the project on the successor.
+//! none runs for it: it starts the moment the switch goes on or a send for it waits, and the tick starts one where that did
+//! not. Either switch off ends it. A hand on at the context limit keeps `operator` and the project on the successor.
 
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use tokio::task::JoinHandle;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -30,6 +32,26 @@ so put no card up for it. Put a card in front of him only for something that arr
 
 /// The refusal for an act only the Operator's session may make.
 pub(crate) const NOT_THE_OPERATOR: &str = "fleet.not_the_operator";
+
+/// Start or end the Operator's session the moment its switch moves or a send waits for it, not on the next tick.
+/// Production starts it beside the other keepers, and a test starts it itself.
+pub fn keep_the_operator_up<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    tokio::spawn(async move {
+        loop {
+            fleet.operator_seat().wake.notified().await;
+            fleet.operator_session_kept().await;
+        }
+    })
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -99,9 +121,14 @@ where
         self.operator_loose_projects_made().await;
         let wanted = self.operator_projects_wanted().await;
         let live = self.operator_sessions().await;
-        for project in wanted.iter().filter(|project| !live.iter().any(|(has, _)| has == *project)) {
-            if let Err(why) = self.operator_session_started(project).await {
-                self.operator_warned("an Operator's session did not start", format!("{project}: {why:?}"));
+        for project in &wanted {
+            match live.iter().find(|(has, _)| has == project) {
+                // A send kept while none ran, where another start won the race to tell it.
+                Some((_, id)) => self.held_sends_delivered(project, id).await,
+                None => match self.operator_session_started(project).await {
+                    Ok(id) => self.held_sends_delivered(project, &id).await,
+                    Err(why) => self.operator_warned("an Operator's session did not start", format!("{project}: {why:?}")),
+                },
             }
         }
         for (_, id) in live.iter().filter(|(has, _)| !wanted.contains(has)) {
@@ -205,6 +232,38 @@ where
         let session = Some(arrival.session_id.as_str()).filter(|id| !id.is_empty());
         self.feed_kept(Some(project), kind, &arrival.subject, session, Some(arrival.arrived.said())).await;
         Handed::Now
+    }
+
+    /// Each send he made for `project` while its Operator ran no session, told to session `id` in the order he sent them. A
+    /// send is kept with the project it was routed to, so no Operator is told another project's words. One the session was not
+    /// told stays kept for the next start or tick.
+    async fn held_sends_delivered(self: &Arc<Self>, project: &str, id: &str) {
+        let held = match self.store().lock().await.operator_held_sends() {
+            Ok(held) => held,
+            Err(why) => return self.operator_warned("the sends kept for the Operator were not read", format!("{why:?}")),
+        };
+        for (n, kept) in held {
+            let talk = match ipc::decode::<ipc::operator_talk::TalkToOperator>("TalkToOperator", kept.as_bytes()) {
+                Ok(talk) => talk,
+                Err(why) => {
+                    self.operator_warned("a send kept for the Operator did not read", format!("{why}"));
+                    let _ = self.store().lock().await.deliver_operator_held_send(n, self.now().as_str());
+                    continue;
+                }
+            };
+            if talk.project.as_deref() != Some(project) {
+                continue;
+            }
+            if self.operator_session_id(project).await.as_deref() != Some(id) {
+                return;
+            }
+            if let Err(why) = self.talk_delivered(project, talk).await {
+                return self.operator_warned("a send kept for the Operator was not told to it", format!("{why:?}"));
+            }
+            if let Err(why) = self.store().lock().await.deliver_operator_held_send(n, self.now().as_str()) {
+                self.operator_warned("a send told to the Operator was not marked told", format!("{why:?}"));
+            }
+        }
     }
 
     /// The person's words to `project`'s Operator session, as he wrote them, with the files and tags he sent. A refusal

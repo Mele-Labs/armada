@@ -108,6 +108,7 @@ fn dot_of(standing: Standing) -> &'static str {
         Standing::Open => "circle-dot",
         Standing::Later => "clock",
         Standing::Good => "circle-check",
+        Standing::Skipped => "skip-forward",
         Standing::Rework => "pencil",
         Standing::Withdrawn => "x",
         Standing::Replaced => "refresh-cw",
@@ -238,7 +239,7 @@ impl JobView {
                                 cx.stop_propagation();
                                 this.ready_close(&neighbours, cx);
                             }
-                            digit @ ("1" | "2" | "3") => this.ready_digit(&neighbours, digit, window, cx),
+                            digit @ ("1" | "2" | "3" | "4") => this.ready_digit(&neighbours, digit, window, cx),
                             key @ ("up" | "down") => {
                                 cx.stop_propagation();
                                 let to = if key == "down" { (at + 1).min(ids.len() - 1) } else { at.saturating_sub(1) };
@@ -319,6 +320,7 @@ impl JobView {
         let act = match digit {
             "1" => Act::Approve,
             "2" => Act::Ask,
+            "4" => Act::Skip,
             _ => Act::Open,
         };
         let found = {
@@ -841,6 +843,19 @@ mod tests {
             assert!(asks(&held.items), "the build not in the preview is still listed");
             assert!(held.items.iter().any(|item| matches!(item, ThreadItem::ReadyToTry(card) if card.about == SHOT)));
         });
+    }
+
+    #[gpui::test]
+    fn skip_is_on_the_detail_and_key_4_sends_it_and_the_build_reads_skipped(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        let full = id_of(&view, FULL, cx);
+        view.update(cx, |view, cx| view.ready_open("tool-edit", &full, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Skip"), "Skip stands with the other answers");
+        view.update_in(cx, |view, window, cx| view.ready_digit("tool-edit", "4", window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| assert!(matches!(view.mock_ready.last().map(|sent| &sent.answer), Some(ReadyAnswer::Skip))));
+        assert!(drawn(cx, Role::ListItem, &format!("Ready to try: {FULL}, Skipped")), "the skipped build is one line that says so");
     }
 
     #[gpui::test]

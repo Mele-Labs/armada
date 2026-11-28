@@ -37,7 +37,7 @@ fn kind_of(source: WaitingSource, section: Section) -> Kind {
         WaitingSource::Document => Kind::Document,
         WaitingSource::Draft => Kind::Draft,
         WaitingSource::ReadyToTry => Kind::ReadyToTry,
-        WaitingSource::JobConflict => Kind::Clash,
+        WaitingSource::JobConflict | WaitingSource::ClashOrder => Kind::Clash,
         WaitingSource::GoalMet => Kind::GoalMet,
         WaitingSource::Agent
         | WaitingSource::AskCard
@@ -107,6 +107,7 @@ fn answer_of(item: &WaitingItem, row: &NeedsYouRow, job: &str, cards: &[ToReview
         | WaitingSource::BrowserAsk
         | WaitingSource::Gate
         | WaitingSource::JobConflict
+        | WaitingSource::ClashOrder
         | WaitingSource::JobHeld
         | WaitingSource::GoalMet => Answer::AnswerWaiting,
     }
@@ -164,6 +165,7 @@ pub(crate) fn to_review_of(project: Option<String>, jobs: Vec<JobWaiting>, subs:
                     project: filed.clone(),
                     sub_project: sub.map(|at| sub_project_wire(&subs[at])),
                     features: one.features.clone(),
+                    operator_read: item.operator_read.clone(),
                     row,
                 };
                 placed.push((place.clone(), head.clone(), item));

@@ -226,6 +226,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
             .filter_map(pull_request_draft)
             .collect(),
         claim_waits: Vec::new(),
+        clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
         features: Vec::new(),

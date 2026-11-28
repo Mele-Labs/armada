@@ -67,6 +67,7 @@ fn window(n: u32, url: &str) -> SessionRow {
         origins: Vec::new(),
         brief: None,
         group: None,
+        build: None,
         ended_at: None,
     }
 }

@@ -59,6 +59,7 @@ impl Within {
             glyph: "plus",
             name: NEW_REQUEST.to_string(),
             says: String::new(),
+            project: None,
             pick: Pick::Tag { kind: TagKind::Request, id: "new".to_string(), title: NEW_REQUEST.to_string(), url: None },
         });
         let saved = self.saved.iter().filter(|one| named(&one.name) || named(&one.method) || named(&one.collection)).map(|one| Row {
@@ -66,6 +67,7 @@ impl Within {
             glyph: "",
             name: one.name.clone(),
             says: one.collection.clone(),
+            project: None,
             pick: Pick::Tag { kind: TagKind::Request, id: one.id.clone(), title: one.name.clone(), url: None },
         });
         new.into_iter().chain(saved).collect()

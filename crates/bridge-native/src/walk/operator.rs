@@ -34,7 +34,7 @@ const PLAN_JOB: &str = "Fix the merge line freshness chip";
 /// His question to the Operator with no tag: a talk about no card.
 const QUESTION: &str = "Which Jobs are running now?";
 
-pub static STEPS: [Step; 64] = [
+pub static STEPS: [Step; 62] = [
     step("The head: Operator, the red main as a pill, and at the right what the Operator does unasked, by project, since the window is on All", Verb::Look, "button", ACTS),
     step("Its menu has each project as a header with its three values under it: Act then tell, Ask before starting or Only when told, ticked where set", Verb::Open("button", ACTS), "menuitemcheckbox", "Ask before starting"),
     step("A press sets that project's value at once", Verb::Open("menuitemcheckbox", "Ask before starting"), "button", ACTS),
@@ -81,11 +81,9 @@ pub static STEPS: [Step; 64] = [
     step("Esc puts the card that was in front back", Verb::Key("escape"), "article", NEXT),
     answer("The Operator reports the retry failed: the card comes back in front, with its kind chip reading Did not settle in red and a red frame, and its read starting with what he picked and why", "returns", "article", WORKING_TITLE),
     answer("Nothing needs him: the page empties and the Operator is in a turn. A status card stands where the card was: Nothing needs you, a green Working chip, what it is doing and for how long, and the last act under it", "quiet", "status", "Reading the live Jobs, for 7m"),
-    step("See what it is doing opens the Operator's session as a Job's view, with its thread", Verb::Open("button", "See what it is doing"), "row", "Thread: Operator"),
-    step("Esc gives the keys to the Jobs list as it does in any Job, and Esc again comes back to the Operator's page and its status card", Verb::Keys(&["escape", "escape"]), "status", "Reading the live Jobs, for 7m"),
     answer("Between turns the chip reads Watching in the accent and the line says when Fleet last heard from it", "watching", "status", "Between turns. Last heard from 14m ago"),
     answer("Its session stopped: its card comes in front of any queued card, with a red frame and edge and a red Stopped chip, the title says how long ago, and the line says why. The talk and the box dim until it is back", "stopped", "status", "Its process ended"),
-    step("Restart switches the Operator off and on, as Fleet ends its session with the switch and starts one on the next tick. The card reads Starting, with no button", Verb::Open("button", "Restart the Operator"), "status", "Fleet starts its session on the next tick"),
+    step("Restart switches the Operator off and on, and Fleet starts a new session at once. The card reads Starting, with no button", Verb::Open("button", "Restart the Operator"), "status", "Fleet is starting its session"),
     answer("The Operator says more in the talk: the talk grows, and the card in front folds to one line again", "replies", "button", "Unfold Nothing needs you"),
     answer("A card comes where nothing was in front while the card is folded: it does not take the front. A strip over the talk holds it, with a bell, how many came, its title and Show. It glows once, then holds", "front-arrives", "region", "New card: Checkout's coupon fix has a walk for you"),
     step("⌘Enter, as Show, brings the newest card in front, unfolded, and the strip goes", Verb::Key("cmd-enter"), "article", COMES),

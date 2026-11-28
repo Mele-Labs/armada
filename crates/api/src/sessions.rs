@@ -878,6 +878,19 @@ pub(crate) async fn withdraw_held<D: Sessions>(State(served): State<Served<D>>, 
     }
 }
 
+/// The agent records the order it and another Job agreed for files both write. 200 with the clash as both Jobs'
+/// records carry it; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn settle_clash<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let settle: ipc::SettleClash = match ipc::decode_body("the order two Jobs agreed", &body) {
+        Ok(settle) => settle,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().settle_clash(crate::acting::asking(), settle).await {
+        Ok(clash) => answer(StatusCode::OK, &clash, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The bug reports on this Mac, newest first.
 pub(crate) async fn list_bug_reports<D: Sessions>(State(served): State<Served<D>>) -> Response {
     match served.daemon().list_bug_reports().await {

@@ -20,6 +20,8 @@ use crate::taught_mods::{AddressFound, FleetRule};
 #[serde(rename_all = "snake_case")]
 pub enum TeachingReach {
     Repository,
+    /// Every repository one project holds: the Operator's, which has no repository of its own.
+    Project,
     Everywhere,
 }
 
@@ -82,6 +84,9 @@ pub struct ReadTeaching {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     pub reach: TeachingReach,
+    /// The project's id, as `list_projects` names it. **Required for the `project` reach.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The Session it was taught in, which a rule for one Job is for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
@@ -206,6 +211,9 @@ pub struct SaveTeaching {
     /// reach and for a `repo` note.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
+    /// The project's id, as `list_projects` names it. **Required for the `project` reach.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// The Session it was taught in, which is told the note and cited as the entry's evidence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,

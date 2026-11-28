@@ -30,9 +30,6 @@ pub enum Opened {
     Act(WaitingAct, Option<SessionId>),
     /// A Job, from a row of the feed.
     Job(SessionId),
-    /// The Operator's own session, from the status card's button: it opens as a Job's view does, and the Operator's page
-    /// is where Esc comes back to.
-    Session(SessionId),
     /// A plan, sketch, page or draft a Job holds, from its card: the Review panel opens over the page with it chosen, the
     /// Operator's reading and pick beside it.
     Review(ipc::ItemRef, Option<(SharedString, Option<SharedString>)>),
@@ -1189,9 +1186,10 @@ impl OperatorPageView {
 
     // -- the Operator's own session ----------------------------------------------------------------
 
-    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place.
+    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place. Restart's
+    /// moment between off and on is not off, so the Cockpit does not flash in.
     pub fn is_off(&self) -> bool {
-        self.page.as_ref().is_some_and(|page| !page.on)
+        !self.restarting && self.page.as_ref().is_some_and(|page| !page.on)
     }
 
     /// A switch is in flight, and which way it goes.
@@ -1221,15 +1219,8 @@ impl OperatorPageView {
         super::status::status_of(self.session.as_ref())
     }
 
-    /// "See what it is doing": the Operator's session opens as a Job's view does.
-    pub fn open_session(&mut self, cx: &mut Context<Self>) {
-        if let Some(id) = self.session_id() {
-            cx.emit(Opened::Session(id));
-        }
-    }
-
     /// Restart, on a stopped Operator. Fleet has no act that starts a stopped Operator's session again: it ends the session when
-    /// `features.operator` goes off and starts one on the next tick once it is on, so the switch goes off and on.
+    /// `features.operator` goes off and starts one as soon as it is on, so the switch goes off and on.
     /// The card reads Starting until the new session is held, or for half a minute where none comes.
     pub fn restart(&mut self, cx: &mut Context<Self>) {
         if self.restarting || self.switching {
@@ -1298,9 +1289,15 @@ impl OperatorPageView {
     }
 
     /// The Operator's thread and box as the Job view draws them under the card: its session, the cards it raised in the talk,
-    /// and what a send and Esc do here. None before Fleet names the Operator's session.
+    /// and what a send and Esc do here. Drawn whenever the switch is on, whatever state the session is in: keyed by the live
+    /// session, else the newest one, else no session at all, whose thread is empty. Words sent with none running start one.
+    /// None before the page is read, and with the switch off.
     pub(super) fn operator_pane(&self, cx: &Context<Self>) -> Option<crate::job_view::OperatorPane> {
-        let session = self.page.as_ref()?.session_id.clone()?;
+        let read = self.page.as_ref()?;
+        if self.is_off() {
+            return None;
+        }
+        let session: Option<SharedString> = read.session_id.as_ref().or(read.talk_session_id.as_ref()).map(|id| id.as_str().to_string().into());
         let look = cx.look();
         let page = cx.entity().downgrade();
         let draw: crate::job_view::DrawRaised = {
@@ -1330,13 +1327,14 @@ impl OperatorPageView {
         } else {
             gpui::px(0.)
         };
+        let mock = match (&self.wire, &session) {
+            (Wire::Mock(mock), Some(_)) => Some(mock.thread.clone()),
+            _ => None,
+        };
         Some(crate::job_view::OperatorPane {
-            session: session.as_str().to_string().into(),
+            session: session.unwrap_or_else(|| crate::job_view::UNSTARTED.into()),
             record: self.session.clone(),
-            mock: match &self.wire {
-                Wire::Mock(mock) => Some(mock.thread.clone()),
-                Wire::Live(_) => None,
-            },
+            mock,
             raised: self.talk_cards().into_iter().map(|turn| turn.id.clone()).collect(),
             draw,
             say,
@@ -2166,7 +2164,7 @@ mod tests {
         assert!(matches!(status_of(Some(&both)), Status::Stopped { .. }));
         // No session yet is Starting, with a neutral chip and no button.
         assert_eq!(status_of(None), Status::Starting);
-        assert_eq!(status_of(None).line(now), "Fleet starts its session on the next tick");
+        assert_eq!(status_of(None).line(now), "Fleet is starting its session");
         // Among Fleet's Jobs the Operator's live session is the one read, over an ended one that was seen later.
         let mut old = watching.clone();
         old.id = ipc::SessionId::carried("old-op");
@@ -2197,11 +2195,8 @@ mod tests {
             assert!(drawn(cx, gpui::Role::Status, line), "{scene}: {line}");
         }
         assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"), "the stopped card offers Restart");
-        // Each card has the one press its state offers: Restart on the stopped one, the button that opens the session on the rest.
         page.update(cx, |page, cx| page.scene("watching", cx).expect("a scene"));
         cx.run_until_parked();
-        assert!(drawn(cx, gpui::Role::Button, "See what it is doing"));
-        // (The test window keeps every frame's labels, so what is no longer drawn is read from the page's own state.)
         page.read_with(cx, |page, _| assert!(matches!(page.status(), super::super::status::Status::Watching { .. }) && page.session_id().is_some()));
     }
 
@@ -2230,28 +2225,89 @@ mod tests {
         assert!(drawn(cx, gpui::Role::Region, "Nothing needs you"));
     }
 
+    /// The page as Fleet reads it with `session_id` and `talk_session_id` as given, and the Operator's record as given.
+    fn sessions(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext, live: Option<&str>, talk: Option<&str>, record: Option<ipc::SessionRecord>) {
+        page.update(cx, |page, cx| {
+            let mut read = page.page.clone().expect("the page is read");
+            read.session_id = live.map(SessionId::carried);
+            read.talk_session_id = talk.map(SessionId::carried);
+            page.session = record;
+            page.set_page(read, cx);
+        });
+        redraw(cx);
+    }
+
+    fn pane_key(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Option<String> {
+        page.update(cx, |page, cx| page.operator_pane(cx).map(|pane| pane.session.to_string()))
+    }
+
     #[gpui::test]
-    fn a_press_on_see_what_it_is_doing_asks_to_open_the_operators_session_by_its_id(cx: &mut TestAppContext) {
+    fn with_the_switch_on_and_no_operator_session_at_all_the_talk_and_its_box_are_drawn_and_take_words(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
-        let heard = asked.clone();
-        let _hearing = cx.update(|_, cx| cx.subscribe(&page, move |_, event: &Opened, _| heard.borrow_mut().push(event.clone())));
-        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
-        cx.run_until_parked();
-        let button = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "See what it is doing").map(|drawn| drawn.bounds)).expect("the button is drawn");
-        cx.simulate_click(button.center(), gpui::Modifiers::none());
-        cx.run_until_parked();
-        assert_eq!(*asked.borrow(), [Opened::Session(SessionId::carried("mock-op"))]);
-        // Starting has no session to open and no button.
+        sessions(&page, cx, None, None, None);
+        assert_eq!(pane_key(&page, cx).as_deref(), Some(crate::job_view::UNSTARTED), "the talk is drawn with no session to read");
+        assert_eq!(cx.update(|_, cx| crate::job_view::operator_drawn_for(cx)).as_deref(), Some(crate::job_view::UNSTARTED));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        assert!(cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx)), "the box is drawn and has the keys");
+        cx.simulate_input("Are you there?");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        page.update(cx, |page, _| assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Are you there?".to_string(), None)], "his words go to Fleet, which starts a session for them"));
+    }
+
+    #[gpui::test]
+    fn with_no_session_running_the_talk_is_the_newest_sessions_and_its_box_stays(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let mut ended = scenes::session("stopped");
+        ended.id = SessionId::carried("old-op");
+        ended.state = ipc::SessionState::Ended;
+        sessions(&page, cx, None, Some("old-op"), Some(ended));
+        assert_eq!(pane_key(&page, cx).as_deref(), Some("old-op"), "the talk is the ended session's thread");
+        assert_eq!(cx.update(|_, cx| crate::job_view::operator_drawn_for(cx)).as_deref(), Some("old-op"));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        assert!(cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx)), "an ended session's box is still drawn");
+        // A live session takes its place once Fleet names one.
+        sessions(&page, cx, Some("mock-op"), Some("mock-op"), Some(scenes::session("working")));
+        assert_eq!(pane_key(&page, cx).as_deref(), Some("mock-op"));
+    }
+
+    #[gpui::test]
+    fn no_state_of_the_status_card_opens_the_operators_session_as_a_job(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        for scene in ["quiet", "watching", "stopped"] {
+            page.update(cx, |page, cx| page.scene(scene, cx).expect("a scene"));
+            redraw(cx);
+        }
         page.update(cx, |page, cx| {
             page.session = None;
             cx.notify();
         });
+        redraw(cx);
+        page.read_with(cx, |page, _| assert_eq!(page.status(), super::super::status::Status::Starting));
+        // The test window keeps every frame's labels: none of them drew the button.
+        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"), "working, watching, stopped and starting draw no button that opens the session");
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"), "stopped keeps its Restart");
+    }
+
+    #[gpui::test]
+    fn while_restart_is_in_flight_the_page_never_reads_off(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         cx.run_until_parked();
-        // The button is drawn only where a session can be opened.
-        assert!(page.read_with(cx, |page, _| page.session_id().is_none()));
-        page.update(cx, |page, cx| page.open_session(cx));
-        assert_eq!(asked.borrow().len(), 1, "with no session nothing is asked");
+        page.update(cx, |page, cx| {
+            page.restart(cx);
+            // Fleet's page, read between the two saves, says the switch is off.
+            if let Some(read) = page.page.as_mut() {
+                read.on = false;
+            }
+            assert!(page.restarting);
+            assert!(!page.is_off(), "the Cockpit does not flash in between off and on");
+            assert!(page.operator_pane(cx).is_some(), "the talk stays drawn through the restart");
+        });
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(!page.restarting && !page.is_off()));
     }
 
     #[gpui::test]
@@ -2296,7 +2352,7 @@ mod tests {
             assert!(page.page.as_ref().is_some_and(|page| page.on), "the Operator is on again");
             assert!(page.items().is_empty(), "the page is as quiet as it was");
         });
-        assert!(drawn(cx, gpui::Role::Status, "Fleet starts its session on the next tick"));
+        assert!(drawn(cx, gpui::Role::Status, "Fleet is starting its session"));
         // A refused switch is said on the card, which keeps its Restart.
         page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         page.update(cx, |page, cx| {

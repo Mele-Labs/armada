@@ -194,8 +194,8 @@ async fn later_sends_a_card_off_the_page_and_tells_the_operator_when_and_his_wor
     eventually(|| async { heard(&rig, "Anything else?") >= 1 }).await;
 
     rig.fleet.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await.expect("closed");
-    let refused: Refusal = rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect_err("nothing would hear it");
-    assert_eq!(code(refused).1, "fleet.operator_session_not_running");
+    rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect("kept until a session is up");
+    assert_eq!(rig.fleet.store().lock().await.operator_held_sends().expect("read").len(), 1, "kept, not refused");
 }
 
 #[tokio::test]
