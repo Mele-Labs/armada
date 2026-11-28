@@ -1,7 +1,7 @@
 //! Graphs a Job puts in its thread, drawn natively from a Vega-Lite subset (`ipc::graph`).
 //!
 //! `compile` works a spec out on its rows, `plot` paints the result with gpui-component's plot
-//! primitives, and `feeds` holds the live rows a spec's `data.name` reads. The card that frames a
+//! primitives, `svg` writes the same plot for a document's page, and `feeds` holds the live rows a spec's `data.name` reads. The card that frames a
 //! graph in the thread and the Graphs tab are the Job view's (`job_view/graph_card.rs`).
 
 pub mod compile;
@@ -9,6 +9,7 @@ pub mod feeds;
 pub mod mock;
 pub mod plot;
 pub mod spark;
+pub mod svg;
 pub mod ticks;
 
 use ipc::graph::Spec;

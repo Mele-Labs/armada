@@ -309,7 +309,7 @@ fn n(value: f32) -> String {
 }
 
 /// A colour as the text an SVG and a stylesheet both read.
-fn css(color: Hsla) -> String {
+pub(crate) fn css(color: Hsla) -> String {
     let rgba: Rgba = color.into();
     let byte = |channel: f32| (channel.clamp(0., 1.) * 255.).round() as u8;
     if rgba.a >= 0.999 {
@@ -320,7 +320,7 @@ fn css(color: Hsla) -> String {
 }
 
 /// Text for an XML body or an attribute (`xml`).
-fn xml(text: &str) -> String {
+pub(crate) fn xml(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         match c {

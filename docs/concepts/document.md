@@ -151,8 +151,14 @@ A Write or Edit is always kept, since the tool call says the Job wrote it.
 **Rule.** A page may link `armada-kit.css` and add its own `<style>`; its own rules win over the kit's.
 The kit is Armada's type and colour tokens as plain styling for headings, paragraphs, tables, code, quotes and figures, in `classic-final:packages/screens/src/document-kit.ts`.
 
-**Rule.** `<armada-sketch title="…">` is the kit's one element, and Bridge draws it as a live sketch.
+**Rule.** `<armada-sketch title="…">` is a kit element, and Bridge draws it as a live sketch.
 Its scene is JSON in a `<script type="application/json">` child, in the format `sketch-pane.md` owns.
+
+**Rule.** `<armada-graph title="…">` is a kit element, and Bridge draws it as a chart, the thread's graph compiler written as SVG.
+Its spec is the Vega-Lite subset `ipc::graph::read_spec` reads, in a `<script type="application/json">` child with its rows in `data.values`.
+`<armada-graph graph="<id>">` draws the Job's live graph of that id from the rows Bridge holds, and is drawn again when they change.
+A spec that does not read draws a muted line saying why in place of the graph.
+The phone does not draw `<armada-graph>` yet.
 
 **Rule.** A scene that does not validate draws an empty frame, as in a `show_sketch` call.
 

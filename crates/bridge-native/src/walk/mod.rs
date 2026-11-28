@@ -1656,6 +1656,12 @@ pub static WALKS: &[Walk] = &[
             answer("A stat strip: each number with its sparkline and its change", "thread-wheel:327", "article", "Graph: checkout-api health"),
             answer("Traffic split between stable and canary", "thread-wheel:469", "article", "Graph: Traffic split"),
             answer("Latency against payload size, a dot per request", "thread-wheel:235", "article", "Graph: Latency by payload size"),
+            step(
+                "A document the Job wrote holds a live graph of its own, drawn again as rows arrive, one with its rows inline, and one that says why it does not draw",
+                Verb::OpenIn("Document: Checkout after 4.12, Revision 1", "Open"),
+                "region",
+                "Reader: Checkout after 4.12",
+            ),
             press_on("Open in Graphs holds every graph of the Job, larger", "button", "Open Latency by payload size in Graphs", "region", "Graphs"),
             answer("The same graphs in the light theme", "look-light", "region", "Graphs"),
         ],

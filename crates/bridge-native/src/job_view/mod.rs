@@ -90,6 +90,7 @@ mod parts_card;
 mod parts_fold;
 mod parts_reader;
 mod live_pill;
+mod page_graphs;
 mod page_sketches;
 mod reader;
 mod reader_draw;
