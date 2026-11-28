@@ -145,6 +145,9 @@ where
         if let Some(row) = &tool_row {
             store.link_session_check(run, row).map_err(|why| self.ledger_fault(why))?;
         }
+        if let Some(tree) = call.tree.as_deref().map(str::trim).filter(|tree| !tree.is_empty()) {
+            store.tree_of_session_check(run, tree).map_err(|why| self.ledger_fault(why))?;
+        }
         drop(store);
         self.session_check_row(&session, name, target, None, tool_row.as_deref(), run, &at, SessionCheckState::Running)
             .await?;
@@ -182,6 +185,11 @@ where
                 target,
             )
             .map_err(|why| self.ledger_fault(why))?;
+        if ended {
+            store
+                .measure_session_check(run, call.queue_wait_ms, call.cpu_ms)
+                .map_err(|why| self.ledger_fault(why))?;
+        }
         drop(store);
         self.session_check_live().ended(run);
         if ended {

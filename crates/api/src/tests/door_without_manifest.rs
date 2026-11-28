@@ -164,7 +164,7 @@ async fn the_operator_is_offered_no_job_only_act_and_a_call_to_one_is_refused() 
 
     let operator = posted(&app, SESSION, LISTING).await;
 
-    for tool in ["waiting_for", "list_closed_waiting", "all_done", "finish_up", "record_plan", "offer_preview", "withdraw_preview", "defer_later", "settle_later", "raise_conflict", "ask_held", "withdraw_held", "write_feature_sections"] {
+    for tool in ["waiting_for", "list_closed_waiting", "all_done", "finish_up", "record_plan", "offer_preview", "withdraw_preview", "defer_later", "settle_later", "raise_conflict", "ask_held", "withdraw_held", "settle_clash", "write_feature_sections"] {
         assert!(job.contains(&named(tool)), "`{tool}` is a Job's: {job}");
         assert!(!operator.contains(&named(tool)), "`{tool}` is a Job's alone, and offered to the Operator: {operator}");
     }

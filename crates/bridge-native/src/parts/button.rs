@@ -28,6 +28,17 @@ impl Kind {
 }
 
 pub fn button(look: &Look, id: impl Into<ElementId>, kind: Kind, glyph: Option<&str>, said: impl Into<SharedString>, off: bool) -> Stateful<Div> {
+    drawn(look, id, kind, glyph, said, off, false)
+}
+
+/// A button while its act is under way: the busy ring circles its border, it drops its glyph, and
+/// it takes no press and no hover. The caller adds no press.
+pub fn busy_button(look: &Look, id: impl Into<ElementId>, kind: Kind, said: impl Into<SharedString>) -> Stateful<Div> {
+    drawn(look, id, kind, None, said, false, true)
+}
+
+fn drawn(look: &Look, id: impl Into<ElementId>, kind: Kind, glyph: Option<&str>, said: impl Into<SharedString>, off: bool, busy: bool) -> Stateful<Div> {
+    let id: ElementId = id.into();
     let (ground, hover, ink, edge) = match kind {
         Kind::Primary => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
         Kind::Secondary => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_DEFAULT)),
@@ -35,7 +46,7 @@ pub fn button(look: &Look, id: impl Into<ElementId>, kind: Kind, glyph: Option<&
     };
     let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
     let body = div()
-        .id(id)
+        .id(id.clone())
         .flex_none()
         .h(look.length(token::H_CONTROL))
         .px(look.length(token::SPACE_3))
@@ -51,12 +62,15 @@ pub fn button(look: &Look, id: impl Into<ElementId>, kind: Kind, glyph: Option<&
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .text_color(ink)
         .focusable()
-        .tab_stop(!off)
+        .tab_stop(!off && !busy)
         .focus_visible(move |style| style.border_color(ring))
         .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
         .children(glyph.map(|name| super::glyph(name, look.length(token::SPACE_4), ink)))
         .child(said.into());
-    if off {
+    if busy {
+        let tone = if kind == Kind::Primary { look.color(token::TEXT_ON_ACCENT) } else { look.color(token::ACCENT) };
+        body.relative().child(super::ring::ring_overlay(look, SharedString::from(format!("{id:?}-ring")), look.length(token::RADIUS_LG), tone))
+    } else if off {
         body.opacity(0.5)
     } else {
         body.cursor_pointer().hover(move |style| style.bg(hover))

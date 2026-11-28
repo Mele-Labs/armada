@@ -251,6 +251,7 @@ If your change touches `crates/ipc`, the route table in
 | [A check of a feature's docs against its code: `check_docs`, `dismiss_doc_flag`, `start_doc_job` and `check` on `FeatureRead`](protocol/a-check-of-a-features-docs.md) |
 | [A project starts its library: `get_library_start` and `draft_module_features`](protocol/a-project-starts-its-library.md) |
 | [The owner groups Jobs into a sub project: `start_sub_project`, `list_sub_projects` and `ungroup_sub_project`](protocol/the-owner-groups-jobs-into-a-sub-project.md) |
+| [Two Jobs settle a clash: `settle_clash`, `SessionRecord.clashes` and `WaitingSource::ClashOrder`](protocol/two-jobs-settle-a-clash.md) |
 | [To review, across Jobs: `list_to_review`](protocol/to-review-across-jobs.md) |
 | [A sub project has an orchestrator: `goal`, `turn_into_orchestrator` and the `goal_met` card](protocol/a-sub-project-has-an-orchestrator.md) |
 | [Open questions](#open-questions) |

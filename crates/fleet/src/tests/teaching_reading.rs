@@ -26,6 +26,7 @@ fn teaching(rig: &Rig, words: &str, said: &str) -> ReadTeaching {
         message: format!("The ticket is {words}, see it."),
         said: said.to_string(),
         repository: Some(rig.root.clone()),
+        project: None,
         reach: TeachingReach::Repository,
         session_id: Some("s1".to_string()),
         source: None,
