@@ -290,7 +290,8 @@ where
     }
 
     /// The words to `session` that it was not told before, as the store keeps it, so a restart, which
-    /// forgets `held`, does not repeat them. A store that cannot say tells again rather than stays quiet.
+    /// forgets `held`, does not repeat them, and no file it settled with the other Job. A store that cannot say
+    /// tells again rather than stays quiet.
     async fn claims_unrepeated(&self, session: &str, waits: Vec<Word>, shared: Vec<(Vec<Wanted>, Claimant)>) -> Vec<String> {
         if waits.is_empty() && shared.is_empty() {
             return Vec::new();
@@ -314,7 +315,13 @@ where
         }
         for (files, by) in shared {
             let holder = holder_key(&by.holder);
-            let new: Vec<&Wanted> = files.iter().filter(|file| !store.claims_told_before(session, &about_file(file), &holder).unwrap_or(false)).collect();
+            // A file the pair settled which lands first is theirs already: nothing to agree.
+            let settled = store.job_clash(session, &by.holder.id).ok().flatten();
+            let new: Vec<&Wanted> = files
+                .iter()
+                .filter(|file| !settled.as_ref().is_some_and(|clash| clash.settles(&file.named)))
+                .filter(|file| !store.claims_told_before(session, &about_file(file), &holder).unwrap_or(false))
+                .collect();
             if new.is_empty() {
                 continue;
             }
