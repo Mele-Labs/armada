@@ -30,6 +30,18 @@ const PUSH_BUILD_WAIT: Duration = Duration::from_secs(40 * 60);
 /// The pull request notice key that a push was checked, once a commit and Job.
 const CHECKED: &str = "look_checked";
 
+/// Where a build's binary is sent, for an ask no row waits on: the path, or why there is none.
+pub(crate) type Answer = Arc<tokio::sync::watch::Sender<Option<Result<PathBuf, String>>>>;
+
+impl Ask {
+    /// Whether this ask, waiting or running, is the one `newer` replaces: the same Job and address.
+    /// **An ask no row waits on is never replaced and replaces none**: a look checked against the one he
+    /// approved needs the binary of a commit and nothing else, and writes no row.
+    pub(crate) fn replaced_by(&self, newer: &Ask) -> bool {
+        self.answer.is_none() && newer.answer.is_none() && self.session == newer.session && self.url == newer.url
+    }
+}
+
 /// What one kept look came to against the Job's commit.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Compared {
@@ -82,6 +94,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// One ask to build: its row written as it ends, or, where nobody's row waits, its binary sent to
+    /// whoever asked.
+    pub(crate) async fn walk_driven(self: &Arc<Self>, ask: &Ask) {
+        match &ask.answer {
+            Some(answer) => {
+                answer.send_replace(Some(self.walk_compiled(ask).await));
+            }
+            None => self.walk_built(ask).await,
+        }
+    }
+
     /// Every look the Job kept, against `commit` (the Job's head where `None`). **Nothing runs for a Job
     /// that kept none.**
     pub(crate) async fn looks_compared(&self, session: &str, commit: Option<&str>, wait: Duration) -> Vec<(KeptLook, Compared)> {
@@ -161,7 +184,8 @@ where
     }
 
     /// **A push to a pull request that is open**, read at its head: each look its owner kept is checked
-    /// there, once a commit, and a drift is told to the Job. Fleet writes nothing to the forge.
+    /// there, once a commit, and a drift, or a look that could not be compared, is told to the Job.
+    /// Fleet writes nothing to the forge.
     pub(crate) async fn pull_looks_told(self: &Arc<Self>, served: &Served, number: u64, branch: &str, head: &str) {
         for Owner::Session(id) in self.owners_of(served, number, branch, false).await {
             let recipient = Owner::Session(id.clone()).key();
@@ -176,14 +200,19 @@ where
                 continue;
             }
             let (fleet, head) = (Arc::clone(self), head.to_string());
-            tokio::spawn(async move {
-                for (_, answer) in fleet.looks_compared(&id, Some(&head), PUSH_BUILD_WAIT).await {
-                    if let Compared::Drifted(text) = answer {
-                        let text = format!("#{number} was pushed at {}. {text}", short(&head));
-                        let _ = fleet.told_by_fleet(&id, &text, ipc::Notice::WalkFailed).await;
-                    }
-                }
-            });
+            tokio::spawn(async move { fleet.pushed_looks_told(&id, number, &head, PUSH_BUILD_WAIT).await });
+        }
+    }
+
+    /// Each look the Job kept, against what was pushed. **Silence never reads as a match**: a look that
+    /// drifted and one that could not be compared (a build that failed or ran out of time, a walk that
+    /// would not play) are both told to the Job, with why.
+    pub(crate) async fn pushed_looks_told(self: &Arc<Self>, id: &str, number: u64, head: &str, wait: Duration) {
+        for (_, answer) in self.looks_compared(id, Some(head), wait).await {
+            if let Compared::Drifted(text) | Compared::Unrun(text) = answer {
+                let text = format!("#{number} was pushed at {}. {text}", short(head));
+                let _ = self.told_by_fleet(id, &text, ipc::Notice::WalkFailed).await;
+            }
         }
     }
 }

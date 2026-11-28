@@ -126,5 +126,7 @@ Fleet asks the walk build queue for that commit's binary, plays the walk with `-
 A step that drifted fails the pre-PR check, and the Job is told which steps, with the side by side and difference pictures of each.
 The Job either fixes the screen or shows the walk again with `show_window` for a new approval.
 A Job that kept no look has nothing run.
-**A push to a pull request that is open** is checked the same way, once a commit, and a drift is told to the Job.
+**A push to a pull request that is open** is checked the same way, once a commit.
+A drift is told to the Job, and so is a look that could not be compared (a build that failed or ran out of time, a walk that would not play), naming why.
+Silence never reads as a match.
 Fleet never writes to the forge, and a drift never goes to him.

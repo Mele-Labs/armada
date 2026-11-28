@@ -76,9 +76,8 @@ impl Looking {
         self.kept().await.into_iter().find(|one| one.walk == walk).expect("kept")
     }
 
-    /// The pre-PR answer, while the notice loop's looks drive the build queue.
-    async fn pre_pr(&self) -> PrePrChecked {
-        let asked = CheckBeforePr { session_id: Some(self.id.clone()) };
+    /// `work`, while the notice loop's looks drive the build queue.
+    async fn driven<T>(&self, work: impl std::future::Future<Output = T>) -> T {
         let driver = async {
             loop {
                 self.rig.fleet.walk_builds_driven().await;
@@ -86,9 +85,19 @@ impl Looking {
             }
         };
         tokio::select! {
-            answered = self.rig.fleet.pre_pr_checked(None, asked) => answered.expect("answered"),
+            done = work => done,
             () = driver => unreachable!("never ends"),
         }
+    }
+
+    async fn pre_pr(&self) -> PrePrChecked {
+        let asked = CheckBeforePr { session_id: Some(self.id.clone()) };
+        self.driven(self.rig.fleet.pre_pr_checked(None, asked)).await.expect("answered")
+    }
+
+    /// What the Job was told, as the stand-in agent received it.
+    fn told(&self) -> Vec<String> {
+        self.rig.stand_in.process(1).sent.lock().unwrap().clone()
     }
 
     fn compared(&self) -> usize {
@@ -208,4 +217,43 @@ async fn a_job_with_no_kept_look_has_nothing_run_before_its_pull_request_opens()
     assert!(answered.checks.is_empty());
     assert_eq!(it.compared(), 0);
     assert!(!it.rig.fleet.walk_builds().busy(), "no build was asked for");
+}
+
+/// A push to the pull request, read at `head`: the look checked there, and what the Job was told.
+async fn pushed(it: &Looking, head: &str) {
+    let fleet = std::sync::Arc::clone(&it.rig.fleet);
+    it.driven(fleet.pushed_looks_told(it.id.as_str(), 7, head, Duration::from_secs(30))).await;
+}
+
+#[tokio::test]
+async fn a_push_that_drifted_is_told_to_the_job_with_the_pictures_and_one_that_did_not_is_not() {
+    let it = looking_at_a_walk().await;
+    let approved = it.built_at(URL).await;
+    it.rig.send(&it.id, &format!("Shipped: {URL}")).await;
+    it.kept_at("sidebar", &approved).await;
+    let same = commit(&it.slot, "same");
+
+    pushed(&it, &same).await;
+    assert_eq!(it.compared(), 1, "the walk was played");
+    assert!(it.told().iter().all(|line| !line.contains("was pushed")), "a match is not news: {:?}", it.told());
+
+    std::fs::write(&it.drift, "").expect("drift");
+    let moved = commit(&it.slot, "moved");
+    pushed(&it, &moved).await;
+    until(|| async { it.told().iter().any(|line| line.contains("#7 was pushed") && line.contains(".against/step-01.side.png")) }).await;
+}
+
+#[tokio::test]
+async fn a_push_that_could_not_be_compared_is_told_to_the_job_with_why_and_never_read_as_a_match() {
+    let it = looking_at_a_walk().await;
+    let approved = it.built_at(URL).await;
+    it.rig.send(&it.id, &format!("Shipped: {URL}")).await;
+    it.kept_at("sidebar", &approved).await;
+    let broken = commit(&it.slot, "broken");
+    builds_with(&it.rig, "echo no compiler >&2; exit 1".into());
+
+    pushed(&it, &broken).await;
+
+    until(|| async { it.told().iter().any(|line| line.contains("#7 was pushed") && line.contains("was not compared") && line.contains("no compiler")) }).await;
+    assert_eq!(it.compared(), 0, "nothing was played");
 }

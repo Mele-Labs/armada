@@ -22,6 +22,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 use ipc::{SessionRow, WalkBuild, WalkBuildState};
 
+use crate::approved_looks::tail_of;
 use crate::daemon::Fleet;
 
 /// Under Fleet's support folder: `<repository key>/tree` and `<repository key>/bins/<commit>`.
@@ -38,9 +39,6 @@ const BUILT: &str = "crates/bridge-native/target/release/bridge-native";
 
 /// What a build may take, held turns included: a cold build on a loaded machine is long.
 const BUDGET: Duration = Duration::from_secs(90 * 60);
-
-/// How many of the build's last lines the Job is given.
-const TAIL: usize = 20;
 
 /// Where one repository's walk builds are kept.
 fn root_of(home: &str, key: &str) -> PathBuf {
@@ -82,9 +80,6 @@ pub(crate) struct Place {
     pub(crate) preview: PathBuf,
 }
 
-/// Where a build's binary is sent, for an ask no row waits on: the path, or why there is none.
-pub(crate) type Answer = Arc<tokio::sync::watch::Sender<Option<Result<PathBuf, String>>>>;
-
 /// One build asked for: the Job's walk at one commit.
 #[derive(Clone, Debug)]
 pub(crate) struct Ask {
@@ -92,9 +87,8 @@ pub(crate) struct Ask {
     pub(crate) url: String,
     pub(crate) commit: String,
     pub(crate) place: Place,
-    /// **Set where no row waits on the build**: a look checked against the one he approved needs the
-    /// binary of a commit and nothing else. Such an ask is never replaced, and writes no row.
-    pub(crate) answer: Option<Answer>,
+    /// Set where no row waits on the build: `crate::approved_looks_checking`.
+    pub(crate) answer: Option<crate::approved_looks_checking::Answer>,
 }
 
 #[derive(Default)]
@@ -125,12 +119,8 @@ impl WalkBuilds {
     /// one running is left to end: its row is no longer the commit wanted, so its result is dropped.
     pub(crate) fn asked(&self, ask: Ask) {
         let mut queue = self.queue.lock().expect("not poisoned");
-        if ask.answer.is_some() {
-            queue.waiting.push(ask);
-            return;
-        }
-        queue.waiting.retain(|one| one.answer.is_some() || !(one.session == ask.session && one.url == ask.url));
-        let running = queue.running.as_ref().is_some_and(|one| one.answer.is_none() && one.session == ask.session && one.url == ask.url && one.commit == ask.commit);
+        queue.waiting.retain(|one| !one.replaced_by(&ask));
+        let running = queue.running.as_ref().is_some_and(|one| one.replaced_by(&ask) && one.commit == ask.commit);
         if !running {
             queue.waiting.push(ask);
         }
@@ -231,13 +221,6 @@ fn tree_at(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> 
         let _ = checks_runner::Priority::Low.spawning("cp").args([clone, "-R"]).arg(&seed).arg(&into).status();
     }
     Ok(tree)
-}
-
-/// The last [`TAIL`] lines of what a failed build printed: cargo prints on stderr.
-fn tail_of(stderr: &str, stdout: &str) -> String {
-    let text = if stderr.trim().is_empty() { stdout } else { stderr };
-    let lines: Vec<&str> = text.lines().collect();
-    lines[lines.len().saturating_sub(TAIL)..].join("\n")
 }
 
 /// [`tree_at`] for a test of it.
@@ -400,7 +383,7 @@ where
         let Some(ask) = self.walk_builds().next() else { return };
         let fleet = Arc::clone(self);
         tokio::spawn(async move {
-            fleet.walk_built(&ask).await;
+            fleet.walk_driven(&ask).await;
             // Before the turn is given up, so what moved while it built is asked for as this one ends.
             fleet.walk_builds_moved(&ask.session).await;
             fleet.walk_builds().done();
@@ -425,12 +408,7 @@ where
 
     /// Build one ask, and write how it went on the walk's row. A walk that has gone, or moved to a
     /// newer commit, since it was asked for is not built.
-    async fn walk_built(self: &Arc<Self>, ask: &Ask) {
-        if let Some(answer) = &ask.answer {
-            // No row to write: the binary, or why there is none, goes to whoever asked.
-            answer.send_replace(Some(self.walk_compiled(ask).await));
-            return;
-        }
+    pub(crate) async fn walk_built(self: &Arc<Self>, ask: &Ask) {
         let Some((SessionRow::Window { build: Some(held), .. }, names)) = self.walk_row_of(&ask.session, &ask.url).await else { return };
         if held.commit != ask.commit || held.state != WalkBuildState::Building {
             return;
@@ -465,7 +443,7 @@ where
     }
 
     /// The binary of the ask's commit: kept already, or built in the repository's tree and copied out.
-    async fn walk_compiled(&self, ask: &Ask) -> Result<PathBuf, String> {
+    pub(crate) async fn walk_compiled(&self, ask: &Ask) -> Result<PathBuf, String> {
         let home = self.host().home.clone();
         let binary = binary_of(&home, &ask.place.key, &ask.commit);
         if binary.is_file() {

@@ -59,6 +59,16 @@ pub(crate) async fn played(binary: &Path, args: &[String]) -> Result<Played, Str
     }
 }
 
+/// How many of a build's last lines the Job is given.
+const TAIL: usize = 20;
+
+/// The last [`TAIL`] lines of what a failed build printed: cargo prints on stderr.
+pub(crate) fn tail_of(stderr: &str, stdout: &str) -> String {
+    let text = if stderr.trim().is_empty() { stdout } else { stderr };
+    let lines: Vec<&str> = text.lines().collect();
+    lines[lines.len().saturating_sub(TAIL)..].join("\n")
+}
+
 /// How many pictures a folder holds.
 fn pictures_in(folder: &Path) -> usize {
     std::fs::read_dir(folder)
