@@ -62,6 +62,9 @@ export type Route =
       screen: "home";
     }
   | {
+      screen: "jobs";
+    }
+  | {
       screen: "pair";
       code: string;
       origin?: string;
@@ -157,6 +160,10 @@ export function routeOf(whole: string): Route {
           }),
     };
   }
+  if (url.pathname === "/jobs")
+    return {
+      screen: "jobs",
+    };
   if (url.pathname === "/dispatch")
     return {
       screen: "dispatch",

@@ -10,7 +10,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { answer, type Posted } from "./fixture/gateway";
-import { PARTS_JOB, STEP_BAR, TRY_CARD } from "./fixture/artifacts";
+import { PARTS_JOB, STEP_BAR, toReviewTry, TRY_CARD } from "./fixture/artifacts";
 import {
   ARTIFACTS_JOB,
   artifactsJob,
@@ -310,8 +310,8 @@ describe("Pocket v2 with two Macs", {
   timeout: 30_000,
 }, () => {
   it("lists every Job from both Macs under a heading for each project, in each project's standing order, each row with its Mac's dot", async () => {
-    await open("/");
-    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    await open("/jobs");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(21));
     expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
       "Needs you",
       "Armada",
@@ -323,6 +323,10 @@ describe("Pocket v2 with two Macs", {
     ][] = [
       [
         "Review what a Job waits on",
+        "studio",
+      ],
+      [
+        "Pocket To review",
         "studio",
       ],
       [
@@ -403,10 +407,10 @@ describe("Pocket v2 with two Macs", {
       ],
     ];
     expect(titles()).toEqual(listed.map(([title]) => title));
-    // The nine that ask him, from both Macs, head the list and leave their project.
-    expect(titles("Needs you")).toEqual(listed.slice(0, 9).map(([title]) => title));
-    expect(titles("Armada")).toEqual(listed.slice(9, 17).map(([title]) => title));
-    expect(titles("store")).toEqual(listed.slice(17).map(([title]) => title));
+    // The ten that ask him, from both Macs, head the list and leave their project.
+    expect(titles("Needs you")).toEqual(listed.slice(0, 10).map(([title]) => title));
+    expect(titles("Armada")).toEqual(listed.slice(10, 18).map(([title]) => title));
+    expect(titles("store")).toEqual(listed.slice(18).map(([title]) => title));
     for (const [title, mac] of listed)
       expect(job(title)!.querySelector(".pk-mac")!.getAttribute("aria-label")).toBe(mac);
     const said = job("Trim the Drone pool tests")!.querySelector(".pk-job__says")!.textContent;
@@ -415,8 +419,8 @@ describe("Pocket v2 with two Macs", {
   });
 
   it("narrows the list to one project from its dropdown, and lists a Job in no project only under All", async () => {
-    await open("/");
-    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    await open("/jobs");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(21));
     const select = host.querySelector<HTMLSelectElement>(
       'select[aria-label="Which project the list shows"]',
     );
@@ -441,19 +445,20 @@ describe("Pocket v2 with two Macs", {
       "Needs you",
       "Armada",
     ]);
-    expect(jobs()).toHaveLength(15);
+    expect(jobs()).toHaveLength(16);
     await pick("");
     expect(titles("store")).toHaveLength(3);
   });
 
   it("marks only the Mac that answered 401 as not paired, and the other still lists", async () => {
     forgotten.add(LAPTOP);
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(text()).toContain("Not paired"));
-    expect(window.location.pathname).toBe("/");
-    await vi.waitFor(() => expect(jobs()).toHaveLength(15));
+    expect(window.location.pathname).toBe("/jobs");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(16));
     expect(titles()).toEqual([
       "Review what a Job waits on",
+      "Pocket To review",
       "Trim the Drone pool",
       "Move Fleet to the preview",
       "Fix the lost lease",
@@ -578,7 +583,7 @@ describe("the phone draws as Bridge does", {
     const states = everyState(NOW);
     macs[STUDIO]!.live.push(...states.live);
     Object.assign(macs[STUDIO]!.threads, states.threads);
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(job("Land the slot fixes")).not.toBeNull());
     expect(job("Land the slot fixes")!.querySelector(".pk-job__says")!.textContent).toBe(
       "#3209 in the merge queue",
@@ -611,13 +616,14 @@ describe("the phone draws as Bridge does", {
   });
 
   it("lists Home as native's Jobs list, a Job that needs him in the needs lamp, each with its age", async () => {
-    await open("/");
-    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    await open("/jobs");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(21));
     const lampOfRow = (row: HTMLElement) =>
       row.closest("li")!.querySelector<HTMLElement>(".pk-job__card")!.dataset["lamp"];
     const asking = jobs().filter((row) => lampOfRow(row) === "needs");
     expect(asking.map((row) => row.getAttribute("aria-label"))).toEqual([
       "Review what a Job waits on",
+      "Pocket To review",
       "Trim the Drone pool",
       "Move Fleet to the preview",
       "Fix the lost lease",
@@ -676,7 +682,7 @@ describe("the phone draws as Bridge does", {
         title: "Unknown kind of wait",
       },
     );
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(job("Settings page, Account tab")).not.toBeNull());
     const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
     expect(headings.slice(0, 2)).toEqual([
@@ -733,8 +739,8 @@ describe("the phone draws as Bridge does", {
       id: "ended",
       title: "Plan the restart notes",
     };
-    await open("/");
-    await vi.waitFor(() => expect(jobs()).toHaveLength(20));
+    await open("/jobs");
+    await vi.waitFor(() => expect(jobs()).toHaveLength(21));
     const depth = (title: string) => {
       const item = job(title)!.closest("li")!;
       return {
@@ -793,7 +799,7 @@ describe("the phone draws as Bridge does", {
   });
 
   it("ends a Job that said it is done from its row, without opening it", async () => {
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(job("Trim the Drone pool tests")).not.toBeNull());
     await press(
       job("Trim the Drone pool tests")!
@@ -811,7 +817,7 @@ describe("the phone draws as Bridge does", {
       ]),
     );
     await vi.waitFor(() => expect(job("Trim the Drone pool tests")).toBeNull());
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/jobs");
   });
 
   it("opens a Job with Bridge's composer under its thread", async () => {
@@ -863,7 +869,7 @@ describe("a draft Job, and the acts on a Job", {
   beforeEach(() => localStorage.clear());
 
   it("lists a held Job as a row of its own, not in the needs lamp, and opens it to its draft", async () => {
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(job("Split the pool crate")).not.toBeNull());
     expect(titles().filter((one) => one === "Split the pool crate")).toHaveLength(1);
     expect(lamp("Split the pool crate")).not.toBe("needs");
@@ -933,7 +939,9 @@ describe("a draft Job, and the acts on a Job", {
         },
       ]),
     );
+    // Home is To review; the Jobs list no longer holds the draft.
     await vi.waitFor(() => expect(window.location.pathname).toBe("/"));
+    await press(button("Jobs"));
     await vi.waitFor(() => expect(jobs().length).toBeGreaterThan(0));
     await vi.waitFor(() => expect(job("Split the pool crate")).toBeNull());
   });
@@ -1218,7 +1226,7 @@ describe("a draft Job, and the acts on a Job", {
   });
 
   it("refreshes the preview from the menu on Home", async () => {
-    await open("/");
+    await open("/jobs");
     await vi.waitFor(() => expect(button("Menu")).toBeTruthy());
     await press(button("Menu"));
     await press(
@@ -2858,6 +2866,7 @@ describe("the lists stay fresh", {
     // The Mac's own list holds a draft too, which is waiting on its first message; Home sets it apart.
     expect(fleet.macOf(STUDIO)!.needs.map((one) => one.id)).toEqual([
       "f1",
+      "rv",
       "d1",
       "a1",
       "r1",
@@ -3201,5 +3210,259 @@ describe("the Operator on the phone", {
     await vi.waitFor(() => expect(field()!.value).toBe("Rename the footer links"));
     expect(sends()).toEqual([]);
     expect(posted[STUDIO]!.some((one) => one.path === "/api/queued/take_back")).toBe(false);
+  });
+});
+
+// To review, the screen Pocket opens on: every Job's asks over both Macs, grouped as Fleet groups them, each answered in
+// place through the operation its item names, with no Job opened.
+describe("To review", {
+  timeout: 30_000,
+}, () => {
+  const items = () =>
+    Array.from(host.querySelectorAll<HTMLElement>(".pk-rv")).map((one) =>
+      one.getAttribute("aria-label"),
+    );
+  const item = (label: string) =>
+    Array.from(host.querySelectorAll<HTMLElement>(".pk-rv")).find(
+      (one) => one.getAttribute("aria-label") === label,
+    );
+  const inItem = (label: string, name: string) =>
+    Array.from(item(label)?.querySelectorAll("button") ?? []).find(
+      (one) => one.textContent?.trim() === name,
+    );
+  const sentTo = (path: string) => posted[STUDIO]!.filter((one) => one.path === path);
+  const shown = async () => {
+    await open("/");
+    await vi.waitFor(() => expect(items()).toContain("Run the Pocket checks"));
+  };
+
+  it("opens on To review, each sub project under its goal, then each feature, then the Jobs in neither", async () => {
+    await shown();
+    expect(window.location.pathname).toBe("/");
+    expect(
+      Array.from(host.querySelectorAll(".pk-rv-group__head")).map((one) => one.textContent),
+    ).toEqual([
+      "Answer everything that needs me from the phone",
+      "No feature",
+    ]);
+    const first = host.querySelector(".pk-rv-group")!;
+    expect(first.textContent).toContain("Does the Try step look right?");
+    expect(first.textContent).toContain("Review what a Job waits on");
+    // Two Macs are paired, so each item names its Mac.
+    expect(
+      item("Run the Pocket checks")!.querySelector(".pk-rv__jobbar .pk-rv__mac")?.textContent,
+    ).toBe("studio");
+    expect(
+      host.querySelector('[aria-label="To review or Jobs"] [aria-current="page"]')?.textContent,
+    ).toBe("To review");
+  });
+
+  it("approves an item that asks for approval through answer_items, and it leaves the list", async () => {
+    await shown();
+    await press(inItem("Does the Try step look right?", "Approve"));
+    await vi.waitFor(() => expect(items()).not.toContain("Does the Try step look right?"));
+    expect(sentTo("/api/sessions/items/answer")).toEqual([
+      {
+        path: "/api/sessions/items/answer",
+        body: {
+          items: [
+            {
+              session_id: "rv",
+              item: "approve-try",
+              how: "approve",
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("sends an item back with his note through answer_items", async () => {
+    await shown();
+    await press(inItem("Does the Try step look right?", "Ask for changes"));
+    const note = item("Does the Try step look right?")!.querySelector("textarea")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
+        note,
+        "Name the step Try",
+      );
+      note.dispatchEvent(
+        new Event("input", {
+          bubbles: true,
+        }),
+      );
+    });
+    await press(inItem("Does the Try step look right?", "Send"));
+    await vi.waitFor(() => expect(sentTo("/api/sessions/items/answer")).toHaveLength(1));
+    expect(sentTo("/api/sessions/items/answer")[0]!.body).toEqual({
+      items: [
+        {
+          session_id: "rv",
+          item: "approve-try",
+          how: "send_back",
+          notes: [
+            {
+              text: "Name the step Try",
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("answers a question by its option through answer_waiting", async () => {
+    await shown();
+    await press(inItem("localhost wants to use your camera", "Allow"));
+    await vi.waitFor(() => expect(items()).not.toContain("localhost wants to use your camera"));
+    expect(sentTo("/api/sessions/waiting/answer")[0]!.body).toEqual({
+      session_id: "f1",
+      item_id: "browser_ask:tab-1",
+      choice: 0,
+    });
+  });
+
+  it("marks a thing to do done through done_waiting, its steps listed in order", async () => {
+    await shown();
+    expect(
+      Array.from(item("Pair the phone with the laptop")!.querySelectorAll("ol li")).map(
+        (one) => one.textContent,
+      ),
+    ).toEqual([
+      "Open Pocket on the phone",
+      "Menu, then Pair a Mac",
+      "Scan the code the laptop shows",
+    ]);
+    await press(inItem("Pair the phone with the laptop", "Done"));
+    await vi.waitFor(() => expect(items()).not.toContain("Pair the phone with the laptop"));
+    expect(sentTo("/api/sessions/waiting/done")[0]!.body).toEqual({
+      session_id: "rv",
+      item_id: "pair-phone",
+    });
+  });
+
+  it("runs a command on the Mac and dismisses an item, each without opening its Job", async () => {
+    await shown();
+    await press(inItem("Run the Pocket checks", "Run"));
+    await vi.waitFor(() => expect(sentTo("/api/sessions/run/start")).toHaveLength(1));
+    expect(sentTo("/api/sessions/run/start")[0]!.body).toEqual({
+      session_id: "rv",
+      command: "pnpm -C apps/pocket test",
+    });
+    await press(inItem("main went red after this Job's last push", "Dismiss"));
+    await vi.waitFor(() =>
+      expect(items()).not.toContain("main went red after this Job's last push"),
+    );
+    expect(sentTo("/api/sessions/waiting/dismiss")[0]!.body).toEqual({
+      session_id: "f1",
+      item_id: "call:1",
+    });
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("says Fleet's refusal on the item it refused, and the item stays", async () => {
+    await shown();
+    // The Job raised the item again as a plain question after the phone read the list.
+    const record = macs[STUDIO]!.threads["rv"]!.session;
+    record.waiting_for = (record.waiting_for ?? []).map((one) =>
+      one.id === "approve-try"
+        ? {
+            ...one,
+            approves: false,
+          }
+        : one,
+    );
+    await press(inItem("Does the Try step look right?", "Approve"));
+    await vi.waitFor(() =>
+      expect(item("Does the Try step look right?")?.textContent).toContain(
+        "has no Approve: it is answered on its own",
+      ),
+    );
+  });
+
+  it("drops an item Fleet no longer waits on when the answer is refused", async () => {
+    await shown();
+    // The Job took the item back after the phone read the list.
+    const record = macs[STUDIO]!.threads["rv"]!.session;
+    record.waiting_for = (record.waiting_for ?? []).filter((one) => one.id !== "approve-try");
+    await press(inItem("Does the Try step look right?", "Approve"));
+    await vi.waitFor(() => expect(items()).not.toContain("Does the Try step look right?"));
+  });
+
+  it("says the Operator's read and pick on the item it read, and on no other", async () => {
+    await shown();
+    const read = item("Mark the tracker tasks done?")!.querySelector('[aria-label="Operator"]');
+    expect(read?.textContent).toContain("Every task in the tracker mod's plan is ticked");
+    expect(read?.textContent).toContain("Would pick: Mark done");
+    expect(item("Move ARM-41 to In progress")!.querySelector('[aria-label="Operator"]')).toBeNull();
+  });
+
+  it("heads each item with its Job and what the Job is doing, and opens the Job from there", async () => {
+    await shown();
+    const bar = item("Mark the tracker tasks done?")!.querySelector<HTMLButtonElement>(
+      ".pk-rv__jobbar",
+    )!;
+    expect(bar.querySelector(".pk-rv__jobtitle")?.textContent).toBe("Close out the tracker mod");
+    await vi.waitFor(() =>
+      expect(bar.querySelector(".pk-rv__now")?.textContent).toBe(
+        "Ticked every task in the plan; its pull request merged.",
+      ),
+    );
+    expect(bar.querySelector(".pk-rv__mac")?.textContent).toBe("studio");
+    await press(bar);
+    await vi.waitFor(() => expect(window.location.pathname).toMatch(/^\/jobs\/.+\/o1$/));
+  });
+
+  it("draws every Job ready to try in one Ready to try card, a row each, and answers each row for its own Job", async () => {
+    const studio = macs[STUDIO]!;
+    const parts = partsJob(NOW);
+    studio.live.unshift(parts.listed);
+    studio.threads[PARTS_JOB] = parts.thread;
+    studio.artifacts = {
+      [PARTS_JOB]: parts.artifacts,
+    };
+    const second = toReviewTry(NOW);
+    studio.threads["rv"]!.session.waiting_for?.unshift(second.item);
+    studio.tries = {
+      [PARTS_JOB]: parts.tries,
+      rv: [
+        second.card,
+      ],
+    };
+    await shown();
+    await vi.waitFor(() =>
+      expect(host.querySelectorAll(".pk-rv-try__job .pk-try")).toHaveLength(2),
+    );
+    expect(host.querySelectorAll(".pk-rv-try")).toHaveLength(1);
+    expect(host.querySelector('.pk-rv[data-kind="ready_to_try"]')).toBeNull();
+    const rows = Array.from(host.querySelectorAll<HTMLElement>(".pk-rv-try__job"));
+    expect(rows.map((row) => row.querySelector(".pk-rv__jobtitle")?.textContent).sort()).toEqual(
+      [
+        parts.listed.title,
+        "Pocket To review",
+      ].sort(),
+    );
+    const ours = rows.find(
+      (row) => row.querySelector(".pk-rv__jobtitle")?.textContent === "Pocket To review",
+    )!;
+    await press(
+      Array.from(ours.querySelectorAll("button")).find(
+        (one) => one.textContent?.trim() === "Looks good",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(sentTo("/api/sessions/ready_to_try/answer")[0]?.body).toMatchObject({
+        session_id: "rv",
+        branch: "armada/pocket-to-review",
+      }),
+    );
+  });
+
+  it("goes to the Jobs list and back with the switch", async () => {
+    await shown();
+    await press(button("Jobs"));
+    await vi.waitFor(() => expect(window.location.pathname).toBe("/jobs"));
+    await vi.waitFor(() => expect(jobs().length).toBeGreaterThan(0));
+    await press(host.querySelector('[aria-label="To review or Jobs"] button'));
+    await vi.waitFor(() => expect(items()).toContain("Run the Pocket checks"));
   });
 });
