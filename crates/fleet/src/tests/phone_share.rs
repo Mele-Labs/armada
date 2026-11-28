@@ -470,3 +470,25 @@ async fn ended(phone: &Phone, run: &str) {
     phone.rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: run.into() }).await.expect("in flight");
     super::session_host::eventually(|| async { phone.rig.fleet.observe_session_run(run.into()).await.map_or(true, |seen| seen.live.is_err()) }).await;
 }
+
+#[tokio::test]
+async fn refresh_preview_from_the_phone_reaches_fleets_build_change() {
+    let phone = Phone::paired().await;
+    let (status, body) = phone.call("POST", "/api/fleet/build/change", r#"{"build":"preview","adopt":true}"#, "\u{0}").await;
+    // The rig serves no repository holding the wrapper, so the handler's own refusal is the proof it was reached.
+    assert!(body.contains("scripts/restart-build"), "{status}: {body:?}");
+}
+
+#[tokio::test]
+async fn every_path_the_gateway_forwards_is_ruled_on_for_the_phone() {
+    let phone = Phone::paired().await;
+    for (method, path) in pocket::FORWARDED {
+        let target = path.replace(":repository", "x");
+        let body = if *method == axum::http::Method::POST { "{}" } else { "" };
+        let (status, said) = phone.call(method.as_str(), &target, body, "\u{0}").await;
+        assert!(
+            !(status == StatusCode::NOT_FOUND && said.is_empty()),
+            "{method} {path}: Fleet's phone filter has no ruling for it, so the phone gets an empty 404 (api::phone_share)",
+        );
+    }
+}

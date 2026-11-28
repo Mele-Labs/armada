@@ -26,7 +26,7 @@ import {
 } from "./thread";
 import { jobStateOf } from "./kit/screens/session-state";
 import { sketchAnswerOf, documentAnswerOf } from "./kit/screens/thread-cards";
-import { Refused } from "./client";
+import { call, Refused } from "./client";
 import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
@@ -164,6 +164,45 @@ describe("the signer", () => {
     // The vector's own signature reads true against its text, so a pass below means the phone signed exactly that text.
     expect(await verifies(vector["signature_hex"]!)).toBe(true);
     expect(await verifies(headers["X-Armada-Signature"])).toBe(true);
+  });
+});
+
+describe("a call a Mac refuses with no words", () => {
+  // Fleet's phone filter once answered Refresh preview an empty 404, and the phone said the Mac was not answering.
+  it("says the Mac turned it away, with the status, and not that it is not answering", async () => {
+    const key = await crypto.subtle.importKey(
+      "jwk",
+      PRIVATE,
+      {
+        name: "ECDSA",
+        namedCurve: "P-256",
+      },
+      false,
+      [
+        "sign",
+      ],
+    );
+    const machine = {
+      origin: "https://studio.example",
+      name: "Studio",
+      deviceId: "abc",
+      key,
+    };
+    const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", {
+        status: 404,
+      }),
+    );
+    try {
+      await expect(
+        call(machine, "/api/fleet/build/change", {
+          method: "POST",
+          body: {},
+        }),
+      ).rejects.toThrow("Armada on Studio turned this away (404).");
+    } finally {
+      fetched.mockRestore();
+    }
   });
 });
 
