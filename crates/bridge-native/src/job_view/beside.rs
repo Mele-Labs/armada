@@ -22,6 +22,9 @@ use crate::look::{token, ActiveLook as _};
 /// The key his words to the Operator are kept under, and under `{KEEP}:{card}` while the box names a card.
 pub(crate) const KEEP: &str = "operator:compose";
 
+/// What the beside is keyed by while Fleet has started no Operator session yet: no thread to read, only the box.
+pub const UNSTARTED: &str = "operator:unstarted";
+
 /// What VoiceOver, walks and tests name the Operator's thread by.
 pub(crate) const TALK: &str = "Talk with the Operator";
 
@@ -212,7 +215,7 @@ impl JobView {
                 }
             }
             (Some(fleet), _) => {
-                if !fleet.read(cx).held().threads.contains_key(id.as_ref()) {
+                if id.as_ref() != UNSTARTED && !fleet.read(cx).held().threads.contains_key(id.as_ref()) {
                     let fleet = fleet.clone();
                     fleet.update(cx, |fleet, cx| fleet.read_thread(&id, false, cx));
                 }
@@ -460,6 +463,8 @@ impl JobView {
                 Some(fleet) => fleet.read(cx).thread_refused(&id),
                 None => crate::mock::thread_refused(&id).is_some(),
             };
+        // With no session there is no thread to wait for: it draws empty over the box.
+        let empty = refused || (!loaded && id.as_ref() == UNSTARTED);
         let body = if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
@@ -480,7 +485,7 @@ impl JobView {
                 TALK,
             )
             .into_any_element()
-        } else if refused {
+        } else if empty {
             div().size_full().into_any_element()
         } else {
             self.render_skeleton(&look)

@@ -110,7 +110,7 @@ impl Status {
             Status::Working { since, doing } => format!("{}, for {}", doing.as_deref().unwrap_or("In a turn"), span(since, now)),
             Status::Watching { heard } => format!("Between turns. Last heard from {}", ago(heard, now)),
             Status::Stopped { why, .. } => why.clone(),
-            Status::Starting => "Fleet starts its session on the next tick".into(),
+            Status::Starting => "Fleet is starting its session".into(),
             Status::Off => "Every Job asks you directly".into(),
         }
     }
@@ -150,15 +150,15 @@ impl OperatorPageView {
         let (word, said, hue, ground) = status.chip();
         let state = labelled(chip(word, look.color(hue), look.color(ground), look).id("status-chip").tooltip(tip(said)), Role::Status, word);
         let off = status == Status::Off;
-        let button = if off { Some(self.switch_on_press(look, cx)) } else { self.session_id().map(|_| {
-            if stopped {
-                let restart = press("status-restart", "Restart".into(), Some("rotate-cw"), None, Weight::Danger, look).tooltip(tip("Switch the Operator off and on, so Fleet starts a new session"));
-                labelled(pressed(restart, cx, |this, _, cx| this.restart(cx)), Role::Button, "Restart the Operator").into_any_element()
-            } else {
-                let open = press("status-open", "See what it is doing".into(), None, None, Weight::Plain, look).tooltip(tip("Open the Operator's session as a Job"));
-                labelled(pressed(open, cx, |this, _, cx| this.open_session(cx)), Role::Button, "See what it is doing").into_any_element()
-            }
-        }) };
+        // Nothing here opens the Operator's session as a Job: its thread and box are the page's own.
+        let button = if off {
+            Some(self.switch_on_press(look, cx))
+        } else if stopped && self.session_id().is_some() {
+            let restart = press("status-restart", "Restart".into(), Some("rotate-cw"), None, Weight::Danger, look).tooltip(tip("Switch the Operator off and on, so Fleet starts a new session"));
+            Some(labelled(pressed(restart, cx, |this, _, cx| this.restart(cx)), Role::Button, "Restart the Operator").into_any_element())
+        } else {
+            None
+        };
         let head = div()
             .flex()
             .flex_wrap()

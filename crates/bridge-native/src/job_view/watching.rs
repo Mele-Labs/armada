@@ -224,7 +224,8 @@ impl JobView {
 
     /// Ask Fleet for the Job's watches once it is on screen; `watches.changed` keeps them after.
     pub(super) fn want_watches(&mut self, id: &SharedString, cx: &mut Context<Self>) {
-        if self.shown.as_ref() != Some(id) {
+        // The Operator's box with no session yet is no session to ask about.
+        if self.shown.as_ref() != Some(id) || id.as_ref() == super::UNSTARTED {
             return;
         }
         if let Some(fleet) = self.fleet.clone() {
