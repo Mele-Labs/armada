@@ -461,6 +461,26 @@ pub fn end_group(group: u32) {
     signal_group(Some(group), libc::SIGKILL);
 }
 
+/// User and system time of every child this process has waited for, and their own waited-for
+/// children, so far. Taken before and after a run, the difference is that run's CPU time. `None`
+/// where the system call refused.
+#[allow(unsafe_code)]
+pub fn children_cpu() -> Option<Duration> {
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
+    // SAFETY: `getrusage` writes one `rusage` through the pointer, which points at one, and only
+    // reads the integer `who`. The value is read only where it answered zero.
+    let usage = unsafe {
+        if libc::getrusage(libc::RUSAGE_CHILDREN, usage.as_mut_ptr()) != 0 {
+            return None;
+        }
+        usage.assume_init()
+    };
+    let of = |time: libc::timeval| -> Option<Duration> {
+        Some(Duration::from_secs(u64::try_from(time.tv_sec).ok()?) + Duration::from_micros(u64::try_from(time.tv_usec).ok()?))
+    };
+    Some(of(usage.ru_utime)? + of(usage.ru_stime)?)
+}
+
 /// Send `signal` to the child's whole process group.
 #[allow(unsafe_code)]
 fn signal_group(group: Option<u32>, signal: libc::c_int) {

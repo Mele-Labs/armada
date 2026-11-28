@@ -262,6 +262,7 @@ pub async fn execute_told(
         .collect();
     // Held until this returns, across the prerequisites too, as Fleet's gate
     // holds a place for them.
+    let waiting_since = std::time::Instant::now();
     let _held = match (registry, slots) {
         (Registry::Checks, Some(slots)) => {
             // One Check per checkout, taken before the machine's slots.
@@ -294,6 +295,9 @@ pub async fn execute_told(
         }
         _ => None,
     };
+    if let Some(told) = told {
+        told.waited(waiting_since.elapsed());
+    }
     // Outside a Fleet's pool, with a width instead: `build_cap` says nothing
     // where this process inherited a jobserver, as an agent's `armada check` does.
     let mut env = vec![(HELD_ENV.to_string(), String::from("1"))];
