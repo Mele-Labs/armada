@@ -1914,3 +1914,216 @@ button.pk-send__title {
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+/* To review: the switch under the bar, then each group's head and its items, each a Band card with the form it asks in. */
+.pk-places {
+  display: flex;
+  gap: var(--space-1);
+  margin: var(--space-2) var(--space-3) 0;
+  padding: calc(var(--space-1) / 2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+}
+.pk-places__place {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--h-control-lg);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.pk-places__place[data-here] {
+  background: var(--accent-muted);
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+}
+.pk-places__place:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.pk-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.pk-rv-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pk-rv-group__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid
+    color-mix(in srgb, var(--status-awaiting-review) 40%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--status-awaiting-review-bg);
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+}
+.pk-rv-group__head[data-kind="feature"] {
+  border-color: color-mix(in srgb, var(--ask-features) 40%, transparent);
+  background: color-mix(in srgb, var(--ask-features) 10%, transparent);
+}
+.pk-rv-group__head[data-kind="neither"] {
+  border-color: var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+}
+.pk-rv-group__area {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+}
+.pk-rv-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+}
+.pk-rv-row {
+  list-style: none;
+  min-width: 0;
+}
+.pk-rv {
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+.pk-rv > :not(.pk-bc__head) {
+  margin-inline: var(--space-3);
+}
+.pk-rv__tile[data-kind="plan"] {
+  --kind: var(--kind-gate);
+}
+.pk-rv__tile[data-kind="draft"] {
+  --kind: var(--kind-setup);
+}
+.pk-rv__tile[data-kind="ready_to_try"] {
+  --kind: var(--status-ready);
+}
+.pk-rv__tile:is([data-kind="question"], [data-kind="goal_met"], [data-kind="clash"]) {
+  --kind: var(--ask-takes);
+}
+.pk-rv__tile:is([data-kind="to_do"], [data-kind="done"]) {
+  --kind: var(--status-completed-success);
+}
+.pk-rv__tile:is([data-kind="command"], [data-kind="restart"]) {
+  --kind: var(--ask-terminal);
+}
+.pk-rv__tile:is([data-kind="walk"], [data-kind="pull_request"]) {
+  --kind: var(--ask-browser);
+}
+.pk-rv__from {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+}
+.pk-rv__from .pk-bc__rest {
+  margin-left: auto;
+}
+.pk-rv__job {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-hover);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-rv__mac {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+.pk-rv__why {
+  margin-block: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.pk-rv__operator {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid color-mix(in srgb, var(--operator) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--operator) 8%, transparent);
+  font-size: var(--text-xs);
+  color: var(--fg-default);
+}
+.pk-rv__operator p {
+  margin: 0;
+}
+.pk-rv__operator-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--operator);
+  font-weight: var(--weight-heading);
+}
+.pk-rv__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pk-rv__body > .pk-bc__head {
+  margin-inline: calc(var(--space-3) * -1);
+}
+.pk-rv__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pk-rv__steps {
+  margin: 0;
+  padding-left: var(--space-6);
+  font-size: var(--text-sm);
+  list-style: decimal;
+}
+.pk-rv .pk-bc__act {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.pk-rv__on {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.pk-rv__wait {
+  height: calc(var(--space-12) * 2);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+.pk-rv__body > :first-child:is(.pk-bc__head) {
+  margin-top: 0;
+}
+/* A page in the list stops at half the screen; Open reads it whole. */
+.pk-rv .pk-art__page {
+  max-height: 50vh;
+}

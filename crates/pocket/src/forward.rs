@@ -51,6 +51,10 @@ pub const FORWARDED: &[(Method, &str)] = &[
     (Method::GET, "/api/sessions/thread"),
     (Method::GET, "/api/sessions/repository_file"),
     (Method::POST, "/api/sessions/ready_to_try/answer"),
+    // To review: every Job's asks in one list, and the two answers no other phone route carries.
+    (Method::GET, "/api/sessions/to_review"),
+    (Method::POST, "/api/sessions/items/answer"),
+    (Method::POST, "/api/sessions/waiting/done"),
     // The Judge on demand: a press, a note sent or dismissed, a reading opened, and the judge types a press offers.
     (Method::POST, "/api/sessions/judge"),
     (Method::POST, "/api/sessions/judge/send"),
