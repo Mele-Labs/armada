@@ -392,6 +392,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::linked_following::keep_the_linked(Arc::clone(&fleet));
             // The Operator is told when any hosted Job ends or one of its pull requests merges, from here on.
             fleet::operator::keep_the_ends_told(Arc::clone(&fleet)).await;
+            // The Operator's session starts the moment its switch goes on or a send waits for it, not on the next tick.
+            fleet::operator::keep_the_operator_up(Arc::clone(&fleet));
             // What waits on the person is reviewed and raised to him in the Operator's conversation, the backlog first.
             fleet::operator::keep_the_raises(Arc::clone(&fleet)).await;
             // A dispatch the Operator held when Fleet stopped is started as it was asked, so his work is not lost.

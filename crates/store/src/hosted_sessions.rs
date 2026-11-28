@@ -228,6 +228,28 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The newest Operator session, ended ones too: the one whose thread holds the last talk.
+    pub fn newest_operator_hosting(&self) -> Result<Option<KeptHosting>, WriteError> {
+        let columns = COLUMNS
+            .split(", ")
+            .map(|column| format!("h.{column}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.conn
+            .query_row(
+                &format!(
+                    "SELECT {columns} FROM hosted_sessions h JOIN sessions s ON s.id = h.session_id
+                     WHERE h.operator = 1
+                     ORDER BY s.started_at DESC, s.id DESC LIMIT 1"
+                ),
+                [],
+                kept,
+            )
+            .optional()
+            .map_err(fault("reading the Operator's newest session"))
+            .map_err(WriteError::Database)
+    }
+
     /// Keep the first turn of a Job on its start card. `false`, with nothing written, where one is
     /// kept already: the first to arrive is the first turn.
     pub fn keep_held_first_turn(&mut self, session_id: &str, body: &str) -> Result<bool, WriteError> {

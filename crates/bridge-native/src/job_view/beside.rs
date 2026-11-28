@@ -22,6 +22,9 @@ use crate::look::{token, ActiveLook as _};
 /// The key his words to the Operator are kept under, and under `{KEEP}:{card}` while the box names a card.
 pub(crate) const KEEP: &str = "operator:compose";
 
+/// What the beside is keyed by while Fleet has started no Operator session yet: no thread to read, only the box.
+pub const UNSTARTED: &str = "operator:unstarted";
+
 /// What VoiceOver, walks and tests name the Operator's thread by.
 pub(crate) const TALK: &str = "Talk with the Operator";
 
@@ -45,6 +48,8 @@ struct Held {
     pane_height: Option<Pixels>,
     pop: Option<super::pop::Pop>,
     find: Option<super::find::Find>,
+    /// The words selected in its thread, so a selection in one thread never shows in the other.
+    fork: super::fork::Fork,
 }
 
 pub(super) struct Beside {
@@ -120,6 +125,7 @@ impl JobView {
         std::mem::swap(&mut self.pane_height, &mut held.pane_height);
         std::mem::swap(&mut self.pop, &mut held.pop);
         std::mem::swap(&mut self.find, &mut held.find);
+        std::mem::swap(&mut self.fork, &mut held.fork);
         beside.inside = !beside.inside;
     }
 
@@ -212,7 +218,7 @@ impl JobView {
                 }
             }
             (Some(fleet), _) => {
-                if !fleet.read(cx).held().threads.contains_key(id.as_ref()) {
+                if id.as_ref() != UNSTARTED && !fleet.read(cx).held().threads.contains_key(id.as_ref()) {
                     let fleet = fleet.clone();
                     fleet.update(cx, |fleet, cx| fleet.read_thread(&id, false, cx));
                 }
@@ -270,6 +276,7 @@ impl JobView {
                 pane_height: None,
                 pop: None,
                 find: None,
+                fork: super::fork::Fork::default(),
             },
             inside: false,
             root: cx.focus_handle(),
@@ -460,13 +467,20 @@ impl JobView {
                 Some(fleet) => fleet.read(cx).thread_refused(&id),
                 None => crate::mock::thread_refused(&id).is_some(),
             };
+        // With no session there is no thread to wait for: it draws empty over the box.
+        let empty = refused || (!loaded && id.as_ref() == UNSTARTED);
         let body = if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
-                div()
-                    .id("operator-thread")
+                // Selected words offer Reply and Teach here, as a Job's thread offers its own acts.
+                self.fork_hooks(div().id("operator-thread"), cx)
                     .key_context("thread_scroll")
                     .track_focus(&self.focus)
+                    .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| {
+                        if !this.focus.contains_focused(window, cx) {
+                            window.focus(&this.focus, cx);
+                        }
+                    }))
                     .on_action(cx.listener(Self::on_page_up))
                     .on_action(cx.listener(Self::on_page_down))
                     .on_action(cx.listener(Self::on_to_start))
@@ -480,7 +494,7 @@ impl JobView {
                 TALK,
             )
             .into_any_element()
-        } else if refused {
+        } else if empty {
             div().size_full().into_any_element()
         } else {
             self.render_skeleton(&look)
@@ -490,6 +504,7 @@ impl JobView {
         let mut popups: Vec<AnyElement> = Vec::new();
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(true, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         div()
             .id("operator-talk")

@@ -162,6 +162,8 @@ pub(super) fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)>
         LogSection::Repo => matches!(kind, LogKind::Command | LogKind::Gotcha | LogKind::Convention),
         LogSection::Machine => kind == LogKind::Environment,
         LogSection::Habits => kind == LogKind::Habit,
+        // A distil never places an entry in a project: only a person's Teach does.
+        LogSection::Project => false,
     };
     fits.then_some((section, kind))
 }

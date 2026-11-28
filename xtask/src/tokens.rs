@@ -50,6 +50,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("tools.css", Source::Tokens),
     ("kinds.css", Source::Tokens),
     ("ask-tools.css", Source::Tokens),
+    ("chart.css", Source::Tokens),
     ("typography.css", Source::Tokens),
     ("spacing.css", Source::Tokens),
     ("motion.css", Source::Tokens),
@@ -236,6 +237,8 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--kind-", Slot::NsFull("color")),
     // Which of Armada's tools a message asks for, from ask-tools.css. A tint or a glyph, never a status.
     ("--ask-", Slot::NsFull("color")),
+    // Which series a mark of a graph belongs to, from chart.css. Never a status, never text.
+    ("--chart-", Slot::NsFull("color")),
     ("--verdict-", Slot::NsFull("color")),
     ("--run-", Slot::NsFull("color")),
     // A worktree slot's bay, aliased in status.css below Job level.
