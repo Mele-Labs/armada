@@ -1,0 +1,10 @@
+[operations.get_feature_picture]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The bytes of one picture of a feature"
+notes = """
+`GET /features/picture?id=`, `id` a `FeaturePicture.id` from a page's `pictures` or a row's `cover`. The PNG's bytes, `image/png`, with `nosniff`. A removed picture is served too, so a Not this feature can be shown with what it removed.
+
+404 `fleet.picture_unknown` for an id Fleet does not hold, and for one whose file is gone from disk.
+"""

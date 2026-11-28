@@ -158,6 +158,7 @@ mod kit_open;
 mod leasing;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
 pub mod requesting;
+pub mod picture_capture;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;

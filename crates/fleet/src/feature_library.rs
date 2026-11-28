@@ -32,6 +32,8 @@ pub(crate) mod meaning;
 mod modules;
 mod of_job;
 mod pending;
+mod pictures;
+mod picture_taking;
 mod project_pages;
 pub(crate) mod ranking;
 mod reading;
@@ -52,6 +54,8 @@ mod whos_on_what;
 pub(crate) use holding::{sections_owed_text, OWED};
 pub(crate) use reading::{features_of_note, slug_held};
 pub(crate) use pending::pending_facts;
+#[cfg(test)]
+pub(crate) use picture_taking::route_of;
 #[cfg(test)]
 pub(crate) use seeding::Seed;
 pub(crate) use seeding::PROJECT as PROJECT_UNKNOWN;

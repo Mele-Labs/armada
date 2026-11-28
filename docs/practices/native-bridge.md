@@ -82,7 +82,7 @@ Fleet keeps pictures of the look he approved, from the build he approved.
 Before the pull request opens and on every push it plays the walk again and compares.
 A drift goes back to the Job with side-by-side pictures, and never to him.
 
-Prototypes and sketch mocks show flow only, never the look.
+A prototype keeps its Approve: he chose on 28 Nov 2026 to keep prototypes approvable.
 They are never the look gate of a screen he would see.
 A walk still building reaches him at once, marked Building, with Open greyed until it is built (28 Nov 2026).
 This holds in every repo.
@@ -99,8 +99,8 @@ A Job plays its walks itself first, as its own check of a screen.
 | Build | `cargo build` in `crates/bridge-native`, in the Job's own slot, for the Job's own check only |
 | Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
 | Commit it | The screen and its walk file, in the Job's slot: Fleet builds the walk from the commit, so only committed work is shown |
-| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. The row says Building while Fleet builds it from the Job's commit and asks him nothing until the build plays every walk named (`--list-walks`). A failure is told to the Job and never to him |
-| He opens it | One press on the walk's row. Fleet starts the native Bridge it built from the Job's commit, with `--take <name>=<walk>` for each variation |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. The row says Building while Fleet builds it from the Job's commit and asks him nothing until the build plays every walk named (`walks.list` in `armada.yml`, `--list-walks` for the native Bridge). A failure is told to the Job and never to him |
+| He opens it | One press on the walk's row. Fleet starts the native Bridge it built from the Job's commit, with `--take <name>=<walk>` for each variation. How it is built, listed and started is `walks:` in `armada.yml` (`concepts/manifest.md`, *Walks*), and a repository without it is refused |
 | He picks a take | The bar's takes menu, or ⌥⌘T, swaps to that take's walk from its first step. Approve and each note name the take on screen |
 
 **The check never opens a window, and Fleet never starts a walk he did not open.**
