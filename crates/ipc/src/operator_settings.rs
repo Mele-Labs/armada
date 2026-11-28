@@ -179,6 +179,9 @@ pub struct ProjectOperatorSettings {
 pub struct OperatorSettingsList {
     pub projects: Vec<ProjectOperatorSettings>,
     pub styles: Vec<OperatorStyle>,
+    /// What each role puts at the top of the prompt, in `OperatorRole::ALL`'s order, so Settings can show it. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<OperatorRoleWords>,
 }
 
 /// An output style he may pick, with its file's own words for it, so a picker can say what each changes.
@@ -187,6 +190,16 @@ pub struct OperatorStyle {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// One short reply written in the style, from its file's `sample`, so Settings shows the voice. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample: Option<String>,
+}
+
+/// A role and the words its preset puts at the top of the Operator's prompt.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRoleWords {
+    pub role: OperatorRole,
+    pub words: String,
 }
 
 /// `set_operator_settings`: what he sets for one project, and the values he gives back to their defaults.

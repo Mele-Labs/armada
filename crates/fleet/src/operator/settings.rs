@@ -183,7 +183,7 @@ where
     async fn operator_styles(&self) -> Vec<OperatorStyle> {
         let setup = self.setup();
         let read = tokio::task::spawn_blocking(move || setup.read()).await;
-        let mut styles = vec![OperatorStyle { name: adapters::OPERATOR_STYLE.to_string(), description: None }];
+        let mut styles = vec![OperatorStyle { name: adapters::OPERATOR_STYLE.to_string(), description: None, sample: None }];
         let Ok(inventory) = read else { return styles };
         if let Some(WhatWasRead::Read { items, .. }) = inventory.kind(SetupKind::OutputStyles) {
             for item in items {
@@ -194,7 +194,7 @@ where
                 match styles.iter_mut().find(|one| one.name == name) {
                     // The mod's own is listed first whatever the harness found; its words come from its file.
                     Some(one) => one.description = one.description.take().or_else(|| item.says.clone()),
-                    None => styles.push(OperatorStyle { name, description: item.says.clone() }),
+                    None => styles.push(OperatorStyle { name, description: item.says.clone(), sample: None }),
                 }
             }
         }
@@ -203,7 +203,7 @@ where
 
     /// `list_operator_settings`: each project of his own, and the styles.
     pub(crate) async fn operator_settings_listed(&self) -> Result<OperatorSettingsList, Refusal> {
-        Ok(OperatorSettingsList { projects: self.operator_settings_projects().await, styles: self.operator_styles().await })
+        Ok(OperatorSettingsList { projects: self.operator_settings_projects().await, styles: self.operator_styles().await, roles: Vec::new() })
     }
 
     /// Each project of his own with its Operator's settings and session, as the page carries them.
