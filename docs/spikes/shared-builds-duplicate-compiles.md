@@ -6,7 +6,7 @@ What does repeat is inside each slot: 38% of compile CPU rebuilt sources that sl
 16% was Cargo compiling a unit again with the same sources and flags in the same target.
 15% was the same sources compiled under other flags, mostly a check-only `cargo check` from rust-analyzer or an agent followed by `armada check`'s full build.
 A schedule that owns every build could take that 31% off by running one build mode per state and never invalidating a fresh one; a shared store between slots adds the 1%.
-The Mac was not short of cores while this ran: a median of 7.6 of 18 cores were busy at a fifteen-minute load of 27 (*The cores*).
+The Mac was not short of cores while this ran: a median of 7.6 of 18 cores were busy at a fifteen-minute load of 27, with runnable work held to one cluster by something other than the QoS clamp (*The cores*).
 
 Measured from 19:51 EST on 27 Nov to 04:50 EST on 28 Nov 2026, 9.04 hours, on the owner's 18-core M5 Pro, with the live Jobs of that night.
 `shared-builds/sampler.py` read `ps` every 2 seconds and wrote one record per `rustc` and per `cargo` it saw; `shared-builds/analyze_duplicates.py` matched them.
@@ -89,8 +89,13 @@ The load gate Job's samples (`spike-1/core-samples-from-load-gate-job.tsv`, 636 
 | Samples with one six-core cluster at 90% or more and both others at 40% or less | 46% |
 
 A one-minute `ps` reading at 04:55 EST agrees: 6.7 cores busy, 3.0 of them `rustc`, at a one-minute load of 29.8.
-Agent work runs under `taskpolicy -c utility` (`crates/checks-runner/src/priority.rs`), measured as free only on an idle machine.
-Whether that clamp is what holds builds to one cluster was not measured; it is the next thing to measure, before any of the three directions.
+Agent work runs under `taskpolicy -c utility` (`crates/checks-runner/src/priority.rs`), but the load gate Job measured that the clamp is not what holds work to one cluster.
+On 28 Nov at about 04:50 UTC it raced six spinners under `taskpolicy -c utility` against six at normal priority, twice: each got 0.12 of a core either way, while `cpu0-5` sat at 8 to 9% and `cpu6-11` at 100%.
+Six more utility spinners added no busy cores at all, and twelve added 0.2 and 1.1 cores with about 8 idle.
+The cap is on where runnable work is placed, not on its priority, and the busy cluster moved between `cpu0-5` and `cpu6-11` from one sample to the next.
+Whether the cap is per process tree or coalition (every agent's work descends from Fleet's launchd job) or machine-wide was not measured: the test, a spinner started outside the tree through `launchctl submit` raced against one inside, was refused by that Job's sandbox.
+Memory pressure was at warn throughout, so memory stalls are not ruled out either.
+Its tools are copied to `shared-builds/spike-1/`: `percore.c` reads each core's use and `spin2.py` is the spinner.
 
 ## Not measured
 
@@ -98,4 +103,4 @@ Whether that clamp is what holds builds to one cluster was not measured; it is t
 - Memory: the sampler read no resident sizes. The load gate Job saw 23 GB compressed and 6.9 of 8 GB swap at 04:41 to 04:47 UTC, with each Check's `rustc` at 1 to 4 GB.
 - Compiles shorter than 2 seconds, linking, and running tests.
 - A working day: the window was a night, with the Jobs that ran that night.
-- Whether the QoS clamp confines builds to one cluster.
+- What confines runnable work to one cluster, when the QoS clamp does not.
