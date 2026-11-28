@@ -11,7 +11,7 @@ use axum::extract::{MatchedPath, Request, State};
 use axum::http::{header, Method, StatusCode, Uri};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use ipc::{DispatchOn, JobDispatched, ManifestSummary, Projects, SessionList, StartSession};
+use ipc::{AnswerItems, DispatchOn, JobDispatched, ManifestSummary, Projects, SessionList, StartSession, ToReview};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
@@ -41,6 +41,10 @@ enum Ruling {
     RunInPath,
     /// The Jobs list, cut to the Jobs it sees.
     Jobs,
+    /// Every Job's asks, cut to the Jobs it sees.
+    ToReview,
+    /// Verdicts on items of several Jobs, each item's Job its `session_id`.
+    ItemsInBody,
     Manifests,
     Projects,
     /// A Job started here.
@@ -73,6 +77,7 @@ const ACTS: &[&str] = &[
     "/sessions/artifacts/vote",
     "/sessions/artifacts/seen",
     "/sessions/ready_to_try/answer",
+    "/sessions/waiting/done",
 ];
 
 fn ruling(method: &Method, path: &str) -> Option<Ruling> {
@@ -89,6 +94,8 @@ fn ruling(method: &Method, path: &str) -> Option<Ruling> {
         // Only acts waiting for another Mac, which holds nothing but what it shared.
         "/queued/take_back" if post => Some(Ruling::Passes),
         "/sessions" if get => Some(Ruling::Jobs),
+        "/sessions/to_review" if get => Some(Ruling::ToReview),
+        "/sessions/items/answer" if post => Some(Ruling::ItemsInBody),
         "/manifests" if get => Some(Ruling::Manifests),
         "/projects" if get => Some(Ruling::Projects),
         "/sessions/one" | "/sessions/thread" | "/sessions/shown" | "/sessions/terminal/list" | "/sessions/repository_file" if get => Some(Ruling::JobInQuery),
@@ -212,6 +219,62 @@ pub(crate) async fn to_the_phone<D: OtherMacs + Sessions>(State(served): State<S
             }
             answer(StatusCode::OK, &SessionList { sessions }, served.run_id())
         }
+        Ruling::ToReview => match read::<ToReview>(next.run(request).await).await {
+            Some(Ok(mut list)) => {
+                for group in &mut list.groups {
+                    let mut items = Vec::with_capacity(group.items.len());
+                    for item in std::mem::take(&mut group.items) {
+                        if served.daemon().job_for_phone(item.job.id.as_str()).await {
+                            items.push(item);
+                        }
+                    }
+                    group.items = items;
+                }
+                list.groups.retain(|group| !group.items.is_empty());
+                answer(StatusCode::OK, &list, served.run_id())
+            }
+            Some(Err(as_said)) => as_said,
+            None => StatusCode::BAD_GATEWAY.into_response(),
+        },
+        Ruling::ItemsInBody => {
+            let (parts, body) = request.into_parts();
+            let Ok(bytes) = to_bytes(body, MOST_READ).await else {
+                return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+            };
+            // A body that does not read goes on, and the route refuses it as it refuses anyone's.
+            let Ok(said) = ipc::decode::<AnswerItems>("verdicts on items", &bytes) else {
+                return next.run(Request::from_parts(parts, Body::from(bytes))).await;
+            };
+            // Each Job it does not see is asked as a Job of its own that does not exist, so each item is refused as the
+            // route refuses an item of no Job, and the Job's own id put back.
+            let mut hidden: Vec<String> = Vec::new();
+            for one in &said.items {
+                let job = one.session_id.as_str().to_string();
+                if !hidden.contains(&job) && !served.daemon().job_for_phone(&job).await {
+                    hidden.push(job);
+                }
+            }
+            if hidden.is_empty() {
+                return next.run(Request::from_parts(parts, Body::from(bytes))).await;
+            }
+            let stand_in = |at: usize| format!("{:0>26}", at + 1);
+            let mut asked = String::from_utf8_lossy(&bytes).into_owned();
+            for (at, job) in hidden.iter().enumerate() {
+                asked = asked.replace(&format!("\"{job}\""), &format!("\"{}\"", stand_in(at)));
+            }
+            // A Job named some other way than the text replaced is not asked about at all.
+            let still = ipc::decode::<AnswerItems>("verdicts on items", asked.as_bytes())
+                .map(|said| said.items.iter().any(|one| hidden.iter().any(|job| job == one.session_id.as_str())))
+                .unwrap_or(true);
+            if still {
+                return StatusCode::NOT_FOUND.into_response();
+            }
+            let mut answered = next.run(Request::from_parts(parts, Body::from(asked))).await;
+            for (at, job) in hidden.iter().enumerate() {
+                answered = as_stand_in(answered, &stand_in(at), job).await;
+            }
+            answered
+        }
         Ruling::Manifests => match read::<Vec<ManifestSummary>>(next.run(request).await).await {
             Some(Ok(list)) => answer(StatusCode::OK, &served.daemon().manifests_for_phone(list).await, served.run_id()),
             Some(Err(as_said)) => as_said,
@@ -279,11 +342,16 @@ fn without_job(uri: &Uri) -> Uri {
 
 /// What a route answered for [`NO_JOB`], with `job` in its place.
 async fn as_no_job(answered: Response, job: &str) -> Response {
+    as_stand_in(answered, NO_JOB, job).await
+}
+
+/// What a route answered for `stand_in`, an id no Job has, with `job` in its place.
+async fn as_stand_in(answered: Response, stand_in: &str, job: &str) -> Response {
     let (mut parts, body) = answered.into_parts();
     let Ok(bytes) = to_bytes(body, MOST_READ).await else {
         return StatusCode::BAD_GATEWAY.into_response();
     };
-    let said = String::from_utf8_lossy(&bytes).replace(NO_JOB, job);
+    let said = String::from_utf8_lossy(&bytes).replace(stand_in, job);
     parts.headers.remove(header::CONTENT_LENGTH);
     Response::from_parts(parts, Body::from(said))
 }
@@ -309,6 +377,8 @@ mod tests {
         assert_eq!(ruling(&Method::GET, "/sessions/one"), Some(Ruling::JobInQuery));
         assert_eq!(ruling(&Method::GET, "/sessions/terminal/list"), Some(Ruling::JobInQuery));
         assert_eq!(ruling(&Method::POST, "/sessions/run/write"), Some(Ruling::RunInBody));
+        assert_eq!(ruling(&Method::GET, "/sessions/to_review"), Some(Ruling::ToReview));
+        assert_eq!(ruling(&Method::POST, "/sessions/items/answer"), Some(Ruling::ItemsInBody));
         assert_eq!(ruling(&Method::GET, "/sessions/run/:run_id/observe"), Some(Ruling::RunInPath));
         assert_eq!(ruling(&Method::GET, "/settings"), None, "a route the phone has no use for is not there");
         assert_eq!(ruling(&Method::POST, "/sessions"), None);
