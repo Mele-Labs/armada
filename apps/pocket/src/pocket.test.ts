@@ -14,6 +14,7 @@ import {
   documentOf,
   draftsOf,
   handedOf,
+  inAskOrder,
   linksOf,
   onMacOf,
   OPEN_ON_MAC,
@@ -21,6 +22,7 @@ import {
   rowsOf,
   runsOf,
   sessionOfThread,
+  stepsOf,
   takesWords,
   withEarlier,
 } from "./thread";
@@ -1231,6 +1233,139 @@ describe("the visible screen", () => {
       one.element,
     );
     expect(one.props.size).toBe(0);
+  });
+});
+
+describe("a Job's asks in its own order", () => {
+  const ask = (id: string, order?: number, kind: "question" | "draft" | "build" = "question") => ({
+    item: {
+      id,
+      text: id,
+      since: "2026-11-26T00:00:00Z",
+      source: "agent" as const,
+      ...(order === undefined
+        ? {}
+        : {
+            order,
+          }),
+    },
+    kind,
+  });
+  const ids = (
+    asks: readonly {
+      item: {
+        id: string;
+      };
+    }[],
+  ) => asks.map((one) => one.item.id);
+  it("sorts by the Job's order, 1 first, whatever order Fleet listed them in", () => {
+    expect(
+      ids(
+        inAskOrder([
+          ask("c", 3),
+          ask("a", 1),
+          ask("b", 2),
+        ]),
+      ),
+    ).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+  it("puts one with no place after the placed ones, in the order it came", () => {
+    expect(
+      ids(
+        inAskOrder([
+          ask("loose"),
+          ask("second", 2),
+          ask("zero", 0),
+          ask("first", 1),
+        ]),
+      ),
+    ).toEqual([
+      "first",
+      "second",
+      "loose",
+      "zero",
+    ]);
+  });
+  it("keeps the list's own order where a Mac sends no places", () => {
+    expect(
+      ids(
+        inAskOrder([
+          ask("x"),
+          ask("y"),
+          ask("z"),
+        ]),
+      ),
+    ).toEqual([
+      "x",
+      "y",
+      "z",
+    ]);
+  });
+  it("names the first as now, the next after it, and counts the rest", () => {
+    const [first, ...rest] = inAskOrder([
+      ask("draft", 2, "draft"),
+      ask("question", 1),
+      ask("build", 3, "build"),
+      ask("more", 4),
+    ]);
+    expect(first!.item.id).toBe("question");
+    expect(ids(rest)).toEqual([
+      "draft",
+      "build",
+      "more",
+    ]);
+    expect(
+      stepsOf([
+        first!,
+        ...rest,
+      ]),
+    ).toEqual({
+      now: {
+        kind: "question",
+        words: "Answer",
+      },
+      next: {
+        kind: "draft",
+        words: "Approve a draft",
+      },
+      more: 2,
+    });
+    expect(stepsOf(rest.slice(1))).toEqual({
+      now: {
+        kind: "build",
+        words: "Try the build",
+      },
+      next: {
+        kind: "question",
+        words: "Answer",
+      },
+      more: 0,
+    });
+    expect(stepsOf([])).toEqual({
+      more: 0,
+    });
+  });
+  it("names a question with options a pick", () => {
+    const pick = ask("pick", 1);
+    expect(
+      stepsOf([
+        {
+          ...pick,
+          item: {
+            ...pick.item,
+            options: [
+              {
+                label: "Amber",
+              },
+            ],
+          },
+        },
+      ]).now?.words,
+    ).toBe("Pick one");
   });
 });
 

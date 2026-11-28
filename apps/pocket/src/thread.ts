@@ -558,6 +558,90 @@ export const onMacOf = (session: Session): readonly WaitingItem[] =>
       )
     : [];
 
+/** What an ask at the thread's foot wants of him, which names its step on the first card. */
+export type AskKind =
+  | "takes"
+  | "question"
+  | "build"
+  | "page"
+  | "plan"
+  | "drawing"
+  | "draft"
+  | "run";
+
+/** A step's words, Bridge's own for each kind. A question with options is a pick, as takes are. */
+export function stepWords(kind: AskKind, item: WaitingItem): string {
+  if (kind === "question" && (item.options ?? []).length > 0) return "Pick one";
+  return {
+    takes: "Pick one",
+    question: "Answer",
+    build: "Try the build",
+    page: "Approve a page",
+    plan: "Approve the plan",
+    drawing: "Approve a drawing",
+    draft: "Approve a draft",
+    run: "Run",
+  }[kind];
+}
+
+/**
+ * The asks in the order the Job set, `order` 1 first. One with no place (0, or a Mac that sends none) follows them in
+ * the order it came, so a list with no places keeps its own order.
+ */
+export function inAskOrder<
+  T extends {
+    item: WaitingItem;
+  },
+>(asks: readonly T[]): T[] {
+  const place = (one: T) => one.item.order ?? 0;
+  return [
+    ...asks.filter((one) => place(one) > 0).sort((a, b) => place(a) - place(b)),
+    ...asks.filter((one) => place(one) <= 0),
+  ];
+}
+
+export type Step = {
+  kind: AskKind;
+  words: string;
+};
+
+/** The first card's strip: the ask now, the next, and how many follow those two. */
+export function stepsOf(
+  asks: readonly {
+    item: WaitingItem;
+    kind: AskKind;
+  }[],
+): {
+  now?: Step;
+  next?: Step;
+  more: number;
+} {
+  const step = (at: number): Step | undefined => {
+    const one = asks[at];
+    return one === undefined
+      ? undefined
+      : {
+          kind: one.kind,
+          words: stepWords(one.kind, one.item),
+        };
+  };
+  const now = step(0);
+  const next = step(1);
+  return {
+    ...(now === undefined
+      ? {}
+      : {
+          now,
+        }),
+    ...(next === undefined
+      ? {}
+      : {
+          next,
+        }),
+    more: Math.max(0, asks.length - 2),
+  };
+}
+
 export type OpenDraft = {
   id: string;
   title: string;

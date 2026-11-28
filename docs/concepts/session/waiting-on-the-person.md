@@ -374,7 +374,7 @@ The model's vectors (`crates/fleet/src/session_host/dedup.rs`) serve only what h
 
 ## What he needs first
 
-**Every open ask of a Job carries its place and why it stands there**, so Bridge can show him one at a time.
+**Every open ask of a Job carries its place and why it stands there**, so Bridge and Pocket can show him one at a time.
 Each `WaitingItem` in `SessionRecord.waiting_for` has `order`, from 1, and `why`, one plain sentence, and the list is served in that order.
 **The Job sets the order with `order_waiting`**: the ids of its asks, its own and Fleet's, first to last, each with a `why`.
 The asks it leaves out follow in Fleet's order, and an id that is not an open ask refuses the call, naming it (`crates/ipc/operations/order_waiting.toml`).

@@ -118,6 +118,7 @@ export function RunCard({
   command,
   ran,
   run,
+  headed = false,
 }: {
   text: string;
   command: string;
@@ -125,13 +126,17 @@ export function RunCard({
     code?: number;
   };
   run: () => Promise<boolean>;
+  /** A head over it already says the text. */
+  headed?: boolean;
 }) {
   const [going, setGoing] = useState(false);
   return (
     <Card className="pk-card" role="group" aria-label={text}>
-      <CardHeader>
-        <CardTitle>{text}</CardTitle>
-      </CardHeader>
+      {headed ? null : (
+        <CardHeader>
+          <CardTitle>{text}</CardTitle>
+        </CardHeader>
+      )}
       <code className="pk-card__command">{command}</code>
       <CardFooter className="pk-card__acts">
         {ran !== undefined ? (

@@ -2390,14 +2390,39 @@ export function partsJob(now: number): {
           changed_at: ago(now, 35),
         },
       ],
+      // Listed as Fleet lists them, by when each was put; `order` is the Job's own.
       waiting_for: [
         {
           ...asking(STEP_BAR, "Step bar", "sketch"),
           since: ago(now, 6),
+          order: 3,
+          why: "The bar's look waits on the build you try first",
         },
         {
           ...asking(TRY_CARD, "Try: Steps drawn as a bar under each Job's title", "ready_to_try"),
           since: ago(now, 3),
+          order: 2,
+          why: "The bar is built and waits on your try",
+        },
+        {
+          id: "steps-held",
+          text: "Which colour marks a step that is held?",
+          since: ago(now, 2),
+          source: "agent",
+          act: {
+            kind: "answer",
+            target: "steps-held",
+          },
+          options: [
+            {
+              label: "Amber",
+            },
+            {
+              label: "Grey",
+            },
+          ],
+          order: 1,
+          why: "The work waits on your answer",
         },
       ],
     }),
