@@ -21,6 +21,7 @@ import type { SessionLink } from "./session-starts";
 import type { SessionWait } from "./session-waits";
 import type { WorkflowSummary } from "./setup";
 import type { SlotHolder, SlotWait } from "./slot-choice";
+import type { GoalMet } from "./sub-projects";
 import type { WorkflowStrip } from "./workflow-strip";
 
 /** A session, by the id its harness knows it by. */
@@ -394,7 +395,16 @@ export type WaitingSource =
    * a reminder comes due. Answering it here is refused and Approve all passes it by. Dismissing it puts away only the cards open then, so a card offered later raises it again.
    * Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
    */
-  | "ready_to_try";
+  | "ready_to_try"
+  /**
+   * Fleet: the orchestrator of a sub project called `all_done`, or every Job of the sub project merged or ended. On the
+   * orchestrator's list, derived on every read from the sub project, never kept in the Job's list: id
+   * `goal_met:<sub project id>`, text `Goal met?`, an `answer` act whose `target` is the id, `goal_met` carrying the
+   * goal and the pull requests that landed, and exactly two options, `Agree` (choice 0), which folds the sub project
+   * away, and `Not yet` (choice 1), which keeps it open until the orchestrator next calls `all_done`. **Neither sends
+   * the agent a word.** Dismissing it is refused. Listed only while the Job is live. Since 27 Nov 2026.
+   */
+  | "goal_met";
 
 /**
  * What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -528,6 +538,8 @@ export type WaitingItem = {
    * from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
    */
   artifact?: string;
+  /** On a `goal_met` item only: the sub project's goal and what landed. Absent otherwise. */
+  goal_met?: GoalMet;
   /**
    * Its place among the Job's open asks, 1 first: the Job's own order from `order_waiting`, else Fleet's
    * fallback. 0 on a list that is not a Job's open asks, such as the closed ones. `docs/concepts/session/waiting-on-the-person.md`.

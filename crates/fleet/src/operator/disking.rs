@@ -101,6 +101,7 @@ where
             create_refused: None,
             operator_read: None,
             artifact: None,
+            goal_met: None,
         };
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;

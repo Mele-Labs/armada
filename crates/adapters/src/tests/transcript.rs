@@ -362,6 +362,27 @@ fn an_expired_sign_in_on_the_stream_reads_as_signed_out() {
     assert_eq!(read(line).last(), Some(&DroneEvent::SignedOut));
 }
 
+/// What Claude Code 2.1.325 wrote in place of every turn of a Job whose sign-in ran out, from a
+/// reported Job's transcript with its working directory and branch left out. **Its `error` no longer
+/// says so**: only the harness's own sentence does.
+const LOGIN_EXPIRED_LINE: &str = r#"{"parentUuid":"52fe62d5-08b8-42f8-b7f8-7c69504d59df","isSidechain":false,"type":"assistant","uuid":"a60c8917-8d9b-405e-a8b7-36f4cb174969","timestamp":"2026-11-27T18:55:13.922Z","message":{"diagnostics":null,"id":"424ecd07-0afb-4ffd-bd5b-62b8cd3e3b53","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"stop_sequence","stop_sequence":"","type":"message","usage":{"output_tokens_details":null,"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":null,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":null,"iterations":null,"speed":null,"fallback_credit":null},"content":[{"type":"text","text":"Login expired · Run /login to sign in again, or re-authenticate your Anthropic profile"}],"context_management":null},"error":"invalid_request","isApiErrorMessage":true,"perTurnEffort":"high","failedResponseHadNoToolCall":true,"madeBy":"model","userType":"external","entrypoint":"sdk-cli","sessionId":"29331aaf-0ffe-444a-b730-48732fcb2ba6","version":"2.1.325"}"#;
+
+/// Read as a quiet turn, it had the Job told to carry on, and every turn after failed the same way.
+#[test]
+fn an_expired_login_the_harness_calls_an_invalid_request_reads_as_signed_out() {
+    assert_eq!(read(LOGIN_EXPIRED_LINE).last(), Some(&DroneEvent::SignedOut));
+}
+
+/// `invalid_request` names many refusals; only the harness's expired login among them is a sign-out.
+#[test]
+fn another_invalid_request_is_not_a_sign_out() {
+    let line = LOGIN_EXPIRED_LINE.replace(
+        "Login expired · Run /login to sign in again, or re-authenticate your Anthropic profile",
+        "API Error: 400 prompt is too long",
+    );
+    assert!(!read(&line).contains(&DroneEvent::SignedOut));
+}
+
 #[test]
 fn a_line_that_is_not_json_is_an_event_rather_than_a_dropped_line() {
     let read = read("this is not a transcript at all");

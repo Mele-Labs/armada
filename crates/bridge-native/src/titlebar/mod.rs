@@ -47,7 +47,7 @@ use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
 pub use face::{copies_of, place_of, projects_of, repositories_of, Connection, Face, LiveLink, Member, Project, ProjectCopy, Remedy, Repository, RestartWhy, Restarting};
 pub use face::{refreshing, restarting, stage_word, Refreshing};
-pub use story::refresh_said;
+pub use story::{refresh_said, refresh_whole};
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.

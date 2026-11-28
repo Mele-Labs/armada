@@ -132,6 +132,7 @@ pub(crate) fn item_of(plan: &KeptPlan, session: &str, nothing_runs: bool) -> Opt
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     })
 }
 

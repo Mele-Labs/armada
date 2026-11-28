@@ -93,6 +93,8 @@ fn with_models(mut list: SettingsList) -> SettingsList {
         ("models.proposer", "models.retro", "Retro model", "The model a Job's retro is written on, once the Job ends.", "sonnet"),
         ("models.proposer", "models.secondOpinion", "Second opinion model", "The model a judged gaming flag is read a second time on.", "opus"),
         ("effort.judge", "effort.proposer", "Job proposer effort", "How hard the Job proposer thinks reading a request.", "harness default"),
+        ("models.proposer", "models.operator", "Operator model", "The model the Operator rules on what arrives: who does the work, and what reaches you.", "sonnet"),
+        ("effort.judge", "effort.operator", "Operator effort", "How hard the Operator thinks, from the next time its session starts.", "harness default"),
     ];
     for (from, key, title, description, value) in added {
         if like(&list, key).is_some() {

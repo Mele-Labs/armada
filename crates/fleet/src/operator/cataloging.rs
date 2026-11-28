@@ -36,6 +36,19 @@ where
         }
     }
 
+    /// Every pending feature and crowded area standing now, kept as told without telling: what piled up while the Operator
+    /// was off is not handed to it at once when it comes on.
+    pub(super) async fn catalog_kept_as_handed(&self) {
+        let now = self.now();
+        let standing: Vec<_> = self.pending_offered().await.into_iter().chain(self.areas_offered().await).collect();
+        let mut store = self.store().lock().await;
+        for arrival in standing {
+            if let Err(why) = store.keep_linked_told("operator", super::session::TOLD, &arrival.id, &now) {
+                self.operator_warned("a feature standing when the Operator came on was not kept as handed", why);
+            }
+        }
+    }
+
     /// The features a note points to, one project to a line, for the words the Operator is told. **Read off the files its element
     /// was drawn from and the component's name, against the paths each feature keeps**: a note that names neither says so.
     pub(crate) async fn note_features(&self, manifest: &str, files: &[String], component: Option<&str>) -> String {

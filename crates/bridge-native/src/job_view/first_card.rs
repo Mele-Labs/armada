@@ -7,6 +7,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Hsla, Role, SharedS
 use ipc::{AnswerHow, AnsweredAsk, ItemHow};
 
 use super::ask_card::card_key;
+use super::judge::{plan_readings, Pinned};
 use super::reader_sheet::artifact_in;
 use super::review::{answer_batch, instant, page_of_item, Ask, Item, Kind, Verdict};
 use super::rows::{glyph, tip, Size};
@@ -52,6 +53,7 @@ pub(super) fn step_words(ask: Ask, read: bool) -> &'static str {
         Ask::Page => "Approve a page",
         Ask::Plan => "Approve the plan",
         Ask::Drawing => "Approve a drawing",
+        Ask::Prototype => "Approve a prototype",
         Ask::Draft => "Approve a draft",
     }
 }
@@ -76,17 +78,22 @@ pub(super) fn answered_words(answer: &AnsweredAsk) -> &'static str {
     }
 }
 
-/// The key the first card takes for `item`: the question's card key, the artifact's own, else `first:<item>`.
+/// The key the first card takes for `item`: the question's card key, the artifact's own, a build's `first-build:<item>`, else
+/// `first:<item>`.
 pub(super) fn first_key(item: &Item) -> String {
     match item.kind {
         Kind::Question => card_key(&item.id),
         Kind::Artifact => artifact_in(item).unwrap_or(&item.id).to_string(),
+        Kind::Build => format!("{FIRST_BUILD}{}", item.id),
         _ => format!("first:{}", item.id),
     }
 }
 
+/// How the first card's key starts while a build is the first ask: that card holds the builds to try, so no card of their own stands.
+pub(super) const FIRST_BUILD: &str = "first-build:";
+
 /// A button of the card: its glyph, then its words where `words`, else the glyph alone with its words for a tooltip.
-fn glyph_button(look: &Look, id: String, said: &'static str, icon: &'static str, kind: super::sketch_card::Kind, words: bool) -> Stateful<gpui::Div> {
+pub(super) fn glyph_button(look: &Look, id: String, said: &'static str, icon: &'static str, kind: super::sketch_card::Kind, words: bool) -> Stateful<gpui::Div> {
     use super::sketch_card::Kind as K;
     let base = div()
         .id(SharedString::from(id))
@@ -144,7 +151,10 @@ impl JobView {
         let ask = self.ask_of(&first);
         // One he answered stands done on the bar while the asks put with or before it are still open.
         let since = asks.iter().map(|one| instant(&one.since)).min().unwrap_or(i64::MAX);
-        let done = record.answers.iter().filter(|one| instant(one.at.as_str()) >= since).max_by_key(|one| instant(one.at.as_str())).map(|one| answered_words(one).to_string());
+        // An answer to an ask still open, such as a note on the plan that still waits, finished nothing: the ask is the step now,
+        // and stood done beside it as well it read twice (his note of 27 Nov: the same plan twice).
+        let open = |answer: &AnsweredAsk| asks.iter().any(|one| super::ask_line::same_item(&one.id, &answer.item) || (one.kind == Kind::Plan && answer.item.starts_with("plan:")));
+        let done = record.answers.iter().filter(|one| instant(one.at.as_str()) >= since && !open(one)).max_by_key(|one| instant(one.at.as_str())).map(|one| answered_words(one).to_string());
         let words: Vec<(Ask, String)> = asks
             .iter()
             .map(|one| {
@@ -194,7 +204,21 @@ impl JobView {
                 padded(self.question_body(ix, waiting, &first.name, page, look, cx))
             }
             Kind::Artifact => self.parts_inside(ix, artifact_in(&first)?, page, look, cx)?,
-            _ => padded(vec![self.first_answers(&first, cx)]),
+            // The builds to try stand in this card, the Refresh keys and a row for each, and no card of their own beside it.
+            Kind::Build => self.ready_inside(ix, page, look, cx)?,
+            // The plan itself, as its own card draws it, above its answers; Read it still opens it whole in the sheet.
+            Kind::Plan => {
+                let card = self.thread(&job, cx).and_then(|held| held.head.plan.clone());
+                let plan = card.as_ref().and_then(|card| record.plan.as_ref().filter(|plan| plan.version == card.version));
+                let body = card.as_ref().zip(plan).map(|(card, plan)| {
+                    let (reading, earlier) = plan_readings(record, plan.version);
+                    let pinned = Pinned::on_card(ix, &card.id, reading, &earlier, plan);
+                    self.plan_body(ix, &card.id, plan, false, &pinned, page, look, cx)
+                });
+                let own = card.as_ref().map(|card| (ix, card.id.clone(), card.version));
+                padded(body.into_iter().chain([self.first_answers(&first, own, cx)]).collect())
+            }
+            _ => padded(vec![self.first_answers(&first, None, cx)]),
         };
         let spot = page.keys.spot(&format!("card:{key}"), cx);
         let aim = key.clone();
@@ -316,15 +340,18 @@ impl JobView {
     }
 
     /// The answers of an ask the sheet answers by verdict, a plan, a drawing, a page or a draft, and of a build: Approve, Ask for
-    /// changes and Read it, as the ask offers them.
-    fn first_answers(&self, item: &Item, cx: &Context<Self>) -> AnyElement {
+    /// changes and Read it, as the ask offers them. A plan's Approve goes as its own card's does, `plan`: its place, key and version.
+    fn first_answers(&self, item: &Item, plan: Option<(usize, String, u32)>, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let asks = !item.read && self.item_asks(item, cx) && item.kind != Kind::Build;
         let id = item.id.clone();
         let approve = asks.then(|| {
             let held = item.clone();
             labelled(
-                pressed(glyph_button(look, format!("first-approve:{id}"), "Approve", "check", super::sketch_card::Kind::Primary, true), cx, move |this, window, cx| this.first_approve(held.clone(), window, cx)),
+                pressed(glyph_button(look, format!("first-approve:{id}"), "Approve", "check", super::sketch_card::Kind::Primary, true), cx, move |this, window, cx| match plan.clone() {
+                    Some((ix, key, version)) => this.first_approve_plan(ix, key, version, window, cx),
+                    None => this.first_approve(held.clone(), window, cx),
+                }),
                 Role::Button,
                 "Approve",
             )
@@ -359,13 +386,21 @@ impl JobView {
                 said,
             )
         };
-        div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(approve).children(changes).child(read).into_any_element()
+        labelled(div().id(SharedString::from(format!("first-answers:{id}"))).flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(approve).children(changes).child(read), Role::Toolbar, "Answers").into_any_element()
     }
 
     /// Approve on the first card: answered as the sheet's Approve answers it, and the next ask takes the card.
     fn first_approve(&mut self, item: Item, window: &mut Window, cx: &mut Context<Self>) {
         let body = answer_batch(&[&item], ItemHow::Approve, |_| String::new());
         self.review_send(vec![item], Verdict::Approved, "/sessions/items/answer", ipc::encode(&body), window, cx);
+    }
+
+    /// A plan's Approve on the first card: the plan card's own approve, so a refusal is said on the card (his note of 27 Nov:
+    /// Approve on the plan did nothing, its answer sent as an item and its refusal shown only in a closed sheet).
+    fn first_approve_plan(&mut self, ix: usize, key: String, version: u32, window: &mut Window, cx: &mut Context<Self>) {
+        let session_id = ipc::SessionId::carried(self.shown.clone().unwrap_or_default().to_string());
+        let body = ipc::encode(&ipc::ApprovePlan { session_id, version }).map_err(|why| why.to_string());
+        self.settle(ix, key, super::acts::Answer::Approved, "/sessions/plan/approve", body, window, cx);
     }
 }
 
@@ -401,6 +436,12 @@ mod tests {
 
     fn ask_ids(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Vec<String> {
         view.read_with(cx, |view, cx| view.job_asks("mock-01", None, cx).into_iter().map(|one| one.id).collect())
+    }
+
+    #[test]
+    fn a_prototype_step_says_approve_a_prototype() {
+        assert_eq!(super::step_words(Ask::Prototype, false), "Approve a prototype");
+        assert_eq!(Ask::Prototype.wants(), "Approve");
     }
 
     #[gpui::test]
@@ -442,6 +483,64 @@ mod tests {
         assert!(!drawn(cx, Role::Article, "Plan to approve"), "nothing else draws the plan as a card");
         assert_eq!(drawn_like(cx, Role::Article, "Plan: ").len(), 1, "the plan stands once, as the first card");
         assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "its bar names it now");
+        assert!(drawn(cx, Role::List, "What each group gives"), "the card shows the plan itself, as its own card did");
+        assert!(drawn(cx, Role::Button, "Read it"), "and Read it still opens it whole");
+        // His note of 27 Nov: Approve on the plan did nothing.
+        press(cx, Role::Button, "Approve");
+        let after = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx));
+        assert!(after.as_ref().is_none_or(|one| one.kind != Kind::Plan), "approved, the plan leaves the first card: {after:?}");
+    }
+
+    #[gpui::test]
+    fn a_plan_sent_back_that_fleet_still_puts_takes_the_first_card_again(cx: &mut gpui::TestAppContext) {
+        let unasked = |jobs: &mut Vec<ipc::SessionRecord>| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+            job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+        };
+        let quiet = |threads: &mut std::collections::HashMap<String, ipc::JobThread>| {
+            if let Some(thread) = threads.get_mut("mock-01") {
+                thread.head.asked = None;
+            }
+        };
+        let (view, cx) = crate::job_view::parts_fold::rooted_job_with(cx, "job-view", "mock-01", size(px(1440.), px(900.)), unasked, quiet);
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let plan = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("an ask is open");
+        assert_eq!(plan.kind, Kind::Plan);
+        // He asks for changes: the answer is held here until Fleet's list says so.
+        view.update(cx, |view, _| {
+            let page = view.pages.get_mut("mock-01").expect("the Job is shown");
+            page.dock.hidden.insert(plan.id.clone());
+            page.cards.answers.insert(format!("plan:v{}", plan.id.trim_start_matches("plan:")), super::super::acts::Answer::SentBack("Add drag".into()));
+        });
+        redraw(cx);
+        assert!(view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).is_none_or(|one| one.kind != Kind::Plan), "sent, it leaves at once");
+        // Fleet took it and the Job kept the plan: Fleet still puts it, so it asks again.
+        let since = view.read_with(cx, |view, cx| view.record("mock-01", cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == plan.id).map(|one| one.since.clone()))).expect("Fleet still lists the plan");
+        let later = chrono::DateTime::parse_from_rfc3339(since.as_str()).expect("an instant") + chrono::Duration::minutes(1);
+        view.update(cx, |view, cx| {
+            view.list.update(cx, |list, _| {
+                let record = list.record_mut("mock-01").expect("mock-01 is listed");
+                record.answers.push(ipc::AnsweredAsk {
+                    item: plan.id.clone(),
+                    question: "Approve this plan?".into(),
+                    how: ipc::AnswerHow::AskedForChanges,
+                    words: Some("Add drag".into()),
+                    pick: None,
+                    artifact: None,
+                    part: None,
+                    notes: Default::default(),
+                    extras: Default::default(),
+                    at: ipc::Instant::carried(&later.to_rfc3339()),
+                });
+            })
+        });
+        redraw(cx);
+        let first = view.read_with(cx, |view, cx| view.first_ask("mock-01", cx)).expect("the plan asks again");
+        assert_eq!(first.kind, Kind::Plan, "Fleet's list wins over the answer held here");
+        assert!(drawn(cx, Role::ListItem, "Now: Approve the plan"), "the first card stands for it");
+        assert!(!drawn(cx, Role::ListItem, "Done: Approve the plan"), "his changes finished nothing, so the plan is not also a step done");
+        assert!(drawn(cx, Role::Button, "Approve"), "with its Approve");
     }
 
     #[gpui::test]

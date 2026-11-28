@@ -338,11 +338,11 @@ The pull requests are those the Reviews lists name, so the screen shows none unt
 
 ## Sub projects
 
-A sub project is a group of Jobs the owner picked in the Jobs list and named.
-He picks them with ⌘-click or a right click and Start a sub project, and gives it a name.
+A sub project is a group of Jobs the owner picked in the Jobs list and named, toward a goal in his words.
+He picks them with ⌘-click or a right click and Start a sub project, and gives it a name and a goal.
 The Jobs list draws it as a heading on top of the list, with its Jobs nested under it.
 
-`start_sub_project` keeps his name, trimmed, and the Jobs in his order.
+`start_sub_project` keeps his name and goal, trimmed, and the Jobs in his order.
 It also keeps the slugs of the features whose `jobs_now` holds one of those Jobs at the press, read as `list_features` reads them.
 Those features are not read again.
 Every picked Job must be filed in the sub project's project, so a sub project never spans two.
@@ -350,8 +350,35 @@ Every picked Job must be filed in the sub project's project, so a sub project ne
 > **Rule.** Fleet keeps only what he picked.
 > Why: a live Job that later writes a file of one of the features carries it in its row's `features`, and the Jobs list adds it to the group from there.
 
-`list_sub_projects` answers them oldest first, for one project or for all.
+`list_sub_projects` answers the open ones oldest first, for one project or for all, and with `ended` the ones folded away.
 `ungroup_sub_project` drops one, and each of its Jobs goes back to its own row untouched.
+
+### The orchestrator
+
+Every sub project has an orchestrator: an ordinary Job with a thread, which coordinates its Jobs toward the goal.
+He talks to it as he talks to any Job.
+
+> **Rule.** The orchestrator is a Job, not a new kind of thing.
+> Why: the owner decided it, so its thread, its waiting list and every way he reaches a Job serve it as they are.
+
+`start_sub_project` starts it before the sub project is kept, titled with his goal, in the repository of the first picked Job.
+Its first message is its brief: the sub project, the goal, and each picked Job's title and id.
+
+`turn_into_orchestrator` makes a running Job the orchestrator of a new sub project named with its title.
+Its own work moves first to a new child Job, titled the same.
+The child takes its slot, branch and pull requests, as a hand of its holds moves them, and is sent the handoff a context handoff carries with the Job's first message.
+The child is the sub project's first Job, and the turned Job is then sent its orchestrator brief.
+
+A sub project kept before orchestrators gets one from the first `list_sub_projects` that lists it, with its name as its goal.
+Fleet tries that once, so a start that fails is not tried at every read.
+
+### Goal met?
+
+When the orchestrator calls `all_done`, or every Job of the sub project merged a pull request or ended, the orchestrator's waiting list holds a Goal met? card.
+It is Fleet's, of source `goal_met`, and carries the goal and the pull requests that landed by number and title.
+Agree folds the sub project away, and `list_sub_projects` keeps it in history with `ended`.
+Not yet keeps it open, and the card comes back the next time the orchestrator calls `all_done`.
+Neither tells the orchestrator anything, and the card is answered, not dismissed.
 
 
 The project's Dashboard lists the open issues nobody is assigned to, that no Job holds and that no pull request already closes, as the ones he might pick up.
@@ -707,8 +734,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
 | `get_library_start` | The modules a project's build files name and the docs at the top of its repositories, for the start panel |
 | `draft_module_features` | The owner's Draft as Pending, or the Operator, keeps each module of a project with no feature of its own as a pending feature |
-| `start_sub_project` | The owner groups the Jobs he picked under a name, with the features they are on now |
-| `list_sub_projects` | The sub projects of a project, or of every project, oldest first |
+| `start_sub_project` | The owner groups the Jobs he picked under a name and a goal, with the features they are on now, and Fleet starts its orchestrator |
+| `list_sub_projects` | The open sub projects of a project, or of every project, oldest first, or the ones folded away |
+| `turn_into_orchestrator` | The owner turns a running Job into a new sub project's orchestrator, and its work moves to a new first child |
 | `ungroup_sub_project` | The owner's Ungroup drops a sub project and leaves its Jobs |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
