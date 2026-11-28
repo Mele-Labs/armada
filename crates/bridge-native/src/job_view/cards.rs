@@ -481,9 +481,16 @@ impl JobView {
         labelled(row, Role::Button, format!("Judged {title}")).into_any_element()
     }
 
-    pub(super) fn window_row(&self, id: &str, title: &str, look: &Look) -> AnyElement {
+    /// A walk the Job showed: a press opens it as its row in Now and in the Walks tab do.
+    pub(super) fn window_row(&self, id: &str, title: &str, url: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
         let parts = vec![div().min_w_0().truncate().child(SharedString::from(title.to_string())).into_any_element()];
-        self.quiet(id, "app-window", format!("Open window {title}"), parts, look)
+        let url = url.to_string();
+        let line = self
+            .quiet_base(id, "app-window", parts, look)
+            .cursor_pointer()
+            .hover(|style| style.border_color(look.color(token::BORDER_STRONG)))
+            .on_click(cx.listener(move |this, _, window, cx| this.press_walk(&url, window, cx)));
+        labelled(line, Role::Button, format!("Open window {title}")).into_any_element()
     }
 }
 
@@ -1215,5 +1222,50 @@ mod drawn_tests {
         assert_eq!(drawn_in(&ledger, "sketch:Flow").as_deref(), Some("d2"));
         assert_eq!(drawn_in(&[attachment("sketch", "sketch:Old", &[("drawn", "d1")])], "sketch:Old").as_deref(), Some("d1"));
         assert_eq!(drawn_in(&ledger, "sketch:Other"), None);
+    }
+}
+
+#[cfg(test)]
+mod window_row_tests {
+    use super::super::parts_fold::{redraw, rooted_job_with};
+    use super::super::row_tabs::RowKind;
+    use crate::mock_parts::JOB;
+    use gpui::{px, Modifiers, Role};
+
+    const URL: &str = "http://localhost:5173/?walk=orders";
+    const SAYS: &str = "Open window Orders page";
+
+    /// The walk his note came from: a thread row he pressed opened nothing (28 Nov). A press on a walk's row opens it as
+    /// the walk's row in Now and in the Walks tab does: a page's walk comes forward in its tab.
+    #[gpui::test]
+    fn a_press_on_a_walks_thread_row_opens_the_walk(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job_with(
+            cx,
+            "artifact-folds",
+            JOB,
+            gpui::size(px(1400.), px(6000.)),
+            |jobs| {
+                let job = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
+                let shown = format!(r#"{{"kind":"artifact","target":"{URL}","state":"standing","detail":{{"form":"window","title":"Orders page"}},"since":"2026-11-28T03:21:27Z","changed_at":"2026-11-28T03:21:27Z"}}"#);
+                job.attachments.push(ipc::decode::<ipc::Attachment>("window", shown.as_bytes()).expect("the window decodes"));
+                let owed = format!(r#"{{"id":"walk:{URL}","text":"Orders page","since":"2026-11-28T03:21:27Z","source":"walk","act":{{"kind":"walk","target":"{URL}"}}}}"#);
+                job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("walk item", owed.as_bytes()).expect("the walk item decodes"));
+            },
+            |threads| {
+                let thread = threads.get_mut(JOB).expect("the folds' thread");
+                let row = format!(r#"{{"kind":"row","row":{{"kind":"window","id":"win-1","at":"2026-11-28T03:21:27Z","title":"Orders page","url":"{URL}"}}}}"#);
+                thread.items.push(ipc::decode::<ipc::ThreadItem>("window row", row.as_bytes()).expect("the row decodes"));
+            },
+        );
+        // Owed, the walk's tab arrives behind the one in front, not yet seen.
+        let seen = |view: &gpui::Entity<super::JobView>, cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, _| view.row_tab_list(JOB).into_iter().find(|tab| tab.kind == RowKind::Walk && tab.key == URL).map(|tab| tab.seen))
+        };
+        assert_eq!(seen(&view, cx), Some(false), "the owed walk arrived behind");
+        let at = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Button, SAYS).map(|row| row.bounds.center()));
+        let at = at.expect("the walk's row is a button");
+        cx.simulate_click(at, Modifiers::none());
+        redraw(cx);
+        assert_eq!(seen(&view, cx), Some(true), "the press brought the walk's tab to the front");
     }
 }

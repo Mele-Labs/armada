@@ -200,7 +200,7 @@ impl JobView {
                 )
                 .into_any_element()
             }
-            SessionRow::Window { id, title, .. } => self.window_row(id, title, look),
+            SessionRow::Window { id, title, url, .. } => self.window_row(id, title, url, look, cx),
             SessionRow::Started { id, at, session, fork } => {
                 let ink = look.color(token::FG_INVERSE);
                 let bar = Self::padded(look, div())
