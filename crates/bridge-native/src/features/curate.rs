@@ -87,7 +87,7 @@ pub fn confirm_write(project: &str, row: &FeatureRow, area: &str, title: &str, l
 
 /// Merge: the feature folded into the one of slug `into`.
 pub fn merge_write(project: &str, slug: &str, into: &str) -> Write {
-    Write::Change(ChangeFeature { project: project.to_string(), feature: slug.to_string(), into: Some(into.to_string()), slug: None, title: None, area: None })
+    Write::Change(ChangeFeature { project: project.to_string(), feature: slug.to_string(), into: Some(into.to_string()), slug: None, title: None, area: None , why: None })
 }
 
 /// Rename: what changed of the slug and the title, or none where neither did, which Fleet refuses.
@@ -95,7 +95,7 @@ pub fn rename_write(project: &str, row: &FeatureRow, slug: &str, title: &str) ->
     let (slug, title) = (slug.trim(), title.trim());
     let slug = (slug != row.slug && !slug.is_empty()).then(|| slug.to_string());
     let title = (title != row.title && !title.is_empty()).then(|| title.to_string());
-    (slug.is_some() || title.is_some()).then(|| Write::Change(ChangeFeature { project: project.to_string(), feature: row.slug.clone(), into: None, slug, title, area: None }))
+    (slug.is_some() || title.is_some()).then(|| Write::Change(ChangeFeature { project: project.to_string(), feature: row.slug.clone(), into: None, slug, title, area: None , why: None }))
 }
 
 /// Split: the area kept beside the one it is split from, then each ticked feature moved into it. The call names every area
@@ -111,7 +111,7 @@ pub fn split_writes(project: &str, areas: &[(String, String)], from: &str, name:
         }
     }
     let mut writes = vec![Write::Upsert(UpsertFeatures { project: project.to_string(), areas: seeds, features: Vec::new() })];
-    writes.extend(ticked.iter().map(|feature| Write::Change(ChangeFeature { project: project.to_string(), feature: feature.clone(), into: None, slug: None, title: None, area: Some(new.clone()) })));
+    writes.extend(ticked.iter().map(|feature| Write::Change(ChangeFeature { project: project.to_string(), feature: feature.clone(), into: None, slug: None, title: None, area: Some(new.clone()) , why: None })));
     writes
 }
 

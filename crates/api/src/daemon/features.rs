@@ -211,6 +211,23 @@ pub trait Features: Send + Sync + 'static {
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
     fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;
 
+    /// `change_area` — the Operator or the owner makes, renames, splits or merges an area, his reason kept as a rule.
+    /// [`Refusal::Unacceptable`] (`fleet.not_the_operator`, `fleet.area_change`, `fleet.feature_slug`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`), [`Refusal::IllegalMove`] (`fleet.area_slug_taken`).
+    fn change_area(&self, caller: Option<crate::Caller>, change: ipc::ChangeArea) -> impl Future<Output = Result<ipc::AreaChanged, Refusal>> + Send;
+
+    /// `reject_in_catalog` — his Not this feature or Doesn't go together, kept as a rule and nothing else. [`Refusal::Unacceptable`]
+    /// (`fleet.not_the_operator`, `fleet.feature_project`, `fleet.catalog_reject`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`).
+    fn reject_in_catalog(&self, caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> impl Future<Output = Result<ipc::CatalogRuleKept, Refusal>> + Send;
+
+    /// `list_catalog_rules` — the project's catalog rules, newest first. [`Refusal::Unacceptable`] (`fleet.feature_project`).
+    fn list_catalog_rules(&self, project: Option<String>) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
+
+    /// `drop_catalog_rule` — one rule taken out. Refused as `reject_in_catalog` is, and [`Refusal::NotFound`]
+    /// (`fleet.catalog_rule_unknown`).
+    fn drop_catalog_rule(&self, caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
+
     /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
     /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.
     fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> impl Future<Output = Result<ipc::FeaturesHandedOver, Refusal>> + Send;

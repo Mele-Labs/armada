@@ -214,7 +214,32 @@ impl Features for FakeDaemon {
     }
 
     async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
-        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
+        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into, rule: None })
+    }
+
+    async fn change_area(&self, _caller: Option<crate::Caller>, change: ipc::ChangeArea) -> Result<ipc::AreaChanged, Refusal> {
+        Ok(ipc::AreaChanged { project: change.project, area: change.area, rule: None })
+    }
+
+    async fn reject_in_catalog(&self, _caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> Result<ipc::CatalogRuleKept, Refusal> {
+        let rule = ipc::CatalogRule {
+            id: String::from("r-1"),
+            text: reject.why.unwrap_or_default(),
+            act: ipc::CatalogRuleAct::NotTogether,
+            features: reject.features,
+            areas: reject.areas,
+            paths: reject.paths,
+            at: ipc::Instant::carried("2026-11-28T12:00:00Z"),
+        };
+        Ok(ipc::CatalogRuleKept { project: reject.project, rule })
+    }
+
+    async fn list_catalog_rules(&self, project: Option<String>) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: project.unwrap_or_default(), rules: Vec::new() })
+    }
+
+    async fn drop_catalog_rule(&self, _caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: drop.project, rules: Vec::new() })
     }
 
     async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {

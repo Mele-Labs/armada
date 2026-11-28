@@ -112,3 +112,21 @@ A row written before walks were built from a Job's branch carries no build and r
 Approve says the look is right, and the Job wires it and then offers a preview.
 Ship it says the same and the change lands without a preview: it closes the plan's first open `you_approved` gate, as his Looks good on a Ready to try card does.
 Skip on a Ready to try card lands a change whose look he approved on the walk without trying it, and closes the step as Looks good does.
+
+## The look he approved
+
+**What lands is what he approved.**
+His Approve or Ship it on a native walk whose build is Ready plays that walk from the build's kept binary, headless, and keeps one picture a step under `approved-looks/<job>/<walk>` in Fleet's support folder.
+Where a take was pressed, the walk of that take is the one kept.
+The send never waits: the pictures are taken in a task of their own.
+Fleet keeps a record of each (job, walk, address, commit, time, folder), and a newer approval of the same walk replaces the older pictures.
+Where the pictures cannot be taken, nothing is kept and the Job is told in Fleet's own voice, as a walk that did not build is.
+**Before the Job's pull request opens**, each look the Job kept is set against its head commit.
+Fleet asks the walk build queue for that commit's binary, plays the walk with `--against` the approved folder, and reads the `LookReport` the binary writes.
+A step that drifted fails the pre-PR check, and the Job is told which steps, with the side by side and difference pictures of each.
+The Job either fixes the screen or shows the walk again with `show_window` for a new approval.
+A Job that kept no look has nothing run.
+**A push to a pull request that is open** is checked the same way, once a commit.
+A drift is told to the Job, and so is a look that could not be compared (a build that failed or ran out of time, a walk that would not play), naming why.
+Silence never reads as a match.
+Fleet never writes to the forge, and a drift never goes to him.

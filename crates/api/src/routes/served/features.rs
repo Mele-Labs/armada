@@ -168,6 +168,26 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/features/change",
     },
+    Route {
+        operation: "change_area",
+        method: "POST",
+        path: "/features/areas/change",
+    },
+    Route {
+        operation: "reject_in_catalog",
+        method: "POST",
+        path: "/features/reject",
+    },
+    Route {
+        operation: "list_catalog_rules",
+        method: "GET",
+        path: "/features/rules",
+    },
+    Route {
+        operation: "drop_catalog_rule",
+        method: "POST",
+        path: "/features/rules/drop",
+    },
     // The mod's hook asks as a Job is about to read, so it spells itself beside the two acts.
     Route {
         operation: "hand_over_features",
