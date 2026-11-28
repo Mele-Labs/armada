@@ -7,6 +7,7 @@ import {
   Bot,
   Box,
   ChevronLeft,
+  Eye,
   FileText,
   Globe,
   Layers,
@@ -171,8 +172,9 @@ export type Notched = {
   macs: readonly Mac[];
   /** When the lists were read, so the rings are read again with them. */
   at: number;
-  /** The place the notch names: the Jobs list, or a Job, whose notch takes him back to the list. */
-  place: "jobs" | "job";
+  /** The place the notch names: To review or the Jobs list, which the switch under it goes between, or a Job, whose notch
+   * takes him back to the Jobs list. */
+  place: "review" | "jobs" | "job";
   onSearch?: () => void;
   /** The projects the list groups under, and the one it shows; absent off the list. */
   projects?: {
@@ -182,6 +184,12 @@ export type Notched = {
     onDrafts: () => void;
   };
 };
+
+/** What the notch calls each place. */
+const PLACES = {
+  review: "To review",
+  jobs: "Jobs",
+} as const;
 
 export function Notch({ macs, at, place, onSearch, projects }: Notched) {
   const usage = usePlanUsage(macs, at);
@@ -222,16 +230,18 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
         <button
           type="button"
           className="pk-notch__place"
-          data-here={place === "jobs" || undefined}
-          aria-label={place === "jobs" ? "Jobs" : "Back to Jobs"}
-          onClick={() => go("/")}
+          data-here={place !== "job" || undefined}
+          aria-label={place === "job" ? "Back to Jobs" : PLACES[place]}
+          onClick={() => go(place === "review" ? "/" : "/jobs")}
         >
-          {place === "jobs" ? (
-            <Box size={14} aria-hidden="true" />
-          ) : (
+          {place === "job" ? (
             <ChevronLeft size={14} aria-hidden="true" />
+          ) : place === "review" ? (
+            <Eye size={14} aria-hidden="true" />
+          ) : (
+            <Box size={14} aria-hidden="true" />
           )}
-          Jobs
+          {place === "job" ? PLACES.jobs : PLACES[place]}
         </button>
         {onSearch === undefined ? null : (
           <Tooltip label="Search Jobs">

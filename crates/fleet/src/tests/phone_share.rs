@@ -145,6 +145,61 @@ async fn needs_you_holds_jobs_in_a_shared_project_or_in_none() {
 }
 
 #[tokio::test]
+async fn to_review_holds_jobs_in_a_shared_project_or_in_none() {
+    let phone = Phone::paired().await;
+    let jobs = jobs(&phone).await;
+    for job in [&jobs.private, &jobs.loose, &jobs.open] {
+        let item = WaitingInput { approves: true, id: "look".into(), text: "Does the pane read right?".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None };
+        phone.rig.fleet.set_waiting(None, SetWaitingFor { items: vec![item], session_id: Some(job.clone()) }).await.expect("raised");
+    }
+
+    let listed_now = phone.get("/api/sessions/to_review").await;
+    assert!(listed(&listed_now, &jobs.open) && listed(&listed_now, &jobs.loose), "{listed_now}");
+    assert!(!listed(&listed_now, &jobs.private), "{listed_now}");
+    assert!(!listed_now.contains("Shop"), "nothing of the unshared project is named: {listed_now}");
+    shared(&phone.rig, &jobs.shop, true).await;
+    assert!(listed(&phone.get("/api/sessions/to_review").await, &jobs.private), "shared, it shows");
+}
+
+/// One verdict names one Job, and the Job it does not see is answered as no Job, the others reached.
+#[tokio::test]
+async fn a_verdict_on_an_unshared_jobs_item_answers_as_for_no_job_and_a_shared_ones_reaches_it() {
+    let phone = Phone::paired().await;
+    let jobs = jobs(&phone).await;
+    for job in [&jobs.private, &jobs.open] {
+        let item = WaitingInput { approves: true, id: "look".into(), text: "Does the pane read right?".into(), act: None, options: Vec::new(), steps: Vec::new(), artifact: None };
+        phone.rig.fleet.set_waiting(None, SetWaitingFor { items: vec![item], session_id: Some(job.clone()) }).await.expect("raised");
+    }
+    let verdict = |job: &str| format!(r#"{{"items":[{{"session_id":"{job}","item":"look","how":"approve"}}]}}"#);
+    let route = "/api/sessions/items/answer";
+    let missing = phone.call("POST", route, &verdict(NOBODY), NOBODY).await;
+    assert_eq!(missing.0, StatusCode::OK, "the route answers each item: {missing:?}");
+    assert!(missing.1.contains("refused"), "{missing:?}");
+    assert_eq!(phone.call("POST", route, &verdict(jobs.private.as_str()), jobs.private.as_str()).await, missing, "the answer says nothing of it");
+    let waiting = |job: &SessionId| {
+        let job = job.clone();
+        let rig = &phone.rig;
+        async move { api::HostedSessions::get_session(Arc::clone(&rig.fleet), job).await.expect("read").session.waiting_for.iter().any(|item| item.id == "look") }
+    };
+    assert!(waiting(&jobs.private).await, "the unshared Job's item is not settled");
+
+    let reached = phone.call("POST", route, &verdict(jobs.open.as_str()), jobs.open.as_str()).await;
+    assert!(reached.1.contains("settled"), "{reached:?}");
+    assert!(!waiting(&jobs.open).await, "the shared Job's item is settled");
+
+    // Two Jobs in one call: each answered as itself.
+    let both = format!(
+        r#"{{"items":[{{"session_id":"{}","item":"look","how":"approve"}},{{"session_id":"{}","item":"look","how":"approve"}}]}}"#,
+        jobs.private.as_str(),
+        jobs.loose.as_str()
+    );
+    let (status, body) = phone.call("POST", route, &both, "\u{0}").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains(jobs.private.as_str()) && body.contains(jobs.loose.as_str()), "each item keeps its Job's id: {body}");
+    assert!(!body.contains("00000000000000000000000001"), "no stand-in reaches the phone: {body}");
+}
+
+#[tokio::test]
 async fn an_unshared_jobs_thread_answers_as_a_job_that_does_not_exist() {
     let phone = Phone::paired().await;
     let jobs = jobs(&phone).await;
@@ -220,6 +275,7 @@ const ACTS: &[(&str, &str)] = &[
     ("tune", r#"{"session_id":"{id}","mode":"auto"}"#),
     ("run/start", r#"{"session_id":"{id}","command":"true"}"#),
     ("waiting/dismiss", r#"{"session_id":"{id}","item_id":"i1"}"#),
+    ("waiting/done", r#"{"session_id":"{id}","item_id":"i1"}"#),
     ("change_waiting", r#"{"waiting_session":"{id}"}"#),
     ("start_waiting", r#"{"session_id":"{id}"}"#),
     ("artifacts/part/answer", r#"{"session_id":"{id}","artifact":"a.html","part":"p1","drawn":"d1","how":"approved"}"#),
@@ -413,4 +469,26 @@ async fn an_unshared_jobs_terminals_answer_as_ones_that_do_not_exist() {
 async fn ended(phone: &Phone, run: &str) {
     phone.rig.fleet.stop_session_run(ipc::StopSessionRun { run_id: run.into() }).await.expect("in flight");
     super::session_host::eventually(|| async { phone.rig.fleet.observe_session_run(run.into()).await.map_or(true, |seen| seen.live.is_err()) }).await;
+}
+
+#[tokio::test]
+async fn refresh_preview_from_the_phone_reaches_fleets_build_change() {
+    let phone = Phone::paired().await;
+    let (status, body) = phone.call("POST", "/api/fleet/build/change", r#"{"build":"preview","adopt":true}"#, "\u{0}").await;
+    // The rig serves no repository holding the wrapper, so the handler's own refusal is the proof it was reached.
+    assert!(body.contains("scripts/restart-build"), "{status}: {body:?}");
+}
+
+#[tokio::test]
+async fn every_path_the_gateway_forwards_is_ruled_on_for_the_phone() {
+    let phone = Phone::paired().await;
+    for (method, path) in pocket::FORWARDED {
+        let target = path.replace(":repository", "x");
+        let body = if *method == axum::http::Method::POST { "{}" } else { "" };
+        let (status, said) = phone.call(method.as_str(), &target, body, "\u{0}").await;
+        assert!(
+            !(status == StatusCode::NOT_FOUND && said.is_empty()),
+            "{method} {path}: Fleet's phone filter has no ruling for it, so the phone gets an empty 404 (api::phone_share)",
+        );
+    }
 }

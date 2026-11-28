@@ -227,7 +227,7 @@ function settledOf(card: ThreadReadyToTry): string | undefined {
 }
 
 /** The card read whole: the screen it opens on from the thread or Needs you. */
-function TryCard({
+export function TryCard({
   machine,
   id,
   card,

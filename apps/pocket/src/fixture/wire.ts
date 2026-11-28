@@ -1273,6 +1273,10 @@ export function fixtureMacs(
               label: "Keep open",
             },
           ],
+          operator_read: {
+            read: "Every task in the tracker mod's plan is ticked, and its pull request merged.",
+            pick: "Mark done",
+          },
         },
         {
           id: "rule_act:41",
@@ -2008,11 +2012,72 @@ ${Array.from(
     ],
   };
 
+  // A Job of the phone sub project that asks the rest of To review's forms: a thing to do, a command to run, and its own
+  // item asking for his approval.
+  const toReview = phone({
+    id: "rv",
+    title: "Pocket To review",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 40),
+    waiting_since: ago(now, 5),
+  });
+  const rv: SessionThread = {
+    session: record(now, "rv", toReview.title!, 40, {
+      waiting_for: [
+        {
+          id: "approve-try",
+          text: "Does the Try step look right?",
+          since: ago(now, 5),
+          source: "agent",
+          approves: true,
+          options: [
+            {
+              label: "Approve",
+            },
+            {
+              label: "Ask for changes",
+            },
+          ],
+          why: "The build waits on this.",
+        },
+        {
+          id: "pair-phone",
+          text: "Pair the phone with the laptop",
+          since: ago(now, 4),
+          source: "agent",
+          steps: [
+            "Open Pocket on the phone",
+            "Menu, then Pair a Mac",
+            "Scan the code the laptop shows",
+          ],
+        },
+        {
+          id: "run-check",
+          text: "Run the Pocket checks",
+          since: ago(now, 3),
+          source: "agent",
+          act: {
+            kind: "run",
+            target: "pnpm -C apps/pocket test",
+          },
+        },
+      ],
+    }),
+    rows: [
+      message("rv-1", ago(now, 40), "you", "Build the To review screen for the phone."),
+      message("rv-2", ago(now, 5), "agent", "The Try step is built. Three things need you."),
+    ],
+  };
+
   return {
     [origins.studio]: {
       name: "studio",
       needs: [
         review,
+        toReview,
         draft,
         sibling,
         restart,
@@ -2023,6 +2088,7 @@ ${Array.from(
       ],
       live: [
         review,
+        toReview,
         draft,
         asked,
         restart,
@@ -2040,6 +2106,7 @@ ${Array.from(
       ],
       threads: {
         w1,
+        rv,
         a1,
         a2,
         d1,

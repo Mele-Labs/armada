@@ -13,7 +13,7 @@ sketch `Slot layout` is refused as redrawn, and the thread then shows the new dr
 `src/fixture/`.
 
 `pnpm -C apps/pocket dev` serves it with no Gateway behind it, and the app
-goes to `/pair`. Routes: `/` every Mac's Jobs (Drafts, Needs you, Done, Waiting, Running, under
+goes to `/pair`. Routes: `/` To review, `/jobs` every Mac's Jobs (Drafts, Needs you, Done, Waiting, Running, under
 the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
 `?origin=…` to pair a Mac again), `/dispatch`, a Job at
 `/jobs/<Mac origin, encoded>/<id>`, and what it showed under it at
@@ -22,6 +22,13 @@ the plan's 5-hour and weekly limits), `/pair` (`?code=…` from a pairing link,
 opens at `/drafts/<Mac origin, encoded>/<id>`: its brief to edit, how the work
 lands where its workflow asks, Send and Discard. A Job that has begun opens as
 a Job from there, and a held one opens as a draft from `/jobs/…`.
+
+**To review** (`src/ToReview.tsx`) is the screen the app opens on: everything every Job on every paired Mac waits
+on, read from each Mac's `list_to_review` and merged into one list, headed by each sub project's goal, then each
+feature, then the Jobs in neither. A switch under the bar goes to the Jobs list and back. Each item is drawn by one
+component, `src/ReviewItem.tsx`, in the form it asks in (an artifact's parts, a plan, a draft, a Ready to try card,
+options, a thing to do, a command or a press) and answered in place through the operation it names; a new form is one
+case of its `Form`. The fixture's Job `Pocket To review` holds a thing to do, a command and an item asking for approval.
 
 A Job's thread ends in what waits on the owner: a question, one of Fleet's own
 choices (how the work lands, every slot held, tasks done, a rule's act, a

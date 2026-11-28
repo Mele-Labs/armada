@@ -19,6 +19,10 @@ export const notAnswering = (name?: string) =>
     ? "Armada is not answering on your Mac. Open it there, then try again."
     : `Armada is not answering on ${name}. Open it there, then try again.`;
 
+/** A refusal with no words of its own: the Mac answered, so it is not "not answering". */
+export const turnedAway = (status: number, name?: string) =>
+  `Armada on ${name === undefined || name === "" ? "your Mac" : name} turned this away (${status}).`;
+
 const unpaired = new Set<(origin: string, why: string) => void>();
 
 /** Hears every 401, with the Mac's origin and its sentence. */
@@ -65,7 +69,10 @@ export async function call(machine: Machine, path: string, init: CallInit = {}):
     throw new Refused(401, why);
   }
   if (!response.ok)
-    throw new Refused(response.status, (await response.text()) || notAnswering(machine.name));
+    throw new Refused(
+      response.status,
+      (await response.text()) || turnedAway(response.status, machine.name),
+    );
   return response;
 }
 
