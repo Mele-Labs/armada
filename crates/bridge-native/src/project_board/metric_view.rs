@@ -97,6 +97,8 @@ impl Board {
         let unit = reading.answer.as_ref().and_then(metric::headline).and_then(|head| head.unit);
         let chart = metric::graph_spec(&reading.title, plot.points(), unit.as_deref()).ok().and_then(|spec| compile::compile(&spec, &[], &BTreeMap::<String, Vec<ipc::graph::Row>>::new()).ok());
         let Some(mut chart) = chart else { return div().into_any_element() };
+        // The block is too short for value labels to read: the grid says the shape, and the readout the value and its unit.
+        chart.y.shown = false;
         let row = look.length(token::H_ROW_UNIT) * 2.0;
         let under = look.length(token::SPACE_1) + look.length(token::LEADING_2XS);
         if single {

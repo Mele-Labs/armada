@@ -83,7 +83,7 @@ pub fn graph_spec(title: &str, points: &[Point], unit: Option<&str>) -> Result<i
         "mark": mark,
         "encoding": {
             "x": {"field": "at", "type": "temporal", "title": "Time"},
-            "y": {"field": "value", "type": "quantitative", "title": named, "scale": {"zero": false}, "axis": {"tickCount": 3}},
+            "y": {"field": "value", "type": "quantitative", "title": named, "scale": {"zero": false}, "axis": {"tickCount": 2}},
         },
     });
     ipc::graph::read_spec(&spec.to_string())

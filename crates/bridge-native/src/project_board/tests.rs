@@ -749,16 +749,16 @@ fn a_block_with_rows_out_of_sight_keeps_the_wheel_and_the_board_stands_still(cx:
 fn graph_is_an_area_in_time_on_the_graph_compiler_with_the_metric_unit_and_one_reading_a_dot() {
     use crate::graph::compile::{compile, Layer, XKind};
     let none: std::collections::BTreeMap<String, Vec<ipc::graph::Row>> = Default::default();
-    let errors = mock_reading("errors-24h");
-    let points = metric::plot(&errors).points().to_vec();
-    let spec = metric::graph_spec(&errors.title, &points, Some("errors")).expect("the spec reads");
+    let build = mock_reading("build-time");
+    let points = metric::plot(&build).points().to_vec();
+    let spec = metric::graph_spec(&build.title, &points, Some("s")).expect("the spec reads");
     let chart = compile(&spec, &[], &none).expect("the spec draws");
     assert_eq!(chart.x.kind, XKind::Time, "a time axis");
-    assert!(chart.y.grid && chart.y.shown, "a grid behind the values");
-    assert_eq!(chart.y.unit.as_deref(), Some("errors"), "the readout and the axis carry the unit");
+    assert!(chart.y.grid, "a grid behind the values");
+    assert_eq!(chart.y.unit.as_deref(), Some("s"), "the readout carries the unit");
     let Some(Layer::Area { points: drawn, stacked: false, .. }) = chart.layers.first() else { panic!("an area: {:?}", chart.layers) };
-    assert_eq!(drawn.iter().map(|(_, top, _)| *top).collect::<Vec<_>>(), [17., 9., 22., 14.], "every point, in time");
-    assert!(chart.y.low > 0., "the scale leaves zero out so the shape shows");
+    assert_eq!(drawn.iter().map(|(_, top, _)| *top).collect::<Vec<_>>(), [380., 388., 401., 396., 412., 412.], "every point, in time");
+    assert!(chart.y.low > 0., "the scale leaves zero out so the shape of 380 to 412 shows");
     let one = metric::graph_spec("Open pull requests", &points[..1], None).expect("one point reads");
     let chart = compile(&one, &[], &none).expect("one point draws");
     assert!(matches!(chart.layers.first(), Some(Layer::Line { dots: true, points, .. }) if points.len() == 1), "a lone dot: {:?}", chart.layers);
