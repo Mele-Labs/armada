@@ -81,8 +81,8 @@ A Job still plays its walks itself, as its own check of a screen.
 | Build | `cargo build` in `crates/bridge-native`, in the Job's own slot, for the Job's own check only |
 | Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
 | Commit it | The screen and its walk file, in the Job's slot: Fleet builds the walk from the commit, so only committed work is shown |
-| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. The row says Building while Fleet builds it from the Job's commit and asks him nothing until the build plays every walk named (`--list-walks`). A failure is told to the Job and never to him |
-| He opens it | One press on the walk's row. Fleet starts the native Bridge it built from the Job's commit, with `--take <name>=<walk>` for each variation |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. It reaches him at once, marked Building, while Fleet builds it from the Job's commit, with Open greyed until the build plays every walk named (`--list-walks`). Fleet tells the Job it is building, so it never says the walk is open. A build his own running preview already holds is not built again. A failure is told to the Job and never to him |
+| He opens it | One press on the walk's row, once it is Ready: a press while it builds brings its tab forward. Fleet starts the native Bridge it built from the Job's commit, with `--take <name>=<walk>` for each variation |
 | He picks a take | The bar's takes menu, or ⌥⌘T, swaps to that take's walk from its first step. Approve and each note name the take on screen |
 
 **The check never opens a window, and Fleet never starts a walk he did not open.**
