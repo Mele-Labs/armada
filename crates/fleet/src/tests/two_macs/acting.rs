@@ -457,3 +457,21 @@ async fn notes_on_a_job_another_mac_holds_reach_its_thread_on_that_mac() {
     assert_eq!(ran.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["notes"]);
     assert!(acts_run(&home).await.is_empty());
 }
+
+/// A note's picture past axum's 2 MB default: Work's gateway and Work's Fleet each answered a bare 413 on 27 Nov.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_five_megabyte_note_reaches_a_job_another_mac_holds() {
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+    let note = |said: &str| {
+        let mut one = crate::tests::session_notes::note(&job, "Send", None).note;
+        one.said = said.to_string();
+        one
+    };
+    let mut large = note("too wide");
+    large.crop = Some(ipc::NoteCrop { media_type: "image/png".to_string(), data: "A".repeat(5 * 1024 * 1024) });
+    let notes = ipc::SendSessionNotes { session_id: job.clone(), notes: vec![large, note("wrong colour")] };
+
+    let (status, body) = post(&home, "/sessions/notes", encoded(&notes)).await;
+    assert_eq!(status, axum::http::StatusCode::ACCEPTED, "{}", body.chars().take(400).collect::<String>());
+    assert_eq!(said(&work, &job, "1. too wide\n2. wrong colour").await, 1, "Work's thread holds the notes");
+}

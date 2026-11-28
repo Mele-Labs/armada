@@ -8,6 +8,13 @@ pub(super) async fn switched(rig: &Rig, on: bool) {
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
+async fn saved(rig: &Rig, name: &str, word: &str) {
+    rig.fleet
+        .save_preference_now(ipc::SavePreference { name: name.into(), value: false, text: Some(word.into()) })
+        .await
+        .unwrap_or_else(|why| panic!("{name} {word}: {why:?}"));
+}
+
 pub(super) async fn live(rig: &Rig) -> Option<String> {
     rig.fleet.operator_session_id().await
 }
@@ -42,11 +49,13 @@ async fn the_operators_session_starts_with_its_switch_in_a_folder_of_its_own_and
     assert!(live(&rig).await.is_none(), "turned off: it ends");
 }
 
-/// **The Operator is not a Job**, so its start note carries neither the Jobs' Logbook nor how the
-/// owner works with Jobs, whose lines name `all_done` and `waiting_for`.
+/// **The Operator is not a Job**, so its start note carries how the owner takes things in, from his
+/// Settings, and neither the Jobs' Logbook nor a Job's own acts, `all_done` and `waiting_for`.
 #[tokio::test]
-async fn the_operators_start_note_carries_no_jobs_logbook_or_ways() {
+async fn the_operators_start_note_carries_how_he_takes_things_in_and_no_jobs_acts() {
     let rig = rig_placing(None);
+    saved(&rig, "take_in", "look").await;
+    saved(&rig, "answer_with", "buttons").await;
     switched(&rig, true).await;
     rig.fleet.operator_session_kept().await;
     let id = live(&rig).await.expect("started");
@@ -54,9 +63,30 @@ async fn the_operators_start_note_carries_no_jobs_logbook_or_ways() {
 
     let start = rig.stand_in.starts().into_iter().find(|one| one.session == id).expect("its process");
     let told = start.note.unwrap_or_default();
-    assert!(!told.contains(&rig.fleet.ways_note()), "{told}");
-    assert!(!told.contains("How the owner works with Jobs"), "{told}");
-    assert!(!told.contains("The Logbook"), "{told}");
+    assert!(told.contains("lead every answer and result with a picture through show_sketch"), "{told}");
+    assert!(told.contains("ask every question with two to four options, your pick first, a cost on each"), "{told}");
+    for word in ["all_done", "waiting_for", "AskUserQuestion", "How the owner works with Jobs", "The Logbook"] {
+        assert!(!told.contains(word), "{word}: {told}");
+    }
+}
+
+/// A change to how he takes things in reaches the running Operator, in its own words, as it reaches a Job.
+#[tokio::test]
+async fn a_saved_change_to_how_he_takes_things_in_is_told_to_the_running_operator() {
+    let rig = rig_placing(None);
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let id = live(&rig).await.expect("started");
+    eventually(|| async { rig.stand_in.process_of(&id).is_some() }).await;
+
+    let before = api::Settings::get_preferences(rig.fleet.as_ref()).await.expect("read");
+    saved(&rig, "answer_with", "talk").await;
+    let now = api::Settings::get_preferences(rig.fleet.as_ref()).await.expect("read");
+    api::Settings::preferences_saved(std::sync::Arc::clone(&rig.fleet), before, now).await;
+
+    let sent = rig.stand_in.process_of(&id).expect("running").sent.lock().unwrap().join("\n");
+    assert!(sent.contains("he answers by voice"), "{sent}");
+    assert!(!sent.contains("How the owner works with Jobs"), "a Job's note is not the Operator's: {sent}");
 }
 
 #[tokio::test]

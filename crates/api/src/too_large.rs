@@ -14,7 +14,7 @@ use crate::answers::problem;
 use crate::door::DOOR_PATH;
 use crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE;
 
-pub(crate) const REQUEST_TOO_LARGE: &str = "request.too_large";
+pub const REQUEST_TOO_LARGE: &str = "request.too_large";
 
 /// axum's own limit, for every route that sets none.
 const THE_DEFAULT: usize = 2 * 1024 * 1024;
@@ -24,7 +24,7 @@ const THE_DEFAULT: usize = 2 * 1024 * 1024;
 /// belongs in this table too.
 fn limit_of(path: &str) -> usize {
     match path {
-        "/sessions/dispatch" | "/sessions/message" | "/sessions/note" | "/sessions/notes" => {
+        "/sessions/dispatch" | "/sessions/message" | "/sessions/note" | "/sessions/notes" | "/other_mac/act" => {
             MOST_A_MESSAGE_MAY_BE
         }
         "/other_macs/sessions" | "/other_macs/bug_reports" | "/other_macs/projects" | "/other_macs/event" => {
