@@ -12,6 +12,7 @@ import { homeOf, useFleet, type Item, type Line } from "./fleet";
 import { JobRow, MacRow } from "./JobList";
 import { readyOf } from "./rowState";
 import { Notch } from "./Notch";
+import { Places } from "./ToReview";
 import { draftPath, go, jobPath, pairPath } from "./router";
 
 /** Which Jobs the list holds, as native's scope does; the phone has no ended Jobs to show. */
@@ -173,6 +174,7 @@ export function Home() {
           onDrafts: () => setScope("drafts"),
         }}
       />
+      <Places here="jobs" />
       <div className="pk-tools">
         <label className="pk-search">
           <Search size={14} aria-hidden="true" />
