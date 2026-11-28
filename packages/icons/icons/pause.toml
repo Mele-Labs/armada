@@ -11,3 +11,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 13 Nov 2026 for the walk `native-ways-listen`. Tooltip `Pause`, in the amber disc of the card. It stops the voice and holds the line until Play or Again; it is not Freeze dispatch."
+
+[[icons.pause.usage]]
+  means = "Checks held, on the Vitals page's gate chip: the gate starts no Check while the machine is short"
+  group = "Vitals"
+  size = "12px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. Freezing Check starts is freezing dispatch's kin. Refused: `circle-pause`, a paused Job."

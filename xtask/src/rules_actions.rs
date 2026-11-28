@@ -78,6 +78,7 @@ const SCOPES: &[&str] = &[
     "api client",
     "project board",
     "cockpit home",
+    "vitals",
 ];
 
 /// The QWERTY rows, for the one safety rule that is a fact about the layout:

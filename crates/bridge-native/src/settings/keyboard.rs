@@ -32,6 +32,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Review sheet", &[ActionScope::ReviewSheet]),
     ("Kit", &[ActionScope::Kit]),
     ("Usage", &[ActionScope::Usage]),
+    ("Vitals", &[ActionScope::Vitals]),
     ("Tokens", &[ActionScope::Tokens]),
     ("API Client", &[ActionScope::ApiClient]),
     ("Project board", &[ActionScope::ProjectBoard]),
@@ -56,6 +57,9 @@ fn slot_names(id: &str) -> &'static [&'static str] {
         "tokens_move" => &["Next", "Previous"],
         "api_client_part" => &["Previous", "Next"],
         "usage_window" => &["Day", "Week", "Fortnight"],
+        "vitals_move" => &["Left", "Right", "Up", "Down"],
+        "vitals_step" => &["Up", "Up", "Down"],
+        "vitals_span" => &["15 minutes", "1 hour", "6 hours", "24 hours"],
         _ => &[],
     }
 }
@@ -83,6 +87,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::ReviewSheet => &["review-sheet"],
         ActionScope::Kit => &["kit"],
         ActionScope::Usage => &["usage"],
+        ActionScope::Vitals => &["vitals"],
         ActionScope::Tokens => &["tokens"],
         ActionScope::ApiClient => &["api-client"],
         ActionScope::ProjectBoard => &["project-board"],
@@ -94,7 +99,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
 /// Places an act's keys are heard beyond the list in `places`, kept apart so that list's one line is not edited for each new place.
 fn extra_places(scope: ActionScope) -> &'static [&'static str] {
     match scope {
-        ActionScope::Anywhere => &["prototype"],
+        ActionScope::Anywhere => &["prototype", "vitals"],
         _ => &[],
     }
 }

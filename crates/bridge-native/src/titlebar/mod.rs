@@ -304,6 +304,7 @@ pub fn bind(cx: &mut App) {
             "command_palette" => Asked::Palette,
             "operator" => Asked::Operator,
             "open_kit" => Asked::Place("kit"),
+            "open_vitals" => Asked::Place("vitals"),
             "open_settings" => Asked::Settings,
             "refresh" => Asked::Refresh,
             "deck_tabs" => {

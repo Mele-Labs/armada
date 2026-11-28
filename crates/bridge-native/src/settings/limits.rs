@@ -92,12 +92,12 @@ pub fn is_stepped(one: &Setting) -> bool {
 
 /// What settings.json holds for it, else what is in force: the value a press steps from, and the one a row shows, so
 /// a setting waiting on a restart reads what he chose.
-pub(super) fn current(one: &Setting) -> &SettingValue {
+pub(crate) fn current(one: &Setting) -> &SettingValue {
     one.saved.as_ref().unwrap_or(&one.value)
 }
 
 /// Saved, and not what ships.
-pub(super) fn changed(one: &Setting) -> bool {
+pub(crate) fn changed(one: &Setting) -> bool {
     one.saved.as_ref().is_some_and(|saved| *saved != one.default)
 }
 
@@ -405,7 +405,7 @@ impl SettingsOverlay {
     }
 
     /// Reset: what settings.json holds for it goes, and what ships is in force again.
-    fn limits_reset(&self, one: &Setting, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(crate) fn limits_reset(&self, one: &Setting, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(stops) = self.stops.get(&key) else { return div().into_any_element() };
         let said = format!("Reset: {}", one.title);
@@ -421,7 +421,7 @@ impl SettingsOverlay {
     }
 
     /// A count: Fewer, the figure, More. Each press saves the figure a step off, kept inside the range.
-    fn limits_stepper(&self, one: &Setting, lit: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(crate) fn limits_stepper(&self, one: &Setting, lit: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(stops) = self.stops.get(&key) else { return div().into_any_element() };
         let SettingKind::Integer { min, max, .. } = one.kind else { return div().into_any_element() };
@@ -525,7 +525,7 @@ impl SettingsOverlay {
     /// A figure typed, with its unit inside at the right and Save inside once it differs from what is in force. The
     /// unit is written in words where `words` says so, as the rows of the other pages write it.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn number_field(&self, one: &Setting, lit: bool, off: bool, saving: bool, wide: gpui::Pixels, words: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(crate) fn number_field(&self, one: &Setting, lit: bool, off: bool, saving: bool, wide: gpui::Pixels, words: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let key = one.key.clone();
         let Some(Typed::Line(state)) = self.typed.get(&key) else { return div().into_any_element() };
         let unit = match &one.kind {

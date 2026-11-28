@@ -93,6 +93,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "judge-cards" | "judge-types" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Usage page on mock waste: a week with six kinds, the reading not answered yet, and a window with no burn.
         "usage-week" | "usage-loading" | "usage-empty" | "usage-failed" | "usage-apply-failed" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, with the Vitals page on tonight's stall, and on a reading that has not come.
+        "vitals-stall" | "vitals-loading" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with Kit over the Mac link: rows in every mark and a clash, every row the same, and no Mac linked.
         "kit-sync" | "kit-in-step" | "kit-unlinked" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.

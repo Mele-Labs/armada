@@ -33,7 +33,7 @@
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
 #                 logbook | issues | report | plan | thread | dispatch |
-#                 review sheet | kit | usage | features
+#                 review sheet | kit | usage | features | vitals
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1967,6 +1967,78 @@ scope = "usage"
 destructive = false
 confirms = false
 notes = "Sets the window the Usage page reads to a day, a week or a fortnight, in that order: one key a window. Native only, 18 Nov 2026."
+
+# ------------------------------------------------------------------ vitals
+
+[actions.open_vitals]
+kind = "Action"
+tier = "Global"
+verb = "Vitals"
+icon = "laptop"
+shortcut = "⌥⌘V"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Brings the Vitals page to the front: this Mac's load, memory, Checks, compiler, Drones and disk, each against the settings that limit it. It has no place in the strip and is found by name in the palette as well. `⌥⌘V` held nothing in this registry or the native app on 28 Nov 2026. Native only."
+
+[actions.vitals_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between tiles"
+icon = ""
+shortcut = "← / → / ↑ / ↓"
+scope = "vitals"
+destructive = false
+confirms = false
+notes = "Moves the keys between the Vitals page's tiles, which stand two across: left and right along a row, up and down a column. Tab goes into the tile's settings and Esc comes back to the tile. Its own row because the page is a grid and not a list. Native only, 28 Nov 2026."
+
+[actions.vitals_step]
+kind = "Action"
+tier = "Contextual"
+verb = "Step the setting"
+icon = ""
+icon_absent = "undecided"
+shortcut = "+ / = / -"
+scope = "vitals"
+destructive = false
+confirms = false
+notes = "Moves the setting the keys are on one step up or down and saves it, on the Vitals page; on a tile it steps the tile's first setting. `=` is `+` without Shift. A choice moves to the next or the previous option. Native only, 28 Nov 2026."
+
+[actions.vitals_reset]
+kind = "Action"
+tier = "Contextual"
+verb = "Reset the setting"
+icon = ""
+icon_absent = "undecided"
+shortcut = "r"
+scope = "vitals"
+destructive = false
+confirms = false
+notes = "Puts the setting the keys are on back to what ships, on the Vitals page. It does nothing where the setting already holds what ships. Native only, 28 Nov 2026."
+
+[actions.vitals_undo]
+kind = "Action"
+tier = "Contextual"
+verb = "Undo the change"
+icon = ""
+icon_absent = "undecided"
+shortcut = "u"
+scope = "vitals"
+destructive = false
+confirms = false
+notes = "Sets a limit back to what it was before the change the keys are on in the Vitals page's Limit changes tile, or before the newest change where the keys are on the tile itself. Native only, 28 Nov 2026."
+
+[actions.vitals_span]
+kind = "Action"
+tier = "Contextual"
+verb = "Pick the span"
+icon = ""
+icon_absent = "undecided"
+shortcut = "1 / 2 / 3 / 4"
+scope = "vitals"
+destructive = false
+confirms = false
+notes = "Sets how far back the Vitals page's graphs reach: 15 minutes, an hour, 6 hours or 24 hours, in that order: one key a span. Fleet keeps 24 hours. Native only, 28 Nov 2026."
 
 # ---------------------------------------------------------------- features
 

@@ -146,7 +146,7 @@ impl Entry {
 
 /// The registered acts this build answers. The rest belong to screens the native app does not have yet, and the
 /// palette leaves them out rather than draw a row that does nothing. `command_palette` is the act that opened it.
-const ANSWERED: [&str; 10] = ["open_kit", "message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search", "new_terminal_job"];
+const ANSWERED: [&str; 11] = ["open_kit", "open_vitals", "message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search", "new_terminal_job"];
 
 fn act_entry(row: &Registered, section: Section) -> Entry {
     Entry {
@@ -255,8 +255,8 @@ pub fn setting_entries(items: &[Item]) -> Vec<Entry> {
         .collect()
 }
 
-/// Go to, in the title bar's order: Kit is its own act, and Usage is offered only where the app holds it.
-const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:project", "nav:usage", "nav:settings"];
+/// Go to, in the title bar's order: Kit and Vitals are their own acts, and Usage and Vitals are offered only where the app holds them.
+const GO_TO: [&str; 8] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:project", "nav:usage", "act:open_vitals", "nav:settings"];
 
 /// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
 /// has no row for them. Root Jobs only reads On while the switch is.
@@ -893,6 +893,11 @@ impl Palette {
         let mut entries = registered(on.is_some());
         // New Side Job only where a Side Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
+        // Vitals only where the app holds the page, found by what it reads as well as its name.
+        entries.retain(|entry| entry.id != "act:open_vitals" || crate::vitals::offered(cx));
+        if let Some(vitals) = entries.iter_mut().find(|entry| entry.id == "act:open_vitals") {
+            vitals.aliases = ["load", "memory", "limits", "machine", "cpu", "disk"].map(String::from).to_vec();
+        }
         entries.extend(kit_entries());
         entries.extend(usage_entry(cx));
         entries.extend(place_entries());

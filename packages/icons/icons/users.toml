@@ -4,3 +4,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 19 Oct 2026 for the Pull request panel's Reviewers card, where a team asked to review wears it in place of a name's person. Tooltip `Team`. It is the plural of `user`, which is reserved for sketches, so a person's row carries no figure."
+
+[[icons.users.usage]]
+  means = "The Compile CPU tile on the Vitals page: compile CPU split by who started it"
+  group = "Vitals"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 28 Nov 2026 for the Vitals page, a mock the owner has not looked at yet; he may rule it out. Who started a compile: armada check, a Fleet build, rust-analyzer or a bare cargo."
