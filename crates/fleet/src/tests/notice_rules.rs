@@ -36,6 +36,7 @@ async fn kept(rig: &Rig, rule: FleetRule) {
         proposal,
         reach: TeachingReach::Everywhere,
         repository: None,
+        project: None,
         session_id: None,
         cite: None,
         source: None,

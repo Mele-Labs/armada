@@ -494,6 +494,7 @@ async fn needs_you_fleet_call_row_says_plain_and_dismissing_it_clears_it() {
         proposal: TeachingProposal { fleet: Some(ProposedFleet { rule, untestable: Vec::new() }), ..TeachingProposal::default() },
         reach: TeachingReach::Everywhere,
         repository: None,
+        project: None,
         session_id: None,
         cite: None,
         source: None,

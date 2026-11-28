@@ -106,6 +106,8 @@ mod lanes_copy;
 mod ledger;
 mod mods_made;
 mod mod_panel;
+#[cfg(test)]
+mod operator_harness;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
@@ -1559,7 +1561,7 @@ impl Render for JobView {
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(false, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_judge_sheet(&id, window, cx));
