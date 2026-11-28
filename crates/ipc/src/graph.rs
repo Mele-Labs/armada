@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn a_layered_spec_reads_and_a_transform_is_refused_by_name() {
-        let spec = read_spec(r#"{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","width":400,"data":{"name":"p99"},"layer":[{"mark":{"type":"area","interpolate":"monotone","color":"red"},"encoding":{"x":{"field":"at","type":"temporal"},"y":{"field":"ms","type":"quantitative"}}},{"mark":"rule","encoding":{"y":{"datum":250}}}]}"#).expect("reads");
+        let spec = read_spec(r#"{"$schema":"https://example.com/schema.json","width":400,"data":{"name":"p99"},"layer":[{"mark":{"type":"area","interpolate":"monotone","color":"red"},"encoding":{"x":{"field":"at","type":"temporal"},"y":{"field":"ms","type":"quantitative"}}},{"mark":"rule","encoding":{"y":{"datum":250}}}]}"#).expect("reads");
         assert_eq!(spec.layer.len(), 2);
         assert_eq!(spec.layer[0].mark.as_ref().map(Mark::kind), Some(MarkKind::Area));
         let refused = read_spec(r#"{"mark":"line","transform":[{"filter":"datum.ms > 1"}]}"#).expect_err("refused");
