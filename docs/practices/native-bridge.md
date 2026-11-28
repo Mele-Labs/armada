@@ -82,7 +82,7 @@ Fleet keeps pictures of the look he approved, from the build he approved.
 Before the pull request opens and on every push it plays the walk again and compares.
 A drift goes back to the Job with side-by-side pictures, and never to him.
 
-Prototypes and sketch mocks show flow only, never the look.
+A prototype keeps its Approve: he chose on 28 Nov 2026 to keep prototypes approvable.
 They are never the look gate of a screen he would see.
 A walk still building reaches him at once, marked Building, with Open greyed until it is built (28 Nov 2026).
 This holds in every repo.
