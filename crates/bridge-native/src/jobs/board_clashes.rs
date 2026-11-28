@@ -191,11 +191,31 @@ mod tests {
     /// The feature's board over `all`, opened from its heading, with the keys on it.
     fn board_over<'a>(all: &[SessionRecord], ids: &[&str], cx: &'a mut gpui::TestAppContext) -> (Entity<JobsList>, Entity<board::LeadBoard>, &'a mut gpui::VisualTestContext) {
         cx.update(crate::init_app);
-        let list = cx.new(|cx| JobsList::mock(all, cx));
-        let held = list.clone();
-        let (_, cx) = cx.add_window_view(move |window, cx| JobsScreen::new(held, None, window, cx));
         let on: Vec<(&str, &str)> = ids.iter().map(|id| ("job-list-and-live-status", *id)).collect();
         let library = crate::features::mock::library_on(&on);
+        // The heading stands on the rows of the Jobs that write to the feature, as Fleet carries it on each.
+        let writes: Vec<ipc::SessionFeature> = library
+            .areas
+            .iter()
+            .enumerate()
+            .flat_map(|(area_place, area)| area.features.iter().enumerate().filter(|(_, feature)| feature.slug == "job-list-and-live-status").map(move |(place, feature)| (area_place, area, place, feature)))
+            .map(|(area_place, area, place, feature)| ipc::SessionFeature {
+                project: library.project.clone(),
+                slug: feature.slug.clone(),
+                title: feature.title.clone(),
+                area: area.slug.clone(),
+                area_title: area.title.clone(),
+                area_place: area_place as u32,
+                place: place as u32,
+            })
+            .collect();
+        let mut all = all.to_vec();
+        for job in all.iter_mut().filter(|job| ids.contains(&job.id.as_str())) {
+            job.features = writes.clone();
+        }
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        let held = list.clone();
+        let (_, cx) = cx.add_window_view(move |window, cx| JobsScreen::new(held, None, window, cx));
         list.update(cx, |list, cx| {
             list.pick_view("feature", cx);
             list.hold_libraries(vec![library], cx);
