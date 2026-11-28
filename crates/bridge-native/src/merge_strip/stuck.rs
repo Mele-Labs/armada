@@ -5,6 +5,9 @@
 use gpui::{Context, SharedString};
 use ipc::{PullView, QueueStuck, QueueStuckCause};
 
+pub(crate) use super::live::{manifest_of, name_of};
+use crate::refusal::Failed;
+
 use super::{Asked, MergeStrip};
 
 const LIMITS: &str = "Fleet put it back as often as Settings › Limits allows.";
@@ -26,7 +29,7 @@ fn since_said(stuck: &QueueStuck) -> Option<String> {
 
 /// One message for each Job that holds a stuck pull request, in the order of the queue: the facts, and the log
 /// where Fleet has its page.
-pub(super) fn tells_of(stuck: &QueueStuck, pulls: &[PullView]) -> Vec<(SharedString, String)> {
+pub(crate) fn tells_of(stuck: &QueueStuck, pulls: &[PullView]) -> Vec<(SharedString, String)> {
     let mut held: Vec<(String, Vec<u64>)> = Vec::new();
     for number in &stuck.pulls {
         let Some(job) = pulls.iter().find(|view| view.pull.number == *number).and_then(|view| view.held_by.as_ref()) else { continue };
@@ -50,7 +53,7 @@ pub(super) fn tells_of(stuck: &QueueStuck, pulls: &[PullView]) -> Vec<(SharedStr
 }
 
 /// The brief a repair Job starts from: bare facts, there to be edited.
-pub(super) fn brief_of(stuck: &QueueStuck) -> String {
+pub(crate) fn brief_of(stuck: &QueueStuck) -> String {
     let since = since_said(stuck).map(|at| format!(" since {at}")).unwrap_or_default();
     let mut lines = vec![format!("The merge queue on main is stuck: {}{since}.", cause_said(stuck))];
     if !stuck.pulls.is_empty() {
@@ -65,8 +68,54 @@ pub(super) fn brief_of(stuck: &QueueStuck) -> String {
 }
 
 /// Whether any Job holds one of the stuck pull requests.
-pub(super) fn held_by_a_job(stuck: &QueueStuck, pulls: &[PullView]) -> bool {
+pub(crate) fn held_by_a_job(stuck: &QueueStuck, pulls: &[PullView]) -> bool {
     stuck.pulls.iter().any(|number| pulls.iter().any(|view| view.pull.number == *number && view.held_by.is_some()))
+}
+
+/// What the stuck band's acts ask of Fleet, for the strip and for the Needs you row that carries them.
+pub(crate) const NOT_QUEUED: &str = "The pull request was not queued again";
+pub(crate) const NOT_SENT: &str = "The work was not sent back to the Job";
+
+/// One POST to Fleet, and the key a refusal of it is drawn under.
+pub(crate) struct Ask {
+    pub key: String,
+    pub path: String,
+    pub body: Option<String>,
+}
+
+/// Queue again for one pull request: `auto_merge` on its Manifest. Without a Manifest Fleet cannot, and the
+/// error is the key and the words.
+pub(crate) fn queue_ask(manifest: Option<&str>, root: &str, number: u64) -> Result<Ask, (String, String)> {
+    let key = format!("pull:{root}#{number}");
+    match manifest {
+        Some(manifest) => Ok(Ask { key, path: format!("/pull_requests/{}/{number}/auto_merge", crate::link::percent_encoded(manifest)), body: None }),
+        None => Err((key, "This repository has no Manifest, so Fleet cannot queue its pull requests.".into())),
+    }
+}
+
+/// Tell Jobs for one Job: the message sent to its session.
+pub(crate) fn tell_ask(root: &str, session: &str, message: String) -> Result<Ask, (String, String)> {
+    let key = format!("main:{root}");
+    let body = ipc::encode(&ipc::SendSessionMessageBody {
+        message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(session.to_string()), text: message, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
+        aim: None,
+    })
+    .map_err(|why| (key.clone(), format!("{why:?}")))?;
+    Ok(Ask { key, path: "/sessions/message".into(), body: Some(body) })
+}
+
+/// The POST, blocking: it runs on the background executor.
+pub(crate) fn post_blocking(port: u16, path: &str, body: Option<String>) -> Result<(), Failed> {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+    let sent = body.as_ref().map(String::len);
+    let (status, bytes) = runtime.block_on(async {
+        match body {
+            Some(body) => crate::transport::post(port, path, body).await,
+            None => crate::transport::post_bare(port, path).await,
+        }
+    })?;
+    crate::refusal::answered("POST", path, sent, status, bytes)?;
+    Ok(())
 }
 
 impl MergeStrip {

@@ -592,6 +592,9 @@ pub enum WaitingActKind {
     Run,
     /// Send the Session a message: go to its box. `target` is the Session's id. Since 23.80.
     Message,
+    /// Fleet's own: the merge queue of the repository whose root is `target` is stuck, and the row offers what main's
+    /// merge card offers for it. `waiting_for` refuses it from an agent.
+    QueueStuck,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

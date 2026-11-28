@@ -16,10 +16,12 @@
 mod fix;
 mod live;
 mod scenes;
-mod stuck;
+pub(crate) mod stuck;
 pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
+#[cfg(test)]
+pub(crate) use scenes::stuck_view;
 
 use std::cell::RefCell;
 use std::collections::HashMap;

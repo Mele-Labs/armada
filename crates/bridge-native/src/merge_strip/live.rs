@@ -4,7 +4,7 @@
 use gpui::{App, Context, Entity, SharedString, Subscription};
 use ipc::{MergeLineView, RepositorySummary, SessionRecord};
 
-use super::{Asked, Line, MergeStrip, Recent, Strip};
+use super::{stuck, Asked, Line, MergeStrip, Recent, Strip};
 use crate::fleet::{FleetConnection, Held};
 use crate::jobs::JobsList;
 use crate::link::LinkState;
@@ -61,10 +61,9 @@ impl MergeStrip {
             Asked::QueueAgain { root, numbers } => {
                 let manifest = manifest_of(held.repositories.as_deref().unwrap_or_default(), &root);
                 for number in numbers {
-                    let key = format!("pull:{root}#{number}");
-                    match &manifest {
-                        Some(manifest) => self.ask(key, port, format!("/pull_requests/{}/{number}/auto_merge", crate::link::percent_encoded(manifest)), None, "The pull request was not queued again", cx),
-                        None => self.refuse(key, "This repository has no Manifest, so Fleet cannot queue its pull requests.".into(), cx),
+                    match stuck::queue_ask(manifest.as_deref(), &root, number) {
+                        Ok(call) => self.ask(call.key, port, call.path, call.body, stuck::NOT_QUEUED, cx),
+                        Err((key, why)) => self.refuse(key, why, cx),
                     }
                 }
             }
@@ -87,15 +86,9 @@ impl MergeStrip {
                 cx.notify();
             }
             Asked::SendBack { root, session, message } => {
-                let body = ipc::encode(&ipc::SendSessionMessageBody {
-                    message: ipc::SendSessionMessage { session_id: ipc::SessionId::carried(session.to_string()), text: message, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() },
-                    aim: None,
-                })
-                .map_err(|why| format!("{why:?}"));
-                let key = format!("main:{root}");
-                match body {
-                    Ok(body) => self.ask(key, port, "/sessions/message".into(), Some(body), "The work was not sent back to the Job", cx),
-                    Err(why) => self.refuse(key, why, cx),
+                match stuck::tell_ask(&root, &session, message) {
+                    Ok(call) => self.ask(call.key, port, call.path, call.body, stuck::NOT_SENT, cx),
+                    Err((key, why)) => self.refuse(key, why, cx),
                 }
             }
         }
@@ -113,18 +106,7 @@ impl MergeStrip {
         cx.spawn(async move |this, cx| {
             let answer: Result<(), Failed> = cx
                 .background_executor()
-                .spawn(async move {
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let sent = body.as_ref().map(String::len);
-                    let (status, bytes) = runtime.block_on(async {
-                        match body {
-                            Some(body) => crate::transport::post(port, &path, body).await,
-                            None => crate::transport::post_bare(port, &path).await,
-                        }
-                    })?;
-                    crate::refusal::answered("POST", &path, sent, status, bytes)?;
-                    Ok(())
-                })
+                .spawn(async move { stuck::post_blocking(port, &path, body) })
                 .await;
             if let Err(why) = answer {
                 let _ = this.update(cx, |strip, cx| {
@@ -195,12 +177,12 @@ fn manifest_id(one: &RepositorySummary) -> Option<String> {
     one.manifest.as_ref().map(|manifest| manifest.id.as_str().to_string()).or_else(|| one.implicit_id.as_ref().map(|id| id.as_str().to_string()))
 }
 
-fn manifest_of(served: &[RepositorySummary], root: &str) -> Option<String> {
+pub(crate) fn manifest_of(served: &[RepositorySummary], root: &str) -> Option<String> {
     served.iter().find(|one| one.root == root).and_then(manifest_id)
 }
 
 /// The name the dispatch sheet's chips carry, as the title bar names a repository.
-fn name_of(one: &RepositorySummary) -> String {
+pub(crate) fn name_of(one: &RepositorySummary) -> String {
     one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone())
 }
 

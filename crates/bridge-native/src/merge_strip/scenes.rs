@@ -68,6 +68,15 @@ fn red(more: &str) -> String {
 const GREEN: &str = r#","main":{"state":"green"}"#;
 const CHECKOUT: &str = r#","checkout":{"base":"main","behind":3,"ahead":0,"uncommitted":["crates/fleet/src/merge_hub.rs"],"clashing":[]}"#;
 
+/// Main green, the queue stuck two hours on `native`: the merge line the stuck scene draws.
+pub(crate) fn stuck_view() -> MergeLineView {
+    let stuck = format!(
+        r#","queue_stuck":{{"since":"{}","cause":{{"kind":"no_runner"}},"job":"native","pulls":[3395,3392,3390,3376],"log_url":"https://github.com/Mele-Labs/armada/actions/runs/1"}}"#,
+        ago(2 * 3600)
+    );
+    line(armada(GREEN, &stuck, 40, None)).view
+}
+
 /// The Jobs holding the pull requests, and their chips' tones, as Fleet's view carries them.
 fn line(mut view: MergeLineView) -> Line {
     let held = [
@@ -184,13 +193,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         },
         "strip-red-taken" => Strip { lines: vec![line(armada(&red(r#","taken_by":{"id":"mock-06","title":"Quiet the write-clash notices"}"#), "", 40, None))], ..rest() },
         // Main green, the queue stuck two hours on `native`: the fragment rides in the line's `checkout` place, any field after `main`.
-        "strip-queue-stuck" => {
-            let stuck = format!(
-                r#","queue_stuck":{{"since":"{}","cause":{{"kind":"no_runner"}},"job":"native","pulls":[3395,3392,3390,3376],"log_url":"https://github.com/Mele-Labs/armada/actions/runs/1"}}"#,
-                ago(2 * 3600)
-            );
-            Strip { lines: vec![line(armada(GREEN, &stuck, 40, None))], ..rest() }
-        }
+        "strip-queue-stuck" => Strip { lines: vec![line(stuck_view())], ..rest() },
         "strip-all" => {
             let mut lines = vec![line(armada(GREEN, "", 40, None))];
             lines.extend(others());

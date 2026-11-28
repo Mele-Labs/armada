@@ -25,7 +25,7 @@ use crate::repositories::Served;
 const FLOOR: Duration = Duration::from_secs(60 * 60);
 
 /// The kind of a call raised for a stuck queue, one a repository.
-const NOTICE: &str = "queue_stuck:";
+pub(crate) const NOTICE: &str = "queue_stuck:";
 
 /// Why and how a queue is stuck, as the one Needs you line and the merge line say it.
 #[derive(Clone, Debug, PartialEq, Eq)]

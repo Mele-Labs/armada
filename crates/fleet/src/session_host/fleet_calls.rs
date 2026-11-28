@@ -9,8 +9,13 @@ use ipc::{Instant, WaitingAct, WaitingActKind, WaitingItem, WaitingSource};
 
 use crate::daemon::Fleet;
 
-/// The item a call is on the Needs you list: the words the Session was told, and the Job to open.
+/// The item a call is on the Needs you list: the words the Session was told, and the Job to open. A stuck
+/// merge queue's names its repository instead, so the row offers what main's merge card does.
 pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
+    let act = match call.notice.strip_prefix(crate::queue_watch::NOTICE) {
+        Some(root) => WaitingAct { kind: WaitingActKind::QueueStuck, target: root.to_string(), on: None },
+        None => WaitingAct { kind: WaitingActKind::Message, target: call.session_id.clone(), on: None },
+    };
     WaitingItem {
         order: 0,
         why: String::new(),
@@ -19,7 +24,7 @@ pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
         text: call.text.clone(),
         since: Instant::carried(&call.raised_at),
         source: WaitingSource::FleetCall,
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: call.session_id.clone(), on: None }),
+        act: Some(act),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

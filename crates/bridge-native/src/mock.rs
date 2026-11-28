@@ -1753,6 +1753,7 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
                     },
                     WaitingActKind::Message if act.target != job => NeedsYouAct::OpenJob { id: act.target.clone() },
                     WaitingActKind::Message => NeedsYouAct::Message,
+                    WaitingActKind::QueueStuck => NeedsYouAct::QueueStuck { root: act.target.clone() },
                 },
             }
         }
@@ -1842,6 +1843,7 @@ fn mock_glyph(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         NeedsYouAct::Run { .. } => glyph(Kind::Run, "Copies the command"),
         NeedsYouAct::Message | NeedsYouAct::OpenJob { .. } => glyph(Kind::Message, "Goes to the message"),
         NeedsYouAct::Steps { .. } => glyph(Kind::Steps, "Steps"),
+        NeedsYouAct::QueueStuck { .. } => glyph(Kind::Waiting, "Merge queue stuck"),
         _ => glyph(Kind::Waiting, "Waiting on you"),
     }
 }

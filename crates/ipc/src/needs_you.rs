@@ -155,6 +155,9 @@ pub enum NeedsYouAct {
     OpenJob { id: String },
     /// Go to the Job's message box.
     Message,
+    /// The merge queue of the repository at `root` is stuck: the row offers main's merge card's acts for it, read off
+    /// that repository's merge line.
+    QueueStuck { root: String },
     /// Switch the build, as the Fleet panel's key does. `label` is the key's words (`Refresh preview`).
     Restart { label: String, build: BuildSource, adopt: bool, command: String },
     /// He did it: `done_waiting`, with a note if he has one (`2 remain`). The Job is sent `Done: <text>` and the

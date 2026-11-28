@@ -211,6 +211,7 @@ fn pressed(item: &WaitingItem, job: &str) -> NeedsYouAct {
             Some((label, build, adopt)) => NeedsYouAct::Restart { label: label.into(), build, adopt, command: act.target.clone() },
             None => NeedsYouAct::Run { command: act.target.clone() },
         },
+        WaitingActKind::QueueStuck => NeedsYouAct::QueueStuck { root: act.target.clone() },
         WaitingActKind::Message if act.target != job => NeedsYouAct::OpenJob { id: act.target.clone() },
         WaitingActKind::Message => NeedsYouAct::Message,
     }
@@ -249,6 +250,7 @@ fn glyph_of(item: &WaitingItem, act: &NeedsYouAct) -> NeedsYouGlyph {
         NeedsYouAct::Run { .. } => glyph(Kind::Run, "Copies the command"),
         NeedsYouAct::Message | NeedsYouAct::OpenJob { .. } => glyph(Kind::Message, "Goes to the message"),
         NeedsYouAct::Steps { .. } => glyph(Kind::Steps, "Steps"),
+        NeedsYouAct::QueueStuck { .. } => glyph(Kind::Waiting, "Merge queue stuck"),
         _ => glyph(Kind::Waiting, "Waiting on you"),
     }
 }

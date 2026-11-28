@@ -462,7 +462,7 @@ impl JobView {
                     Some(WaitingActKind::ApprovePr) => ("git-pull-request-arrow", "Pull request"),
                     Some(WaitingActKind::Run) => ("terminal", "Command"),
                     Some(WaitingActKind::Message) => ("square-pen", "Message"),
-                    None => ("bell-ring", "Call"),
+                    None | Some(WaitingActKind::QueueStuck) => ("bell-ring", "Call"),
                 };
                 let item_id = one.item.id.clone();
                 let run: Option<Opens> = (!one.ended).then(|| -> Opens { Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.reopen_closed(item_id.clone(), window, cx)) });

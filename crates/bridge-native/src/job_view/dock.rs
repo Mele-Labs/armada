@@ -1223,7 +1223,8 @@ impl JobView {
                 self.press_walk(url, window, cx);
             }
             NeedsYouAct::Answer { .. } | NeedsYouAct::Steps { command: None, .. } | NeedsYouAct::ApprovePr { .. } => self.set_needs(false, None, window, cx),
-            NeedsYouAct::None => {}
+            // The row's own buttons do its acts; a press on the row itself does nothing.
+            NeedsYouAct::None | NeedsYouAct::QueueStuck { .. } => {}
         }
     }
 
@@ -1271,6 +1272,7 @@ impl JobView {
             _ => None,
         };
         let boxed = row.and_then(|row| self.row_box_under(id, &row.id, look, cx));
+        let stuck = row.and_then(|row| self.stuck_acts(row, look, cx));
         let buttons = row.filter(|row| ways::answers_with_buttons() && !row_options(row).is_empty()).map(|row| {
             let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
             self.answer_buttons(row, keyed, look, cx)
@@ -1336,7 +1338,7 @@ impl JobView {
             )
             .into_any_element()
         });
-        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() && unheld.is_none() {
+        if steps.is_none() && boxed.is_none() && refused.is_none() && ran.is_none() && buttons.is_none() && unheld.is_none() && stuck.is_none() {
             return line;
         }
         div()
@@ -1346,6 +1348,7 @@ impl JobView {
             .child(line)
             .children(unheld)
             .children(buttons)
+            .children(stuck)
             .children(steps)
             .children(boxed)
             .children(refused.map(|why| super::acts::refusal(look, key, why)))
