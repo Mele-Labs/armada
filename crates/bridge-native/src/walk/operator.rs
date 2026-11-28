@@ -34,7 +34,7 @@ const PLAN_JOB: &str = "Fix the merge line freshness chip";
 /// His question to the Operator with no tag: a talk about no card.
 const QUESTION: &str = "Which Jobs are running now?";
 
-pub static STEPS: [Step; 64] = [
+pub static STEPS: [Step; 62] = [
     step("The head: Operator, the red main as a pill, and at the right what the Operator does unasked, by project, since the window is on All", Verb::Look, "button", ACTS),
     step("Its menu has each project as a header with its three values under it: Act then tell, Ask before starting or Only when told, ticked where set", Verb::Open("button", ACTS), "menuitemcheckbox", "Ask before starting"),
     step("A press sets that project's value at once", Verb::Open("menuitemcheckbox", "Ask before starting"), "button", ACTS),
