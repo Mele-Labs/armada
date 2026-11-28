@@ -319,6 +319,7 @@ async fn the_listing_names_the_steps_a_run_would_take_each_free_or_model_with_th
             ("check_upkeep".to_string(), false, "The 1 feature and 0 linked docs, against the code at HEAD".to_string()),
             ("check_drift".to_string(), false, "No docs are linked to features yet".to_string()),
             ("since_you_looked".to_string(), true, "One model call, skipped if nothing is new. 20 of 20 calls left tonight".to_string()),
+            ("take_pictures".to_string(), false, "The screen each feature is tied to, on the app running now".to_string()),
             ("write_gists".to_string(), true, "No linked doc lacks a gist".to_string()),
             ("read_through".to_string(), false, "Read through #3864".to_string()),
         ]
@@ -343,7 +344,7 @@ async fn a_never_run_project_with_nothing_merged_says_so_in_its_steps() {
     let (rig, _) = rig_saying(WORDS);
     let (project, _) = libraried(&rig).await;
     let listed = steps_listed(&rig, &project).await;
-    assert_eq!((listed[0].2.as_str(), listed[5].2.as_str()), ("Nothing merged yet", "Nothing merged to read through"));
+    assert_eq!((listed[0].2.as_str(), listed[6].2.as_str()), ("Nothing merged yet", "Nothing merged to read through"));
 }
 
 #[tokio::test]
@@ -367,6 +368,8 @@ async fn a_press_tells_each_step_running_then_done_in_order_with_a_line_of_what_
             step("check_drift", LibrarianStepState::Done, "No doc names what the code no longer has"),
             step("since_you_looked", LibrarianStepState::Running, ""),
             step("since_you_looked", LibrarianStepState::Done, "Wrote 2 sentences, 1 of 20 calls tonight"),
+            step("take_pictures", LibrarianStepState::Running, ""),
+            step("take_pictures", LibrarianStepState::Skipped, "No feature is tied to a screen yet"),
             step("write_gists", LibrarianStepState::Running, ""),
             step("write_gists", LibrarianStepState::Done, "No linked doc lacks a gist"),
             step("read_through", LibrarianStepState::Running, ""),
@@ -387,7 +390,7 @@ async fn every_step_of_one_run_names_the_run_the_answer_names() {
             runs.push(moved.run);
         }
     }
-    assert_eq!(runs.len(), 12);
+    assert_eq!(runs.len(), 14);
     assert!(runs.iter().all(|run| *run == ran.ran_at), "{runs:?}");
 }
 
@@ -411,7 +414,7 @@ async fn nothing_new_since_the_last_run_skips_the_model_step_and_says_so() {
         step("since_you_looked", LibrarianStepState::Running, ""),
         step("since_you_looked", LibrarianStepState::Skipped, "Nothing new since the last run, so no call"),
     ]);
-    assert_eq!(told[11], step("read_through", LibrarianStepState::Done, "Nothing merged to read through"));
+    assert_eq!(told[13], step("read_through", LibrarianStepState::Done, "Nothing merged to read through"));
 }
 
 #[tokio::test]
@@ -427,7 +430,7 @@ async fn a_spent_share_skips_the_model_step_and_says_so() {
     assert_eq!(judge.asked().len(), 1);
     let told = steps_told(&mut watching, &project).await;
     assert_eq!(told[7], step("since_you_looked", LibrarianStepState::Skipped, "Tonight's 1 call is spent"));
-    assert_eq!(told[11], step("read_through", LibrarianStepState::Done, "Read through #3866"), "the free steps still ran");
+    assert_eq!(told[13], step("read_through", LibrarianStepState::Done, "Read through #3866"), "the free steps still ran");
 }
 
 #[tokio::test]
@@ -465,6 +468,7 @@ async fn stop_skips_the_steps_after_the_one_running_and_the_run_is_kept_as_stopp
         steps_told(&mut watching, &project).await,
         [
             step("since_you_looked", LibrarianStepState::Done, "Wrote 2 sentences, 1 of 20 calls tonight"),
+            step("take_pictures", LibrarianStepState::Skipped, "Stopped"),
             step("write_gists", LibrarianStepState::Skipped, "Stopped"),
             step("read_through", LibrarianStepState::Skipped, "Stopped"),
         ]

@@ -56,6 +56,7 @@ mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
+mod feature_pictures;
 mod library_start;
 /// Groups of Jobs the owner named in the Jobs list.
 mod sub_projects;
@@ -421,6 +422,7 @@ pub use features::{
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
+pub use feature_pictures::{AddFeaturePicture, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, PictureBy, RemoveFeaturePicture};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};

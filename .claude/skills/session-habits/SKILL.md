@@ -17,7 +17,7 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   Never send screenshots (2 Oct: "Dont send me pictures. I prefer walks.").
 - **Every screen he approves is a native walk of the real Bridge, built by
   Fleet from the Job's own branch** (27 Nov). Show it with `show_window` on
-  `armada://walk/<name>`; never a prototype or a sketch mock as the look. His
+  `armada://walk/<name>`. His
   Ship it lands the change. His Approve means you offer the branch with
   `offer_preview` and its preview note (`about`, `look`, `steps`; `preview-app`
   has the example), and he takes notes on it with ⌥⌘A. The rule, with the look
