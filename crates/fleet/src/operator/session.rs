@@ -4,11 +4,13 @@
 //! **It has no repository, no slot and no Manifest.** It starts in a folder of its own under the
 //! Operator's home, as a Mod Job starts in the mods folder where Armada's own repository is not served,
 //! so the door answers it without a Manifest and offers it the reads and acts that name their
-//! repository themselves. While `features.operator` is on and none runs, the next tick starts one;
+//! repository themselves. While `features.operator` is on and none runs, one starts the moment the switch goes on or a send waits, and the tick starts one where that did not;
 //! turning the switch off ends it. A hand on at the context limit keeps `operator` on the successor.
 
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use tokio::task::JoinHandle;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -23,13 +25,33 @@ use crate::session_host::Marked;
 /// What the Operator's session is called where a title is drawn.
 pub(crate) const TITLE: &str = "Operator";
 
-/// Its first turn. The rules are in its system prompt, so this only wakes it.
-const BEGIN: &str = "You are up. Read what Fleet holds across every project and begin your watch: the live Jobs, \
-what has stopped, what waits on him, and main in each repository. Put a card in front of him only where something \
-needs his decision.";
+/// Its first turn. The rules are in its system prompt, so this only wakes it. **It watches from now**: what waited on him
+/// before it came on stays on each Job's own Needs you, so a fresh session does not card the backlog.
+const BEGIN: &str = "You are up. Your watch starts now: what already waits on him stays on each Job's own Needs you, \
+so put no card up for it. Put a card in front of him only for something that arrives from here on and needs his decision.";
 
 /// The refusal for an act only the Operator's session may make.
 pub(crate) const NOT_THE_OPERATOR: &str = "fleet.not_the_operator";
+
+/// Start or end the Operator's session the moment its switch moves or a send waits for it, not on the next tick.
+/// Production starts it beside the other keepers, and a test starts it itself.
+pub fn keep_the_operator_up<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    tokio::spawn(async move {
+        loop {
+            fleet.operator_seat().wake.notified().await;
+            fleet.operator_session_kept().await;
+        }
+    })
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -84,11 +106,12 @@ where
         let _one = self.operator_seat().session.lock().await;
         let live = self.operator_session_id().await;
         match (self.operator_on(), live) {
-            (true, None) => {
-                if let Err(why) = self.operator_session_started().await {
-                    self.operator_warned("the Operator's session did not start", format!("{why:?}"));
-                }
-            }
+            (true, None) => match self.operator_session_started().await {
+                Ok(id) => self.held_sends_delivered(&id).await,
+                Err(why) => self.operator_warned("the Operator's session did not start", format!("{why:?}")),
+            },
+            // A send kept while none ran, where another start won the race to tell it.
+            (true, Some(id)) => self.held_sends_delivered(&id).await,
             (false, Some(id)) => {
                 if let Err(why) = self.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await {
                     self.operator_warned("the Operator's session did not end", format!("{why:?}"));
@@ -105,13 +128,17 @@ where
     async fn operator_session_started(self: &Arc<Self>) -> Result<String, Refusal> {
         let dir = self.operator_dir();
         std::fs::create_dir_all(&dir).map_err(|why| self.hosted_refusal("fleet.operator_session_folder", &format!("the Operator's folder could not be made: {why}")))?;
-        let model: String = self.machine_settings().now().get(keys::MODELS_OPERATOR);
+        let (model, effort): (String, String) = {
+            let now = self.machine_settings().now();
+            (now.get(keys::MODELS_OPERATOR), now.get(keys::EFFORT_OPERATOR))
+        };
         let start = StartSession {
             project: None,
             manifest_id: ManifestId::carried(""),
             title: Some(TITLE.to_string()),
             model: Some(model).filter(|model| !model.trim().is_empty()),
-            effort: None,
+            // "harness default" is no effort named: the harness picks.
+            effort: Some(effort).filter(|effort| crate::tuning::effort_of(effort).is_some()),
             mode: None,
             root: None,
             fork: None,
@@ -165,6 +192,34 @@ where
         Handed::Now
     }
 
+    /// Each send he made while no session ran, told to session `id` in the order he sent them. One the session was not
+    /// told stays kept for the next start or tick.
+    async fn held_sends_delivered(self: &Arc<Self>, id: &str) {
+        let held = match self.store().lock().await.operator_held_sends() {
+            Ok(held) => held,
+            Err(why) => return self.operator_warned("the sends kept for the Operator were not read", format!("{why:?}")),
+        };
+        for (n, kept) in held {
+            let talk = match ipc::decode::<ipc::operator_talk::TalkToOperator>("TalkToOperator", kept.as_bytes()) {
+                Ok(talk) => talk,
+                Err(why) => {
+                    self.operator_warned("a send kept for the Operator did not read", format!("{why}"));
+                    let _ = self.store().lock().await.deliver_operator_held_send(n, self.now().as_str());
+                    continue;
+                }
+            };
+            if self.operator_session_id().await.as_deref() != Some(id) {
+                return;
+            }
+            if let Err(why) = self.talk_delivered(talk).await {
+                return self.operator_warned("a send kept for the Operator was not told to it", format!("{why:?}"));
+            }
+            if let Err(why) = self.store().lock().await.deliver_operator_held_send(n, self.now().as_str()) {
+                self.operator_warned("a send told to the Operator was not marked told", format!("{why:?}"));
+            }
+        }
+    }
+
     /// The person's words to the Operator's session, as he wrote them, with the files and tags he sent. A refusal
     /// says it is not running.
     pub(crate) async fn operator_told_as_him(self: &Arc<Self>, text: &str, attachments: Vec<SessionUpload>, mentions: Vec<SessionTag>) -> Result<(), Refusal> {
@@ -188,7 +243,7 @@ pub(crate) enum Handed {
 }
 
 /// What `keep_linked_told` files an arrival told to the Operator's session under.
-const TOLD: &str = "told";
+pub(super) const TOLD: &str = "told";
 
 /// The Operator's session is not running.
 pub(crate) const NOT_RUNNING: &str = "fleet.operator_session_not_running";

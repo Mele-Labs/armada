@@ -205,16 +205,24 @@ impl JobView {
     }
 
     fn fork_menu(&mut self, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator is never a closed Job: a send with no live session waits in Fleet for the next one.
+        let live = self.beside_in() || self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator's thread offers Reply and Teach only.
+        let side = self.beside_in();
         let mut entries = vec![Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false }];
         if live {
             entries.push(Entry::Act { id: "reply", label: "Reply".into(), icon: Some("reply"), danger: false });
         }
-        entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
-        entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
-        entries.push(Entry::Act { id: "judge", label: "Judge".into(), icon: Some("scale"), danger: false });
+        if !side {
+            entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
+            entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
+            entries.push(Entry::Act { id: "judge", label: "Judge".into(), icon: Some("scale"), danger: false });
+        }
         let back = self.focus.clone();
-        self.open_pop("Selection", entries, at, from_keys, Some(back), |this, id, window, cx| this.fork_act(id, window, cx), window, cx);
+        self.open_pop("Selection", entries, at, from_keys, Some(back), move |this, id, window, cx| {
+            // The pick answers on the side the menu was opened on.
+            this.as_side(side, |this| this.fork_act(id, window, cx));
+        }, window, cx);
     }
 
     /// The words selected in the thread, taken for the side chat to quote: the bar and the selection go.
@@ -228,6 +236,10 @@ impl JobView {
     fn fork_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         if act == "judge" {
             self.judge_selected(window, cx);
+            return;
+        }
+        // The Operator's thread offers Reply and Teach only.
+        if self.beside_in() && !matches!(act, "reply" | "teach") {
             return;
         }
         let Some(picked) = self.fork.shown.take() else { return };
@@ -356,7 +368,9 @@ impl JobView {
             }
         }
         let look = cx.look();
-        let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator is never a closed Job: a send with no live session waits in Fleet for the next one.
+        let live = self.beside_in() || self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        let side = self.beside_in();
         let act = |id: &'static str, said: &'static str, icon: &'static str| {
             labelled(
                 div()
@@ -397,10 +411,10 @@ impl JobView {
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .occlude()
                 .children(live.then(|| act("reply", "Reply", "reply")))
-                .child(act("fork", "Fork from here", "git-fork"))
+                .children((!side).then(|| act("fork", "Fork from here", "git-fork")))
                 .child(act("teach", "Teach", "graduation-cap"))
-                .child(self.selection_ask(look, cx))
-                .child(self.selection_judge(&picked.row, &picked.words, look, cx)),
+                .children((!side).then(|| self.selection_ask(look, cx)))
+                .children((!side).then(|| self.selection_judge(&picked.row, &picked.words, look, cx))),
             Role::Toolbar,
             "Selection",
         );
@@ -410,3 +424,114 @@ impl JobView {
         Some(deferred(anchored().position_mode(gpui::AnchoredPositionMode::Local).position(above - picked.block).anchor(Anchor::BottomCenter).snap_to_window_with_margin(look.length(token::SPACE_2)).child(bar)).with_priority(1).into_any_element())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    use super::super::operator_harness::{staged, JOB, OPERATOR_ROW};
+    use super::super::parts_fold::redraw;
+    use super::*;
+
+    /// A selection of `row`'s words, standing in the middle of `viewport`.
+    fn selection(row: &str, viewport: Bounds<Pixels>) -> Picked {
+        let at = viewport.center();
+        Picked { row: row.into(), words: "hello".into(), at, span: Bounds { origin: at, size: gpui::size(gpui::px(40.), gpui::px(16.)) }, block: Point::default() }
+    }
+
+    fn viewport(view: &Entity<JobView>, cx: &mut VisualTestContext) -> Bounds<Pixels> {
+        view.read_with(cx, |view, _| view.pages[JOB].list.viewport_bounds())
+    }
+
+    /// Select words in the Operator's thread, or the Job's.
+    fn select(view: &Entity<JobView>, beside: bool, row: &str, cx: &mut VisualTestContext) {
+        let within = viewport(view, cx);
+        view.update(cx, |view, _| {
+            let picked = selection(row, within);
+            if beside {
+                view.on_beside(|view| view.fork.shown = Some(picked)).expect("the Operator is beside");
+            } else {
+                view.fork.shown = Some(picked);
+            }
+        });
+    }
+
+    /// The ids the selection's menu lists (not the Mod and Report every point menu carries), opened on the Operator's thread or the Job's.
+    fn menu(view: &Entity<JobView>, beside: bool, cx: &mut VisualTestContext) -> Vec<&'static str> {
+        view.update_in(cx, |view, window, cx| {
+            let mut open = |this: &mut JobView| {
+                this.fork_menu(Point::default(), false, window, cx);
+                let ids = this.pop.as_ref().map(|pop| pop.menu.read(cx).entries.iter().filter_map(|entry| if let Entry::Act { id, .. } = entry { Some(*id) } else { None }).filter(|id| !id.starts_with("point-")).collect()).unwrap_or_default();
+                this.pop = None;
+                ids
+            };
+            if beside {
+                view.on_beside(open).expect("the Operator is beside")
+            } else {
+                open(view)
+            }
+        })
+    }
+
+    /// The buttons the bar over the selected words draws, in order; None where no bar is drawn.
+    fn bar_buttons(stage: &Entity<super::super::operator_harness::Stage>, beside: bool, row: &'static str, cx: &mut VisualTestContext) -> Option<Vec<String>> {
+        stage.update(cx, |stage, cx| {
+            stage.bar = Some(Rc::new(move |job, cx| if beside { job.on_beside(|job| job.render_fork_bar(row, cx)).flatten() } else { job.render_fork_bar(row, cx) }));
+            cx.notify();
+        });
+        redraw(cx);
+        cx.update(|window, cx| {
+            let book = cx.try_global::<crate::labels::LabelBook>()?;
+            let all = book.drawn(window.window_handle().window_id());
+            all.iter().any(|one| one.role == Role::Toolbar && one.name == "Selection").then(|| {
+                // Each frame drawn adds its labels to the book, so a button is named once, in the order it first stood.
+                let mut named: Vec<String> = Vec::new();
+                for one in all.iter().filter(|one| one.role == Role::Button && one.path.last().is_some_and(|parent| parent == "Selection")) {
+                    if !named.iter().any(|seen| seen == one.name.as_ref()) {
+                        named.push(one.name.to_string());
+                    }
+                }
+                named
+            })
+        })
+    }
+
+    #[gpui::test]
+    fn the_operators_selection_offers_reply_and_teach_only(cx: &mut TestAppContext) {
+        let (view, stage, cx) = staged(cx, &[]);
+        assert!(!view.read_with(cx, |view, cx| view.closed(super::super::operator_harness::OPERATOR, cx)), "the Operator's box stays open though its session holds no live Job record");
+        assert_eq!(menu(&view, true, cx), ["teach", "reply"], "the menu: Reply stays with no live session, and no Fork, Ask or Judge");
+        select(&view, true, OPERATOR_ROW, cx);
+        assert_eq!(bar_buttons(&stage, true, OPERATOR_ROW, cx), Some(vec!["Reply".to_string(), "Teach".to_string()]), "the bar: Reply stays with no live session, and no Fork, Ask or Judge");
+    }
+
+    #[gpui::test]
+    fn a_jobs_selection_still_offers_reply_fork_teach_ask_and_judge(cx: &mut TestAppContext) {
+        let (view, stage, cx) = staged(cx, &[]);
+        assert_eq!(menu(&view, false, cx), ["teach", "reply", "fork", "ask", "judge"], "the menu");
+        select(&view, false, "m1", cx);
+        let bar: Vec<String> = ["Reply", "Fork from here", "Teach", "Ask", "Judge"].iter().map(|one| one.to_string()).collect();
+        assert_eq!(bar_buttons(&stage, false, "m1", cx), Some(bar), "the bar");
+    }
+
+    #[gpui::test]
+    fn a_selection_in_the_operators_thread_is_not_the_jobs(cx: &mut TestAppContext) {
+        let (view, _, cx) = staged(cx, &[]);
+        select(&view, true, OPERATOR_ROW, cx);
+        let (job_has, operator_has) = view.update(cx, |view, cx| {
+            let operator = view.on_beside(|view| view.render_fork_bar(OPERATOR_ROW, cx).is_some()).expect("the Operator is beside");
+            (view.fork.shown.is_some() || view.render_fork_bar(OPERATOR_ROW, cx).is_some(), operator)
+        });
+        assert!(operator_has, "the Operator's thread shows its own selection");
+        assert!(!job_has, "the Job's thread does not");
+        select(&view, false, "m1", cx);
+        select(&view, true, OPERATOR_ROW, cx);
+        view.update(cx, |view, _| {
+            assert_eq!(view.fork.shown.as_ref().map(|picked| picked.row.as_str()), Some("m1"), "the Job keeps its own words");
+            assert_eq!(view.on_beside(|view| view.fork.shown.as_ref().map(|picked| picked.row.clone())), Some(Some(OPERATOR_ROW.to_string())), "and the Operator its own");
+        });
+    }
+}
+

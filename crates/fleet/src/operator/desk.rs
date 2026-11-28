@@ -69,7 +69,27 @@ where
             self.operator_warned("a move of the Operator's switch was not kept", why);
             return;
         }
+        if on {
+            self.operator_started_fresh().await;
+        }
+        self.operator_seat().wake.notify_one();
         self.operator_board_changed();
+    }
+
+    /// **Coming on starts the Operator fresh.** Every card left open from before is settled, and the features that piled up
+    /// while it was off are kept as handed, so its first tick tells nothing. A red main and a short disk are what is broken
+    /// now, and stay: their own sweeps settle them.
+    async fn operator_started_fresh(&self) {
+        let at = self.now();
+        let answer = format!("{}Cleared when the Operator was turned on.", super::cards::SETTLED);
+        let open = self.store().lock().await.operator_turn_open().unwrap_or_default();
+        for row in open.iter().filter(|row| !row.item.starts_with(super::turning::RED) && !row.item.starts_with(super::disking::DISK_HOLD)) {
+            if let Err(why) = self.store().lock().await.settle_operator_turn(row.n, at.as_str(), Some(&answer)) {
+                self.operator_warned("a card from before the Operator came on was not cleared", why);
+            }
+        }
+        self.catalog_kept_as_handed().await;
+        self.operator_page_changed();
     }
 
     /// The switch moved: the page's `on` is read again.

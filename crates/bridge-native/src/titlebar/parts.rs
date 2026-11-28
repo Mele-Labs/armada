@@ -57,11 +57,13 @@ pub struct Btn {
     pub pending: bool,
     /// Fills its row and centres its content, as the Fleet panel's buttons do.
     pub full: bool,
+    /// A status colour as the ground, with the accent's text on it.
+    pub fill: Option<Hsla>,
 }
 
 impl Btn {
     pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>, weight: Weight) -> Btn {
-        Btn { id: id.into(), label: label.into(), icon: None, weight, disabled: false, pending: false, full: false }
+        Btn { id: id.into(), label: label.into(), icon: None, weight, disabled: false, pending: false, full: false, fill: None }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Btn {
@@ -84,22 +86,30 @@ impl Btn {
         self
     }
 
+    pub fn filled(mut self, hue: Hsla) -> Btn {
+        self.fill = Some(hue);
+        self
+    }
+
     /// The element, with its press unset: the caller adds `on_click` and `labelled`. A button that
     /// is off or pending carries no pointer and its caller adds no press.
-    pub fn draw(self, look: &Look, cx: &App) -> Stateful<Div> {
-        let (ground, hover, ink, edge) = match self.weight {
+    pub fn draw(self, look: &Look, _cx: &App) -> Stateful<Div> {
+        let (ground, hover, ink, edge) = match self.fill {
+            Some(hue) => (hue, hue.opacity(0.85), look.color(token::TEXT_ON_ACCENT), hue),
+            None => match self.weight {
             Weight::Primary => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT)),
             Weight::Secondary => (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_DEFAULT)),
             Weight::Ghost => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), gpui::transparent_black()),
+            },
         };
         let size = look.length(token::SPACE_4);
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let live = !self.disabled && !self.pending;
-        let mark: Option<gpui::AnyElement> = if self.pending {
-            Some(spinner(SharedString::from(format!("{:?}-spin", self.id)), size, ink, cx).into_any_element())
-        } else {
-            self.icon.map(|name| glyph(name, size, ink).into_any_element())
-        };
+        let mark: Option<gpui::AnyElement> = self.icon.map(|name| glyph(name, size, ink).into_any_element());
+        let busy = self.pending.then(|| {
+            let tone = if self.weight == Weight::Primary || self.fill.is_some() { look.color(token::TEXT_ON_ACCENT) } else { look.color(token::ACCENT) };
+            crate::parts::ring::ring_overlay(look, SharedString::from(format!("{:?}-ring", self.id)), look.length(token::RADIUS_LG), tone)
+        });
         let body = div()
             .id(self.id)
             .flex_none()
@@ -122,9 +132,13 @@ impl Btn {
             .focus_visible(move |style| style.border_color(ring))
             .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
             .children(mark)
-            .child(self.label);
+            .child(self.label)
+            .when(busy.is_some(), |button| button.relative())
+            .children(busy);
         if live {
             body.cursor_pointer().hover(move |style| style.bg(hover))
+        } else if self.pending {
+            body
         } else {
             body.opacity(0.5)
         }

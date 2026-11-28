@@ -6,7 +6,7 @@
 use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Features;
@@ -40,6 +40,24 @@ pub(crate) struct OfProject {
     project: Option<String>,
 }
 
+/// `?project=&ended=` on `list_sub_projects`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfSubProjects {
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    ended: bool,
+}
+
+/// `?project=&words=` on `get_features_by_meaning`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfWords {
+    #[serde(default)]
+    project: Option<String>,
+    #[serde(default)]
+    words: String,
+}
+
 /// `?project=&since=` on `get_since_you_looked`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfSince {
@@ -68,6 +86,13 @@ pub(crate) struct Weeks {
 pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
     match served.daemon().list_features(crate::acting::asking(), asked.project).await {
         Ok(library) => answer(StatusCode::OK, &library, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_features_by_meaning<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfWords>) -> Response {
+    match served.daemon().get_features_by_meaning(crate::acting::asking(), asked.project, asked.words).await {
+        Ok(found) => answer(StatusCode::OK, &found, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -212,6 +237,48 @@ pub(crate) async fn draft_module_features<D: Features>(State(served): State<Serv
     }
 }
 
+/// The owner groups the Jobs he picked in the Jobs list.
+pub(crate) async fn start_sub_project<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let start: ipc::StartSubProject = match ipc::decode_body("a name and the Jobs to group under it", &body) {
+        Ok(start) => start,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_sub_project(start).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_sub_projects<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfSubProjects>) -> Response {
+    match served.shared().list_sub_projects(asked.project, asked.ended).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner turns a running Job into a sub project's orchestrator.
+pub(crate) async fn turn_into_orchestrator<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let turn: ipc::TurnIntoOrchestrator = match ipc::decode_body("a Job to turn into a sub project's orchestrator and a goal", &body) {
+        Ok(turn) => turn,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().turn_into_orchestrator(turn).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn ungroup_sub_project<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let ungroup: ipc::UngroupSubProject = match ipc::decode_body("a sub project to ungroup", &body) {
+        Ok(ungroup) => ungroup,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().ungroup_sub_project(ungroup).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
 pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {
@@ -329,6 +396,49 @@ pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>,
     };
     match served.daemon().change_feature(crate::acting::asking(), change).await {
         Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Operator or the owner makes, renames, splits or merges an area. **Placed as `change_feature` is.**
+pub(crate) async fn change_area<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let change: ipc::ChangeArea = match ipc::decode_body("a change to an area", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().change_area(crate::acting::asking(), change).await {
+        Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His Not this feature or Doesn't go together. **Placed as `change_feature` is.**
+pub(crate) async fn reject_in_catalog<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let reject: ipc::RejectInCatalog = match ipc::decode_body("a reject in the catalog", &body) {
+        Ok(reject) => reject,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().reject_in_catalog(crate::acting::asking(), reject).await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_catalog_rules<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().list_catalog_rules(asked.project).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One catalog rule taken out. **Placed as `change_feature` is.**
+pub(crate) async fn drop_catalog_rule<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let drop: ipc::DropCatalogRule = match ipc::decode_body("a catalog rule to drop", &body) {
+        Ok(drop) => drop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().drop_catalog_rule(crate::acting::asking(), drop).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

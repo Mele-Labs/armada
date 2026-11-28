@@ -110,12 +110,52 @@ impl Features for FakeDaemon {
         Ok(ipc::DocJobStarted { project: flag.project, slug: flag.slug, target: flag.target, session_id: ipc::SessionId::carried("s-1"), title: String::from("Doc or code: Voting on takes"), brief: String::new(), send_failed: None })
     }
 
+    async fn get_features_by_meaning(&self, _caller: Option<crate::Caller>, project: Option<String>, _words: String) -> Result<ipc::FeaturesByMeaning, Refusal> {
+        Ok(ipc::FeaturesByMeaning { project: project.unwrap_or_else(|| String::from("p1")), slugs: Vec::new() })
+    }
+
     async fn get_library_start(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::LibraryStart, Refusal> {
         Ok(ipc::LibraryStart { project: project.unwrap_or_else(|| String::from("p1")), modules: Vec::new(), docs: Vec::new() })
     }
 
     async fn draft_module_features(&self, _caller: Option<crate::Caller>, draft: ipc::DraftModules) -> Result<ipc::ModulesDrafted, Refusal> {
         Ok(ipc::ModulesDrafted { project: draft.project, drafted: Vec::new(), held: Vec::new() })
+    }
+
+    async fn start_sub_project(self: std::sync::Arc<Self>, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        Ok(ipc::SubProject {
+            id: String::from("sp-1"),
+            project: start.project,
+            name: start.name,
+            goal: start.goal,
+            jobs: start.jobs,
+            features: Vec::new(),
+            orchestrator: None,
+            started_at: ipc::Instant::carried("2026-11-26T12:00:00Z"),
+            ended_at: None,
+        })
+    }
+
+    async fn list_sub_projects(self: std::sync::Arc<Self>, _project: Option<String>, _ended: bool) -> Result<ipc::SubProjects, Refusal> {
+        Ok(ipc::SubProjects { sub_projects: Vec::new() })
+    }
+
+    async fn turn_into_orchestrator(self: std::sync::Arc<Self>, turn: ipc::TurnIntoOrchestrator) -> Result<ipc::SubProject, Refusal> {
+        Ok(ipc::SubProject {
+            id: String::from("sp-1"),
+            project: turn.project,
+            name: String::new(),
+            goal: turn.goal,
+            jobs: Vec::new(),
+            features: Vec::new(),
+            orchestrator: Some(turn.session_id),
+            started_at: ipc::Instant::carried("2026-11-26T12:00:00Z"),
+            ended_at: None,
+        })
+    }
+
+    async fn ungroup_sub_project(&self, _ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
+        Ok(())
     }
 
     async fn stop_librarian(&self, _caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {
@@ -148,7 +188,32 @@ impl Features for FakeDaemon {
     }
 
     async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
-        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
+        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into, rule: None })
+    }
+
+    async fn change_area(&self, _caller: Option<crate::Caller>, change: ipc::ChangeArea) -> Result<ipc::AreaChanged, Refusal> {
+        Ok(ipc::AreaChanged { project: change.project, area: change.area, rule: None })
+    }
+
+    async fn reject_in_catalog(&self, _caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> Result<ipc::CatalogRuleKept, Refusal> {
+        let rule = ipc::CatalogRule {
+            id: String::from("r-1"),
+            text: reject.why.unwrap_or_default(),
+            act: ipc::CatalogRuleAct::NotTogether,
+            features: reject.features,
+            areas: reject.areas,
+            paths: reject.paths,
+            at: ipc::Instant::carried("2026-11-28T12:00:00Z"),
+        };
+        Ok(ipc::CatalogRuleKept { project: reject.project, rule })
+    }
+
+    async fn list_catalog_rules(&self, project: Option<String>) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: project.unwrap_or_default(), rules: Vec::new() })
+    }
+
+    async fn drop_catalog_rule(&self, _caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: drop.project, rules: Vec::new() })
     }
 
     async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {

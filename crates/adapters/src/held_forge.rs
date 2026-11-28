@@ -38,6 +38,18 @@ impl<F: Forge> Forge for GitVcs<F> {
         self.forge.queue_commit_of(in_repo, base, number)
     }
 
+    fn queue_runs(&self, in_repo: &str, base: &str) -> Option<adapter_traits::QueueRuns> {
+        self.forge.queue_runs(in_repo, base)
+    }
+
+    fn infra_failures(&self, in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::InfraFailure>> {
+        self.forge.infra_failures(in_repo, commit)
+    }
+
+    fn cancel_run(&self, in_repo: &str, run_id: u64) -> Result<(), String> {
+        self.forge.cancel_run(in_repo, run_id)
+    }
+
     fn ci_log(&self, in_repo: &str, run: &adapter_traits::CiRun) -> Option<adapter_traits::FromOutside> {
         self.forge.ci_log(in_repo, run)
     }

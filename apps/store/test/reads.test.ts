@@ -62,6 +62,15 @@ async function startCounting(account: number) {
   });
 }
 
+/** The rows written since `startCounting`. */
+const rowsWritten = (account: number): Promise<number> =>
+  runInDurableObject(accountObject(account), (instance) =>
+    ((instance as unknown as Counted).cursors ?? []).reduce(
+      (sum, cursor) => sum + cursor.rowsWritten,
+      0,
+    ),
+  );
+
 /** The rows read since `startCounting`. */
 const rowsRead = (account: number): Promise<number> =>
   runInDurableObject(accountObject(account), (instance) =>
@@ -116,8 +125,52 @@ describe("a busy account", () => {
   });
 });
 
+// The free plan allows 100,000 rows written a day, and every index a row is in counts again.
+describe("a signed request", () => {
+  it("writes one nonce row, and its renewal one row more", async () => {
+    const account = 9704;
+    const device = await enrolDevice(account);
+    expect((await claim(device, hash("a"), "file", hash("b"), claimant("j-1"))).status).toBe(200);
+
+    await startCounting(account);
+    const calls = 10;
+    for (let n = 0; n < calls; n++) expect((await renew(device, holder("j-1"))).status).toBe(200);
+
+    expect(await rowsWritten(account)).toBe(calls * 2);
+  });
+
+  it("is refused when sent again, after the object wakes too", async () => {
+    const account = 9705;
+    const device = await enrolDevice(account);
+    const body = {
+      holder: {
+        kind: "job",
+        id: "j-1",
+        machine: "studio",
+      },
+    };
+    const sent = {
+      nonce: "replayed-nonce-0001",
+      time: String(Math.floor(Date.now() / 1000)),
+    };
+    expect((await call(device, "POST", "/v1/renewals", body, sent)).status).toBe(200);
+    await runInDurableObject(accountObject(account), (instance) => {
+      (
+        instance as unknown as {
+          recent: Map<string, number[]>;
+        }
+      ).recent.clear();
+    });
+    const again = await call(device, "POST", "/v1/renewals", body, sent);
+    expect(again.status).toBe(401);
+    expect(await again.json()).toEqual({
+      error: "replayed_nonce",
+    });
+  });
+});
+
 describe("an account deployed before tallies", () => {
-  it("counts each table once on its first verified request, then keeps the count, and indexes nonces by device", async () => {
+  it("counts each table once on its first verified request, then keeps the count, and keeps nonces without an index", async () => {
     const account = 9703;
     const device = await enrolDevice(account);
     await runInDurableObject(accountObject(account), (instance, state) => {
@@ -132,9 +185,15 @@ describe("an account deployed before tallies", () => {
         sql.exec(`DROP TRIGGER ${table}_added; DROP TRIGGER ${table}_removed;`);
       sql.exec(`
         DROP TABLE tallies;
-        DROP INDEX nonces_device_seen;
+        DROP TABLE nonces;
+        CREATE TABLE nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
         CREATE INDEX nonces_seen ON nonces (seen);
       `);
+      sql.exec(
+        "INSERT INTO nonces (device, nonce, seen) VALUES (?, 'taken-before-the-copy', ?)",
+        device.id,
+        Math.floor(Date.now() / 1000),
+      );
       for (let n = 0; n < 3; n++)
         sql.exec(
           "INSERT INTO claims (repo, kind, key, holder_kind, holder_id, machine, since) VALUES (?, 'file', ?, 'job', 'j-0', 'studio', 1)",
@@ -177,14 +236,18 @@ describe("an account deployed before tallies", () => {
       const indexes = sql
         .exec<{
           name: string;
-        }>(
-          "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'nonces' AND sql IS NOT NULL",
-        )
+        }>("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'nonces'")
         .toArray()
         .map((row) => row.name);
-      expect(indexes).toEqual([
-        "nonces_device_seen",
-      ]);
+      expect(indexes).toEqual([]);
+      const nonces = sql
+        .exec<{
+          sql: string;
+        }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'nonces'")
+        .one().sql;
+      expect(nonces).toContain("WITHOUT ROWID");
+      // The nonces taken before the copy were carried into it.
+      expect(sql.exec("SELECT COUNT(*) AS n FROM nonces").one().n).toBe(3);
     });
   });
 });

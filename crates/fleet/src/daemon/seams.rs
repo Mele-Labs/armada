@@ -156,6 +156,10 @@ where
     pub(crate) fn metrics_held(&self) -> &crate::project_metrics::Readings {
         &self.metric_readings
     }
+    /// The graph recipes running now. See [`crate::graphs`].
+    pub(crate) fn graphs_running(&self) -> &crate::graphs::Running {
+        &self.graphs_running
+    }
     pub(crate) fn mods(&self) -> &crate::mods::Told {
         &self.mods
     }
@@ -505,6 +509,9 @@ where
     }
     pub(crate) fn native_walks(&self) -> &crate::native_walks::NativeWalks {
         &self.native_walks
+    }
+    pub(crate) fn walk_builds(&self) -> &crate::walk_builds::WalkBuilds {
+        &self.walk_builds
     }
     pub(crate) fn worktrees_memory(&self) -> &crate::worktrees_kept::Kept {
         &self.kept

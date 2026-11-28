@@ -18,8 +18,9 @@
 //! are building, oldest first, [`TURN`] each. A Job with no compiler running gives its turn up at
 //! once. Under the limit, or with one Job building, everything held runs again.
 //!
-//! **Loaded is the fifteen-minute load at or over the limit, or memory short** by the kernel's
-//! own pressure level, and stays so for a [`TURN`] after the pressure eases.
+//! **Loaded is the machine short by [`fleet::limits::gate_limits`](crate::limits::gate_limits)**,
+//! the rule the machine's Check slots keep: memory at the kernel's pressure level, or a load
+//! over its limit where one is set. Short memory stays so for a [`TURN`] after the pressure eases.
 //!
 //! **A Job is told both ways** ([`Turns::jobs_held`]), so its agent waits on a quiet build
 //! rather than starting it again: the owner's choice of 20 Nov 2026.
@@ -70,18 +71,6 @@ struct Row {
     driver: bool,
 }
 
-/// `kern.memorystatus_vm_pressure_level` at which memory is short: 1 is normal, 2 warn, 4
-/// critical. Measured 20 Nov 2026: swap used stays near full long after the pressure has gone,
-/// and `memory_pressure` said 30% free while the Mac thrashed; the level read 2.
-const PRESSED: u32 = 2;
-
-/// The kernel's memory pressure level, or `None` where it cannot be read.
-pub(crate) fn memory_pressure() -> Option<u32> {
-    let said = std::process::Command::new("/usr/sbin/sysctl").args(["-n", "kern.memorystatus_vm_pressure_level"]).output().ok()?;
-    said.status.success().then_some(())?;
-    String::from_utf8_lossy(&said.stdout).trim().parse().ok()
-}
-
 /// The command [`Turns::look`] reads.
 pub(crate) const LISTING: [&str; 2] = ["-axo", "pid=,ppid=,stat=,comm="];
 
@@ -117,14 +106,16 @@ impl Turns {
         self.leader.as_ref().map(|(job, _)| job.as_str())
     }
 
-    /// Whether builds take turns: the load over the limit, or memory short now or within a
-    /// [`TURN`]. **The turn's wait is the hysteresis**: held compilers' pages go out to swap and
-    /// the pressure eases, and letting every build go at once then would only bring it back.
-    pub(crate) fn loaded(&mut self, load_over: bool, pressure: Option<u32>, now: Instant) -> bool {
-        if pressure.is_some_and(|level| level >= PRESSED) {
+    /// Whether builds take turns: the machine `short`, or short of memory within a [`TURN`].
+    /// **The turn's wait is the hysteresis**: held compilers' pages go out to swap and the
+    /// pressure eases, and letting every build go at once then would only bring it back.
+    /// Measured 20 Nov 2026: swap used stays near full long after the pressure has gone, and
+    /// `memory_pressure` said 30% free while the Mac thrashed; the level read 2.
+    pub(crate) fn loaded(&mut self, short: Option<checks_runner::Short>, now: Instant) -> bool {
+        if matches!(short, Some(checks_runner::Short::Memory { .. })) {
             self.pressed = Some(now);
         }
-        load_over || self.pressed.is_some_and(|at| now.saturating_duration_since(at) < TURN)
+        short.is_some() || self.pressed.is_some_and(|at| now.saturating_duration_since(at) < TURN)
     }
 
     /// The Jobs whose builds are held now: told when they join this, and again when they leave it.

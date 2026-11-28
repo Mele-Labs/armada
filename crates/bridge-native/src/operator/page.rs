@@ -6,13 +6,12 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
-use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, FollowMode, ListAlignment, ListState, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
+use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_talk::TalkToOperator;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{OperatorActs, ParkedIdea, SessionId, WaitingAct};
 
-use super::composer::{Composed, OperatorComposer};
 use super::face;
 use super::parked::{ParkedAsked, ParkedIdeas};
 use super::scenes::{self, MockFleet};
@@ -31,9 +30,6 @@ pub enum Opened {
     Act(WaitingAct, Option<SessionId>),
     /// A Job, from a row of the feed.
     Job(SessionId),
-    /// The Operator's own session, from the status card's button: it opens as a Job's view does, and the Operator's page
-    /// is where Esc comes back to.
-    Session(SessionId),
     /// A plan, sketch, page or draft a Job holds, from its card: the Review panel opens over the page with it chosen, the
     /// Operator's reading and pick beside it.
     Review(ipc::ItemRef, Option<(SharedString, Option<SharedString>)>),
@@ -54,8 +50,6 @@ pub struct Talk {
     pub about: String,
     /// The card's title, for the tag in the box and the talk's About row.
     pub title: SharedString,
-    /// What he sent that the thread has not echoed yet, drawn as his own message.
-    pub sent: Option<SharedString>,
 }
 
 /// Where each press that opens a menu was drawn, by name.
@@ -76,10 +70,6 @@ pub struct OperatorPageView {
     /// The Jobs' titles, by id, which a card's chips read.
     pub(super) titles: HashMap<String, String>,
     pub(super) talk: Option<Talk>,
-    /// What he sent to the Operator about no card that the thread has not echoed yet, drawn as his own message.
-    pub(super) loose: Option<SharedString>,
-    /// The box under the card, whose send is a talk, about the card its tag names, or a dispatch with a kind chip picked.
-    pub(super) composer: Entity<OperatorComposer>,
     /// The ideas the Operator kept for later: Next up lists them after the cards.
     pub(super) parked: Entity<ParkedIdeas>,
     /// The kept idea brought to the front from Next up, by id, drawn as a card in place of the Operator's own.
@@ -117,23 +107,16 @@ pub struct OperatorPageView {
     /// The front card waits to be scrolled to and given the keys at the next frame.
     pub(super) pairing_reveal: bool,
     pub(super) main_scroll: ScrollHandle,
-    /// The talk under the card, a list that follows its tail, and the rows it draws.
-    pub(super) talk_list: ListState,
-    pub(super) talk_said: Vec<super::talk::Said>,
-    /// The pictures under his words in the talk, by the file's id.
-    pub(super) talk_pictures: HashMap<String, super::talk::TalkPicture>,
+    /// The Operator's thread and box under the card, drawn by the Job view this frame for the column to take.
+    pub(super) thread_drawn: RefCell<Option<gpui::AnyElement>>,
     /// The talk has overflowed its space: the card in front folds to one line from then on.
     pub(super) talk_long: Rc<Cell<bool>>,
     /// How tall the talk's rows are together, as last drawn.
     pub(super) talk_tall: Rc<Cell<gpui::Pixels>>,
-    /// How much of the talk's top row its top edge cuts while it follows its tail, as last drawn.
-    pub(super) talk_cut: Rc<Cell<gpui::Pixels>>,
     /// He opened the folded card. It folds again when the talk grows or he sends.
     pub(super) unfolded: bool,
     /// The cards that would have taken the front while it was folded or the talk in use, oldest first: the new-card strip.
     pub(super) fresh: Vec<String>,
-    /// How long the live thread was when the talk last read it, so a change elsewhere in Fleet does not read it again.
-    talk_heard: Option<(usize, Option<String>)>,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
     /// The open card's Snooze, so a test can put the keys on a press.
@@ -180,13 +163,7 @@ impl OperatorPageView {
                 this.in_front(cx);
             }
         }));
-        let fleet = match &wire {
-            Wire::Live(fleet) => Some(fleet.clone()),
-            Wire::Mock(_) => None,
-        };
-        let composer = cx.new(|cx| OperatorComposer::new(fleet, window, cx));
         let parked = cx.new(|_| ParkedIdeas::new());
-        subs.push(cx.subscribe_in(&composer, window, |this, _, event: &Composed, window, cx| this.composed(event, window, cx)));
         subs.push(cx.subscribe(&parked, |this, _, asked: &ParkedAsked, cx| this.idea_asked(asked, cx)));
         OperatorPageView {
             wire,
@@ -197,8 +174,6 @@ impl OperatorPageView {
             refused: None,
             titles: HashMap::new(),
             talk: None,
-            loose: None,
-            composer,
             parked,
             idea_front: None,
             working_front: None,
@@ -220,19 +195,11 @@ impl OperatorPageView {
             pairing_focus: cx.focus_handle(),
             pairing_reveal: false,
             main_scroll: ScrollHandle::new(),
-            talk_list: {
-                let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
-                list.set_follow_mode(FollowMode::Tail);
-                list
-            },
-            talk_said: Vec::new(),
-            talk_pictures: HashMap::new(),
+            thread_drawn: RefCell::new(None),
             talk_long: Rc::new(Cell::new(false)),
             talk_tall: Rc::new(Cell::new(gpui::px(0.))),
-            talk_cut: Rc::new(Cell::new(gpui::px(0.))),
             unfolded: false,
             fresh: Vec::new(),
-            talk_heard: None,
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
             option_focus: RefCell::new(HashMap::new()),
@@ -267,7 +234,7 @@ impl OperatorPageView {
 
     /// The caret goes to the box under the card: the Cockpit's ⌘J with no Job open.
     pub fn focus_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+        crate::job_view::operator_focus(window, cx);
     }
 
     /// Where the host turns embedding on or off after the page is built.
@@ -305,7 +272,6 @@ impl OperatorPageView {
             if ready && !this.parked.read(cx).is_read() && !this.parked_reading {
                 this.read_parked(cx);
             }
-            this.heard_thread(cx);
         }));
         // An idea kept for later is on the list as the Operator says it was kept.
         this.subs.push(cx.subscribe(fleet, |this, _, done: &crate::fleet::Dispatched, cx| {
@@ -487,8 +453,6 @@ impl OperatorPageView {
         }
         let working = self.page.as_ref().map_or(&[][..], |page| page.working.as_slice());
         self.working_front = self.working_front.take().filter(|id| working.iter().any(|one| one.id == *id));
-        self.read_thread(cx);
-        self.sync_talk(cx);
         cx.notify();
     }
 
@@ -497,20 +461,15 @@ impl OperatorPageView {
     pub fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         // ⌥M puts the caret in the box from anywhere on the page, as it does in a Job's view.
         if act.is("message_job") {
-            return self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+            return crate::job_view::operator_focus(window, cx);
         }
         // ⌘Enter is Show where the new-card strip stands and the box holds no words to send.
-        if act.is("send_message") && !self.fresh.is_empty() && self.composer.read(cx).words(cx).trim().is_empty() {
+        if act.is("send_message") && !self.fresh.is_empty() && crate::job_view::operator_words(cx).trim().is_empty() {
             return self.show_fresh(window, cx);
         }
-        if self.composer.read(cx).has_keys(window, cx) {
-            // ⌘Enter sends from the box; every other act is the box's to take, or goes on.
-            if act.is("send_message") {
-                self.composer.update(cx, |composer, cx| composer.send(window, cx));
-            } else {
-                cx.propagate();
-            }
-            return;
+        // The box takes its own acts, as a Job's does: every other one goes on.
+        if crate::job_view::operator_has_keys(window, cx) {
+            return cx.propagate();
         }
         // Inside Next up the arrows, j, k, Enter and Esc are its own: they go on to its rows.
         if self.next_open && self.next_group.contains_focused(window, cx) {
@@ -642,7 +601,7 @@ impl OperatorPageView {
         }
         if self.open.as_deref() != Some(id) {
             self.talk = None;
-            self.composer.update(cx, |composer, cx| composer.untag(cx));
+            crate::job_view::operator_untag(cx);
         }
         self.open = Some(id.to_string());
         self.fresh.retain(|one| one != id);
@@ -680,7 +639,7 @@ impl OperatorPageView {
             return;
         }
         if self.talk.take().is_some() {
-            self.composer.update(cx, |composer, cx| composer.untag(cx));
+            crate::job_view::operator_untag(cx);
         }
         self.idea_front = None;
         self.working_front = Some(id.to_string());
@@ -742,7 +701,7 @@ impl OperatorPageView {
             return;
         }
         if self.talk.take().is_some() {
-            self.composer.update(cx, |composer, cx| composer.untag(cx));
+            crate::job_view::operator_untag(cx);
         }
         self.idea_front = Some(id.to_string());
         self.working_front = None;
@@ -853,7 +812,7 @@ impl OperatorPageView {
         self.pending.insert(id.to_string());
         if self.talk.as_ref().is_some_and(|talk| talk.about == base) {
             self.talk = None;
-            self.composer.update(cx, |composer, cx| composer.untag(cx));
+            crate::job_view::operator_untag(cx);
         }
         if let Some(page) = self.page.as_mut() {
             page.turn.retain(|one| one.id != id && one.id != base);
@@ -996,7 +955,7 @@ impl OperatorPageView {
         self.settled.insert(turn.id.clone());
         if self.talk.as_ref().is_some_and(|talk| talk.about == turn.id) {
             self.talk = None;
-            self.composer.update(cx, |composer, cx| composer.untag(cx));
+            crate::job_view::operator_untag(cx);
         }
         if self.open.as_deref() == Some(turn.id.as_str()) || self.open.is_none() {
             let queue: Vec<String> = self.queue().iter().map(|one| one.id.clone()).collect();
@@ -1031,88 +990,48 @@ impl OperatorPageView {
     pub fn discuss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // A kept idea has no Discuss: the keys go to the box, untagged.
         let target = if self.idea_front.is_some() || self.working_front.is_some() { None } else { self.target().cloned() };
-        let Some(turn) = target else { return self.composer.update(cx, |composer, cx| composer.focus(window, cx)) };
+        let Some(turn) = target else { return crate::job_view::operator_focus(window, cx) };
         let title = face::card_title(&turn);
-        self.composer.update(cx, |composer, cx| {
-            composer.tag(turn.id.clone(), title, window, cx);
-            composer.focus(window, cx);
-        });
+        crate::job_view::operator_tag(turn.id.clone(), title, window, cx);
         cx.notify();
     }
 
+    /// What the Operator's box sent, as key `key` of its thread: a talk about the card its tag names, or about none.
+    fn talk_to(&mut self, talk: TalkToOperator, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        match talk.about.clone() {
+            Some(about) => self.talk_about(talk, about, key, window, cx),
+            None => self.talk_loose(talk, key, window, cx),
+        }
+    }
+
     /// The talk about a card, as he sent words with its tag: the card folds and the Operator's thread runs under it.
-    fn talk_about(&mut self, talk: TalkToOperator, about: String, window: &mut Window, cx: &mut Context<Self>) {
-        let words = talk.words.clone();
+    fn talk_about(&mut self, talk: TalkToOperator, about: String, key: u64, window: &mut Window, cx: &mut Context<Self>) {
         let title = self.items().iter().find(|turn| turn.id == about).map(face::card_title).unwrap_or_else(|| about.clone().into());
         // He is talking about the front card, or one the Operator raised in the talk.
         if self.talk.as_ref().map(|talk| talk.about.as_str()) != Some(about.as_str()) && self.is_front(&about) {
-            self.talk = Some(Talk { about: about.clone(), title, sent: None });
+            self.talk = Some(Talk { about: about.clone(), title });
         }
-        if let Some(talk) = self.talk.as_mut() {
-            talk.sent = Some(words.clone().into());
-        }
-        // Only his last send waits to be echoed.
-        self.loose = None;
-        // A send folds the card he had opened, and the talk shows its end.
+        // A send folds the card he had opened.
         self.unfolded = false;
-        self.read_thread(cx);
-        self.sync_talk(cx);
-        self.talk_list.set_follow_mode(FollowMode::Tail);
         cx.notify();
-        let task = self.wire.say(talk, cx);
-        let Some(task) = task else {
-            // The mock holds the Operator's answer until a scene gives one.
-            self.composer.update(cx, |composer, cx| composer.sent(window, cx));
-            return;
-        };
-        let composer = self.composer.clone();
-        cx.spawn_in(window, async move |this, cx| {
-            let said = task.await;
-            let _ = this.update_in(cx, |this, window, cx| match said {
-                Ok(_) => composer.update(cx, |composer, cx| composer.sent(window, cx)),
-                Err(why) => {
-                    if let Some(talk) = this.talk.as_mut() {
-                        talk.sent = None;
-                    }
-                    composer.update(cx, |composer, cx| composer.refuse(why, cx));
-                    cx.notify();
-                }
-            });
-        })
-        .detach();
+        self.say(talk, key, window, cx);
     }
 
     /// A talk to the Operator about no card, as he sent words with no tag: they go in the talk under the card with no
     /// About row, and no card folds or settles for them.
-    fn talk_loose(&mut self, talk: TalkToOperator, window: &mut Window, cx: &mut Context<Self>) {
-        let words = talk.words.clone();
-        self.loose = Some(words.clone().into());
-        if let Some(talk) = self.talk.as_mut() {
-            talk.sent = None;
-        }
-        let unfolded = self.unfolded;
-        self.read_thread(cx);
-        self.sync_talk(cx);
-        self.unfolded = unfolded;
-        self.talk_list.set_follow_mode(FollowMode::Tail);
-        cx.notify();
-        let task = self.wire.say(talk, cx);
-        let Some(task) = task else {
-            self.composer.update(cx, |composer, cx| composer.sent(window, cx));
-            return;
+    fn talk_loose(&mut self, talk: TalkToOperator, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        self.say(talk, key, window, cx);
+    }
+
+    /// `POST /operator/talk`, and its answer to the thread's send: a refusal leaves it there marked Not sent.
+    fn say(&mut self, talk: TalkToOperator, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(task) = self.wire.say(talk, cx) else {
+            // The mock holds the Operator's answer until a scene gives one.
+            return crate::job_view::operator_answered(key, Ok(()), cx);
         };
-        let composer = self.composer.clone();
-        cx.spawn_in(window, async move |this, cx| {
-            let said = task.await;
-            let _ = this.update_in(cx, |this, window, cx| match said {
-                Ok(_) => composer.update(cx, |composer, cx| composer.sent(window, cx)),
-                Err(why) => {
-                    this.loose = None;
-                    this.sync_talk(cx);
-                    composer.update(cx, |composer, cx| composer.refuse(why, cx));
-                    cx.notify();
-                }
-            });
+        cx.spawn_in(window, async move |_, cx| {
+            let said = task.await.map(|_| ());
+            let _ = cx.update(|_, cx| crate::job_view::operator_answered(key, said, cx));
         })
         .detach();
     }
@@ -1140,38 +1059,7 @@ impl OperatorPageView {
 
     /// The card in front is folded, or the talk is in use: his words are about a card, or wait in the box.
     pub(super) fn holds_front(&self, cx: &App) -> bool {
-        !matches!(self.status(), super::status::Status::Off) && !self.stopped_in_front() && (self.is_folded() || self.talk.is_some() || !self.composer.read(cx).words(cx).trim().is_empty())
-    }
-
-    /// The Operator session's thread, read from Fleet once: the talk's rows are drawn from it, and Fleet keeps it fresh.
-    fn read_thread(&mut self, cx: &mut Context<Self>) {
-        let (Some(session), Wire::Live(fleet)) = (self.page.as_ref().and_then(|page| page.session_id.clone()), &self.wire) else { return };
-        if fleet.read(cx).held().threads.contains_key(session.as_str()) {
-            return;
-        }
-        fleet.update(cx, |fleet, cx| fleet.read_thread(session.as_str(), false, cx));
-    }
-
-    /// Fleet changed: where the Operator's thread did, the talk reads it again.
-    fn heard_thread(&mut self, cx: &mut Context<Self>) {
-        let Some(session) = self.page.as_ref().and_then(|page| page.session_id.clone()) else { return };
-        let heard = {
-            let Wire::Live(fleet) = &self.wire else { return };
-            let Some(held) = fleet.read(cx).held().threads.get(session.as_str()) else { return };
-            let last = held.items.last().and_then(|item| match item {
-                ipc::ThreadItem::Row { row: ipc::SessionRow::Message { id, text, .. } } => Some(format!("{id}:{}", text.len())),
-                _ => None,
-            });
-            (held.items.len(), last)
-        };
-        if self.talk_heard.as_ref() != Some(&heard) {
-            self.talk_heard = Some(heard);
-            let was = self.talk_said.len();
-            self.sync_talk(cx);
-            if self.talk_said.len() != was {
-                cx.notify();
-            }
-        }
+        !matches!(self.status(), super::status::Status::Off) && !self.stopped_in_front() && (self.is_folded() || self.talk.is_some() || !crate::job_view::operator_words(cx).trim().is_empty())
     }
 
     // -- what the Operator may do unasked -----------------------------------------------------------
@@ -1298,9 +1186,10 @@ impl OperatorPageView {
 
     // -- the Operator's own session ----------------------------------------------------------------
 
-    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place.
+    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place. Restart's
+    /// moment between off and on is not off, so the Cockpit does not flash in.
     pub fn is_off(&self) -> bool {
-        self.page.as_ref().is_some_and(|page| !page.on)
+        !self.restarting && self.page.as_ref().is_some_and(|page| !page.on)
     }
 
     /// A switch is in flight, and which way it goes.
@@ -1330,15 +1219,8 @@ impl OperatorPageView {
         super::status::status_of(self.session.as_ref())
     }
 
-    /// "See what it is doing": the Operator's session opens as a Job's view does.
-    pub fn open_session(&mut self, cx: &mut Context<Self>) {
-        if let Some(id) = self.session_id() {
-            cx.emit(Opened::Session(id));
-        }
-    }
-
     /// Restart, on a stopped Operator. Fleet has no act that starts a stopped Operator's session again: it ends the session when
-    /// `features.operator` goes off and starts one on the next tick once it is on, so the switch goes off and on.
+    /// `features.operator` goes off and starts one as soon as it is on, so the switch goes off and on.
     /// The card reads Starting until the new session is held, or for half a minute where none comes.
     pub fn restart(&mut self, cx: &mut Context<Self>) {
         if self.restarting || self.switching {
@@ -1398,11 +1280,6 @@ impl OperatorPageView {
 
     // -- the box and the ideas ---------------------------------------------------------------------
 
-    /// The Jobs `@` names in the box.
-    pub fn set_jobs(&mut self, jobs: Vec<(String, String)>, cx: &mut Context<Self>) {
-        self.composer.update(cx, |composer, cx| composer.set_jobs(jobs, cx));
-    }
-
     /// Every Job's title, ended ones too: the chips on a card read them.
     pub fn set_titles(&mut self, titles: HashMap<String, String>, cx: &mut Context<Self>) {
         if self.titles != titles {
@@ -1411,18 +1288,59 @@ impl OperatorPageView {
         }
     }
 
-    /// What the box asks: its talk goes to the Operator, or the keys come back to the page.
-    fn composed(&mut self, event: &Composed, window: &mut Window, cx: &mut Context<Self>) {
-        match event {
-            Composed::Leave => window.focus(&self.focus, cx),
-            Composed::Talk { words, about, attachments, mentions } => {
-                let talk = TalkToOperator { words: words.clone(), about: about.clone(), attachments: attachments.clone(), mentions: mentions.clone() };
-                match about {
-                    Some(about) => self.talk_about(talk.clone(), about.clone(), window, cx),
-                    None => self.talk_loose(talk, window, cx),
-                }
-            }
+    /// The Operator's thread and box as the Job view draws them under the card: its session, the cards it raised in the talk,
+    /// and what a send and Esc do here. Drawn whenever the switch is on, whatever state the session is in: keyed by the live
+    /// session, else the newest one, else no session at all, whose thread is empty. Words sent with none running start one.
+    /// None before the page is read, and with the switch off.
+    pub(super) fn operator_pane(&self, cx: &Context<Self>) -> Option<crate::job_view::OperatorPane> {
+        let read = self.page.as_ref()?;
+        if self.is_off() {
+            return None;
         }
+        let session: Option<SharedString> = read.session_id.as_ref().or(read.talk_session_id.as_ref()).map(|id| id.as_str().to_string().into());
+        let look = cx.look();
+        let page = cx.entity().downgrade();
+        let draw: crate::job_view::DrawRaised = {
+            let page = page.clone();
+            Rc::new(move |id: &str, window: &mut Window, cx: &mut App| {
+                let Some(page) = page.upgrade() else { return gpui::IntoElement::into_any_element(gpui::Empty) };
+                page.update(cx, |page, cx| {
+                    let look = cx.look().clone();
+                    match page.items().iter().find(|turn| turn.id == id).cloned() {
+                        Some(turn) => page.card(&turn, true, window, &look, cx),
+                        None => gpui::IntoElement::into_any_element(gpui::Empty),
+                    }
+                })
+            })
+        };
+        let say: crate::job_view::Say = {
+            let page = page.clone();
+            Rc::new(move |talk, key, window: &mut Window, cx: &mut App| {
+                let _ = page.update(cx, |page, cx| page.talk_to(talk, key, window, cx));
+            })
+        };
+        let leave: crate::job_view::Leave = Rc::new(move |window: &mut Window, cx: &mut App| {
+            let _ = page.update(cx, |page, cx| window.focus(&page.focus, cx));
+        });
+        let room = if crate::job_view::operator_list(cx).is_some_and(|list| list.item_count() > 0) {
+            self.talk_tall.get().min(look.length(crate::look::token::SPACE_12) * 3.).max(look.length(crate::look::token::SPACE_12))
+        } else {
+            gpui::px(0.)
+        };
+        let mock = match (&self.wire, &session) {
+            (Wire::Mock(mock), Some(_)) => Some(mock.thread.clone()),
+            _ => None,
+        };
+        Some(crate::job_view::OperatorPane {
+            session: session.unwrap_or_else(|| crate::job_view::UNSTARTED.into()),
+            record: self.session.clone(),
+            mock,
+            raised: self.talk_cards().into_iter().map(|turn| turn.id.clone()).collect(),
+            draw,
+            say,
+            leave,
+            room,
+        })
     }
 
     /// Fleet took a dispatch. With the Operator holding it, or keeping it as an idea, he stays where he is and the toast
@@ -1529,14 +1447,9 @@ impl OperatorPageView {
     /// Move the mock Fleet to a named scene: the Operator answers the talk and raises a card in it (`said`), says more in
     /// it (`replies`), a new card joins the queue (`arrives`) or comes where nothing was in front (`front-arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
     /// reply lost (`lose`), the next change of what it does unasked is refused (`acts-refused`), or it is switched off
-    /// (`off`). Two scenes only scroll the page: `rest` to what is under the card, `top` back to it.
+    /// (`off`). One scene only scrolls the page: `top`, back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
         match name {
-            "rest" => {
-                self.main_scroll.scroll_to_bottom();
-                cx.notify();
-                return Ok(());
-            }
             "top" => {
                 self.main_scroll.set_offset(gpui::Point::default());
                 cx.notify();
@@ -1544,8 +1457,9 @@ impl OperatorPageView {
             }
             // He scrolls the talk up to the Operator's last words, and it stops following its end.
             "talk-up" => {
-                let ix = self.talk_said.iter().rposition(|said| matches!(said, super::talk::Said::Operator { .. })).ok_or("the Operator has said nothing")?;
-                self.talk_list.scroll_to(gpui::ListOffset { item_ix: ix, offset_in_item: gpui::px(0.) });
+                if !crate::job_view::operator_to_last_reply(cx) {
+                    return Err("the Operator has said nothing".into());
+                }
                 cx.notify();
                 return Ok(());
             }
@@ -1556,10 +1470,6 @@ impl OperatorPageView {
             "said" => {
                 mock.said().ok_or("nothing was said to the Operator")?;
                 let page = mock.page.clone();
-                if let Some(talk) = self.talk.as_mut() {
-                    talk.sent = None;
-                }
-                self.loose = None;
                 // The card it raised arrives with the page, once, and raises no toast.
                 if let Some(seen) = self.seen.as_mut() {
                     seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
@@ -1569,7 +1479,6 @@ impl OperatorPageView {
             // The Operator says more in the talk, with no card raised: the talk grows, and a card he opened folds again.
             "replies" => {
                 mock.replies();
-                self.sync_talk(cx);
                 cx.notify();
             }
             // A card arrives where nothing was in front, while the card is folded: it waits in the new-card strip.
@@ -1666,15 +1575,50 @@ mod tests {
         TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new() }
     }
 
+    /// The page with the Jobs screen made beside it, as the app holds them: its Job view draws the Operator's thread and box.
+    struct WithJobs {
+        page: Entity<OperatorPageView>,
+        _jobs: Entity<crate::jobs::JobsScreen>,
+    }
+
+    impl Render for WithJobs {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            gpui::div().size_full().child(self.page.clone())
+        }
+    }
+
     fn open(cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
             crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
         });
-        let (page, cx) = cx.add_window_view(|window, cx| OperatorPageView::mock(window, cx));
+        let (host, cx) = cx.add_window_view(|window, cx| WithJobs { page: cx.new(|cx| OperatorPageView::mock(window, cx)), _jobs: jobs_beside(window, cx) });
+        let page = host.read_with(cx, |host, _| host.page.clone());
         cx.run_until_parked();
         (page, cx)
+    }
+
+    /// The Jobs screen on the walk's Jobs, whose Job view draws the Operator's thread and box on the page.
+    fn jobs_beside(window: &mut Window, cx: &mut App) -> Entity<crate::jobs::JobsScreen> {
+        let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&records, cx));
+        let threads = scenes::page_threads().expect("the threads decode");
+        cx.new(|cx| crate::jobs::JobsScreen::new(list, Some(threads), window, cx))
+    }
+
+    /// Draws the page again, and once more for what that frame measured.
+    fn redraw(cx: &mut VisualTestContext) {
+        for _ in 0..2 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+        cx.run_until_parked();
+    }
+
+    /// The names the window drew with `role`, in order.
+    fn names(cx: &mut VisualTestContext, role: gpui::Role) -> Vec<String> {
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role).map(|one| one.name.to_string()).collect())
     }
 
     fn acts_of(page: &OperatorPageView, project: &str) -> Option<OperatorActs> {
@@ -1771,16 +1715,20 @@ mod tests {
     #[gpui::test]
     fn discuss_tags_the_box_with_the_card_and_leaves_the_card_in_front(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
+        redraw(cx);
         page.update_in(cx, |page, window, cx| page.discuss(window, cx));
-        let tagged = page.read_with(cx, |page, cx| page.composer.read(cx).tagged());
+        let tagged = cx.update(|_, cx| crate::job_view::operator_tagged(cx));
         assert_eq!(tagged.map(|(id, title)| (id, title.to_string())), Some(("turn:31".to_string(), "Two Jobs are changing paging.rs".to_string())));
         assert_eq!(front(&page, cx), "turn:31");
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Group, "About Two Jobs are changing paging.rs"), "the tag chip stands in the box");
+        assert!(cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx)), "the box has the keys");
     }
 
     #[gpui::test]
     fn a_talk_about_a_card_goes_to_the_operator_with_its_id_and_folds_the_card(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), 1, window, cx));
         page.update(cx, |page, _| {
             assert_eq!(page.talk.as_ref().map(|talk| talk.about.as_str()), Some("turn:31"));
             assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))]);
@@ -1790,17 +1738,22 @@ mod tests {
     #[gpui::test]
     fn a_talk_about_no_card_goes_with_no_id_settles_nothing_and_its_answer_follows_in_the_talk(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_loose(said("Which Jobs are running now?", None), window, cx));
+        redraw(cx);
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        cx.simulate_input("Which Jobs are running now?");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
         page.update(cx, |page, _| {
             assert!(page.talk.is_none(), "no card is talked about");
             assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)]);
-            use super::super::talk::Said;
-            assert!(matches!(&page.talk_said[..], [Said::You { at: None, .. }]), "his words with no About row: {:?}", page.talk_said);
         });
+        let waiting = cx.update(|_, cx| crate::job_view::operator_unechoed(cx));
+        assert_eq!(waiting, ["Which Jobs are running now?"], "his words show at once, before the thread echoes them");
+        assert!(!names(cx, gpui::Role::Splitter).iter().any(|name| name.starts_with("About:")), "with no About row");
         page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        redraw(cx);
+        assert!(cx.update(|_, cx| crate::job_view::operator_unechoed(cx)).is_empty(), "echoed, his words are the thread's, once");
         page.update(cx, |page, _| {
-            use super::super::talk::Said;
-            assert!(matches!(&page.talk_said[..], [Said::You { at: Some(_), .. }, Said::Operator { .. }]), "his words once, then the answer: {:?}", page.talk_said);
             assert!(page.talk_cards().is_empty(), "no card is raised");
             assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"), "the card in front stands");
             assert!(page.mock_fleet().expect("the walk's Fleet").pressed.is_empty());
@@ -1812,33 +1765,134 @@ mod tests {
         let (page, cx) = open(cx);
         let mut talk = said("This toast is wrong", None);
         talk.attachments = vec![ipc::SessionUpload { name: "Pasted file.png".into(), media_type: "image/png".into(), data: String::new() }];
-        page.update_in(cx, |page, window, cx| page.talk_loose(talk, window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_loose(talk, 1, window, cx));
         page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
-        cx.run_until_parked();
-        cx.update(|window, _| window.refresh());
-        cx.run_until_parked();
-        page.read_with(cx, |page, _| {
-            use super::super::talk::Said;
-            assert!(matches!(&page.talk_said[..], [Said::You { files, .. }, ..] if files.len() == 1), "the thread echoes his picture on his row: {:?}", page.talk_said);
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Pasted file.png"), "the picture is drawn under his words, as on a Job's thread");
+    }
+
+    /// The Operator's thread as the page's mock Fleet holds it: his words, a run of tool calls, then its reply.
+    fn thread_with_calls() -> Vec<ipc::ThreadItem> {
+        let talk = |id: &str, from: &str, text: &str| serde_json::json!({ "kind": "row", "row": { "kind": "message", "id": id, "at": "2026-11-11T13:09:00-05:00", "from": { "kind": from }, "text": text } });
+        let calls = serde_json::json!({ "kind": "calls", "id": "t1", "names": ["Read", "Bash"], "rows": [
+            { "kind": "tool", "id": "t1", "at": "2026-11-11T13:09:10-05:00", "text": "Read /jobs/mock-04/plan.md" },
+            { "kind": "tool", "id": "t2", "at": "2026-11-11T13:09:12-05:00", "text": "Bash ls /jobs" },
+        ] });
+        [talk("op-100", "you", "What is Pocket doing?"), calls, talk("op-101", "agent", "Pocket is waiting on the paging.rs Job.")]
+            .into_iter()
+            .map(|item| ipc::decode::<ipc::ThreadItem>("ThreadItem", item.to_string().as_bytes()).expect("a thread item decodes"))
+            .collect()
+    }
+
+    #[gpui::test]
+    fn tool_calls_the_operator_made_are_drawn_folded_in_its_thread_and_a_press_opens_them(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| {
+            page.mock_fleet().expect("the walk's Fleet").thread.items = thread_with_calls();
+            cx.notify();
         });
-        assert!(drawn(cx, gpui::Role::Image, "Pasted file.png"), "the picture is drawn under his words");
+        redraw(cx);
+        let folded = "Tool calls: Read, Bash";
+        let talk = bounds_named(cx, gpui::Role::Log, "Talk with the Operator").expect("the talk is drawn");
+        let calls = bounds_named(cx, gpui::Role::Button, folded).expect("the run of calls is one folded line in the talk");
+        assert!(calls.top() >= talk.top() && calls.bottom() <= talk.bottom(), "the line is in the Operator's talk: {calls:?} in {talk:?}");
+        assert!(!drawn(cx, gpui::Role::Row, "Read plan.md") && !drawn(cx, gpui::Role::Row, "Ran ls"), "folded, none of its calls has a line of its own");
+        cx.simulate_click(calls.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Row, "Read plan.md") && drawn(cx, gpui::Role::Row, "Ran ls"), "a press opens each call on its own line");
+    }
+
+    /// The posts the mock Fleet took, as (path, body), oldest first.
+    fn posted(cx: &mut VisualTestContext) -> Vec<(String, String)> {
+        cx.update(|_, cx| crate::job_view::posted_to_mock(cx))
+    }
+
+    #[gpui::test]
+    fn stop_in_the_operators_box_while_it_writes_stops_its_session_and_nothing_else(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        assert!(page.read_with(cx, |page, _| page.session.as_ref().is_some_and(|session| matches!(session.hosted.as_ref().map(|hosted| &hosted.turn), Some(ipc::SessionTurn::Working { .. })))), "the Operator is writing");
+        let stop = bounds_named(cx, gpui::Role::Button, "Stop").expect("Stop is drawn in the box's bar while the Operator writes");
+        let talk = bounds_named(cx, gpui::Role::Log, "Talk with the Operator").expect("the talk is drawn");
+        assert!(stop.top() >= talk.bottom(), "Stop is in the box's bar under the talk: {stop:?} under {talk:?}");
+        cx.simulate_click(stop.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        let posted = posted(cx);
+        assert_eq!(posted.iter().map(|(path, _)| path.as_str()).collect::<Vec<_>>(), ["/sessions/stop"], "Stop only stops: it does not end or close the session");
+        let stopped = ipc::decode::<ipc::StopSession>("StopSession", posted[0].1.as_bytes()).expect("the body reads back");
+        assert_eq!(stopped.session_id.as_str(), "mock-op", "it is the Operator's session that stops, not the Job open behind the page");
+    }
+
+    #[gpui::test]
+    fn stop_is_not_drawn_in_the_operators_box_while_it_is_idle(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Stop"), "it is drawn while the Operator writes");
+        page.update(cx, |page, cx| page.scene("watching", cx).expect("the Operator is between turns"));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Send"), "the box is still drawn");
+        assert!(!drawn(cx, gpui::Role::Button, "Stop"), "Stop goes when the Operator is between turns");
+    }
+
+    #[gpui::test]
+    fn picking_a_model_on_the_operators_chip_saves_models_operator_and_tunes_its_session_on_that_model(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        let chip = bounds_named(cx, gpui::Role::Button, "Model Opus 5.5, effort auto").expect("the Operator's model chip is drawn in its box");
+        cx.simulate_click(chip.center(), gpui::Modifiers::none());
+        redraw(cx);
+        let haiku = bounds_named(cx, gpui::Role::MenuItemCheckBox, "Haiku 5").expect("the picker offers Haiku");
+        cx.simulate_click(haiku.center(), gpui::Modifiers::none());
+        redraw(cx);
+        let posted = posted(cx);
+        let at = |route: &str| posted.iter().position(|(path, _)| path == route).unwrap_or_else(|| panic!("{route} was posted: {:?}", posted.iter().map(|(path, _)| path).collect::<Vec<_>>()));
+        let saved = ipc::decode::<ipc::SaveSettings>("SaveSettings", posted[at("/settings/save")].1.as_bytes()).expect("the body reads back");
+        assert_eq!(
+            saved.changes.into_iter().collect::<Vec<_>>(),
+            [
+                ("effort.operator".to_string(), Some(ipc::SettingValue::Text("harness default".into()))),
+                ("models.operator".to_string(), Some(ipc::SettingValue::Text("haiku".into()))),
+            ],
+            "the settings Settings shows are the Operator's, named, and the effort is the harness's own while none is picked"
+        );
+        let tuned = ipc::decode::<ipc::TuneSession>("TuneSession", posted[at("/sessions/tune")].1.as_bytes()).expect("the body reads back");
+        assert_eq!((tuned.session_id.as_str(), tuned.model.as_deref()), ("mock-op", Some("haiku")), "the session running now is tuned on the model named");
+        assert!(at("/settings/save") < at("/sessions/tune"), "the setting is saved before the session restarts on it");
+    }
+
+    #[gpui::test]
+    fn a_send_carries_the_card_tag_and_the_attached_files_to_the_operator(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        redraw(cx);
+        page.update_in(cx, |page, window, cx| page.discuss(window, cx));
+        redraw(cx);
+        let attach = bounds_named(cx, gpui::Role::Button, "Attach file").expect("the box's Attach is drawn");
+        cx.simulate_click(attach.center(), gpui::Modifiers::none());
+        redraw(cx);
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        cx.simulate_input("Why hold Pocket?");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        page.update(cx, |page, _| {
+            let fleet = page.mock_fleet().expect("the walk's Fleet");
+            assert_eq!(fleet.heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))], "his words go with the card's id");
+            assert_eq!(fleet.heard_files.iter().map(|file| (file.name.as_str(), file.media_type.as_str())).collect::<Vec<_>>(), [("sample.rs", "text/plain"), ("Pasted file.png", "image/png")], "and with the files he attached");
+        });
     }
 
     #[gpui::test]
     fn a_card_the_operator_raises_in_the_talk_is_drawn_in_it_and_settling_it_ends_the_talk(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), window, cx));
+        page.update_in(cx, |page, window, cx| page.talk_about(said("Why hold Pocket?", Some("turn:31")), "turn:31".into(), 1, window, cx));
         page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
-        page.read_with(cx, |page, _| {
+        redraw(cx);
+        let raised = page.read_with(cx, |page, _| {
             assert_eq!(page.talk_cards().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:36"]);
             assert_eq!(page.waiting().len(), 4, "the raised card does not wait in line");
-            use super::super::talk::Said;
-            assert!(
-                matches!(&page.talk_said[..], [Said::About { .. }, Said::You { .. }, Said::Operator { .. }, Said::Raised(id)] if id == "turn:36"),
-                "the About row, his words, the Operator's, then the card it raised: {:?}",
-                page.talk_said
-            );
+            page.talk_cards().first().map(|turn| face::card_title(turn).to_string()).expect("a raised card")
         });
+        assert!(names(cx, gpui::Role::Splitter).iter().any(|name| name.starts_with("About: ")), "the About row stands over his words");
+        assert!(drawn(cx, gpui::Role::Article, &raised), "the card it raised is drawn in the talk");
         page.update(cx, |page, cx| page.digit(2, cx));
         cx.run_until_parked();
         page.update(cx, |page, _| {
@@ -2110,7 +2164,7 @@ mod tests {
         assert!(matches!(status_of(Some(&both)), Status::Stopped { .. }));
         // No session yet is Starting, with a neutral chip and no button.
         assert_eq!(status_of(None), Status::Starting);
-        assert_eq!(status_of(None).line(now), "Fleet starts its session on the next tick");
+        assert_eq!(status_of(None).line(now), "Fleet is starting its session");
         // Among Fleet's Jobs the Operator's live session is the one read, over an ended one that was seen later.
         let mut old = watching.clone();
         old.id = ipc::SessionId::carried("old-op");
@@ -2141,11 +2195,8 @@ mod tests {
             assert!(drawn(cx, gpui::Role::Status, line), "{scene}: {line}");
         }
         assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"), "the stopped card offers Restart");
-        // Each card has the one press its state offers: Restart on the stopped one, the button that opens the session on the rest.
         page.update(cx, |page, cx| page.scene("watching", cx).expect("a scene"));
         cx.run_until_parked();
-        assert!(drawn(cx, gpui::Role::Button, "See what it is doing"));
-        // (The test window keeps every frame's labels, so what is no longer drawn is read from the page's own state.)
         page.read_with(cx, |page, _| assert!(matches!(page.status(), super::super::status::Status::Watching { .. }) && page.session_id().is_some()));
     }
 
@@ -2174,28 +2225,89 @@ mod tests {
         assert!(drawn(cx, gpui::Role::Region, "Nothing needs you"));
     }
 
+    /// The page as Fleet reads it with `session_id` and `talk_session_id` as given, and the Operator's record as given.
+    fn sessions(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext, live: Option<&str>, talk: Option<&str>, record: Option<ipc::SessionRecord>) {
+        page.update(cx, |page, cx| {
+            let mut read = page.page.clone().expect("the page is read");
+            read.session_id = live.map(SessionId::carried);
+            read.talk_session_id = talk.map(SessionId::carried);
+            page.session = record;
+            page.set_page(read, cx);
+        });
+        redraw(cx);
+    }
+
+    fn pane_key(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> Option<String> {
+        page.update(cx, |page, cx| page.operator_pane(cx).map(|pane| pane.session.to_string()))
+    }
+
     #[gpui::test]
-    fn a_press_on_see_what_it_is_doing_asks_to_open_the_operators_session_by_its_id(cx: &mut TestAppContext) {
+    fn with_the_switch_on_and_no_operator_session_at_all_the_talk_and_its_box_are_drawn_and_take_words(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
-        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
-        let heard = asked.clone();
-        let _hearing = cx.update(|_, cx| cx.subscribe(&page, move |_, event: &Opened, _| heard.borrow_mut().push(event.clone())));
-        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
-        cx.run_until_parked();
-        let button = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "See what it is doing").map(|drawn| drawn.bounds)).expect("the button is drawn");
-        cx.simulate_click(button.center(), gpui::Modifiers::none());
-        cx.run_until_parked();
-        assert_eq!(*asked.borrow(), [Opened::Session(SessionId::carried("mock-op"))]);
-        // Starting has no session to open and no button.
+        sessions(&page, cx, None, None, None);
+        assert_eq!(pane_key(&page, cx).as_deref(), Some(crate::job_view::UNSTARTED), "the talk is drawn with no session to read");
+        assert_eq!(cx.update(|_, cx| crate::job_view::operator_drawn_for(cx)).as_deref(), Some(crate::job_view::UNSTARTED));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        assert!(cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx)), "the box is drawn and has the keys");
+        cx.simulate_input("Are you there?");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        page.update(cx, |page, _| assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Are you there?".to_string(), None)], "his words go to Fleet, which starts a session for them"));
+    }
+
+    #[gpui::test]
+    fn with_no_session_running_the_talk_is_the_newest_sessions_and_its_box_stays(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let mut ended = scenes::session("stopped");
+        ended.id = SessionId::carried("old-op");
+        ended.state = ipc::SessionState::Ended;
+        sessions(&page, cx, None, Some("old-op"), Some(ended));
+        assert_eq!(pane_key(&page, cx).as_deref(), Some("old-op"), "the talk is the ended session's thread");
+        assert_eq!(cx.update(|_, cx| crate::job_view::operator_drawn_for(cx)).as_deref(), Some("old-op"));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        assert!(cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx)), "an ended session's box is still drawn");
+        // A live session takes its place once Fleet names one.
+        sessions(&page, cx, Some("mock-op"), Some("mock-op"), Some(scenes::session("working")));
+        assert_eq!(pane_key(&page, cx).as_deref(), Some("mock-op"));
+    }
+
+    #[gpui::test]
+    fn no_state_of_the_status_card_opens_the_operators_session_as_a_job(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        for scene in ["quiet", "watching", "stopped"] {
+            page.update(cx, |page, cx| page.scene(scene, cx).expect("a scene"));
+            redraw(cx);
+        }
         page.update(cx, |page, cx| {
             page.session = None;
             cx.notify();
         });
+        redraw(cx);
+        page.read_with(cx, |page, _| assert_eq!(page.status(), super::super::status::Status::Starting));
+        // The test window keeps every frame's labels: none of them drew the button.
+        assert!(!drawn(cx, gpui::Role::Button, "See what it is doing"), "working, watching, stopped and starting draw no button that opens the session");
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"), "stopped keeps its Restart");
+    }
+
+    #[gpui::test]
+    fn while_restart_is_in_flight_the_page_never_reads_off(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         cx.run_until_parked();
-        // The button is drawn only where a session can be opened.
-        assert!(page.read_with(cx, |page, _| page.session_id().is_none()));
-        page.update(cx, |page, cx| page.open_session(cx));
-        assert_eq!(asked.borrow().len(), 1, "with no session nothing is asked");
+        page.update(cx, |page, cx| {
+            page.restart(cx);
+            // Fleet's page, read between the two saves, says the switch is off.
+            if let Some(read) = page.page.as_mut() {
+                read.on = false;
+            }
+            assert!(page.restarting);
+            assert!(!page.is_off(), "the Cockpit does not flash in between off and on");
+            assert!(page.operator_pane(cx).is_some(), "the talk stays drawn through the restart");
+        });
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(!page.restarting && !page.is_off()));
     }
 
     #[gpui::test]
@@ -2240,7 +2352,7 @@ mod tests {
             assert!(page.page.as_ref().is_some_and(|page| page.on), "the Operator is on again");
             assert!(page.items().is_empty(), "the page is as quiet as it was");
         });
-        assert!(drawn(cx, gpui::Role::Status, "Fleet starts its session on the next tick"));
+        assert!(drawn(cx, gpui::Role::Status, "Fleet is starting its session"));
         // A refused switch is said on the card, which keeps its Restart.
         page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
         page.update(cx, |page, cx| {
@@ -2402,6 +2514,7 @@ mod tests {
         page: Entity<OperatorPageView>,
         /// Its width, or the window's own where None.
         pane: Option<f32>,
+        _jobs: Entity<crate::jobs::JobsScreen>,
     }
 
     impl Render for Pane {
@@ -2427,7 +2540,7 @@ mod tests {
                 let page = OperatorPageView::mock(window, cx);
                 if embedded { page.embedded() } else { page }
             });
-            Pane { page, pane }
+            Pane { page, pane, _jobs: jobs_beside(window, cx) }
         });
         let page = host.read_with(cx, |host, _| host.page.clone());
         cx.simulate_resize(gpui::size(gpui::px(1800.), gpui::px(900.)));
@@ -2511,13 +2624,22 @@ mod tests {
         cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name == name).count())
     }
 
+    /// The Working chips drawn above the Operator's thread, whose own Writing line says Working too.
+    fn working_above_talk(cx: &mut VisualTestContext) -> usize {
+        let talk = bounds_named(cx, gpui::Role::Log, "Talk with the Operator");
+        cx.update(|window, cx| {
+            let book = cx.default_global::<crate::labels::LabelBook>();
+            book.drawn(window.window_handle().window_id()).iter().filter(|one| one.role == gpui::Role::Status && one.name == "Working" && talk.is_none_or(|talk| !talk.contains(&one.bounds.center()))).count()
+        })
+    }
+
     #[gpui::test]
     fn an_embedded_status_card_leaves_out_the_chip_and_the_line_the_header_row_already_says(cx: &mut TestAppContext) {
         let (page, cx) = pane_of(Some(1800.), true, cx);
         page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
         settle(cx);
         assert!(bounds_named(cx, gpui::Role::Region, "Nothing needs you").is_some(), "the card stands");
-        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1, "the state chip is the header's alone");
+        assert_eq!(working_above_talk(cx), 1, "the state chip is the header's alone");
         assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1, "and so is the status line");
         assert_eq!(drawn_count(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"), 1, "the last act stays in the card");
     }
@@ -2527,7 +2649,7 @@ mod tests {
         let (page, cx) = pane_of(None, false, cx);
         page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
         settle(cx);
-        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1);
+        assert_eq!(working_above_talk(cx), 1);
         assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1);
     }
 }

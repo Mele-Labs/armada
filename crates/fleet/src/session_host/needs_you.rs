@@ -57,12 +57,12 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `handoff` | questions | plain: Stay |
 /// | `sketch`, `document`, `plan`, `ready_to_try` | to review | plain |
 /// | `done` | done | plain |
-/// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
+/// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate`, `goal_met` | questions | none: Fleet refuses it |
 /// | `words_address`, `fleet_call`, `watch_not_ours`, `browser_ask` | questions | plain |
 /// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
 /// | `operator_undone` | by act: a question | plain; nothing is told the agent |
-/// | `job_conflict` | questions | none: Fleet refuses it |
+/// | `job_conflict`, `clash_order` | questions | none: Fleet refuses it |
 /// | `job_held` | questions | plain: the Job is told it was dismissed with no answer |
 fn rule_of(source: WaitingSource) -> Rule {
     use Place::{ByAct, Done, Questions, Review, Walks};
@@ -94,8 +94,10 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::OperatorUndone => rule(ByAct, Dismiss::Plain),
         WaitingSource::Gate => rule(Questions, Dismiss::None),
         WaitingSource::JobConflict => rule(Questions, Dismiss::None),
+        WaitingSource::ClashOrder => rule(Questions, Dismiss::None),
         WaitingSource::JobHeld => rule(Questions, Dismiss::Plain),
         WaitingSource::ReadyToTry => rule(Review, Dismiss::Plain),
+        WaitingSource::GoalMet => rule(Questions, Dismiss::None),
     }
 }
 
@@ -106,9 +108,11 @@ pub(crate) fn refused_dismissal(source: WaitingSource) -> Option<&'static str> {
         WaitingSource::Delivery => Some("how the work is delivered is answered, not dismissed"),
         WaitingSource::SlotChoice => Some("whether a job waits for a slot or has one added is answered, not dismissed"),
         WaitingSource::TaskDone => Some("whether the tasks are done is answered, not dismissed"),
+        WaitingSource::GoalMet => Some("whether the goal is met is answered, not dismissed"),
         WaitingSource::HeldChild => Some(HELD_CHILD_SETTLED_BY),
         WaitingSource::Gate => Some("a gate is approved or its group skipped, not dismissed"),
         WaitingSource::JobConflict => Some("a conflict is answered by telling a Job to change or holding both, not dismissed"),
+        WaitingSource::ClashOrder => Some("which Job lands first is answered by choosing one, not dismissed"),
         _ => None,
     }
 }
@@ -141,7 +145,7 @@ fn restart_of(command: &str) -> Option<(&'static str, BuildSource, bool)> {
 /// Whether words go as an answer besides the choices. Fleet refuses them on a slot call and a page's ask has
 /// no use for them, nor does what the Operator would do.
 fn takes_words(source: WaitingSource) -> bool {
-    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff | WaitingSource::JobConflict | WaitingSource::JobHeld)
+    !matches!(source, WaitingSource::SlotChoice | WaitingSource::BrowserAsk | WaitingSource::OperatorSuggestion | WaitingSource::Handoff | WaitingSource::JobConflict | WaitingSource::ClashOrder | WaitingSource::JobHeld)
 }
 
 /// What pressing the item does. **An agent's item that asks nothing and runs nothing is something he does**, so

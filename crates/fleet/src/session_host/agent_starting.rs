@@ -26,6 +26,7 @@ use super::linking::GROUP;
 use crate::daemon::Fleet;
 
 const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
+const STORY_KIND_UNKNOWN: &str = "fleet.story_kind_unknown";
 
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
 pub(crate) const STARTED_BY: &str = "started_by";
@@ -74,6 +75,7 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -139,6 +141,7 @@ where
         start: StartAnotherSession,
     ) -> Result<SessionHeld, Refusal> {
         let mut words = self.agent_words(&start.title, &start.message)?;
+        let workflow = self.story_kind_workflow(start.kind.as_deref())?;
         let mut manifest = start.manifest_id;
         // A Session it waits on is checked before anything is made, so a refused wait leaves no Session behind.
         let after = start.after;
@@ -185,7 +188,7 @@ where
                 held: held_by_word && after.is_none(),
                 project_rows: Vec::new(),
                 on_your_words: None,
-                workflow: None,
+                workflow,
             }, super::Marked::Plain)
             .await?;
         let brief = words.message.clone();
@@ -217,6 +220,19 @@ where
             }
         }
         Ok(held)
+    }
+
+    /// The workflow a start's story kind picks, as the dispatch sheet sends it: the kind's own, blank for a kind with
+    /// none, so the Job is a talk Job, and absent where no kind was named, so the proposer reads one from the brief.
+    fn story_kind_workflow(&self, kind: Option<&str>) -> Result<Option<String>, Refusal> {
+        let Some(kind) = kind.map(str::trim).filter(|kind| !kind.is_empty()) else { return Ok(None) };
+        match ipc::story_kinds::story_kind(kind) {
+            Some(known) => Ok(Some(known.workflow.unwrap_or_default().to_string())),
+            None => {
+                let kinds: Vec<_> = ipc::story_kinds::story_kinds().iter().map(|one| format!("`{}`", one.id)).collect();
+                Err(self.hosted_refusal(STORY_KIND_UNKNOWN, &format!("no story kind is named `{kind}`; the kinds are {}", kinds.join(", "))))
+            }
+        }
     }
 
     /// The project a Job `me` starts in `repository` is for: `me`'s own, `None` where it has none. **A project that

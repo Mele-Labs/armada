@@ -68,6 +68,10 @@ where
         self.features_listed(caller, project).await
     }
 
+    async fn get_features_by_meaning(&self, caller: Option<api::Caller>, project: Option<String>, words: String) -> Result<ipc::FeaturesByMeaning, Refusal> {
+        self.features_by_meaning(caller, project, words).await
+    }
+
     async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String, section: Option<String>, files: bool) -> Result<FeaturePage, Refusal> {
         self.feature_paged(caller, project, feature, section, files).await
     }
@@ -135,6 +139,22 @@ where
         self.modules_drafted(caller, draft).await
     }
 
+    async fn start_sub_project(self: std::sync::Arc<Self>, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        self.sub_project_started(start).await
+    }
+
+    async fn list_sub_projects(self: std::sync::Arc<Self>, project: Option<String>, ended: bool) -> Result<ipc::SubProjects, Refusal> {
+        self.sub_projects_listed(project, ended).await
+    }
+
+    async fn turn_into_orchestrator(self: std::sync::Arc<Self>, turn: ipc::TurnIntoOrchestrator) -> Result<ipc::SubProject, Refusal> {
+        self.orchestrator_turned(turn).await
+    }
+
+    async fn ungroup_sub_project(&self, ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
+        self.sub_project_ungrouped(ungroup).await
+    }
+
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
     }
@@ -169,6 +189,22 @@ where
 
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         self.feature_changed(caller, change).await
+    }
+
+    async fn change_area(&self, caller: Option<api::Caller>, change: ipc::ChangeArea) -> Result<ipc::AreaChanged, Refusal> {
+        self.area_changed(caller, change).await
+    }
+
+    async fn reject_in_catalog(&self, caller: Option<api::Caller>, reject: ipc::RejectInCatalog) -> Result<ipc::CatalogRuleKept, Refusal> {
+        self.catalog_rejected(caller, reject).await
+    }
+
+    async fn list_catalog_rules(&self, project: Option<String>) -> Result<ipc::CatalogRules, Refusal> {
+        self.catalog_rules_listed(project.unwrap_or_default()).await
+    }
+
+    async fn drop_catalog_rule(&self, caller: Option<api::Caller>, drop: ipc::DropCatalogRule) -> Result<ipc::CatalogRules, Refusal> {
+        self.catalog_rule_dropped(caller, drop).await
     }
 
     async fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> Result<ipc::FeaturesHandedOver, Refusal> {

@@ -90,8 +90,10 @@ impl Sessions for FakeDaemon {
             lanes: None,
             pull_request_drafts: Vec::new(),
             claim_waits: Vec::new(),
+            clashes: Vec::new(),
             claims_unsent: false,
             answer_unread: false,
+            features: Vec::new(),
         })
     }
 
@@ -824,6 +826,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::HeldWithdrawn { id: String::from("held:repo:1") })
     }
 
+    async fn settle_clash(
+        self: std::sync::Arc<Self>,
+        _caller: Option<crate::Caller>,
+        settle: ipc::SettleClash,
+    ) -> Result<ipc::JobClash, Refusal> {
+        Ok(ipc::JobClash { id: String::from("clash:s-a:s-b"), jobs: Vec::new(), files: settle.files, standing: ipc::ClashStanding::Agreed, first: None, why: settle.why, at: String::new() })
+    }
+
     async fn report_bug(
         &self,
         _caller: Option<crate::Caller>,
@@ -916,6 +926,10 @@ impl Sessions for FakeDaemon {
             review_in_band: false,
             glyphs: Vec::new(),
         })
+    }
+
+    async fn list_to_review(&self, project: Option<String>) -> Result<ipc::ToReview, Refusal> {
+        Ok(ipc::ToReview { project, groups: Vec::new() })
     }
 
     async fn all_done(

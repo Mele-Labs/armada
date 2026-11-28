@@ -12,7 +12,7 @@ use crate::look::{token, Look};
 
 /// What a row says of the last reading of its Job.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Mark {
+pub(crate) enum Mark {
     Reading,
     /// Done, notes not yet opened, some still waiting.
     Notes,
@@ -21,7 +21,7 @@ pub(super) enum Mark {
 
 impl Mark {
     /// What the row's mark says, naming the judge type that read where one did.
-    fn said(self, judged_as: Option<&str>) -> String {
+    pub(crate) fn said(self, judged_as: Option<&str>) -> String {
         match (self, judged_as) {
             (Mark::Reading, _) => "Judge reading".to_string(),
             (Mark::Notes, Some(name)) => format!("Judged as {name}: notes waiting"),
@@ -34,13 +34,34 @@ impl Mark {
 
 /// The mark the last reading of a Job leaves on its row, if it leaves one.
 pub(super) fn mark_of(job: &ipc::SessionRecord) -> Option<Mark> {
-    let reading = job.judge_readings.iter().find(|one| one.artifact.kind == JudgeKind::Job && one.artifact.id == job.id.as_str())?;
+    mark_of_reading(job.judge_readings.iter().find(|one| one.artifact.kind == JudgeKind::Job && one.artifact.id == job.id.as_str())?)
+}
+
+/// The mark a reading leaves, whatever it read: going, with notes waiting, or clean.
+pub(crate) fn mark_of_reading(reading: &ipc::JudgeReading) -> Option<Mark> {
     match reading.state {
         JudgeState::Reading => Some(Mark::Reading),
         JudgeState::Failed => None,
         JudgeState::Done if reading.notes.is_empty() => Some(Mark::Clean),
         JudgeState::Done if !reading.read && reading.notes.iter().any(|note| note.settled.is_none()) => Some(Mark::Notes),
         JudgeState::Done => None,
+    }
+}
+
+/// The mark drawn: a moving ring while it reads, a dot where notes wait, a check where it found nothing.
+pub(crate) fn mark_face(mark: Mark, id: &str, look: &Look) -> AnyElement {
+    let size = look.length(token::SPACE_3);
+    let glyph = |name: &'static str, ink: crate::look::Token| svg().path(icon_path(name)).flex_none().size(size).text_color(look.color(ink));
+    match mark {
+        Mark::Reading => glyph("circle-dot", token::STEP_RUNNING)
+            .with_animation(
+                SharedString::from(format!("judging-{id}")),
+                Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)),
+                |mark, delta| mark.opacity(delta),
+            )
+            .into_any_element(),
+        Mark::Notes => div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::STATUS_AWAITING_REVIEW)).into_any_element(),
+        Mark::Clean => glyph("circle-check", token::STEP_ADVANCED).into_any_element(),
     }
 }
 
@@ -51,8 +72,6 @@ impl JobsList {
         let record = self.record(id)?;
         let mark = mark_of(record)?;
         let judged_as = record.judge_readings.iter().find(|one| one.artifact.kind == JudgeKind::Job && one.artifact.id == record.id.as_str()).map(crate::judge_types::name_of);
-        let size = look.length(token::SPACE_3);
-        let glyph = |name: &'static str, ink: crate::look::Token| svg().path(icon_path(name)).flex_none().size(size).text_color(look.color(ink));
         let said = format!("{}, {title}", mark.said(judged_as.as_deref()));
         let shell = div().id(SharedString::from(format!("judge-mark-{id}"))).flex_none().flex().items_center().justify_center().size(look.length(token::H_CONTROL_SM)).rounded(look.length(token::RADIUS_SM));
         let tooltip = {
@@ -60,24 +79,13 @@ impl JobsList {
             move |window: &mut gpui::Window, cx: &mut gpui::App| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
         };
         let shell = match mark {
-            Mark::Reading => shell.child(
-                glyph("circle-dot", token::STEP_RUNNING).with_animation(
-                    SharedString::from(format!("judging-{id}")),
-                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)),
-                    |mark, delta| mark.opacity(delta),
-                ),
-            ),
+            Mark::Reading => shell.child(mark_face(mark, id, look)),
             Mark::Notes | Mark::Clean => {
                 let job = id.clone();
-                let dot = if mark == Mark::Notes {
-                    div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::STATUS_AWAITING_REVIEW)).into_any_element()
-                } else {
-                    glyph("circle-check", token::STEP_ADVANCED).into_any_element()
-                };
                 shell
                     .cursor_pointer()
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(dot)
+                    .child(mark_face(mark, id, look))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         cx.stop_propagation();
                         crate::job_view::ask_judge_tab(&job, window, cx);
@@ -96,5 +104,35 @@ impl JobsList {
         }
         crate::job_view::ask_judge_choice(id, window, cx);
         self.open_job(id, cx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reading(state: &str, read: bool, notes: &str) -> ipc::JudgeReading {
+        let wire = format!(
+            r#"{{"id":"r1","artifact":{{"kind":"pull_request","id":"2231","title":"Pull 2231"}},"prompt":"","state":"{state}","asked_at":"2026-11-09T10:00:00Z","read":{read},"notes":[{notes}]}}"#
+        );
+        ipc::decode::<ipc::JudgeReading>("a reading", wire.as_bytes()).expect("a reading")
+    }
+
+    const WAITING: &str = r#"{"id":"n1","claim":"No rollback"}"#;
+    const SETTLED: &str = r#"{"id":"n2","claim":"Slow","settled":{"how":"dismissed","at":"2026-11-09T11:00:00Z"}}"#;
+
+    #[test]
+    fn a_reading_leaves_the_mark_of_where_it_stands() {
+        assert_eq!(mark_of_reading(&reading("reading", false, "")), Some(Mark::Reading), "going");
+        assert_eq!(mark_of_reading(&reading("done", false, WAITING)), Some(Mark::Notes), "done, unread, a note waiting");
+        assert_eq!(mark_of_reading(&reading("done", false, &format!("{SETTLED},{WAITING}"))), Some(Mark::Notes), "one note waiting is enough");
+        assert_eq!(mark_of_reading(&reading("done", false, "")), Some(Mark::Clean), "done, nothing found");
+        assert_eq!(mark_of_reading(&reading("failed", false, "")), None, "a failed reading is never a result");
+    }
+
+    #[test]
+    fn notes_already_read_or_all_settled_leave_no_mark() {
+        assert_eq!(mark_of_reading(&reading("done", true, WAITING)), None, "opened");
+        assert_eq!(mark_of_reading(&reading("done", false, SETTLED)), None, "nothing waiting");
     }
 }

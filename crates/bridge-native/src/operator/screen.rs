@@ -7,8 +7,6 @@ use std::rc::Rc;
 
 use gpui::{div, prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, Global, SharedString, WeakEntity, Window};
 
-use ipc::SessionId;
-
 use super::page::{Opened, OperatorPageView};
 use crate::fleet::FleetConnection;
 use crate::jobs::JobsScreen;
@@ -60,14 +58,12 @@ pub struct OperatorScreen {
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
     features: Option<Entity<crate::project_board::ProjectScreen>>,
-    /// The Cockpit's floor plan, in the page's place while the Operator is off.
-    floor: Option<Entity<crate::features::floor_home::Floor>>,
+    /// The Cockpit's home of blocks, in the page's place while the Operator is off.
+    home_blocks: Option<Entity<crate::home::HomeScreen>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
     fleet: Option<Entity<FleetConnection>>,
-    /// The Operator's session, opened on the Jobs screen from the status card: its id, and the Job that was open before it.
-    over: Option<(SharedString, Option<SharedString>)>,
     /// A Job the page opened in the Job view without a pick, for the Review panel it holds or the Ready to try card in front: its
     /// id, and the Job open before it, which comes back when the page is done with it.
     lent: Option<(SharedString, Option<SharedString>)>,
@@ -106,15 +102,15 @@ fn with_places(mut face: Face, here: Front, cockpit: bool, reviews: bool, kit: b
             face.places.push(Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true });
         }
     }
+    // Project is the second place, straight after the Cockpit.
+    if features && !face.places.iter().any(|place| place.id == "project") {
+        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
+    }
     if reviews && !face.places.iter().any(|place| place.id == "reviews") {
         face.places.push(Place { id: "reviews", label: "Reviews", glyph: "git-pull-request", shown: true, hideable: true });
     }
     if kit && !face.places.iter().any(|place| place.id == "kit") {
         face.places.push(Place { id: "kit", label: "Kit", glyph: "briefcase", shown: true, hideable: true });
-    }
-    // Issues has no native screen yet, so Project follows the last place there is.
-    if features && !face.places.iter().any(|place| place.id == "project") {
-        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
     }
     // Settings > Layout's choice for a place that has a row there, read each time the places are drawn. Project's row is still
     // kept under `features`, the id the saved layout has always used for it.
@@ -136,6 +132,7 @@ impl OperatorScreen {
         this.usage = Some(usage);
         this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
+        this.make_home(Some(fleet), window, cx);
         // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
         this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
         cx.defer(crate::deep_link::settle);
@@ -195,6 +192,7 @@ impl OperatorScreen {
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
+        this.make_home(None, window, cx);
         this
     }
 
@@ -224,6 +222,10 @@ impl OperatorScreen {
         }
         let list = jobs.read(cx).list.clone();
         let view = jobs.read(cx).view().clone();
+        // Reviews reads a Job's readings of the pull requests it holds from the same list.
+        if let Some(reviews) = &reviews {
+            reviews.update(cx, |reviews, cx| reviews.watch_jobs(list.clone(), cx));
+        }
         let subs = vec![
             cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx)),
             // The card in front may be a Job's Ready to try, drawn from the Job view; and the Review panel, opened over the page,
@@ -318,13 +320,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let floor = features.clone().filter(|_| cockpit).map(|project| {
-            let library = project.read(cx).library_screen();
-            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), library, list.clone(), cx));
-            jobs.update(cx, |jobs, cx| jobs.set_floor(floor.clone(), cx));
-            floor
-        });
-        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, floor, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, home_blocks: None, usage: None, toasts, fleet: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if matches!(front, Front::Operator | Front::Cockpit) {
@@ -334,25 +330,41 @@ impl OperatorScreen {
         this
     }
 
+    /// The Cockpit's home of blocks takes the page's place on the right while the Operator is off. `fleet` is the Fleet it keeps its
+    /// layout on, none on the walks'.
+    fn make_home(&mut self, fleet: Option<&Entity<FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.features.clone().filter(|_| self.cockpit) else { return };
+        let library = project.read(cx).library_screen();
+        let list = self.jobs.read(cx).list.clone();
+        let page = self.page.clone();
+        let blocks = match fleet {
+            Some(fleet) => cx.new(|cx| crate::home::HomeScreen::live(fleet, page, library, list, cx)),
+            None => cx.new(|cx| crate::home::HomeScreen::mock(page, library, list, cx)),
+        };
+        // A feature pressed in the System overview opens in the Features place.
+        let opened = cx.subscribe_in(&blocks, window, |this, _, event: &crate::home::HomeEvent, window, cx| {
+            if let crate::home::HomeEvent::Feature(slug) = event {
+                this.bring(Some(Front::Features), window, cx);
+                if let Some(project) = this.features.clone() {
+                    project.update(cx, |project, cx| project.show_feature(slug, window, cx));
+                }
+            }
+        });
+        self._subs.push(opened);
+        self.jobs.update(cx, |jobs, cx| jobs.set_home_blocks(blocks.clone(), cx));
+        self.home_blocks = Some(blocks);
+    }
+
     /// The page's box offers the Jobs the list holds, but those that have ended.
+    /// That box is the Job view's now and reads them itself; this gives the cards' chips every Job's title.
     fn name_jobs(&mut self, cx: &mut Context<Self>) {
         let list = self.jobs.read(cx).list.clone();
-        let named: Vec<(String, String)> = list
-            .read(cx)
-            .records()
-            .iter()
-            .filter(|job| job.state != ipc::SessionState::Ended)
-            .filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title)))
-            .collect();
         // A card's chips name every Job it is about, ended ones too.
         let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
         if let Some(usage) = &self.usage {
             usage.update(cx, |usage, cx| usage.set_titles(&titles, cx));
         }
-        self.page.update(cx, |page, cx| {
-            page.set_jobs(named, cx);
-            page.set_titles(titles, cx);
-        });
+        self.page.update(cx, |page, cx| page.set_titles(titles, cx));
     }
 
     /// The bar's strip says which place is in front: the bar there now, and the one the next screen opens.
@@ -407,10 +419,6 @@ impl OperatorScreen {
                 usage.update(cx, |usage, cx| usage.leave(cx));
             }
         }
-        // The Operator's session was opened over the page: coming back to the page puts the Job that was open before it back.
-        if to == Front::Operator {
-            self.leave_session(cx);
-        }
         // Another place is no place for the page's Job: the one open before it comes back.
         if matches!(self.front, Front::Operator | Front::Cockpit) {
             self.give_back(cx);
@@ -431,9 +439,9 @@ impl OperatorScreen {
                 let keys = if self.jobs.read(cx).list.read(cx).at_home() { self.page.read(cx).focus.clone() } else { self.jobs.read(cx).list.read(cx).focus_handle().clone() };
                 window.focus(&keys, cx);
                 self.page.update(cx, |page, cx| page.in_front(cx));
-                // Features may have been in front and left: the floor reads the library again where it stands in the page's place.
-                if let Some(floor) = &self.floor {
-                    floor.update(cx, |floor, cx| floor.follow(cx));
+                // Features may have been in front and left: the home reads the library and its layout again where it stands.
+                if let Some(blocks) = &self.home_blocks {
+                    blocks.update(cx, |blocks, cx| blocks.follow(cx));
                 }
             }
             Front::Jobs => {
@@ -519,36 +527,9 @@ impl OperatorScreen {
         }
     }
 
-    /// "See what it is doing": the Operator's own session opens on the Jobs screen as any Job does, though the list holds no row
-    /// for it. Esc, or the strip's Operator, comes back to the page.
-    fn open_session(&mut self, id: &SessionId, window: &mut Window, cx: &mut Context<Self>) {
-        self.give_back(cx);
-        let list = self.jobs.read(cx).list.clone();
-        let was = list.read(cx).opened_id();
-        if let Some(record) = self.page.read(cx).session.clone() {
-            list.update(cx, |list, _| list.hold_operator(record));
-        }
-        self.bring(Some(Front::Jobs), window, cx);
-        if list.update(cx, |list, cx| list.open_job(id.as_str(), cx)) {
-            // A second press keeps the Job that was open before the first.
-            let was = self.over.take().map_or(was, |(_, first)| first);
-            self.over = Some((id.as_str().to_string().into(), was));
-        }
-    }
-
-    /// The Operator's session is shut: the Job open before it is open again, unless he has opened another since.
-    fn leave_session(&mut self, cx: &mut Context<Self>) {
-        let Some((id, was)) = self.over.take() else { return };
-        let list = self.jobs.read(cx).list.clone();
-        if list.read(cx).opened_id() == Some(id) {
-            list.update(cx, |list, cx| list.leave_operator(was, cx));
-        }
-    }
-
     /// What the page asks: a Job opens on the Jobs screen.
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
-            Opened::Session(id) => return self.open_session(id, window, cx),
             Opened::Review(item, read) => return self.review_over(item, read.clone(), window, cx),
             Opened::Job(id) => Some(id.clone()),
             Opened::Act(act, session) => {
@@ -656,10 +637,9 @@ impl OperatorScreen {
         self.jobs.update(cx, |jobs, cx| jobs.operator_key(window, cx));
     }
 
-    /// A Job was left for the page: its session over it is shut, and the card in front is lent its Job again.
+    /// A Job was left for the page: the card in front is lent its Job again.
     fn left_job(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.lent = None;
-        self.leave_session(cx);
         self.reconcile(window, cx);
         cx.notify();
     }
@@ -790,13 +770,6 @@ impl Render for OperatorScreen {
         div()
             .id(SharedString::from("operator-screen"))
             .track_focus(&self.within)
-            // Esc, where nothing in the Job's view took it, goes back to the page the Operator's session was opened from.
-            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                if this.over.is_some() && !this.cockpit && this.front == Front::Jobs && event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
-                    this.bring(Some(Front::Operator), window, cx);
-                    cx.stop_propagation();
-                }
-            }))
             .size_full()
             .child(shown).child(self.toasts.clone()).children(palette)
     }
@@ -891,11 +864,11 @@ mod tests {
     }
 
     #[test]
-    fn project_is_a_place_of_its_own_after_the_last_one_and_may_be_hidden() {
+    fn project_is_a_place_of_its_own_after_operator_and_jobs_and_may_be_hidden() {
         let face = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["operator", "jobs", "reviews", "kit", "project"], "no place before it moves a digit");
-        let place = face.places.last().expect("a place");
+        assert_eq!(ids, ["operator", "jobs", "project", "reviews", "kit"], "Project is the third place here, after Operator and Jobs");
+        let place = face.places.iter().find(|place| place.id == "project").expect("a place");
         assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Project", "layout-dashboard", true, true));
         assert!(face.may_hide("project"));
         assert_eq!(with_places(Face::bare(), Front::Jobs, false, true, true, false).places.len(), 4, "a screen without the Project place draws no place for it");
@@ -910,9 +883,9 @@ mod tests {
         // Places already in the bar are read again, so a layout saved after they were first drawn takes hold.
         crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["kit"]}}"#);
         let swapped = with_places(hidden, Front::Jobs, false, true, true, true);
-        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "project"], "Project is back and Kit is gone");
+        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "project", "reviews"], "Project is back and Kit is gone");
         crate::settings::layout::hold("");
-        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "reviews", "kit", "project"]);
+        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]
@@ -954,19 +927,19 @@ mod tests {
     }
 
     #[gpui::test]
-    fn command_5_is_project_with_operator_jobs_reviews_and_kit_before_it(cx: &mut TestAppContext) {
+    fn command_3_is_project_with_operator_and_jobs_before_it_and_reviews_and_kit_after(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
             OperatorScreen::mock_reviews(jobs, window, cx)
         });
         redraw(cx);
-        cx.simulate_keystrokes("cmd-5");
+        cx.simulate_keystrokes("cmd-3");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Features);
-        cx.simulate_keystrokes("cmd-4");
+        cx.simulate_keystrokes("cmd-5");
         redraw(cx);
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the digits before it keep their places");
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the places after it moved one digit down");
         assert!(!entered(&screen, cx));
     }
 
@@ -1042,48 +1015,16 @@ mod tests {
         cx.update(|window, cx| {
             screen.update(cx, |screen, cx| {
                 screen.bring(Some(Front::Operator), window, cx);
-                let composer = screen.page.read(cx).composer.clone();
-                composer.update(cx, |composer, cx| composer.focus(window, cx));
             })
         });
+        cx.run_until_parked();
+        // The box is the Job view's, made as the page first draws it.
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
         cx.run_until_parked();
         cx.update(|_, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(PASTED.to_string())));
         cx.simulate_keystrokes("cmd-v");
         cx.run_until_parked();
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the field took the paste");
-    }
-
-    #[gpui::test]
-    fn the_operators_session_opens_on_the_jobs_screen_and_esc_comes_back_to_the_page_and_the_job_that_was_open(cx: &mut TestAppContext) {
-        ready(cx);
-        let (screen, cx) = cx.add_window_view(|window, cx| {
-            let jobs = jobs_screen(window, cx);
-            OperatorScreen::mock(jobs, window, cx)
-        });
-        cx.run_until_parked();
-        let (page, list) = screen.read_with(cx, |screen, cx| (screen.page.clone(), screen.jobs.read(cx).list.clone()));
-        list.update(cx, |list, cx| list.open("mock-01".into(), cx));
-        page.update(cx, |page, cx| {
-            page.scene("quiet", cx).expect("the page empties");
-            page.open_session(cx);
-        });
-        cx.run_until_parked();
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs, "the Job's view is in front");
-        assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-op"), "the Operator's session is the Job open, though the list has no row for it");
-        // The first Esc gives the keys to the list, as in any Job; the next one goes back to the page.
-        cx.simulate_keystrokes("escape");
-        cx.run_until_parked();
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs, "the first Esc leaves the box only");
-        cx.simulate_keystrokes("escape");
-        cx.run_until_parked();
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "Esc is back on the page");
-        assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-01"), "the Job that was open is open again");
-        // The Operator place on the strip comes back the same way.
-        page.update(cx, |page, cx| page.open_session(cx));
-        cx.run_until_parked();
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs);
-        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
-        assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-01"));
     }
 
     /// The page's walk's screen: the Jobs' threads, a build to try among them, and the Operator's session; Audit the docs index open.
@@ -1221,6 +1162,22 @@ mod tests {
         assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the box is on the page");
     }
 
+    #[gpui::test]
+    fn a_send_dispatched_from_the_window_goes_to_the_operator_and_never_to_the_job_open_behind_the_page(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        redraw(cx);
+        let lent = cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx));
+        cx.update(|window, cx| crate::job_view::operator_focus(window, cx));
+        redraw(cx);
+        cx.simulate_input("Which Jobs are running now?");
+        // As the palette and the menus send it: dispatched from the window after their own press.
+        cx.update(|window, cx| window.dispatch_action(Box::new(crate::keymap::Act { id: "send_message", slot: 0, digit: None }), cx));
+        redraw(cx);
+        page.update(cx, |page, _| assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)], "the words went to the Operator"));
+        assert_eq!(cx.update(|_, cx| crate::job_view::sent_to_job("mock-04", cx)), lent, "nothing went to the Job open behind the page");
+    }
+
     // -- the Cockpit ---------------------------------------------------------------------------------------------
 
     fn cockpit_screen(cx: &mut TestAppContext) -> (Entity<OperatorScreen>, &mut VisualTestContext) {
@@ -1247,22 +1204,21 @@ mod tests {
         assert!(!home(screen, cx), "the Job is open over the page");
     }
 
-    fn box_has_keys(screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
-        let composer = screen.read_with(cx, |screen, cx| screen.page.read(cx).composer.clone());
-        cx.update(|window, cx| composer.read(cx).has_keys(window, cx))
+    fn box_has_keys(_: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| crate::job_view::operator_has_keys(window, cx))
     }
 
     #[test]
-    fn the_cockpit_strip_is_cockpit_reviews_kit_and_project_with_no_operator_or_jobs_place() {
+    fn the_cockpit_strip_is_cockpit_project_reviews_and_kit_with_no_operator_or_jobs_place() {
         let held = Face::bare();
         let face = with_places(held, Front::Cockpit, true, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(ids, ["cockpit", "project", "reviews", "kit"]);
         assert_eq!((face.places[0].label, face.here), ("Cockpit", Some("cockpit")));
         // A bar that already holds Operator and Jobs, as the walk's mock bar does, loses them.
         let before = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let after = with_places(before, Front::Cockpit, true, true, true, true);
-        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]
@@ -1299,26 +1255,6 @@ mod tests {
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Cockpit);
         assert!(!home(&screen, cx), "coming back to the Cockpit finds the Job as it was");
-    }
-
-    #[gpui::test]
-    fn escape_from_the_operators_session_opened_over_the_page_brings_the_page_back(cx: &mut TestAppContext) {
-        let (screen, cx) = cockpit_screen(cx);
-        let page = screen.read_with(cx, |screen, _| screen.page.clone());
-        page.update(cx, |page, cx| page.scene("watching", cx).expect("a scene"));
-        redraw(cx);
-        page.update(cx, |page, cx| page.open_session(cx));
-        redraw(cx);
-        assert!(!home(&screen, cx), "the session is open as a Job");
-        assert!(screen.read_with(cx, |screen, _| screen.over.is_some()));
-        let mut presses = 0;
-        while !home(&screen, cx) && presses < 3 {
-            cx.simulate_keystrokes("escape");
-            redraw(cx);
-            presses += 1;
-        }
-        assert!(home(&screen, cx), "Esc comes back to the page");
-        assert!(screen.read_with(cx, |screen, _| screen.over.is_none()), "and the session is no longer held open");
     }
 
     #[gpui::test]

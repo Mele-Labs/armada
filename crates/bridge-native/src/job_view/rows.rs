@@ -109,6 +109,7 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
         | ThreadItem::Judged { at, .. } => Some(at),
         ThreadItem::ReadyToTry(card) => Some(&card.at),
         ThreadItem::Margin(card) => Some(&card.at),
+        ThreadItem::Graph(card) => Some(&card.at),
         ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
     }
 }
@@ -123,6 +124,8 @@ enum Went {
 #[derive(Debug, PartialEq)]
 enum Act<'a> {
     Approved(&'a str),
+    /// Ship it on a walk: approved, and landed without a preview.
+    Shipped(&'a str),
     Answered { target: &'a str, said: &'a str },
     /// He did what a To do asked, with his note.
     Done { target: &'a str, said: &'a str },
@@ -142,6 +145,11 @@ fn act_of(text: &str) -> Option<Act<'_>> {
     if let Some(address) = text.strip_prefix("Approved: ") {
         if !address.is_empty() && !address.contains(char::is_whitespace) {
             return Some(Act::Approved(address));
+        }
+    }
+    if let Some(address) = text.strip_prefix("Shipped: ") {
+        if !address.is_empty() && !address.contains(char::is_whitespace) {
+            return Some(Act::Shipped(address));
         }
     }
     // Fleet's `done_told`: the To do, and his note under it.
@@ -181,7 +189,7 @@ fn approved_name(address: &str, rows: &[SessionRow]) -> String {
 /// The address an approval of a walk quotes, where these words are one.
 pub(super) fn approved_address(text: &str) -> Option<&str> {
     match act_of(text)? {
-        Act::Approved(address) => Some(address),
+        Act::Approved(address) | Act::Shipped(address) => Some(address),
         _ => None,
     }
 }
@@ -305,6 +313,19 @@ impl JobView {
             Some((files, Some(true))) => self.want_read_pictures(&id, &files, window, cx),
             None => {}
         }
+        // A card the Operator raised in the talk is drawn by its page, whole and inset under the talk's line.
+        if let Some(card) = self.raised_of(ix) {
+            let look = cx.look().clone();
+            let Some(card) = self.raised_card(&card, window, cx) else { return nothing() };
+            return div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .px(look.length(token::SPACE_4) + super::bleed(&look))
+                .pb(self.row_gap(&look))
+                .child(div().w_full().min_w_0().max_w(self.column(&look)).child(div().pl(look.length(token::SPACE_6)).child(card)))
+                .into_any_element();
+        }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
         let look = cx.look();
         let working = self.working(&id, cx);
@@ -340,6 +361,8 @@ impl JobView {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
+                // The live run stands under the card that waits on him (`Extra::Live`); its own place stays, drawing nothing.
+                ThreadItem::Calls { .. } if last && page.extras.contains(&Extra::Live) => None,
                 _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
             }
         } else {
@@ -775,6 +798,7 @@ impl JobView {
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
             ThreadItem::Margin(card) => self.margin_round(card, look, cx),
+            ThreadItem::Graph(item) => return self.graph_item(item, look, cx),
         })
     }
 
@@ -783,6 +807,11 @@ impl JobView {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
+            // The thread's last run, drawn as it is in place, with its keys and ids, so its folds and animations carry over.
+            Extra::Live => match items.last()? {
+                ThreadItem::Calls { id, rows, .. } if !rows.is_empty() => return Some(self.calls(page.items + at, id, rows, true, None, page, look, cx)),
+                _ => return None,
+            },
             Extra::Answer(key) => {
                 let job = self.shown.as_ref()?;
                 let answer = self.record(job, cx)?.answers.iter().find(|one| super::ask_line::answer_key(one) == *key)?;
@@ -794,8 +823,18 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx)
+                let words = self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx);
+                // His words to the Operator about another card than his last stand under an About row.
+                let last = match i.checked_sub(1).and_then(|before| page.pending.get(before)) {
+                    Some(before) => before.about.as_ref().map(|(card, _)| card.clone()),
+                    None => self.about_before(items, items.len()),
+                };
+                match one.about.as_ref().filter(|(card, _)| self.beside_in() && last.as_ref() != Some(card)) {
+                    Some((_, title)) => div().flex().flex_col().child(self.about_row(&format!("pending:{}", one.key), title, cx)).child(words).into_any_element(),
+                    None => words,
+                }
             }
+            Extra::Raised(_) => return None,
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
                 let doing = self.shown.as_deref().and_then(|id| self.record(id, cx)).and_then(|job| job.activity.as_ref()).and_then(|activity| activity.now.as_deref());
@@ -812,7 +851,8 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .child(div().id("working-mark").child(self.working_mark(look, ink)).tooltip(tip("Working")))
                         .child(div().min_w_0().truncate().child(words))
-                        .child(self.stop_button(look, cx)),
+                        // The Operator's Stop stands in its box's bar.
+                        .when(!self.beside_in(), |line| line.child(self.stop_button(look, cx))),
                     Role::Status,
                     "Working",
                 );
@@ -1220,6 +1260,7 @@ impl JobView {
         let quoted = if matches!(act, Act::Done { .. }) { "To do" } else { "Question" };
         let (label, icon, target, said) = match act {
             Act::Approved(address) => ("You approved", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
+            Act::Shipped(address) => ("You shipped", "check", approved_name(address, &self.shown.as_ref().map(|job| self.thread_rows(job, cx)).unwrap_or_default()), ""),
             Act::Answered { target, said } => ("You answered", "reply", target.to_string(), said),
             Act::Done { target, said } => ("Completed", "square-check-big", target.to_string(), said),
         };
@@ -1300,12 +1341,26 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
+            // Fleet's notices to the Operator are not his words, and its talk leaves them out.
+            SessionRow::Message { from: SessionVoice::You, notice: Some(_), .. } if self.beside_in() => return None,
             SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, aside, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
+                // His words to the Operator carry the card they are about in a tag: an About row stands over them where the
+                // talk turns to another card, and the words are drawn without it.
+                let tagged = self.beside_in().then(|| crate::operator::talk::tag_of(text)).flatten();
+                let Some((card, title, words)) = tagged else {
+                    return Some(self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx));
+                };
+                let items = self.shown.as_ref().and_then(|job| self.thread(job, cx)).map_or(&[][..], |held| held.items.as_slice());
+                let turned = self.about_before(items, ix).as_deref() != Some(card);
+                let words = self.you(ix, page, id, words, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx);
+                if !turned {
+                    return Some(words);
+                }
+                div().flex().flex_col().child(self.about_row(id, title, cx)).child(words).into_any_element()
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {
@@ -1809,6 +1864,8 @@ mod tests {
     fn an_approval_and_an_answer_are_acts_and_other_words_are_not() {
         assert_eq!(act_of("Approved: http://localhost:5173/?walk=abc"), Some(Act::Approved("http://localhost:5173/?walk=abc")));
         assert_eq!(act_of("Approved: two words"), None);
+        assert_eq!(act_of("Shipped: armada://walk/jobs-list"), Some(Act::Shipped("armada://walk/jobs-list")));
+        assert_eq!(approved_address("Shipped: armada://walk/jobs-list"), Some("armada://walk/jobs-list"));
         assert_eq!(
             act_of("Re: Which branch?\nThe main one.\nFleet took this off your waiting list."),
             Some(Act::Answered { target: "Which branch?", said: "The main one." })

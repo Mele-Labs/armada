@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use adapter_traits::{
-    CiRun, CiRuns, FromOutside, MergeQueue, MergedPull, OpenPulls,
-    OpenPull, PullComment, RecentlyMergedPulls, FollowedPull, FollowedPulls,
+    CiRun, CiRuns, FromOutside, InfraFailure, MergeQueue, MergedPull, OpenPulls,
+    OpenPull, PullComment, QueueRuns, RecentlyMergedPulls, FollowedPull, FollowedPulls,
 };
 
 #[derive(Debug, Default)]
@@ -18,6 +18,9 @@ struct Script {
     merged: BTreeMap<String, MergedPull>,
     pulls: Option<OpenPulls>,
     queue: Option<MergeQueue>,
+    queue_runs: Option<QueueRuns>,
+    infra: BTreeMap<String, Vec<InfraFailure>>,
+    cancelled: Vec<u64>,
     followed: Option<FollowedPulls>,
     listed: Option<FollowedPulls>,
     by_number: Vec<FollowedPull>,
@@ -76,6 +79,21 @@ impl MainCiScript {
     /// The merge queue the forge reports; `None` is a forge that would not answer.
     pub fn queue_is(&self, queue: Option<MergeQueue>) {
         self.with(|it| it.queue = queue);
+    }
+
+    /// The merge queue's unfinished runs; `None` is a forge that would not answer.
+    pub fn queue_runs_are(&self, runs: Option<QueueRuns>) {
+        self.with(|it| it.queue_runs = runs);
+    }
+
+    /// The failed jobs of `commit`, each with why. A commit not given here is the forge's silence.
+    pub fn infra_failures_are(&self, commit: &str, failures: Vec<InfraFailure>) {
+        self.with(|it| it.infra.insert(commit.to_string(), failures));
+    }
+
+    /// The ids of the runs the forge was asked to stop, in order.
+    pub fn runs_cancelled(&self) -> Vec<u64> {
+        self.with(|it| it.cancelled.clone())
     }
 
     /// The open pull requests the forge lists; `None` is a forge that would not answer.
@@ -219,6 +237,18 @@ impl MainCiScript {
                 .clone()
                 .map(|list| list.into_iter().take(limit).collect())
         })
+    }
+
+    pub(super) fn queue_runs(&self) -> Option<QueueRuns> {
+        self.with(|it| it.queue_runs.clone())
+    }
+
+    pub(super) fn infra_failures(&self, commit: &str) -> Option<Vec<InfraFailure>> {
+        self.with(|it| it.infra.get(commit).cloned())
+    }
+
+    pub(super) fn cancel_run(&self, id: u64) {
+        self.with(|it| it.cancelled.push(id));
     }
 
     pub(super) fn merge_queue(&self) -> Option<MergeQueue> {

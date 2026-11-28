@@ -502,6 +502,26 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch",
     },
     Route {
+        operation: "show_graph",
+        method: "POST",
+        path: "/sessions/graph",
+    },
+    Route {
+        operation: "graph_points",
+        method: "POST",
+        path: "/sessions/graph/points",
+    },
+    Route {
+        operation: "withdraw_graph",
+        method: "POST",
+        path: "/sessions/graph/withdraw",
+    },
+    Route {
+        operation: "list_graphs",
+        method: "GET",
+        path: "/sessions/graphs",
+    },
+    Route {
         operation: "get_style_sources",
         method: "GET",
         path: "/sessions/style_sources",
@@ -702,6 +722,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_held",
     },
     Route {
+        operation: "settle_clash",
+        method: "POST",
+        path: "/sessions/settle_clash",
+    },
+    Route {
         operation: "list_bug_reports",
         method: "GET",
         path: "/bug_reports",
@@ -870,6 +895,11 @@ const ROUTES: &[Route] = &[
         operation: "get_needs_you",
         method: "GET",
         path: "/sessions/needs_you",
+    },
+    Route {
+        operation: "list_to_review",
+        method: "GET",
+        path: "/sessions/to_review",
     },
     Route {
         operation: "done_waiting",

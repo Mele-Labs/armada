@@ -59,7 +59,7 @@ impl Said {
     }
 }
 
-fn title_or_address(title: &str, session: &str) -> String {
+pub(super) fn title_or_address(title: &str, session: &str) -> String {
     match title.trim() {
         "" => address_of(session),
         title => title.to_string(),
@@ -113,6 +113,7 @@ fn job_ask_item(ask: &KeptJobAsk) -> Option<WaitingItem> {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     })
 }
 
@@ -234,7 +235,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The live Job a call is made from, and the repository it is in: refused where it has ended or has none.
-    async fn asking_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>, code: &'static str) -> Result<(String, String, String), Refusal> {
+    pub(super) async fn asking_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>, code: &'static str) -> Result<(String, String, String), Refusal> {
         let session = self.waiting_session(caller, named)?;
         let store = self.store().lock().await;
         let kept = store.session(&session).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(code, "no Job Fleet keeps is making this call"))?;
@@ -248,22 +249,34 @@ where
 
     /// `raise_conflict`. **Every part is checked and the first that fails is named.** An open conflict between the
     /// same two Jobs takes this one as "also raised by", and nothing new is shown.
-    pub(crate) async fn conflict_raised(self: &Arc<Self>, caller: Option<api::Caller>, conflict: RaiseConflict) -> Result<ConflictRaised, Refusal> {
-        let (session, title, manifest) = self.asking_job(caller, conflict.session_id.as_ref(), CONFLICT_REFUSED).await?;
-        let refuse = |why: &str| self.hosted_refusal(CONFLICT_REFUSED, why);
-        let with = conflict.with.trim().to_string();
-        let sender = address_of(&session);
-        if with == sender {
+    /// The live Job `with` names, as its id and title: refused, under `code`, where it is the sender, is not a Job's
+    /// address, has ended or no Job Fleet keeps has it.
+    pub(super) async fn other_job_named(&self, session: &str, with: &str, code: &'static str) -> Result<(String, String), Refusal> {
+        let refuse = |why: &str| self.hosted_refusal(code, why);
+        if with == address_of(session) {
             return Err(refuse("`with` is this Job's own address. Name the other Job"));
         }
         if !with.starts_with("s-") {
             return Err(refuse(&format!("`with` is {with}, which is no Job's address. Give the other Job's address, `s-` and eight characters")));
         }
-        match self.unreachable(&with).await? {
+        match self.unreachable(with).await? {
             Some(Unreachable::Ended) => return Err(refuse(&format!("{with} has ended, so its work cannot clash with yours"))),
             Some(Unreachable::Unknown) => return Err(refuse(&format!("no Job has the address {with}. ListAgents names the live ones"))),
             None => {}
         }
+        let store = self.store().lock().await;
+        let named = store.sessions_beginning(&with[2..]).map_err(|why| self.ledger_fault(why))?;
+        let live = named.into_iter().find(|one| address_of(&one.id) == with && one.state != store::SessionState::Ended);
+        let live = live.ok_or_else(|| refuse(&format!("no live Job has the address {with}")))?;
+        Ok((live.id, live.title.unwrap_or_default()))
+    }
+
+    pub(crate) async fn conflict_raised(self: &Arc<Self>, caller: Option<api::Caller>, conflict: RaiseConflict) -> Result<ConflictRaised, Refusal> {
+        let (session, title, manifest) = self.asking_job(caller, conflict.session_id.as_ref(), CONFLICT_REFUSED).await?;
+        let refuse = |why: &str| self.hosted_refusal(CONFLICT_REFUSED, why);
+        let with = conflict.with.trim().to_string();
+        let sender = address_of(&session);
+        let (other, other_title) = self.other_job_named(&session, &with, CONFLICT_REFUSED).await?;
         let (files, wire) = (lines(conflict.files), lines(conflict.wire));
         if files.is_empty() && wire.is_empty() {
             return Err(refuse("`files` and `wire` are both empty. Name the paths or the wire types the clash is in"));
@@ -274,13 +287,6 @@ where
                 return Err(refuse(&format!("`{name}` is empty. Say in one sentence {what}")));
             }
         }
-        let (other, other_title) = {
-            let store = self.store().lock().await;
-            let named = store.sessions_beginning(&with[2..]).map_err(|why| self.ledger_fault(why))?;
-            let live = named.into_iter().find(|one| address_of(&one.id) == with && one.state != store::SessionState::Ended);
-            let live = live.ok_or_else(|| refuse(&format!("no live Job has the address {with}")))?;
-            (live.id, live.title.unwrap_or_default())
-        };
         let mut pair = [sender.clone(), with.clone()];
         pair.sort();
         let id = format!("{CONFLICT}{}:{}", pair[0], pair[1]);
@@ -311,6 +317,10 @@ where
         };
         let also = format!("{} ({sender})", title_or_address(&title, &session));
         let put = self.store().lock().await.put_job_ask(&ask, &also).map_err(|why| self.ledger_fault(why))?;
+        // Files named mean the two did not agree which lands first: that is his to choose, whatever the Operator does.
+        if !ask.files.is_empty() {
+            self.clash_raised(&ask).await.map_err(|why| self.ledger_fault(why))?;
+        }
         Ok(ConflictRaised { id: id.clone(), folded: self.job_ask_put(&session, put, ask.raised).await })
     }
 

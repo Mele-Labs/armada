@@ -70,7 +70,7 @@ pub(crate) fn for_subagent(all: Vec<Logged>, named: &[String], budget: usize) ->
     let chosen = all
         .into_iter()
         .filter(|one| match one.entry.section {
-            LogSection::Habits => true,
+            LogSection::Habits | LogSection::Project => true,
             LogSection::Repo => named.is_empty() || one.entry.paths.iter().any(|glob| named.iter().any(|path| matches(glob, path))),
             LogSection::Machine => false,
         })

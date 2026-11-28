@@ -36,6 +36,13 @@ Decided by the owner, 16 Nov 2026, when each run held a `macos-15` runner for 9 
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
 Its `timeout-minutes` is 90: on 25 Nov 2026 the crate compiled in 21 to 39 minutes across 11 runs, and two runs hit the old 60 on a slow Mac.
 
+**The native Bridge compiles once.** The tests that play a walk or a shot check start the app as a process of its own, since gpui's Mac platform must be made on the main thread and a test thread is not.
+They were integration tests in the crate's tests folder and started `CARGO_BIN_EXE_bridge-native`, so cargo built the crate twice, once as the app and once as the unit tests' harness, both at once on the runner's three cores.
+They are now in `crates/bridge-native/src/as_app/` and start the test binary itself with `BRIDGE_NATIVE_AS_APP` set; a hook in `crates/bridge-native/src/as_app.rs` runs the app's `main` before libtest's own main reads the command line.
+Measured on 25 to 27 Nov 2026, over 43 successful queue runs: the step took 22 to 50 minutes, the crate's compile 41 of the 46 on PR 4091's run, and its 2,750 tests 4. The third-party cache hit every time.
+Decided by the owner, 27 Nov 2026, over debug info off, a larger Mac runner and caching the crate's own build.
+Nearly every pull request that runs `native` changes the crate itself, 41 of 43 in that window, so running it less often would have saved nothing.
+
 **A rebuilt queue group cancels its old native job.**
 When an entry fails, the queue rebuilds every group behind it, and each pull request comes back on a new branch, `gh-readonly-queue/main/pr-<n>-<base sha>`.
 GitHub cancels nothing of the abandoned runs, and the workflow's concurrency group is keyed by commit, so their `native` jobs kept their Mac runners for most of an hour.
@@ -206,8 +213,8 @@ requires for the Checks below.
 
 **No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
 A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
-`test` and `test_compile` build with no debug info and type-check Armada's own crates on four threads, through `.github/ci/rustc-threads.sh`, which took 31% off that harness; a backtrace in CI has no line numbers.
-rust-cache hashes those settings into the `test` key, so `.github/actions/main-caches` looks the entry up under the same ones.
+`test` and `test_compile` build with no debug info, which took 11% off that harness; a backtrace in CI has no line numbers.
+rust-cache hashes that setting into the `test` key, so `.github/actions/main-caches` looks the entry up under the same one.
 Without them it found the old entry, a push skipped writing the new one, and every queue shard after #3326 restored no cache until the probe named them too (6 Nov 2026).
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
@@ -222,6 +229,20 @@ the binary the plan job built, uploaded as an artifact, so no grouped job builds
 A grouped job writes a `RESULT` line and a summary line for each key, with the tail of a failed key's log.
 Before the grouping each key had its own job, about 25 on a queue run, and each spent about 0.6 of its 1 minute on checkout and node setup.
 The queue builds five runs together on an account that runs 20 jobs at once, so jobs waited a median 5.3 minutes and 21 at the 90th percentile for a runner.
+
+## Memory on the runner
+
+**A Rust compile that runs an `ubuntu-latest` runner out of memory hangs the merge queue.**
+The runner does not slow down: it dies, and its job sits past its `timeout-minutes` with no log (`BlobNotFound`), or it is shut down with `exit code 143` and *The runner has received a shutdown signal*.
+On 27 and 28 Nov 2026 five test shards hung for 16 to 57 minutes and two were shut down, and the queue jammed behind them.
+
+**`fleet`'s test harness is the largest compile: 7.7 GB on one rustc thread, 9.8 GB on four**, beside `armada`'s lib and bin at about 3.7 GB each, on a 16 GB runner.
+Four threads, which `test` and `test_compile` used from 6 Nov, went over and the runner died; one thread compiled in the same time with 1.3 to 1.8 GB left (`docs/spikes/ci-test-compile.md`, *Memory*).
+So the four threads were dropped, and `.github/actions/swap` gives `test` and `test_compile` 8 GB more swap, so a compile that comes near the limit gets slower instead of hanging.
+Decided by the owner, 28 Nov 2026, over a larger runner and compiling two crates at a time.
+
+**`run-check` writes the least memory free and the most swap used into every Check's job summary**, read every 2 s from `/proc/meminfo`, and prints them as a `MEMORY` line.
+A compile creeping toward the limit shows there before it hangs a job.
 
 ## Foundations
 

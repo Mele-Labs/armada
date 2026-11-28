@@ -220,16 +220,25 @@ where
     /// is told apart from one that refused**: the first is queued, the second is the answer.
     pub(crate) async fn send_job_act(&self, mac: &str, sent: &MacAct) -> Result<JobSent, Refusal> {
         let body = self.encoded(sent)?.into_bytes();
+        let size = body.len();
         let Ok(switch) = self.phone_switch() else {
             return Ok(JobSent::Unreachable);
         };
         let Ok((status, bytes)) = switch.send_other_mac(mac, "/other_mac/act", body).await else {
             return Ok(JobSent::Unreachable);
         };
-        match status == 401 || status >= 500 {
-            true => Ok(JobSent::Unreachable),
-            false => Ok(JobSent::Answered(ActAnswered { status, body: bytes })),
+        if status == 401 || status >= 500 {
+            return Ok(JobSent::Unreachable);
         }
+        let bytes = match bare_too_large(status, &bytes) {
+            true => {
+                let name = self.store().lock().await.paired_mac(mac).ok().flatten().map(|row| row.name);
+                let named = too_large_named(mac, name.as_deref(), size, self.run_id());
+                self.encoded(&named).map(String::into_bytes).unwrap_or(bytes)
+            }
+            false => bytes,
+        };
+        Ok(JobSent::Answered(ActAnswered { status, body: bytes }))
     }
 
     /// The row a start made on Mac `mac` kept at once, so it is drawn before that Mac's stream says it. **Marked
@@ -360,5 +369,45 @@ where
         self.store().lock().await.drop_project_act(kept.seq).map_err(|why| self.ledger_fault(why))?;
         self.queued_relayed().await;
         self.queued_listed(None).await
+    }
+}
+
+/// A 413 the other Mac gave as bare text, which Bridge can show only as a status: its gateway's, or an older Fleet's.
+fn bare_too_large(status: u16, body: &[u8]) -> bool {
+    status == 413 && ipc::decode::<WireError>("a refusal from another Mac", body).is_err()
+}
+
+/// Mac `mac`'s bare 413 to a send of `sent` bytes, in Fleet's words: which Mac, how large, and what helps.
+fn too_large_named(mac: &str, name: Option<&str>, sent: usize, run_id: ipc::RunId) -> WireError {
+    let name = name.map_or_else(|| format!("Mac {mac}"), str::to_string);
+    let size = format!("{:.1} MB", sent as f64 / (1024.0 * 1024.0));
+    WireError::raised(
+        api::REQUEST_TOO_LARGE,
+        format!("{name} refused this {size} send as too large. An older Armada there takes at most 2 MB: update {name}, or send fewer pictures."),
+        run_id,
+    )
+    .with_field("mac", ipc::WireValue::Str(mac.to_string()))
+    .with_field("content_length_bytes", ipc::WireValue::Int(sent as i64))
+}
+
+#[cfg(test)]
+mod too_large_tests {
+    use super::*;
+
+    fn run() -> ipc::RunId {
+        ipc::RunId::carried("01M8F6WK3T000B42QTDMK6TQDV")
+    }
+
+    #[test]
+    fn a_bare_413_from_another_mac_is_named_and_its_own_refusal_is_kept() {
+        assert!(bare_too_large(413, b"Failed to buffer the request body: length limit exceeded"));
+        let fleets = ipc::encode(&WireError::raised(api::REQUEST_TOO_LARGE, "Fleet takes at most 64 MB on /other_mac/act.", run())).expect("encodes");
+        assert!(!bare_too_large(413, fleets.as_bytes()), "the other Fleet's own sentence passes as it said it");
+        assert!(!bare_too_large(422, b"not json"), "only a 413 is named here");
+
+        let named = too_large_named("01WMAC", Some("Work"), 5_452_595, run());
+        assert_eq!(named.code, "request.too_large");
+        assert_eq!(named.message, "Work refused this 5.2 MB send as too large. An older Armada there takes at most 2 MB: update Work, or send fewer pictures.");
+        assert!(too_large_named("01WMAC", None, 10, run()).message.starts_with("Mac 01WMAC refused this 0.0 MB send"));
     }
 }

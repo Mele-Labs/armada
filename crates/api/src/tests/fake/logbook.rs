@@ -14,6 +14,7 @@ fn entry(id: &str, section: LogbookSection, kind: LogbookKind, text: &str, paths
         id: id.to_string(),
         section,
         repository: None,
+        project: None,
         kind,
         topic: None,
         title: None,

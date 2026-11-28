@@ -346,6 +346,45 @@ pub(crate) fn only_approving(sentence: &str) -> bool {
     asks(sentence) && !asks(&said)
 }
 
+/// What a sentence names when it points at the Job's open Ready to try card, longest first, so one inside another
+/// is taken out whole.
+const TRY_CARD: &[&str] = &[
+    "press refresh preview",
+    "refresh the preview",
+    "refresh preview",
+    "ready to try card",
+    "ready to try",
+    "looks good",
+    "the preview",
+    "preview",
+    "the card",
+];
+
+/// What a sentence that names the card says of waiting on him for it, taken out with the card's words.
+const WAITS_ON_THE_CARD: &[&str] = &[
+    "still waiting on your",
+    "still waiting for your",
+    "waiting on your",
+    "waiting for your",
+    "waits on your",
+    "waits for your",
+    "wait for your",
+    "wait on your",
+];
+
+/// Whether the sentence asks only by pointing at the Job's open Ready to try card, which asks him itself: it names
+/// the card, and with the card's words taken out nothing in it asks.
+pub(crate) fn only_at_the_card(sentence: &str) -> bool {
+    let mut said = sentence.replace('*', "").replace('’', "'").to_lowercase();
+    if !TRY_CARD.iter().any(|phrase| said.contains(phrase)) {
+        return false;
+    }
+    for phrase in TRY_CARD.iter().chain(WAITS_ON_THE_CARD) {
+        said = said.replace(phrase, "");
+    }
+    !asks(&said)
+}
+
 /// The sentence with what it quotes taken out: a span in double quotes or backticks is something said
 /// before or a name, never the reply asking. Code stands as an empty pair, so "run `x`" still tells
 /// him to run it. A quote left open is kept.

@@ -79,8 +79,10 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         lanes: None,
         pull_request_drafts: Vec::new(),
         claim_waits: Vec::new(),
+        clashes: Vec::new(),
         claims_unsent: false,
         answer_unread: false,
+        features: Vec::new(),
     }
 }
 
@@ -144,4 +146,21 @@ fn an_account_and_a_live_page_travel_as_the_wire_names_them() {
     assert!(sent.contains(r#""live":{"url":"http://localhost:5173","title":"The page"}"#), "{sent}");
     let read: SessionRecord = decode("a session", sent.as_bytes()).unwrap();
     assert_eq!(read.activity, Some(activity));
+}
+
+/// **A running command's newest lines ride the row beside its call**, and a row with none leaves
+/// the key out, so an older reader sees nothing new.
+#[test]
+fn a_running_commands_lines_travel_by_their_call_and_are_left_out_when_none() {
+    let activity = SessionActivity {
+        tails: vec![crate::TaskTail { call: "toolu_1".to_string(), lines: vec!["Compiling a".to_string(), "Compiling b".to_string()] }],
+        ..SessionActivity::default()
+    };
+    let sent = encode(&row(Some(activity.clone()))).unwrap();
+    assert!(sent.contains(r#""tails":[{"call":"toolu_1","lines":["Compiling a","Compiling b"]}]"#), "{sent}");
+    let read: SessionRecord = decode("a session", sent.as_bytes()).unwrap();
+    assert_eq!(read.activity, Some(activity));
+
+    let bare = encode(&row(Some(SessionActivity { now: Some("Searching".to_string()), ..SessionActivity::default() }))).unwrap();
+    assert!(!bare.contains("tails"), "{bare}");
 }

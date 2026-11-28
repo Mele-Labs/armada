@@ -138,6 +138,7 @@ mod reclaim;
 mod repairing;
 mod remembering;
 mod recorded_laps;
+mod queue_runs;
 mod rerunning;
 /// A scout's process: one ask, read tools only, inside one checkout.
 mod scouting;
@@ -224,7 +225,7 @@ pub use consulting::{consulted, Consulted, ConsultedKind};
 pub use issue_tracker::IssueTracker;
 pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;
-pub use taught_tracker::{run_metric, TaughtTracker, TaughtTrackers, TrackerFile};
+pub use taught_tracker::{graph_recipe_problem, run_graph_recipe, run_metric, TaughtTracker, TaughtTrackers, TrackerFile};
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
 pub use mcp_configured::{ConfigPlaces, ConfigStamp, Configured, McpConfig};

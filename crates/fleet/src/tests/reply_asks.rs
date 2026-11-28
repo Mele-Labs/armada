@@ -2,7 +2,7 @@
 //! for the test, in the shapes real replies take; `docs/spikes/reply-asks-classifier.md` has the
 //! measurement over real ones.
 
-use crate::session_host::asks::{asking_line, only_approving};
+use crate::session_host::asks::{asking_line, only_approving, only_at_the_card};
 
 /// Replies that need the person, and the sentence that should be put in front of him.
 const ASKS: &[(&str, &str)] = &[
@@ -155,4 +155,28 @@ fn a_reply_that_ends_saying_nothing_needs_him_asks_nothing_by_a_named_button() {
     assert_eq!(asking_line(BUILDING), None);
     let asking = BUILDING.replace("Nothing needs you.", "Should Undo come first? Nothing needs you after that.");
     assert_eq!(asking_line(&asking).as_deref(), Some("Should Undo come first?"));
+}
+
+/// Lines from replies that kept ready Jobs in Needs you: each only points at the open Ready to try card.
+#[test]
+fn a_line_that_only_points_at_the_ready_to_try_card_asks_nothing_beside_it() {
+    for said in [
+        "Still waiting for your Looks good on the Ready to try card.",
+        "I'm still waiting for your Looks good on the Ready to try card.",
+        "My branch is still waiting on your **Looks good** after you refresh the preview.",
+        "The pull request waits on your Looks good on the Ready to try card.",
+        "Next is still your Looks good on the Ready to try card.",
+        "Press Refresh preview, then Looks good on the card.",
+    ] {
+        assert!(only_at_the_card(said), "{said}");
+    }
+}
+
+/// A question, or an ask of something besides the card, still asks beside it.
+#[test]
+fn a_question_or_another_ask_beside_the_card_still_asks() {
+    assert!(!only_at_the_card("Which colour should the chip be in the preview?"));
+    assert!(!only_at_the_card("Press Refresh preview, then tell me which layout reads better."));
+    assert!(!only_at_the_card("Should I land it once you've tried it?"));
+    assert!(!only_at_the_card("The retry cap is in."));
 }

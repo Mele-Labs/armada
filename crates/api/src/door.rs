@@ -184,6 +184,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "add_part",
     "show_prototype",
     "show_sketch",
+    "show_graph",
+    "graph_points",
+    "withdraw_graph",
     "show_file",
     "record_plan",
     "ask_in_window",
@@ -205,6 +208,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "raise_conflict",
     "ask_held",
     "withdraw_held",
+    "settle_clash",
     // The feature library a Job reads before it searches and writes into before it ends.
     "get_features_of_path",
     "get_feature_brief",
@@ -289,6 +293,7 @@ pub(crate) const JOB_ONLY: &[&str] = &[
     "raise_conflict",
     "ask_held",
     "withdraw_held",
+    "settle_clash",
     "write_feature_sections",
 ];
 

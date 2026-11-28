@@ -194,8 +194,8 @@ async fn later_sends_a_card_off_the_page_and_tells_the_operator_when_and_his_wor
     eventually(|| async { heard(&rig, "Anything else?") >= 1 }).await;
 
     rig.fleet.closed_and_parked(CloseSession { session_id: ipc::SessionId::carried(&id) }).await.expect("closed");
-    let refused: Refusal = rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect_err("nothing would hear it");
-    assert_eq!(code(refused).1, "fleet.operator_session_not_running");
+    rig.fleet.operator_talked(said("Anyone?", Some(&raised))).await.expect("kept until a session is up");
+    assert_eq!(rig.fleet.store().lock().await.operator_held_sends().expect("read").len(), 1, "kept, not refused");
 }
 
 #[tokio::test]
@@ -430,4 +430,20 @@ async fn a_picture_and_a_tag_he_sends_the_operator_reach_its_session_about_a_car
         assert_eq!(tags.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["armada/other"], "the tag rides with {words:?}");
     }
     assert_eq!(heard(&rig, &format!("About card {raised}")), 1, "the talk about the card still names it");
+}
+
+#[tokio::test]
+async fn a_card_left_open_when_the_operator_went_off_is_cleared_when_it_comes_on_again() {
+    let rig = rig();
+    started(&rig).await;
+    rig.fleet.card_raised(the_operator(), card(two())).await.expect("raised");
+    assert_eq!(page(&rig).await.turn.len(), 1);
+
+    switched(&rig, false).await;
+    rig.fleet.operator_session_kept().await;
+    switched(&rig, true).await;
+    rig.fleet.operator_session_kept().await;
+    let after = page(&rig).await;
+    assert!(after.on);
+    assert!(after.turn.is_empty() && after.working.is_empty(), "starts fresh: {:?}", after.turn);
 }

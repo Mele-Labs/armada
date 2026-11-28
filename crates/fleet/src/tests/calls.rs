@@ -49,6 +49,7 @@ fn item(id: &str, text: &str, source: WaitingSource, second: u32) -> WaitingItem
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -422,6 +423,7 @@ fn red_main(root: &str, number: u64, branch: &str) -> MergeLineView {
         read_at: None,
         quiet_since: None,
         quiet_reason: None,
+        queue_stuck: None,
     }
 }
 

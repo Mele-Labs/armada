@@ -3,14 +3,15 @@
 //! makes its items. While the board is edited a block's header is a handle that moves it and its corner resizes it; the same
 //! moves are keys (`dashboard_move`, `dashboard_resize`).
 
-use gpui::{div, prelude::*, px, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Pixels, Role, SharedString, Toggled, Window};
+use gpui::{div, prelude::*, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Role, SharedString, Window};
 use ipc::MetricState;
 
 use super::board::{Board, Ranking};
-use super::layout::{BlockKind, Placed, View, COLUMNS};
+use super::layout::{BlockKind, Placed, View};
 use super::metric;
 use super::model::{self, Button, Fill, Item, Project, Shown, Tile};
 use crate::generated::actions::ActionScope;
+use crate::grid::chrome::{self, Cells as Grid, Pressed};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
@@ -18,20 +19,7 @@ use crate::settings::view::{bone, ring_colour};
 use crate::titlebar::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
 
 /// A block being moved or resized, as the drag carries it.
-#[derive(Clone)]
-struct BlockDrag {
-    kind: BlockKind,
-    resize: bool,
-}
-
-/// What follows the pointer while a block is dragged: nothing, since the block itself moves with it.
-struct Ghost;
-
-impl Render for Ghost {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-    }
-}
+type BlockDrag = chrome::BlockDrag<BlockKind>;
 
 /// The hue a block's header band and glyph wear: what kind of block it is.
 fn hue_of(kind: BlockKind) -> Token {
@@ -57,32 +45,6 @@ pub(super) fn mark_of(kind: BlockKind) -> &'static str {
         BlockKind::Features => "library",
         BlockKind::Checks => "list-checks",
         BlockKind::Metric(_) => "gauge",
-    }
-}
-
-/// The room a block is drawn in.
-#[derive(Clone, Copy)]
-struct Grid {
-    col: Pixels,
-    row: Pixels,
-    gap: Pixels,
-}
-
-impl Grid {
-    fn left(&self, x: u8) -> Pixels {
-        (self.col + self.gap) * f32::from(x)
-    }
-
-    fn top(&self, y: u8) -> Pixels {
-        (self.row + self.gap) * f32::from(y)
-    }
-
-    fn wide(&self, w: u8) -> Pixels {
-        self.col * f32::from(w) + self.gap * f32::from(w.saturating_sub(1))
-    }
-
-    fn tall(&self, h: u8) -> Pixels {
-        self.row * f32::from(h) + self.gap * f32::from(h.saturating_sub(1))
     }
 }
 
@@ -123,12 +85,7 @@ impl Board {
             return;
         }
         let Some(project) = self.project(cx) else { return };
-        let (dx, dy) = match act.slot % 4 {
-            0 => (-1, 0),
-            1 => (1, 0),
-            2 => (0, -1),
-            _ => (0, 1),
-        };
+        let (dx, dy) = chrome::arrow(act.slot);
         match (act.id, self.focused(window)) {
             ("dashboard_edit", _) => self.toggle_edit(cx),
             ("dashboard_move", Some(kind)) if self.edit => self.edit_layout(&project.id, |layout| layout.nudge(kind, dx, dy), cx),
@@ -143,18 +100,13 @@ impl Board {
     }
 
     /// The pointer moved with a block lifted: the block follows to the cell under it, or takes the size that reaches it.
-    fn dragged(&mut self, event: &DragMoveEvent<BlockDrag>, pitch: (Pixels, Pixels), cx: &mut Context<Self>) {
+    fn dragged(&mut self, event: &DragMoveEvent<BlockDrag>, pitch: (gpui::Pixels, gpui::Pixels), cx: &mut Context<Self>) {
         let drag = event.drag(cx).clone();
         let Some(project) = self.project(cx) else { return };
         let at = event.event.position - event.bounds.origin;
-        let cell = ((at.x / pitch.0).floor() as i16, (at.y / pitch.1).floor() as i16);
         let Some(now) = self.layout(&project.id).block(drag.kind).copied() else { return };
-        if drag.resize {
-            self.edit_layout(&project.id, |layout| layout.resize_to(drag.kind, cell.0 - i16::from(now.x) + 1, cell.1 - i16::from(now.y) + 1), cx);
-        } else {
-            let grab = *self.grab.get_or_insert((cell.0 - i16::from(now.x), cell.1 - i16::from(now.y)));
-            self.edit_layout(&project.id, |layout| layout.move_to(drag.kind, cell.0 - grab.0, cell.1 - grab.1), cx);
-        }
+        let step = chrome::drag_step(&now, drag.resize, at, pitch, &mut self.grab);
+        self.edit_layout(&project.id, |layout| step.apply(layout, drag.kind), cx);
     }
 
     /// The block comes off the board, the rest rise into its room, and the keys go back to the board.
@@ -182,91 +134,24 @@ impl Board {
         let hue = hue_of(kind);
         let slug = kind.slug();
         let title = self.title_of(kind);
-        let ring = ring_colour(look);
         let handle = self.handles.iter().find(|(one, _)| *one == kind).map(|(_, handle)| handle.clone());
         let fill = self.fill(kind, project, cx);
         let views = self.views_of(kind);
         let shown_view = metric.map_or(placed.view, |reading| metric::drawn_in(placed.view, reading));
         let broken = metric.is_some_and(|reading| matches!(reading.state, MetricState::Broken { .. }));
         let switch = (views.len() > 1).then(|| {
-            let mut group = div().id(SharedString::from(format!("{slug}-views"))).flex().items_center().gap(look.length(token::SPACE_1));
-            for view in &views {
-                let (view, on) = (*view, *view == shown_view);
+            chrome::view_switch(&slug, &title, &views, shown_view, look, |view| -> Pressed {
                 let project = project.id.clone();
-                let button = div()
-                    .id(SharedString::from(format!("{slug}-view-{}", view.word())))
-                    .flex_none()
-                    .h(look.length(token::H_BADGE))
-                    .px(look.length(token::SPACE_2))
-                    .flex()
-                    .items_center()
-                    .rounded(look.length(token::RADIUS_SM))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .when(on, |button| button.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
-                    .when(!on, |button| button.text_color(look.color(token::FG_SUBTLE)).cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.bg(look.color(token::BG_HOVER)).border_color(ring))
-                    .aria_toggled(if on { Toggled::True } else { Toggled::False })
-                    .tooltip(tip(view.said()))
-                    .on_mouse_down(MouseButton::Left, |_, window, cx| {
-                        cx.stop_propagation();
-                        window.prevent_default();
-                    })
-                    .on_click(cx.listener(move |this, _, _, cx| this.edit_layout(&project, |layout| layout.set_view(kind, view), cx)))
-                    .child(view.word());
-                group = group.child(labelled(button, Role::Button, format!("{} view of {}", view.word(), title)));
-            }
-            labelled(group, Role::Group, format!("View of {}", title))
+                Box::new(cx.listener(move |this, _, _, cx| this.edit_layout(&project, |layout| layout.set_view(kind, view), cx)))
+            })
         });
         let editing = self.edit;
-        let hide = editing.then(|| {
-            let side = look.length(token::H_BADGE);
-            labelled(
-                div()
-                    .id(SharedString::from(format!("{slug}-hide")))
-                    .flex_none()
-                    .size(side)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_SM))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(gpui::transparent_black())
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .tooltip(tip(format!("Hide {} from the board", title)))
-                    // A press on it is not the start of a drag of the block.
-                    .on_mouse_down(MouseButton::Left, |_, window, cx| {
-                        cx.stop_propagation();
-                        window.prevent_default();
-                    })
-                    .on_click(cx.listener(move |this, _, window, cx| this.hide_block(kind, window, cx)))
-                    .child(glyph("eye-off", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
-                Role::Button,
-                format!("Hide {}", title),
-            )
-        });
+        let hide = editing.then(|| chrome::hide_button(&slug, &title, look, cx.listener(move |this, _, window, cx| this.hide_block(kind, window, cx))));
         let rank = (kind == BlockKind::Issues).then(|| self.rank_controls(look, cx));
-        let header = div()
-            .id(SharedString::from(format!("{slug}-head")))
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .h(look.length(token::H_ROW_ACTION))
-            .px(look.length(token::SPACE_3))
-            .bg(look.color(hue).opacity(0.18))
-            .when(editing, |head| {
-                head.cursor_grab()
-                    .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, _| this.grab = None))
-                    .on_drag(BlockDrag { kind, resize: false }, |_, _, _, cx| cx.new(|_| Ghost))
-            })
-            .child(glyph(mark_of(kind), look.length(token::SPACE_4), look.color(hue)))
-            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title.clone())))
+        let header = chrome::head(&slug, hue, look)
+            .when(editing, |head| chrome::lift(head, kind, cx.listener(|this, _, _, _| this.grab = None)))
+            .child(chrome::mark(mark_of(kind), hue, look))
+            .child(chrome::title_text(&title, look))
             .children(metric.map(|reading| self.metric_state(reading, look)))
             .child(div().flex_1())
             .children(rank)
@@ -291,41 +176,13 @@ impl Board {
             })
             .flatten();
         let over = overlay.is_some();
-        let corner = editing.then(|| {
-            labelled(
-                div()
-                    .id(SharedString::from(format!("{slug}-corner")))
-                    .absolute()
-                    .right_0()
-                    .bottom_0()
-                    .size(look.length(token::SPACE_4))
-                    .rounded_tl(look.length(token::RADIUS_MD))
-                    .bg(look.color(token::BG_HOVER))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_STRONG))
-                    .cursor(gpui::CursorStyle::ResizeUpLeftDownRight)
-                    .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, _| this.grab = None))
-                    .on_drag(BlockDrag { kind, resize: true }, |_, _, _, cx| cx.new(|_| Ghost)),
-                Role::Splitter,
-                format!("Resize {}", title),
-            )
-        });
-        let frame = div()
-            .id(SharedString::from(format!("block-{slug}")))
-            .when(!over, |frame| frame.absolute().left(grid.left(placed.x)).top(grid.top(placed.y)).w(grid.wide(placed.w)).h(grid.tall(placed.h)))
+        let corner = editing.then(|| chrome::corner(&slug, &title, kind, look, cx.listener(|this, _, _, _| this.grab = None)));
+        // A metric that cannot read wears the failed hue on its whole frame, as a hairline all round.
+        let edge = if broken { look.color(token::STATUS_COMPLETED_FAILED) } else if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) };
+        let frame = chrome::frame(&slug, look, edge)
+            .when(!over, |frame| grid.put(frame, placed))
             .when(over, |frame| frame.size_full())
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .rounded(look.length(token::RADIUS_LG))
-            .border(look.length(token::BORDER_WIDTH))
-            // A metric that cannot read wears the failed hue on its whole frame, as a hairline all round.
-            .border_color(if broken { look.color(token::STATUS_COMPLETED_FAILED) } else if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) })
-            .bg(look.color(token::BG_RAISED))
-            .shadow(look.shadows(token::SHADOW_CARD))
-            .text_color(look.color(token::FG_DEFAULT))
             .when_some(handle.clone(), |frame, handle| frame.track_focus(&handle))
-            .focus_visible(move |style| style.border_color(ring))
             .child(header)
             .child(body)
             .children(corner);
@@ -341,12 +198,7 @@ impl Board {
     /// stands still; a body with nothing to scroll lets the wheel through to the board.
     pub(super) fn body_scroll(&self, id: SharedString) -> gpui::Stateful<gpui::Div> {
         let handle = self.bodies.borrow_mut().entry(id.to_string()).or_default().clone();
-        let held = handle.clone();
-        div().id(id).track_scroll(&handle).overflow_y_scroll().on_scroll_wheel(move |_, _, cx| {
-            if held.max_offset().y > px(0.) {
-                cx.stop_propagation();
-            }
-        })
+        chrome::scrolled(id, &handle)
     }
 
     /// Rank with the librarian in the Issues block's head: a press has the librarian order the lists, and once they are in its
@@ -776,29 +628,6 @@ impl Board {
 }
 
 impl Board {
-    /// A block's place while Fleet has not said where the board stands: the card, with bones where its rows will be.
-    fn skeleton(&self, placed: &Placed, grid: Grid, look: &Look) -> AnyElement {
-        let bones = (0..3).map(|at| bone(look, look.length(token::SPACE_12) * (3.0 - at as f32 * 0.5), look.length(token::SPACE_3)));
-        div()
-            .id(SharedString::from(format!("block-loading-{}", placed.kind.slug())))
-            .absolute()
-            .left(grid.left(placed.x))
-            .top(grid.top(placed.y))
-            .w(grid.wide(placed.w))
-            .h(grid.tall(placed.h))
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_2))
-            .p(look.length(token::SPACE_3))
-            .rounded(look.length(token::RADIUS_LG))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .bg(look.color(token::BG_RAISED))
-            .shadow(look.shadows(token::SHADOW_CARD))
-            .children(bones)
-            .into_any_element()
-    }
-
     /// The question over the board before a flagged Command runs: its name, then Run and Cancel, the keys on Cancel.
     fn confirm_card(&self, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
         let asking = self.asking.as_ref()?;
@@ -878,11 +707,9 @@ impl Render for Board {
         let layout = self.layout(&project.id).clone();
         let gap = look.length(token::SPACE_3);
         let width = window.viewport_size().width - gap * 2.0;
-        let columns = f32::from(COLUMNS);
-        let grid = Grid { col: (width - gap * (columns - 1.0)) / columns, row: look.length(token::H_ROW_UNIT) * 3.5, gap };
-        let rows = f32::from(layout.rows());
-        let height = grid.row * rows + gap * (rows - 1.0).max(0.0);
-        let pitch = (grid.col + gap, grid.row + gap);
+        let grid = Grid::across(width, gap, look.length(token::H_ROW_UNIT) * 3.5);
+        let height = grid.height(layout.rows());
+        let pitch = grid.pitch();
         // The System block, grown, is drawn over the board and not in its cells.
         let grown = self.system.read(cx).over_board();
         let in_grid = |placed: &&Placed| !(grown && placed.kind == BlockKind::System);
@@ -890,18 +717,18 @@ impl Render for Board {
         let blocks: Vec<AnyElement> = if ready {
             layout.blocks.iter().filter(in_grid).map(|placed| self.block(placed, &project, grid, &look, window, cx)).collect()
         } else {
-            layout.blocks.iter().map(|placed| self.skeleton(placed, grid, &look)).collect()
+            layout.blocks.iter().map(|placed| chrome::skeleton(placed, grid, &look)).collect()
         };
         let board = div()
             .id("dashboard-grid")
             .relative()
             .w_full()
-            .h(height.max(px(0.)))
+            .h(height)
             .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<BlockDrag>, _, cx| this.dragged(event, pitch, cx)))
             .child(self.system.read(cx).measure_grid())
             .children(blocks);
         root.child(self.system.read(cx).measure_root())
-            .child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board"))
+            .child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().px(gap).pb(gap).child(board), Role::Group, "Board"))
             .children(over)
             .children(self.confirm_card(&look, cx))
             .into_any_element()

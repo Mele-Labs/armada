@@ -171,6 +171,14 @@ pub struct FeatureLibrary {
     pub librarian: crate::LibrarianState,
 }
 
+/// `get_features_by_meaning`: the slugs of a project's features that what was typed is about, the nearest first.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesByMeaning {
+    pub project: String,
+    /// The features it is about, by slug, nearest first. Empty where nothing is near enough or Fleet's language model is not loaded.
+    pub slugs: Vec<String>,
+}
+
 /// A written section as it stands.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeatureSection {
@@ -534,6 +542,9 @@ pub struct ChangeFeature {
     /// The slug of an area the project keeps: it moves there.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<String>,
+    /// His words for why. Kept as a rule of the project's catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// What `change_feature` did.
@@ -544,6 +555,9 @@ pub struct FeatureChanged {
     /// Where it was merged, where it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_into: Option<String>,
+    /// The rule his reason became, where he gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<String>,
 }
 
 /// How a path came to belong to a feature.

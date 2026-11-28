@@ -250,6 +250,12 @@ If your change touches `crates/ipc`, the route table in
 | [A message tags a request: `TagKind::Request`](protocol/a-message-tags-a-request.md) |
 | [A check of a feature's docs against its code: `check_docs`, `dismiss_doc_flag`, `start_doc_job` and `check` on `FeatureRead`](protocol/a-check-of-a-features-docs.md) |
 | [A project starts its library: `get_library_start` and `draft_module_features`](protocol/a-project-starts-its-library.md) |
+| [Areas and the catalog's rules: `change_area`, `reject_in_catalog`, `list_catalog_rules` and `drop_catalog_rule`](protocol/areas-and-catalog-rules.md) |
+| [The owner groups Jobs into a sub project: `start_sub_project`, `list_sub_projects` and `ungroup_sub_project`](protocol/the-owner-groups-jobs-into-a-sub-project.md) |
+| [Two Jobs settle a clash: `settle_clash`, `SessionRecord.clashes` and `WaitingSource::ClashOrder`](protocol/two-jobs-settle-a-clash.md) |
+| [To review, across Jobs: `list_to_review`](protocol/to-review-across-jobs.md) |
+| [A sub project has an orchestrator: `goal`, `turn_into_orchestrator` and the `goal_met` card](protocol/a-sub-project-has-an-orchestrator.md) |
+| [A Job shows a live graph: `show_graph`, `graph_points`, `withdraw_graph`, `list_graphs` and `graphs.changed`](protocol/a-job-shows-a-live-graph.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1862,6 +1868,7 @@ The native Bridge reads it.
 **Refused with nothing changed**: `done_waiting` 409 `fleet.session_waiting_unheld` for an item nothing holds, 422 `fleet.session_waiting_empty` for one the agent did not state; `withdraw_document` 422 `fleet.document_withdraw_not_held` for a page the Job holds no Document at (another Job's included), 422 `fleet.document_withdraw_ambiguous` for a name that fits two, 422 `fleet.document_withdraw_unnamed` where nothing places a Job; `get_needs_you` 422 `fleet.session_waiting_unnamed`.
 **Every `waiting_for` source is one row of one section**, by the table in `crates/fleet/src/session_host/needs_you.rs`, which a test holds to the one in the concept doc.
 `dismiss_waited` reads the same `refused_dismissal` that marks a row `none`, so a row offering a dismissal is one Fleet takes.
+**`list_to_review` is fed from these rows**, one list across Jobs that replaces Needs you as the place he looks: [To review, across Jobs](protocol/to-review-across-jobs.md).
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
@@ -2124,6 +2131,25 @@ Electron reads none of it. The native strip says GitHub is rate-limiting us, unt
 An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
 **The event stream.** Both events carry their type whole, so they carry the field; no new event.
 
+## When the merge queue is stuck: `MergeLineHub.queue_stuck`, `MergeLineView.queue_stuck`
+
+Since 25 Nov 2026. `docs/practices/protocol/the-merge-line-fleet-reads.md`.
+**Additive only**: one optional field on two existing types, and the two types it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, and there is no number to take.
+It has no TypeScript half: Classic was deleted before it landed, and the native strip is its only reader.
+The native strip draws an amber band under the red one.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, absent while the queue moves: `QueueStuck` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `queue_stuck`, the hub's as it is |
+| `QueueStuck` | Fleet writes, Bridge reads | `since`, an instant: when Fleet first saw it stuck. `cause`. `job?`: the failing job as the forge names it, absent for a plain wait. `pulls`: the pull requests still in the queue, in queue order. `log_url?`: the failed job's page |
+| `QueueStuckCause` | Fleet writes, Bridge reads | Tagged by `kind`: `no_runner`, `timed_out`, `past_estimate` |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as a queue that moves.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.
+
 ## When he was asked to review: `PullReviewRow.asked_at`
 
 Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
@@ -2207,3 +2233,19 @@ Only the Operator composer stopped sending `dispatch_job`.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Bridge sends no files, which a newer Fleet reads as none.
+
+## The features a Job writes to, on its row: `SessionRecord.features`
+
+Since 27 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/fleet/src/sessioning/ledger.rs`, `docs/concepts/feature-catalog.md`.
+**Additive only**: one optional field on an existing type and one new type, `SessionFeature`; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src`, and there is no number to take.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRecord.features` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Each feature the Job filed a written file under, once, in the library's order: `project`, `slug`, `title`, `area`, `area_title`, `area_place` and `place`. Set while the Job is live and holds a slot, the Jobs `jobs_now` holds; empty otherwise |
+
+**Why a field on the row.** The native Jobs list grouped by feature from every project's `list_features`, read before it could draw a heading.
+Fleet already files each written file under the features that own it, so the row reads what was filed, one query a live Job, and the headings draw with the Jobs.
+**When it goes out.** Fleet publishes `session.changed` for a Job whose features moved when it files the Job's writes, and files every Job's writes again after `upsert_features`.
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older row carries no `features`, which reads as none.

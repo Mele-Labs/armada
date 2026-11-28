@@ -43,7 +43,7 @@ Every feature goes through the same five steps, in order.
 1. An inventory of the Classic screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
 3. A parity check against the inventory, by the Job and then by a checker that did not build it.
-4. The branch offered with `offer_preview`, which he tries in his preview after Refresh preview.
+4. The screen shown as a native walk; on his Approve, the branch offered with `offer_preview`, which he tries in his preview after Refresh preview.
    He takes notes on it there with ⌥⌘A, or approves, and changes go into the native screens only.
 5. Land.
 
@@ -64,25 +64,43 @@ The offer's `about` carries the result as a short table, with any known gpui gap
 **One offer per feature, never one per piece.**
 Decided 9 Nov 2026: partial walks made the owner do the comparing, and the rebuild slowed.
 
-**Nothing he sees lands before he has tried it in his preview.**
-Decided 13 Nov 2026: a walk from a Job's slot build took him four presses and a refusal to open.
+**Every screen he approves is the real native Bridge, built by Fleet from the Job's own branch on its own mock data.**
+Decided 27 Nov 2026: approving a prototype meant trusting an agent to turn it into the app's look, and he wants to approve the exact look.
+
+It is a native walk shown with `show_window` on `armada://walk/<name>`, as *Native walks* below says.
+It opens in one press, and a branch that moves rebuilds by itself.
+The walk bar has two answers:
+
+| Answer | His words | What follows |
+|---|---|---|
+| **Ship it** | "Approve the walk and land the change without previewing in the app" | Closes the walk's gate and the first open `you_approved` gate, so the Job lands it |
+| **Approve** | "Approve the walk and preview it in the app before landing it" | The Job calls `offer_preview`, and **Skip** on the Ready to try card lands it without trying |
+
+He chooses by the change's size: a small change he ships from the walk, and a larger one he walks and then tries in the preview.
+
+Fleet keeps pictures of the look he approved, from the build he approved.
+Before the pull request opens and on every push it plays the walk again and compares.
+A drift goes back to the Job with side-by-side pictures, and never to him.
+
+Prototypes and sketch mocks show flow only, never the look.
+They are never the look gate of a screen he would see.
+A walk still building reaches him at once, marked Building, with Open greyed until it is built (28 Nov 2026).
+This holds in every repo.
 
 ## Native walks
 
 A native walk is a screen on mock data in its own window with a walk bar.
 Its steps and scenario live in `crates/bridge-native/src/walk/`, and each step aims at a `{role, name}` that `labels::labelled` put on.
 
-**A walk is shown to him only for a state a live Fleet cannot reach**, such as Fleet down or a refused send.
-Everything else he sees in his preview.
-A Job still plays its walks itself, as its own check of a screen.
+A Job plays its walks itself first, as its own check of a screen.
 
 | Step | What to do |
 |---|---|
 | Build | `cargo build` in `crates/bridge-native`, in the Job's own slot, for the Job's own check only |
 | Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
-| Reach his build | `offer_preview` the branch; the walk can be shown once he has refreshed onto a preview holding it |
-| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. Fleet refuses a walk the build he runs does not play (`--list-walks`), so the Job sees it and he never does |
-| He opens it | One press on the walk's row. Fleet starts the native Bridge of the build he runs, `Armada/builds/current/Armada.app`, with `--take <name>=<walk>` for each variation |
+| Commit it | The screen and its walk file, in the Job's slot: Fleet builds the walk from the commit, so only committed work is shown |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself. The row says Building while Fleet builds it from the Job's commit and asks him nothing until the build plays every walk named (`--list-walks`). A failure is told to the Job and never to him |
+| He opens it | One press on the walk's row. Fleet starts the native Bridge it built from the Job's commit, with `--take <name>=<walk>` for each variation |
 | He picks a take | The bar's takes menu, or ⌥⌘T, swaps to that take's walk from its first step. Approve and each note name the take on screen |
 
 **The check never opens a window, and Fleet never starts a walk he did not open.**

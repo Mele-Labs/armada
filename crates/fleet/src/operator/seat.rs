@@ -17,6 +17,8 @@ pub(crate) struct Seat {
     pub(super) journal: tokio::sync::Mutex<()>,
     /// One start or end of the Operator's own session at a time.
     pub(super) session: tokio::sync::Mutex<()>,
+    /// Rung when the switch moves or a send waits for a session, so the session starts or ends now and not on the next tick.
+    pub(super) wake: tokio::sync::Notify,
     /// When the soonest Later runs out: `None` until the store is first read, then `Some(None)` where
     /// no item is Later.
     pub(super) next_later: Mutex<Option<Option<String>>>,

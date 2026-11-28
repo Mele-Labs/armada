@@ -9,6 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
 use super::{Arrival, Arrived, Source};
 use crate::daemon::Fleet;
+use crate::feature_library::catalog_rules::rules_of;
 use crate::feature_library::{features_of_note, pending_facts};
 use store::feature_state;
 
@@ -33,6 +34,19 @@ where
         }
         for arrival in self.pending_offered().await.into_iter().chain(self.areas_offered().await) {
             self.hand_once(arrival).await;
+        }
+    }
+
+    /// Every pending feature and crowded area standing now, kept as told without telling: what piled up while the Operator
+    /// was off is not handed to it at once when it comes on.
+    pub(super) async fn catalog_kept_as_handed(&self) {
+        let now = self.now();
+        let standing: Vec<_> = self.pending_offered().await.into_iter().chain(self.areas_offered().await).collect();
+        let mut store = self.store().lock().await;
+        for arrival in standing {
+            if let Err(why) = store.keep_linked_told("operator", super::session::TOLD, &arrival.id, &now) {
+                self.operator_warned("a feature standing when the Operator came on was not kept as handed", why);
+            }
         }
     }
 
@@ -86,9 +100,11 @@ where
                 words: format!(
                     "Feature `{slug}` in project {project} (id {id}) is pending. {named} {files} {owners} Bring him one card: confirm it, \
                      merge it into an existing feature, or rename it. After he chooses, confirm with `upsert_features` (state confirmed, with \
-                     an area, a title and a line), merge with `change_feature` and `into`, or rename with `change_feature` and `slug`.",
+                     an area, a title and a line), merge with `change_feature` and `into`, or rename with `change_feature` and `slug`, \
+                     and pass his reason as `why` where he gave one.{rules}",
                     slug = feature.slug,
                     id = feature.project,
+                    rules = rules_of(&store, &feature.project),
                 ),
             });
         }
@@ -122,8 +138,10 @@ where
                 words: format!(
                     "Area `{area}` ({title}) in project {name} (id {project}) holds {}. Other areas the project keeps: {others}. Bring him one card \
                      that proposes a split: the new areas, each with the features that go there. Nothing changes until he answers. After he \
-                     does, keep each new area with `upsert_features`, then move each feature with `change_feature` and `area`.",
+                     does, split each new area off with `change_area` and the act `split`, naming its features, and pass his reason as `why` \
+                     where he gave one.{}",
                     held.join(", "),
+                    rules_of(&store, &project),
                 ),
             });
         }

@@ -877,6 +877,7 @@ async fn a_pull_request_already_in_the_merge_queue_is_answered_as_queued_and_not
         state: adapter_traits::QueueState::Queued,
         head: None,
         enqueued_at: None,
+        estimated_seconds: None,
     }]));
 
     let now = Arc::clone(&fleet).enable_auto_merge(id, 12).await.expect("as it stands");
@@ -1020,6 +1021,7 @@ async fn the_pull_reading_asks_for_the_merge_queue_once_however_many_pull_reques
         state: adapter_traits::QueueState::Queued,
         head: None,
         enqueued_at: None,
+        estimated_seconds: None,
     }]));
 
     fleet.pull_ledger_kept_current(&id, &root).await;

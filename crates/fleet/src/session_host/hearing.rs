@@ -420,7 +420,12 @@ where
                 self.turn_ended(id, runtime, cost_micros).await;
             }
             // The harness's words for it were shown as a row; this signs the Fleet out.
-            DroneEvent::SignedOut => self.signed_out_heard(runtime),
+            // The process keeps the sign-in it started on, renewed or not, so it is let go when the
+            // turn is over and the next one, a wake or his word, starts on the sign-in as it is then.
+            DroneEvent::SignedOut => {
+                self.signed_out_heard(runtime);
+                self.restarts_on_what_it_names(id);
+            }
             _ => {}
         }
     }
@@ -485,6 +490,8 @@ where
         // resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.session_turn(id, named, began.as_deref(), &now);
+            // A walk built from a commit the Job has moved past is built again, with no one asking.
+            Box::pin(self.walk_builds_moved(id)).await;
         }
         if let Some(moving) = moving {
             self.moved_into(id, moving).await;

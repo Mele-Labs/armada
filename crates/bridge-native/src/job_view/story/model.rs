@@ -539,12 +539,54 @@ fn shown_entry(shown: &StoryShown, job: &str, now: DateTime<Utc>) -> Entry {
     }
 }
 
-fn ask_entry(story: &StoryAsk, mine: &SessionId, titles: &Titles, features: &Features, now: DateTime<Utc>) -> Entry {
+const SENT_BACK: &str = "Sent back part \"";
+const PUT_AGAIN: &str = " Change it and put it again with add_part under the same id.";
+const PREVIEW_NOTE: &str = "On your preview note \"";
+
+/// What he said, without the harness's wrapper: the line sent when he sends back an artifact, or his note on a preview.
+pub fn his_words(raw: &str) -> String {
+    let raw = raw.trim();
+    let body = if let Some(rest) = raw.strip_prefix(SENT_BACK) {
+        let rest = rest.split_once("\" of \"").map_or(rest, |(_, rest)| rest);
+        rest.split_once("\". ").map_or("", |(_, said)| said)
+    } else if let Some(rest) = raw.strip_prefix(PREVIEW_NOTE) {
+        rest.split_once("\": ").map_or("", |(_, said)| said)
+    } else {
+        raw
+    };
+    body.trim().strip_suffix(PUT_AGAIN.trim_start()).unwrap_or(body).trim().to_string()
+}
+
+fn ask_entry(story: &StoryAsk, job: &str, mine: &SessionId, titles: &Titles, features: &Features, now: DateTime<Utc>) -> Entry {
     let ask = &story.ask;
     let at = instant(&ask.opened_at);
-    let you = |said: &str, at: DateTime<Utc>| Bubble { mine: true, who: "You".into(), said: said.trim().to_string(), when: relative(now, at) };
-    let mut bubbles = vec![you(&ask.first_words, at)];
-    bubbles.extend(ask.said.iter().map(|words| you(&words.words, instant(&words.at))));
+    let you = |said: &str, at: DateTime<Utc>| Bubble { mine: true, who: "You".into(), said: his_words(said), when: relative(now, at) };
+    let theirs = |said: String, at: DateTime<Utc>| Bubble { mine: false, who: job.to_string(), said, when: relative(now, at) };
+    let mut said = vec![(at, you(&ask.first_words, at))];
+    said.extend(ask.said.iter().map(|words| (instant(&words.at), you(&words.words, instant(&words.at)))));
+    said.retain(|(_, bubble)| !bubble.said.is_empty());
+    let mut job_said: Vec<(DateTime<Utc>, Bubble)> = Vec::new();
+    for shown in &story.shown {
+        let at = instant(&shown.shown_at);
+        job_said.push((at, theirs(format!("Showed you the {} {}", form_word(shown.form).to_lowercase(), shown.title), at)));
+    }
+    for built in &story.built {
+        let at = instant(&built.merged_at);
+        job_said.push((at, theirs(format!("Merged pull request #{}", pull_number(built)), at)));
+    }
+    for handed in &story.handed {
+        let at = instant(&handed.at);
+        let other = if handed.to == *mine { &handed.from } else { &handed.to };
+        let name = job_title(titles, other).or_else(|| handed.to_title.clone().filter(|title| !title.is_empty())).unwrap_or_else(|| "another Job".into());
+        job_said.push((at, theirs(format!("Passed it to {name}"), at)));
+    }
+    for reply in &story.replies {
+        let at = instant(&reply.at);
+        job_said.push((at, theirs(reply.words.trim().to_string(), at)));
+    }
+    said.extend(job_said);
+    said.sort_by_key(|(at, _)| *at);
+    let bubbles: Vec<Bubble> = said.into_iter().map(|(_, bubble)| bubble).collect();
     Entry {
         key: ask_key(&ask.ask_id),
         kind: Kind::You,
@@ -601,7 +643,7 @@ pub fn build(story: &JobStory, titles: &Titles, features: &Features, now: DateTi
     let job = job_title(titles, &story.session_id).unwrap_or_else(|| "Job".into());
     let mut entries = Vec::new();
     for one in &story.asks {
-        entries.push(ask_entry(one, &story.session_id, titles, features, now));
+        entries.push(ask_entry(one, &job, &story.session_id, titles, features, now));
         entries.extend(one.shown.iter().map(|shown| shown_entry(shown, &job, now)));
         entries.extend(one.handed.iter().map(|handed| handed_entry(handed, &one.ask, &story.session_id, titles, now)));
         entries.extend(one.built.iter().map(|built| built_entry(built, now)));

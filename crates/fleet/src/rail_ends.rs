@@ -22,7 +22,8 @@ pub(crate) enum End {
     IdeaPicked,
     DocumentApproved,
     YouApproved,
-    /// His Looks good on the Ready to try card of the branch the Job offered, as a `previews` step ends.
+    /// His Ship it on the Job's walk, or his Looks good or Skip on the Ready to try card of the branch it offered,
+    /// as a `previews` step ends.
     LooksGood,
     PlanRecorded,
     Pushed,
@@ -79,7 +80,7 @@ impl End {
             End::IdeaPicked => "you pick one of the ideas shown".into(),
             End::DocumentApproved => "you approve a document".into(),
             End::YouApproved => "you approve".into(),
-            End::LooksGood => "you say Looks good on the branch offered".into(),
+            End::LooksGood => "you Ship it on its walk, or say Looks good on the branch offered".into(),
             End::PlanRecorded => "a plan is recorded".into(),
             End::Pushed => "it is pushed".into(),
             End::WalkShown => "a walk is shown".into(),

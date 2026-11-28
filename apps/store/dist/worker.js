@@ -274,6 +274,7 @@ var claimFrom = /* @__PURE__ */ __name((row) => ({
   renewed: row.renewed
 }), "claimFrom");
 var nowSeconds = /* @__PURE__ */ __name(() => Math.floor(Date.now() / 1e3), "nowSeconds");
+var NONCES_COLUMNS = "device TEXT NOT NULL, seen INTEGER NOT NULL, nonce TEXT NOT NULL, PRIMARY KEY (device, seen, nonce)";
 var COUNTED = [
   "devices",
   "claims",
@@ -321,7 +322,7 @@ var Account = class extends DurableObject {
   makeTables() {
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'mac', address TEXT NOT NULL DEFAULT '');
-      CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
+      CREATE TABLE IF NOT EXISTS nonces (${NONCES_COLUMNS}) WITHOUT ROWID;
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
     `);
     this.upgrade();
@@ -337,18 +338,24 @@ var Account = class extends DurableObject {
    * made before it had `told` gets the column here, its rows told none. A `devices` table made before it had `kind` and
    * `address` gets them here, its rows Macs with no address.
    *
-   * Nonces are indexed by device and time, in place of the time alone, so a request's cleanup and rate count read only
-   * its own device's rows of the last two minutes. One index either way, so a nonce costs the same rows written.
+   * **Nonces are one row each, with no index beside them**: keyed by device, signed time and nonce, without a rowid, so
+   * a request's cleanup and rate count read only its own device's rows of the last two minutes, and a nonce costs one
+   * row written to keep and one to drop. A replay repeats the signed time, so it still meets its own row. A table made
+   * before it, with a rowid and an index on the time, is copied into the new one here.
    *
    * `tallies` holds how many rows each capped table has, kept by a trigger on each insert and delete, so a cap check
    * reads one row. The free plan counts every row a statement reads, and a `COUNT(*)` reads the whole table. A table
    * with no tally is counted once, here.
    */
   upgrade() {
-    this.sql.exec(`
-      DROP INDEX IF EXISTS nonces_seen;
-      CREATE INDEX IF NOT EXISTS nonces_device_seen ON nonces (device, seen);
-    `);
+    const nonces = this.sql.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'nonces'").toArray()[0];
+    if (nonces && !nonces.sql.includes("WITHOUT ROWID"))
+      this.sql.exec(`
+        CREATE TABLE nonces_kept (${NONCES_COLUMNS}) WITHOUT ROWID;
+        INSERT OR IGNORE INTO nonces_kept (device, seen, nonce) SELECT device, seen, nonce FROM nonces;
+        DROP TABLE nonces;
+        ALTER TABLE nonces_kept RENAME TO nonces;
+      `);
     const devices = this.sql.exec("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'devices'").toArray()[0];
     if (devices && !devices.sql.includes("kind"))
       this.sql.exec("ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'mac'");
@@ -510,14 +517,15 @@ var Account = class extends DurableObject {
         }
       );
     }
+    const signed = Number(time);
     const taken = this.sql.exec(
-      "INSERT OR IGNORE INTO nonces (device, nonce, seen) VALUES (?, ?, ?)",
+      "INSERT OR IGNORE INTO nonces (device, seen, nonce) VALUES (?, ?, ?)",
       device,
-      nonce,
-      now
+      signed,
+      nonce
     );
     if (taken.rowsWritten === 0) return refuse(401, "replayed_nonce");
-    recent.push(now);
+    recent.push(signed);
     return null;
   }
   /** When `device`'s verified requests of the last minute were seen: its nonces, read from the table only the first time. */

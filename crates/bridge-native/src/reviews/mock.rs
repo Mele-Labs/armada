@@ -310,6 +310,15 @@ fn retry_page() -> Page {
     }
 }
 
+/// What the Judge has read of the pull request a Job holds: a finished reading as Code, with two notes, each about a file the
+/// page holds. The Job is Fleet's to keep these on; the mock page has none.
+pub fn judge_readings() -> std::collections::HashMap<u64, ipc::JudgeReading> {
+    let wire = r#"{"id":"reading-pr-2198","artifact":{"kind":"pull_request","id":"2198","title":"Retry failed webhooks with backoff"},"prompt":"","judge":"code","judge_name":"Code","state":"done","asked_at":"2026-11-13T09:20:00Z","finished_at":"2026-11-13T09:21:10Z","read":false,
+        "notes":[{"id":"n1","claim":"The retry loop has no cap on attempts","where":"src/webhooks/retry.rs:21","cites":["src/webhooks/retry.rs:21"]},
+                 {"id":"n2","claim":"A full queue drops its oldest webhook without telling the sender","where":"src/webhooks/queue.rs:13","cites":["src/webhooks/queue.rs:13"]}]}"#;
+    ipc::decode::<ipc::JudgeReading>("judge reading", wire.as_bytes()).map(|reading| std::collections::HashMap::from([(2198, reading)])).unwrap_or_default()
+}
+
 /// The review tools that make findings, which a review can be asked to look for: Fleet's review tools
 /// later.
 pub fn review_tools() -> Vec<model::ReviewTool> {

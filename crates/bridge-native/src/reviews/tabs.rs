@@ -634,6 +634,7 @@ impl ReviewsScreen {
     fn findings_tab(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let drafts = self.drafts_part(page, look, cx);
         let found = self.critique_part(page, look, cx);
+        let judged = self.judge_section(page, look, cx);
         let notes = page.holder.clone().map(|holder| {
             let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE));
             column = column.child(heading("notes-head", format!("Notes for {holder}"), look));
@@ -651,7 +652,7 @@ impl ReviewsScreen {
                 .into_any_element()
             })
         });
-        div().flex().flex_col().gap(look.length(token::SPACE_4)).child(drafts).child(found).children(notes).into_any_element()
+        div().flex().flex_col().gap(look.length(token::SPACE_4)).child(drafts).child(found).children(judged).children(notes).into_any_element()
     }
 
     /// His draft comments on this pull request, each in its own box, with an amber edge.

@@ -50,6 +50,9 @@ async fn started(rig: &Rig, slot: &str) -> u64 {
         outcome: None,
         took_ms: None,
         log: None,
+        tree: None,
+        queue_wait_ms: None,
+        cpu_ms: None,
     };
     rig.fleet.session_check_reported(call).await.expect("begins").run.expect("the Job holds the slot")
 }
@@ -83,6 +86,9 @@ async fn a_run_names_the_one_call_running_armada_check_and_keeps_it_as_it_ends()
         outcome: Some(SessionCheckState::Passed),
         took_ms: Some(10),
         log: Some(String::new()),
+        tree: None,
+        queue_wait_ms: None,
+        cpu_ms: None,
     };
     rig.fleet.session_check_reported(end).await.expect("ends");
     assert_eq!(linked(&rig, &id, run).await.as_deref(), Some(row.as_str()), "the ended row keeps it");

@@ -64,6 +64,8 @@ pub struct PageTab {
     keep_place: bool,
     coming: Option<Coming>,
     _swapping: Option<Task<()>>,
+    /// The feeds a live graph on the page reads, watched while it is held, so a new row draws it again.
+    _feeding: Option<Subscription>,
     /// What the kit was told, in order: a headless window has no page to hear it.
     #[cfg(test)]
     pub(super) answers: Vec<HostToPage>,
@@ -98,6 +100,7 @@ impl PageTab {
             keep_place: false,
             coming: None,
             _swapping: None,
+            _feeding: None,
             #[cfg(test)]
             answers: Vec::new(),
         }
@@ -177,6 +180,7 @@ impl PageTab {
         self._hearing = None;
         self.keep_place = false;
         self.coming = None;
+        self._feeding = None;
         cx.notify();
     }
 
@@ -271,6 +275,7 @@ impl PageTab {
         let document = crate::page_note::Document { artifact: self.page.clone(), revision: self.shown, title: self.title.clone() };
         crate::page_note::offer_document(&page, self.job.clone(), document, cx);
         self._hearing = Some(hearing);
+        self._feeding = self.html.as_deref().is_some_and(super::page_graphs::holds_live).then(|| crate::graph::feeds::book(&self.job, cx)).flatten().map(|book| cx.observe(&book, |this, _, cx| this.redraw_graphs(cx)));
         self.held = Held::Ready(page);
     }
 
@@ -332,6 +337,27 @@ impl PageTab {
                 cx.notify();
             })
             .ok();
+        }));
+    }
+
+    /// The feeds took new rows: each live graph on the page is drawn again and put in place, as an answer is.
+    fn redraw_graphs(&mut self, cx: &mut Context<Self>) {
+        let (Some(html), Held::Ready(page)) = (self.html.clone(), &self.held) else { return };
+        let now = super::page_graphs::redrawn(&html, &self.job, cx);
+        if now == html {
+            return;
+        }
+        let told = page.read(cx).tell(&super::page_graphs::live_script(&now));
+        let page = page.clone();
+        self.html = Some(now);
+        self._told.retain(|task| !task.is_ready());
+        self._told.push(cx.spawn(async move |_, cx| {
+            told.recv().await.ok();
+            page.update(cx, |page, cx| {
+                if page.mode() != Mode::Live {
+                    page.take_picture(cx);
+                }
+            });
         }));
     }
 
@@ -651,17 +677,18 @@ impl JobView {
         };
         if self.fleet.is_none() {
             let kept = self.row_tabs.get(&job).and_then(|tabs| tabs.mock_kept.get(&page)).cloned().unwrap_or_default();
-            let answer = crate::mock::sealed_revision(&page, revision, &kept.his, &kept.presses, &kept.votes).map(|html| super::page_sketches::drawn(&html, &page, window, cx));
+            let answer = crate::mock::sealed_revision(&page, revision, &kept.his, &kept.presses, &kept.votes).map(|html| super::page_graphs::drawn(&super::page_sketches::drawn(&html, &page, window, cx), &job, cx));
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
             return;
         }
         // `host_kit`: the page's own scripts run, and Bridge draws the kit apart from them.
         let path = format!("/sessions/artifacts/page?session_id={}&artifact={}&revision={revision}&host_kit=true", super::wire::encoded(&job), super::wire::encoded(&page));
         let named = page.clone();
+        let job_of = job.clone();
         let done: super::wire::Done = Box::new(move |_, answer, window, cx| {
             let answer = answer.and_then(|bytes| String::from_utf8(bytes).map_err(|_| "Fleet's page is not text".to_string()));
-            // The sketches the page holds are drawn before the page reaches its web view (`page_sketches.rs`).
-            let answer = answer.map(|html| super::page_sketches::drawn(&html, &named, window, cx));
+            // The sketches and graphs the page holds are drawn before the page reaches its web view (`page_sketches.rs`, `page_graphs.rs`).
+            let answer = answer.map(|html| super::page_graphs::drawn(&super::page_sketches::drawn(&html, &named, window, cx), &job_of, cx));
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
         });
         self.get(path, window, cx, done);

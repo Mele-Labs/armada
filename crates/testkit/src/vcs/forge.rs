@@ -82,6 +82,19 @@ impl Forge for FakeVcs {
         self.main_ci.queue_commit(number)
     }
 
+    fn queue_runs(&self, _in_repo: &str, _base: &str) -> Option<adapter_traits::QueueRuns> {
+        self.main_ci.queue_runs()
+    }
+
+    fn infra_failures(&self, _in_repo: &str, commit: &str) -> Option<Vec<adapter_traits::InfraFailure>> {
+        self.main_ci.infra_failures(commit)
+    }
+
+    fn cancel_run(&self, _in_repo: &str, run_id: u64) -> Result<(), String> {
+        self.main_ci.cancel_run(run_id);
+        Ok(())
+    }
+
     fn ci_log(&self, _in_repo: &str, run: &adapter_traits::CiRun) -> Option<FromOutside> {
         self.main_ci.log(run)
     }

@@ -35,6 +35,7 @@ mod side_job_renamed;
 mod slot_strandings;
 mod plan_reading;
 mod session_priority;
+mod kept_looks;
 mod ports;
 mod preferences;
 mod rebuilding;
@@ -110,6 +111,7 @@ mod time_summary;
 mod timeline;
 mod timings;
 mod watches;
+mod job_graphs;
 mod tmp;
 
 use core_model::{Timestamp, Ulid};

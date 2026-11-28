@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use crate::slots::{CheckSlots, InUse, Loaded};
+use crate::slots::{CheckSlots, GateLimits, InUse, LoadWindow, Reading, Short, Waits};
 
 /// A directory of its own for one test, gone when it is dropped.
 struct Dir(PathBuf);
@@ -119,8 +119,7 @@ fn a_holder_that_dies_frees_its_slot() {
             in_use: 1,
             of: 1,
             wants: 1,
-            behind_the_line: false,
-            loaded: None,
+            why: Waits::Full,
         }),
         "the other process holds the one slot"
     );
@@ -192,8 +191,7 @@ async fn the_wait_says_how_many_are_in_use() {
             in_use: 4,
             of: 4,
             wants: 1,
-            behind_the_line: false,
-            loaded: None,
+            why: Waits::Full,
         })
     );
 }
@@ -239,7 +237,7 @@ fn a_resize_reaches_every_clone_and_leaves_a_holder_its_slot() {
     slots.resize(1);
     assert_eq!(shared.count(), 1, "the clone a Fleet's places hold");
     let Err(in_use) = shared.try_take(1).expect("writable") else { panic!("slot 0 is held") };
-    assert_eq!(in_use, InUse { in_use: 1, of: 1, wants: 1, behind_the_line: false, loaded: None });
+    assert_eq!(in_use, InUse { in_use: 1, of: 1, wants: 1, why: Waits::Full });
 
     drop(held);
     slots.resize(0);
@@ -247,37 +245,127 @@ fn a_resize_reaches_every_clone_and_leaves_a_holder_its_slot() {
     assert!(shared.try_take(1).expect("writable").is_ok());
 }
 
-/// **A loaded machine runs one Check at a time.** Under the limit two asks each
-/// take a slot; at or over it the second waits while the first holds one, and
-/// says why. The first always starts, and the merge line is never held.
-#[test]
-fn over_the_load_limit_a_check_waits_while_another_runs() {
-    let dir = Dir::new("loaded");
-    let quiet = CheckSlots::at(&dir.0, 4).under_load(24, || Some(23.9));
-    let one = quiet.try_take(1).expect("writable").expect("free");
-    let two = quiet.try_take(1).expect("writable").expect("under the limit a second starts");
-    drop(two);
+/// Limits that gate nothing, for a test to change one of.
+const OPEN: GateLimits = GateLimits {
+    pressure_level: 2,
+    load_limit: 0,
+    load_window: LoadWindow::One,
+    while_short: 1,
+    spacing: Duration::ZERO,
+};
 
-    let loaded = CheckSlots::at(&dir.0, 4).under_load(24, || Some(31.4));
-    let Err(waits) = loaded.try_take(1).expect("writable") else { panic!("one Check runs already") };
-    assert_eq!(waits.loaded, Some(Loaded { load: 31, limit: 24 }));
-    assert_eq!(
-        waits.to_string(),
-        "waiting for a Check slot: the fifteen-minute load is 31, at or over 24, so Checks run one at a time"
-    );
-    assert!(loaded.clone().ahead().try_take(1).expect("writable").is_ok(), "the merge line is never held");
+/// Memory at the kernel's normal level, and a load nothing reads.
+const QUIET: Reading = Reading { load: Some([40.0, 40.0, 40.0]), pressure: Some(1) };
 
-    drop(one);
-    let first = loaded.try_take(2).expect("writable").expect("nothing else runs, so the first starts");
-    assert!(quiet.try_take(2).expect("writable").is_ok(), "the first took only what it wanted");
-    drop(first);
+fn gated(dir: &Dir, count: usize, limits: GateLimits, reading: Reading) -> CheckSlots {
+    CheckSlots::at(&dir.0, count).watching(move || (limits, reading))
 }
 
-/// A machine whose load cannot be read gates nothing.
+/// **A crowd waiting does not start all at once.** On 28 Nov 2026 seven waiting
+/// Checks started in one look the moment the gate opened. With a spacing, a
+/// second starts beside a running one only once the spacing has passed since
+/// the last start, on any clone; the merge line is never spaced.
 #[test]
-fn an_unread_load_gates_nothing() {
+fn a_waiting_crowd_starts_one_check_per_spacing_and_not_all_at_once() {
+    let dir = Dir::new("spaced");
+    let spacing = Duration::from_secs(60);
+    let slots = gated(&dir, 4, GateLimits { spacing, ..OPEN }, QUIET);
+    let first = slots.try_take(1).expect("writable").expect("nothing runs, so the first starts at once");
+
+    let crowd = gated(&dir, 4, GateLimits { spacing, ..OPEN }, QUIET);
+    let Err(waits) = crowd.try_take(1).expect("writable") else { panic!("a second started in the same spacing") };
+    assert_eq!(waits.why, Waits::Spaced { spacing });
+    assert_eq!(
+        waits.to_string(),
+        "waiting for a Check slot: a Check started in the last 60 seconds, and one starts at a time so each shows before the next"
+    );
+    let line = slots.clone().ahead().try_take(1).expect("writable").expect("the merge line is never spaced");
+    drop(line);
+
+    // The last start a spacing ago, as the started file's time says.
+    let started = std::fs::OpenOptions::new().write(true).open(dir.0.join("started")).expect("the first wrote it");
+    started.set_modified(std::time::SystemTime::now() - spacing).expect("settable");
+    let second = crowd.try_take(1).expect("writable").expect("a spacing on, the next one starts");
+    assert!(crowd.try_take(1).expect("writable").is_err(), "and the one after waits its own spacing");
+    drop((first, second));
+
+    let unspaced = gated(&dir, 4, OPEN, QUIET);
+    let one = unspaced.try_take(1).expect("writable").expect("free");
+    assert!(unspaced.try_take(1).expect("writable").is_ok(), "a spacing of zero spaces nothing");
+    drop(one);
+}
+
+/// **A machine short of memory runs one Check at a time.** At the kernel's warn
+/// level a second waits while the first holds a slot, and says why; under it a
+/// second starts. The first always starts, the merge line is never held, and
+/// `while_short` lets that many slots be in use.
+#[test]
+fn memory_at_warn_holds_a_second_check_while_one_runs() {
+    let dir = Dir::new("memory");
+    let warn = Reading { pressure: Some(2), ..QUIET };
+    let normal = gated(&dir, 4, OPEN, QUIET);
+    let one = normal.try_take(1).expect("writable").expect("free");
+    let two = normal.try_take(1).expect("writable").expect("memory normal, a second starts");
+    drop(two);
+
+    let short = gated(&dir, 4, OPEN, warn);
+    let Err(waits) = short.try_take(1).expect("writable") else { panic!("one Check runs already") };
+    let memory = Short::Memory { level: 2, at: 2 };
+    assert_eq!(waits.why, Waits::Short { short: memory, while_short: 1 });
+    assert_eq!(
+        waits.to_string(),
+        "waiting for a Check slot: memory is short, at the kernel's pressure level 2, at or over 2, so Checks run one at a time"
+    );
+    assert!(short.clone().ahead().try_take(1).expect("writable").is_ok(), "the merge line is never held");
+
+    let two_at_a_time = gated(&dir, 4, GateLimits { while_short: 2, ..OPEN }, warn);
+    let two = two_at_a_time.try_take(1).expect("writable").expect("one in use, under two");
+    assert!(two_at_a_time.try_take(1).expect("writable").is_err(), "two in use, the third waits");
+    drop((one, two));
+
+    let first = short.try_take(2).expect("writable").expect("nothing else runs, so the first starts");
+    assert!(normal.try_take(2).expect("writable").is_ok(), "the first took only what it wanted");
+    drop(first);
+    let never = gated(&dir, 4, GateLimits { pressure_level: 0, ..OPEN }, warn);
+    let one = never.try_take(1).expect("writable").expect("free");
+    assert!(never.try_take(1).expect("writable").is_ok(), "a level of zero never calls memory short");
+    drop(one);
+}
+
+/// **Load gates nothing unless its limit is set**, and then reads the window
+/// chosen: the owner's choice of 28 Nov 2026, as the load reads two to three
+/// times the cores busy on his Mac.
+#[test]
+fn load_holds_a_second_check_only_when_its_limit_is_set() {
+    let dir = Dir::new("load");
+    let one = gated(&dir, 4, OPEN, QUIET).try_take(1).expect("writable").expect("free");
+    assert!(gated(&dir, 4, OPEN, QUIET).try_take(1).expect("writable").is_ok(), "a load of 40 holds nothing at limit 0");
+
+    let busy = Reading { load: Some([31.4, 20.0, 10.0]), ..QUIET };
+    let limited = GateLimits { load_limit: 24, ..OPEN };
+    let Err(waits) = gated(&dir, 4, limited, busy).try_take(1).expect("writable") else { panic!("over the limit") };
+    assert_eq!(
+        waits.why,
+        Waits::Short { short: Short::Load { load: 31, limit: 24, window: LoadWindow::One }, while_short: 1 }
+    );
+    assert_eq!(
+        waits.to_string(),
+        "waiting for a Check slot: the one-minute load is 31, at or over 24, so Checks run one at a time"
+    );
+    let fifteen = GateLimits { load_window: LoadWindow::Fifteen, ..limited };
+    assert!(gated(&dir, 4, fifteen, busy).try_take(1).expect("writable").is_ok(), "the fifteen-minute figure is 10");
+    drop(one);
+    assert_eq!(
+        [1, 3, 5, 10, 15, 60].map(LoadWindow::of_minutes),
+        [LoadWindow::One, LoadWindow::One, LoadWindow::Five, LoadWindow::Five, LoadWindow::Fifteen, LoadWindow::Fifteen]
+    );
+}
+
+/// A machine that cannot be read gates nothing.
+#[test]
+fn an_unread_machine_gates_nothing() {
     let dir = Dir::new("unread");
-    let slots = CheckSlots::at(&dir.0, 2).under_load(24, || None);
+    let slots = gated(&dir, 2, GateLimits { load_limit: 24, ..OPEN }, Reading::default());
     let one = slots.try_take(1).expect("writable").expect("free");
     assert!(slots.try_take(1).expect("writable").is_ok());
     drop(one);

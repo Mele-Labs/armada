@@ -237,6 +237,8 @@ fn the_merge_queue_over_the_api_is_the_queue_gh_reads_in_position_order() {
     );
     let heads: Vec<Option<&str>> = queue.iter().map(|it| it.head.as_ref().map(adapter_traits::Oid::as_str)).collect();
     assert_eq!(heads, [Some("2".repeat(40).as_str()), Some("1".repeat(40).as_str()), None]);
+    let estimates: Vec<Option<u64>> = queue.iter().map(|it| it.estimated_seconds).collect();
+    assert_eq!(estimates, [Some(1200), Some(600), None], "the forge's estimate of the seconds to merge");
     assert_eq!(forge.merge_queue(&root, "other"), Some(Vec::new()), "a branch with no queue has none waiting");
     assert_eq!(forge.merge_queue(&root, "--main"), None);
 }

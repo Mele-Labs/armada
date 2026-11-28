@@ -148,6 +148,7 @@ Q              open the tools menu       (review only)
 A              ask about the pull request   (review only)
 D              show the description   (review only)
 W              show where changes run   (review only)
+J              judge the pull request a Job holds   (review only)
 l r            go to a part of Issues: the list, the reader   (issues only)
 L              open the queries   (issues only)
 /              search the issues   (issues only)
@@ -226,6 +227,10 @@ a              apply the setting   (usage only)
 [ / ]          headers, body or environment   (api client only)
 ⌘S             save the request   (api client only)
 e              edit the board   (project board only)
+e              edit the home   (Cockpit home only)
+← / → / ↑ / ↓  move a home block one cell, while the home is edited   (Cockpit home only)
+⇧← / ⇧→ / ⇧↑ / ⇧↓  resize a home block one cell, while the home is edited   (Cockpit home only)
+v              change a home block's view   (Cockpit home only)
 ← / → / ↑ / ↓  move a block one cell, while the board is edited   (project board only)
 ⇧← / ⇧→ / ⇧↑ / ⇧↓  resize a block one cell, while the board is edited   (project board only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
@@ -272,7 +277,7 @@ Its key is `/` on each page, and on a page with nothing focused the bar takes it
 **The Reviews tab has a scope of its own, `review`.** Its list takes `j`, `k`, `Enter` and `o` as
 any list does; the rest are its own: `l r f` go to the list, the reader and the tools pane,
 `L` opens the lists, `/` goes to the search bar that narrows the list on show and `N` is Natural Search, `Q` the tools pane's `+` menu, which lists the explanations first, `A` the question box, `D` the
-description and `W` the places changes run.
+description, `W` the places changes run and `J` the Judge of a pull request a Job holds.
 The digits `1` to `9` open the tool in that place of the menu, and the key after the last adds a tool; they are not acts in the registry. They stand down in a text field and while a dialog is up.
 
 **The Issues tab has a scope of its own, `issues`.** Its list takes `j`, `k`, `Enter` and `o` as any
@@ -327,6 +332,12 @@ While it is edited, the arrows move the block that has focus one cell on the six
 Its arrows never meet a list's: the scope is the board alone, so `move_focus` keeps them everywhere else.
 `⌘↵` is `send_message`'s chord, which the request line answers as Send while it has the keys; `⌘L` and `⌘N` stay the Layout menu's and Dispatch's, so the tab binds neither.
 `↑` and `↓` move through the list or the saved requests an address finds, `↵` opens the row, and `Esc` gives the keys back to the thread.
+
+**The Cockpit's home has a scope of its own, `cockpit home`, in the native Bridge.**
+It is the right side of the Cockpit while no Job is open and the Operator is off, and its keys are the project board's under their own names, so rebinding one never moves the other.
+`e` turns the home between drawn and edited.
+While it is edited, the arrows move the block that has focus one cell on the six-column grid, ⇧ with an arrow resizes it one cell, and `v` cycles the block's view where it has more than one.
+The scope is the home alone, so the arrows keep `move_focus` everywhere else.
 
 **The Features tab has a scope of its own, `features`, in the native Bridge.**
 `j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
@@ -688,9 +699,22 @@ The acts of each row are `actionsOf` in `classic-final:packages/shell/src/Palett
 | Issue | Open ↵, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
 | Task | Open ↵, Dispatch ⇧⌘N, Tick ⌘D, Pin ⇧⌘F |
 | Command | Run ↵, Pin ⇧⌘F |
+| Setting | Switch on or Switch off ↵, or Choose ↵ or Change value ↵, which open its page; then Open in Settings ⌘, and Set alias |
+| A page of Settings | Open in Settings ↵, Set alias |
 | Any other row | Set alias and Record hotkey only |
 
 Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin return to the results with the palette still up.
+
+> **Rule.** Every setting is a row, found while something is typed, and Return changes it where it stands.
+> A switch flips and the palette stays up on it.
+> A choice opens a page of its own over the results, as Raycast pushes one: the field narrows its choices, the one in force is ticked, and Return saves the one under the cursor.
+> A value's page is the field alone, starting from what it holds, and Return saves it; one it does not take is refused on the page.
+> Return goes back to the results as they were, with the row saying its new value; Esc, or ⌫ in an empty field, goes back with no change.
+> Each goes through Settings' own save, so a refusal is the one Settings gives, said on the row.
+> Why: the owner asked on 26 Nov 2026 for every setting in the palette, and picked changing it there over opening Settings on it.
+> On 27 Nov he asked that a choice open as a page, as Raycast's do, rather than a menu beside the results, and that a pick go back to the results.
+> ⌘↵ is Dispatch while words are typed, so Open in Settings takes Settings' own key, ⌘,.
+> A setting row takes no pin and no hotkey, which the opening list and a key pressed anywhere never reach.
 
 ### Alias and hotkey
 

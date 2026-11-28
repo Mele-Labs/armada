@@ -132,6 +132,11 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::LIBRARIAN_ASK_SHARE,
         s::DRONES_AT_ONCE,
         s::CHECKS_AT_ONCE,
+        s::MEMORY_PRESSURE_LEVEL,
+        s::CHECKS_WHILE_SHORT,
+        s::CHECK_START_SPACING_SECONDS,
+        s::LOAD_LIMIT,
+        s::LOAD_WINDOW,
         s::MEMORY_SPARE_PERCENT,
         s::DISK_FLOOR_GIB,
         s::DISK_RECLAIM_FLOOR_GIB,
@@ -148,6 +153,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::DISPUTE_READ_MINUTES,
         s::WATCHES_AT_ONCE,
         s::WATCHES_PER_JOB,
+        s::QUEUE_REQUEUES_PER_COMMIT,
         s::WATCH_GIVE_UP_MINUTES,
         s::COMPACTION_WINDOW,
     ] {
@@ -226,6 +232,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::EFFORT_DEFAULT,
         s::EFFORT_JUDGE,
         s::EFFORT_PROPOSER,
+        s::EFFORT_OPERATOR,
         s::EDITOR_COMMAND,
         s::TERMINAL_APP,
         s::TERMINAL_COMMAND,
@@ -271,7 +278,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 22 + 12 + 17 + 29 + 4 + 22 + s::prompt_keys().count();
+    let handles = 28 + 12 + 17 + 30 + 4 + 22 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -376,7 +383,7 @@ fn a_value_out_of_range_or_of_another_kind_is_refused_by_its_key() {
 /// The effort settings take every level the agent CLI does, and nothing else.
 #[test]
 fn an_effort_setting_takes_the_cli_levels_up_to_max_and_refuses_the_rest() {
-    for key in ["effort.default", "effort.judge", "effort.proposer"] {
+    for key in ["effort.default", "effort.judge", "effort.proposer", "effort.operator"] {
         for level in ["harness default", "low", "medium", "high", "xhigh", "max"] {
             let pairs = [(key, SettingValue::Text(level.into()))];
             assert!(

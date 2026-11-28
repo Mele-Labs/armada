@@ -40,6 +40,12 @@ pub struct StartAnotherSession {
     /// for the person as any start's is. The Session waited on is told what `after.needs` says.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<crate::session_waits::StartAfter>,
+    /// The story kind the person's words are, an id of [`crate::story_kinds`]. **Present, the Job starts on that
+    /// kind's workflow**, as the dispatch sheet starts it, and on none where the kind has none; the proposer does not
+    /// change it. Refused 422 `fleet.story_kind_unknown` for an id the file does not hold, and as `StartSession`'s
+    /// `workflow` is where the repository holds no such workflow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 
 /// `start_another_session`'s body: one Job's fields at the top, or several Jobs in `jobs`, never both.
@@ -56,6 +62,8 @@ pub struct StartAnotherSessions {
     pub group: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<crate::session_waits::StartAfter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     /// **Each started as a call of its own would start it**, in order: the same linking under the
     /// caller and the same refusals. One refused leaves the others started.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
