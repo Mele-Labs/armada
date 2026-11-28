@@ -1,0 +1,10 @@
+queue attempts per Set M pull request (oldest first): conclusions
+4104 ['success', 'success']
+4101 ['cancelled', 'cancelled', 'cancelled', 'cancelled', 'success']
+4105 ['success', 'success']
+4100 ['cancelled', 'cancelled', 'failure', 'cancelled', 'success']
+4102 ['failure', 'success']
+4107 ['success']
+4106 ['failure', 'success']
+4109 ['success']
+verdict-giving queue attempts per merged PR (last 100): {0: 3, 1: 58, 2: 17, 3: 7, 4: 2, 5: 2, 6: 3, 7: 2, 8: 2, 9: 1, 10: 1, 12: 1, 17: 1}

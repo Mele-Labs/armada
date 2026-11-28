@@ -1,0 +1,374 @@
+# E0-cold rep 1  wt=/tmp/armada-red/shared-builds/s3/A target=TA commit=bc6018a03f load= 19.67 30.62 28.01   date=Fri Nov 27 21:04:35 EST 2026
+# cmd: nice -n 10 cargo build --workspace --locked
+# env RUSTC_WRAPPER='' CARGO_TARGET_DIR='/tmp/armada-red/shared-builds/s3/TA' CARGO_INCREMENTAL='<unset>'
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.4
+   Compiling version_check v0.9.5
+   Compiling zeroize v1.9.1
+   Compiling getrandom v0.2.17
+   Compiling rand_core v0.6.4
+   Compiling typenum v1.20.1
+   Compiling once_cell v1.21.4
+   Compiling zerocopy v0.8.56
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling generic-array v0.14.7
+   Compiling subtle v2.6.1
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling jobserver v0.1.35
+   Compiling find-msvc-tools v0.1.11
+   Compiling shlex v2.0.1
+   Compiling cc v1.4.4
+   Compiling crypto-common v0.1.7
+   Compiling bitflags v2.13.1
+   Compiling serde_core v1.0.229
+   Compiling log v0.4.34
+   Compiling synstructure v0.13.2
+   Compiling zerocopy-derive v0.8.56
+   Compiling bytes v1.12.1
+   Compiling zerofrom-derive v0.1.7
+   Compiling const-oid v0.9.6
+   Compiling stable_deref_trait v1.2.1
+   Compiling pin-project-lite v0.2.17
+   Compiling yoke-derive v0.8.2
+   Compiling zerofrom v0.1.8
+   Compiling errno v0.3.14
+   Compiling futures-core v0.3.34
+   Compiling thiserror v1.0.69
+   Compiling yoke v0.8.3
+   Compiling thiserror-impl v1.0.69
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.2
+   Compiling futures-sink v0.3.34
+   Compiling getrandom v0.3.4
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+   Compiling num-traits v0.2.19
+   Compiling ppv-lite86 v0.2.21
+   Compiling signal-hook-registry v1.4.8
+   Compiling tokio-macros v2.7.2
+   Compiling block-buffer v0.10.4
+   Compiling smallvec v1.15.2
+   Compiling equivalent v1.0.2
+   Compiling serde v1.0.229
+   Compiling digest v0.10.7
+   Compiling tokio v1.53.1
+   Compiling serde_derive v1.0.229
+   Compiling zerovec-derive v0.11.6
+   Compiling bytemuck_derive v1.12.1
+   Compiling zmij v1.0.23
+   Compiling crossbeam-utils v0.8.23
+   Compiling byteorder v1.5.0
+   Compiling bytemuck v1.25.2
+   Compiling zerovec v0.11.8
+   Compiling rand_core v0.9.5
+   Compiling http v1.5.0
+   Compiling displaydoc v0.2.7
+   Compiling hashbrown v0.17.1
+   Compiling pkg-config v0.3.34
+   Compiling crossbeam-epoch v0.9.21
+   Compiling serde_json v1.0.151
+   Compiling indexmap v2.14.0
+   Compiling rand_chacha v0.9.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling vcpkg v0.2.15
+   Compiling slab v0.4.12
+   Compiling rand v0.9.5
+   Compiling tracing-core v0.1.36
+   Compiling cpufeatures v0.2.17
+   Compiling rayon-core v1.13.0
+   Compiling paste v1.0.15
+   Compiling rand_distr v0.5.1
+   Compiling tracing v0.1.44
+   Compiling tinystr v0.8.4
+   Compiling futures-macro v0.3.34
+   Compiling pulp v0.22.3
+   Compiling httparse v1.10.1
+   Compiling writeable v0.6.4
+   Compiling futures-io v0.3.34
+   Compiling heck v0.5.0
+   Compiling crc32fast v1.5.2
+   Compiling percent-encoding v2.3.2
+   Compiling litemap v0.8.3
+   Compiling futures-task v0.3.34
+   Compiling icu_locale_core v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling enum-as-inner v0.6.1
+   Compiling half v2.7.1
+   Compiling zerotrie v0.2.5
+   Compiling http-body v1.1.0
+   Compiling num-complex v0.4.6
+   Compiling potential_utf v0.1.6
+   Compiling ring v0.17.14
+   Compiling base64ct v1.8.3
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling reborrow v0.5.5
+   Compiling thiserror v2.0.21
+   Compiling icu_normalizer_data v2.3.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.3.0
+   Compiling dyn-stack-macros v0.1.3
+   Compiling either v1.19.0
+   Compiling dyn-stack v0.13.2
+   Compiling rayon v1.12.0
+   Compiling icu_collections v2.3.0
+   Compiling pem-rfc7468 v0.7.0
+   Compiling icu_provider v2.3.1
+   Compiling sysctl v0.6.0
+   Compiling tokio-util v0.7.19
+   Compiling thiserror-impl v2.0.21
+   Compiling raw-cpuid v11.6.0
+   Compiling tower-service v0.3.3
+   Compiling seq-macro v0.3.6
+   Compiling gemm-common v0.19.0
+   Compiling der v0.7.10
+   Compiling form_urlencoded v1.2.2
+   Compiling rustls-pki-types v1.15.1
+   Compiling fnv v1.0.7
+   Compiling try-lock v0.2.5
+   Compiling untrusted v0.9.0
+   Compiling atomic-waker v1.1.2
+   Compiling h2 v0.4.19
+   Compiling spki v0.7.3
+   Compiling want v0.3.1
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling hmac v0.12.1
+   Compiling futures-channel v0.3.34
+   Compiling sync_wrapper v1.0.2
+   Compiling ahash v0.8.12
+   Compiling simd-adler32 v0.3.10
+   Compiling core-model v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/core-model)
+   Compiling httpdate v1.0.3
+   Compiling tower-layer v0.3.3
+   Compiling adler2 v2.0.1
+   Compiling ryu v1.0.23
+   Compiling miniz_oxide v0.9.1
+   Compiling hyper v1.11.0
+   Compiling idna_adapter v1.2.2
+   Compiling pkcs8 v0.10.2
+   Compiling ff v0.13.1
+   Compiling aho-corasick v1.1.5
+   Compiling base16ct v0.2.0
+   Compiling base64 v0.22.1
+   Compiling ipnet v2.12.2
+   Compiling regex-syntax v0.8.11
+   Compiling inventory v0.3.25
+   Compiling rustls v0.23.45
+   Compiling serde_json_path_core v0.2.2
+   Compiling hyper-util v0.1.20
+   Compiling sec1 v0.7.3
+   Compiling regex-automata v0.4.18
+   Compiling group v0.13.0
+   Compiling idna v1.1.0
+   Compiling flate2 v1.1.11
+   Compiling tower v0.5.3
+   Compiling hkdf v0.12.4
+   Compiling rustls-webpki v0.103.15
+   Compiling http-body-util v0.1.5
+   Compiling libz-sys v1.1.29
+   Compiling libsqlite3-sys v0.30.1
+   Compiling serde_json_path_macros_internal v0.1.2
+   Compiling crypto-bigint v0.5.5
+   Compiling minimal-lexical v0.2.1
+   Compiling compression-core v0.4.34
+   Compiling compression-codecs v0.4.46
+   Compiling nom v7.1.3
+   Compiling serde_json_path_macros v0.1.6
+   Compiling elliptic-curve v0.13.8
+   Compiling regex v1.13.1
+   Compiling url v2.5.8
+   Compiling hashbrown v0.14.5
+   Compiling serde_urlencoded v0.7.1
+   Compiling gemm-f32 v0.19.0
+   Compiling rand_chacha v0.3.1
+   Compiling adapter-traits v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/adapter-traits)
+   Compiling rustversion v1.0.23
+   Compiling ipc v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/ipc)
+   Compiling allocator-api2 v0.2.21
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.16.1
+   Compiling gemm-f16 v0.19.0
+   Compiling rand v0.8.7
+   Compiling tokio-rustls v0.26.6
+   Compiling hashlink v0.9.1
+   Compiling serde_json_path v0.7.2
+   Compiling async-compression v0.4.51
+   Compiling rfc6979 v0.4.0
+   Compiling webpki-roots v1.0.9
+   Compiling gemm-c64 v0.19.0
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling sha1 v0.10.7
+   Compiling libgit2-sys v0.17.0+1.8.1
+   Compiling signature v2.2.0
+   Compiling store v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/store)
+   Compiling data-encoding v2.11.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling typed-path v0.12.3
+   Compiling fallible-iterator v0.3.0
+   Compiling utf-8 v0.7.6
+   Compiling tungstenite v0.24.0
+   Compiling rusqlite v0.32.1
+   Compiling zip v7.4.0
+   Compiling ecdsa v0.16.9
+   Compiling gemm v0.19.0
+   Compiling hyper-rustls v0.27.10
+   Compiling tower-http v0.6.11
+   Compiling safetensors v0.7.0
+   Compiling primeorder v0.13.6
+   Compiling float8 v0.6.1
+   Compiling sha2 v0.10.9
+   Compiling memmap2 v0.9.11
+   Compiling async-trait v0.1.92
+   Compiling inout v0.1.4
+   Compiling num_cpus v1.17.0
+   Compiling mime v0.3.17
+   Compiling cfg_aliases v0.1.1
+   Compiling scopeguard v1.2.0
+   Compiling winnow v1.0.4
+   Compiling unsafe-libyaml v0.2.11
+   Compiling same-file v1.0.6
+   Compiling walkdir v2.5.0
+   Compiling serde_yaml_ng v0.10.0
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling lock_api v0.4.14
+   Compiling nix v0.28.0
+   Compiling axum-core v0.4.5
+   Compiling candle-core v0.9.2
+   Compiling cipher v0.4.4
+   Compiling p256 v0.13.2
+   Compiling reqwest v0.12.28
+   Compiling tokio-tungstenite v0.24.0
+   Compiling verification v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/verification)
+   Compiling serde_path_to_error v0.1.20
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling notify-types v2.1.0
+   Compiling universal-hash v0.5.1
+   Compiling fsevent-sys v4.1.0
+   Compiling deranged v0.5.9
+   Compiling powerfmt v0.2.1
+   Compiling matchit v0.7.3
+   Compiling time-core v0.1.9
+   Compiling num-conv v0.2.2
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling opaque-debug v0.3.1
+   Compiling anyhow v1.0.104
+   Compiling toml v1.1.4+spec-1.1.0
+   Compiling polyval v0.6.2
+   Compiling time v0.3.55
+   Compiling axum v0.7.9
+   Compiling notify v8.2.0
+   Compiling checks-runner v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/checks-runner)
+   Compiling git2 v0.19.0
+   Compiling candle-nn v0.9.2
+   Compiling spin v0.9.9
+   Compiling rustix v1.1.5
+   Compiling flume v0.12.0
+   Compiling adapters v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/adapters)
+   Compiling yasna v0.6.0
+   Compiling ghash v0.5.1
+   Compiling config v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/config)
+   Compiling aes v0.8.4
+   Compiling ctr v0.9.2
+   Compiling filedescriptor v0.8.3
+   Compiling socket-pktinfo v0.4.2
+   Compiling aead v0.5.2
+   Compiling serial2 v0.2.38
+   Compiling if-addrs v0.15.0
+   Compiling fastrand v2.5.0
+   Compiling downcast-rs v1.2.1
+   Compiling shell-words v1.1.1
+   Compiling fleet v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/fleet)
+   Compiling portable-pty v0.9.0
+   Compiling mdns-sd v0.21.7
+   Compiling aes-gcm v0.10.3
+   Compiling rcgen v0.14.10
+   Compiling api v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/api)
+   Compiling fd-lock v4.0.4
+   Compiling pocket v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/pocket)
+warning: unused import: `KeptAttachment`
+  --> crates/fleet/src/gate_holding.rs:14:21
+   |
+14 | use store::{Holder, KeptAttachment, KeptGate, KeptPlan, Store, CHECKS_GREEN, PLAN_APPROVED};
+   |                     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `across`
+  --> crates/fleet/src/clashing.rs:21:22
+   |
+21 | pub(crate) use all::{across, moved};
+   |                      ^^^^^^
+
+warning: unused import: `HostedSessions`
+  --> crates/fleet/src/session_host/replacing.rs:31:11
+   |
+31 | use api::{HostedSessions, Refusal};
+   |           ^^^^^^^^^^^^^^
+
+warning: unused import: `context_reading`
+   --> crates/fleet/src/sessioning.rs:122:23
+    |
+122 | pub(crate) use wire::{context_reading, mod_copy_version, mod_is_older};
+    |                       ^^^^^^^^^^^^^^^
+
+   Compiling testkit v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/testkit)
+   Compiling acceptance v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/acceptance)
+   Compiling xtask v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/xtask)
+warning: unused variable: `bucket`
+   --> crates/fleet/src/sessioning/marking.rs:248:9
+    |
+248 |     let bucket = bucket_of(state);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_bucket`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `send_hosted_ahead` is never used
+   --> crates/fleet/src/session_host/serving/sending.rs:194:25
+    |
+ 18 | / impl<H, V, W> Fleet<H, V, W>
+ 19 | | where
+ 20 | |     H: AgentHarness + Send + Sync + 'static,
+ 21 | |     H::Error: std::error::Error + Send + Sync + 'static,
+...   |
+ 25 | |     W: WorkProduct + Send + Sync + 'static,
+ 26 | |     W::Error: std::error::Error + Send + Sync + 'static,
+    | |________________________________________________________- method in this implementation
+...
+194 |       pub(super) async fn send_hosted_ahead(
+    |                           ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `fleet` (lib) generated 6 warnings (run `cargo fix --lib -p fleet` to apply 5 suggestions)
+   Compiling armada v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/armada)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `armada` (bin "armada") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26m 51s
+     1611.93 real       759.49 user        64.45 sys
+          3642425344  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             8294546  page reclaims
+              238285  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   5  messages sent
+                   5  messages received
+                 338  signals received
+               12345  voluntary context switches
+             2975337  involuntary context switches
+          7108316662  instructions retired
+          5330758130  cycles elapsed
+            98337512  peak memory footprint

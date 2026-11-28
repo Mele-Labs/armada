@@ -1,0 +1,6 @@
+# E0-cold rep 1  wt=/tmp/armada-red/shared-builds/s3/A target=TA commit=bc6018a03f load= 44.41 30.86 24.77   date=Fri Nov 27 20:08:09 EST 2026
+# cmd: armada check build
+# env RUSTC_WRAPPER='' CARGO_TARGET_DIR='/tmp/armada-red/shared-builds/s3/TA' CARGO_INCREMENTAL='<unset>'
+waiting for a Check slot: the fifteen-minute load is 25, at or over 24, so Checks run one at a time
+waiting for a Check slot: 8 of 8 in use
+waiting for a Check slot: the fifteen-minute load is 24, at or over 24, so Checks run one at a time

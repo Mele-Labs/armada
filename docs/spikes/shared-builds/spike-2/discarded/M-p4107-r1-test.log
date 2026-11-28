@@ -1,0 +1,27 @@
+# load_before  18.99 20.77 23.93 
+# start 1795839486.529 tree=2311602bdd8c343f554a1ee531ae3d72f0090714 base=5a0c99c26f attempt=1
+# run_started none
+# ended 1795839487.046
+# exit 0
+# load_after  18.99 20.77 23.93 
+check test — 
+  narrowed to nothing it runs
+test passed
+        0.48 real         0.05 user         0.12 sys
+            45072384  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                3861  page reclaims
+                  11  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   2  messages sent
+                   3  messages received
+                   0  signals received
+                 270  voluntary context switches
+                 425  involuntary context switches
+          1192066698  instructions retired
+           524559636  cycles elapsed
+            12829344  peak memory footprint

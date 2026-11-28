@@ -1,0 +1,26 @@
+# E2 clone: cp -c -R TA TB
+{ 16.59 20.74 22.31 }
+/dev/disk3s5   971298980 812348096 125998520    87% 4101264 1259985200    0%   /System/Volumes/Data
+        9.26 real         0.04 user         2.61 sys
+             2752512  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                 435  page reclaims
+                   1  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  35  voluntary context switches
+                6242  involuntary context switches
+         20652010296  instructions retired
+          7161657966  cycles elapsed
+             3424496  peak memory footprint
+/dev/disk3s5   971298980 813329176 125017440    87% 4113186 1250174400    0%   /System/Volumes/Data
+ 11G	TA
+ 15G	TB
+1795833108 TA/debug/deps/libfleet-3811231cca97f512.rlib
+1795833108 TB/debug/deps/libfleet-3811231cca97f512.rlib

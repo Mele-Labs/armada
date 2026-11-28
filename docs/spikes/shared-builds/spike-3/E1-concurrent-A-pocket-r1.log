@@ -1,0 +1,101 @@
+# E1-concurrent-A-pocket rep 1  wt=/tmp/armada-red/shared-builds/s3/A target=TA commit=bc6018a03f load= 20.32 35.25 37.77   date=Fri Nov 27 22:56:04 EST 2026
+# cmd: nice -n 10 cargo build -p pocket --locked
+# env RUSTC_WRAPPER='' CARGO_TARGET_DIR='/tmp/armada-red/shared-builds/s3/TA' CARGO_INCREMENTAL='<unset>'
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling crypto-common v0.1.7
+   Compiling cc v1.4.4
+   Compiling zerofrom v0.1.8
+   Compiling stable_deref_trait v1.2.1
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.8
+   Compiling mio v1.2.2
+   Compiling tokio v1.53.1
+   Compiling digest v0.10.7
+   Compiling tinystr v0.8.4
+   Compiling ring v0.17.14
+   Compiling serde v1.0.229
+   Compiling icu_locale_core v2.3.0
+   Compiling zerotrie v0.2.5
+   Compiling potential_utf v0.1.6
+   Compiling slab v0.4.12
+   Compiling serde_json v1.0.151
+   Compiling icu_collections v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling icu_provider v2.3.1
+   Compiling zerocopy v0.8.56
+   Compiling crc32fast v1.5.2
+   Compiling hmac v0.12.1
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling futures-channel v0.3.34
+   Compiling libsqlite3-sys v0.30.1
+   Compiling hyper v1.11.0
+   Compiling rustls v0.23.45
+   Compiling flate2 v1.1.11
+   Compiling ahash v0.8.12
+   Compiling idna_adapter v1.2.2
+   Compiling hkdf v0.12.4
+   Compiling rustls-webpki v0.103.15
+   Compiling hyper-util v0.1.20
+   Compiling compression-codecs v0.4.46
+   Compiling serde_json_path_core v0.2.2
+   Compiling cipher v0.4.4
+   Compiling elliptic-curve v0.13.8
+   Compiling idna v1.1.0
+   Compiling hashbrown v0.14.5
+   Compiling tower v0.5.3
+   Compiling universal-hash v0.5.1
+   Compiling polyval v0.6.2
+   Compiling serde_urlencoded v0.7.1
+   Compiling serde_json_path_macros v0.1.6
+   Compiling hashlink v0.9.1
+   Compiling url v2.5.8
+   Compiling tokio-rustls v0.26.6
+   Compiling async-compression v0.4.51
+   Compiling tokio-util v0.7.19
+   Compiling rfc6979 v0.4.0
+   Compiling signature v2.2.0
+   Compiling rusqlite v0.32.1
+   Compiling store v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/store)
+   Compiling ipc v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/ipc)
+   Compiling axum-core v0.4.5
+   Compiling ecdsa v0.16.9
+   Compiling hyper-rustls v0.27.10
+   Compiling tower-http v0.6.11
+   Compiling serde_json_path v0.7.2
+   Compiling ghash v0.5.1
+   Compiling primeorder v0.13.6
+   Compiling ctr v0.9.2
+   Compiling aes v0.8.4
+   Compiling sha2 v0.10.9
+   Compiling socket-pktinfo v0.4.2
+   Compiling aead v0.5.2
+   Compiling if-addrs v0.15.0
+   Compiling axum v0.7.9
+   Compiling mdns-sd v0.21.7
+   Compiling aes-gcm v0.10.3
+   Compiling p256 v0.13.2
+   Compiling rcgen v0.14.10
+   Compiling reqwest v0.12.28
+   Compiling pocket v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/pocket)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 40m 51s
+     2451.59 real       161.17 user        10.63 sys
+          3122642944  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             1665050  page reclaims
+               22124  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                  83  signals received
+                5232  voluntary context switches
+              277476  involuntary context switches
+          2898512562  instructions retired
+          1818128013  cycles elapsed
+            74105576  peak memory footprint

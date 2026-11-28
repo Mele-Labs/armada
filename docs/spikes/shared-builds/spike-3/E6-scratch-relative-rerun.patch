@@ -1,0 +1,31 @@
+diff --git a/crates/ipc/build.rs b/crates/ipc/build.rs
+index 42efbe5363..5759ce24da 100644
+--- a/crates/ipc/build.rs
++++ b/crates/ipc/build.rs
+@@ -74,7 +74,7 @@ fn read_operations(dir: &Path) -> String {
+     files.sort();
+     let mut text = String::from("\n");
+     for path in files {
+-        println!("cargo:rerun-if-changed={}", path.display());
++        println!("cargo:rerun-if-changed=operations/{}", path.file_name().expect("a file").to_string_lossy());
+         let body = fs::read_to_string(&path)
+             .unwrap_or_else(|e| panic!("{} could not be read: {e}", path.display()));
+         text.push_str(body.trim_end());
+diff --git a/crates/store/build.rs b/crates/store/build.rs
+index 099eb0c795..4f565e9b3d 100644
+--- a/crates/store/build.rs
++++ b/crates/store/build.rs
+@@ -10,11 +10,11 @@ use std::path::PathBuf;
+ fn main() {
+     let root = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets it"));
+     let dir = root.join("migrations");
+-    println!("cargo:rerun-if-changed={}", dir.display());
++    println!("cargo:rerun-if-changed=migrations");
+     let files = migration_files::read_dir(&dir).unwrap_or_else(|why| panic!("migrations/: {why}"));
+     let mut out = String::from("pub(crate) const FROM_FILES: &[Migration] = &[\n");
+     for file in &files {
+-        println!("cargo:rerun-if-changed={}", file.path.display());
++        println!("cargo:rerun-if-changed=migrations/{}", file.path.file_name().expect("a file").to_string_lossy());
+         let kind = if file.breaking {
+             "breaking"
+         } else {

@@ -1,0 +1,32 @@
+window: 9.04 h, 3160 compiles seen, 37 target dirs
+                                   compiles     cpu_s  repeats  rep_cpu_s  at_once once_cpu_s same_src src_cpu_s
+all                                    3160     91303      633        912        0          0      636     34826
+crate bridge_native                     213     40924        0          0        0          0       52     12263
+crate fleet                             253     30613        0          0        0          0      109     13038
+crate ipc                               256     11026        2        120        0          0      142      6483
+crate api                               146      1885        1          7        0          0       49       845
+crate adapters                          142      1793        0          0        0          0       46       754
+crate pocket                            134      1344        0          0        0          0       37       572
+crate armada                            135      1308        3          0        0          0       20       267
+crate store                             103       625       13         91        0          0       50       368
+crate objc2_app_kit                      31       214        7         51        0          0        0         0
+crate config                             89       204        0          0        0          0       15        66
+crate testkit                            86       142        1          0        0          0       12        35
+crate objc2_foundation                   28       107        8         47        0          0        0         0
+crate candle_core                        19        87        9         56        0          0        0         0
+crate xtask                              45        87       21         51        0          0       30        66
+crate gpui_component                     15        78        3         21        0          0        0         0
+crate gpui                               17        61        4         32        0          0        0         0
+kind workspace                         1698     90034       87        311        0          0      636     34826
+kind third-party                       1462      1268      546        601        0          0        0         0
+who armada check (agent)                580     45683      113        240        0          0      232     20243
+who Fleet itself                        508     23343        0          0        0          0      213     10879
+who bare cargo (agent)                  423     11306       97         78        0          0       72      2520
+who rust-analyzer                       567      6267      119         70        0          0      115      1047
+who restart or preview script            40      3559        0          0        0          0        4       136
+who sccache server (unattributed)      1042      1144      304        524        0          0        0         0
+same sources compiled again, by kind:
+  same unit, same target         282     15048 cpu_s
+  other flags, same target       199     13998 cpu_s
+  another target                 155      5779 cpu_s
+unmatched (no state): 1 compiles, 0 cpu_s

@@ -1,0 +1,18 @@
+PR final heads: 100 with a finished pull_request run 100 last run red 0 any red 0
+merge_group runs 300 {'success': 169, 'failure': 59, 'cancelled': 70}
+p (failure/(success+failure)) = 59/228 = 0.259
+p incl cancelled as non-green = 129/298 = 0.433
+entries of the 100 merged PRs: 297 {'success': 168, 'cancelled': 70, 'failure': 59}
+p100 = 59/227 = 0.260
+PRs with >=1 failed queue attempt: 27 of 100 ; of the 100 merged: 27
+merged PRs with no queue run seen: 3
+N=1 p_all batch red = 0.259
+N=1 p_100 batch red = 0.260
+N=2 p_all batch red = 0.451
+N=2 p_100 batch red = 0.452
+N=4 p_all batch red = 0.698
+N=4 p_100 batch red = 0.700
+N=5 p_all batch red = 0.776
+N=5 p_100 batch red = 0.778
+N=8 p_all batch red = 0.909
+N=8 p_100 batch red = 0.910

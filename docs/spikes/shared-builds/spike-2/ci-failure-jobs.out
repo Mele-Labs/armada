@@ -1,0 +1,10 @@
+59 failed runs by the failing job set
+26 rust unit test shard
+12 native
+7 acceptance
+5 only ci (no other failed job)
+4 foundations
+2 rust unit test shard + desktop/node
+1 desktop/node
+1 rust unit test shard + native + desktop/node
+1 rust unit test shard + foundations

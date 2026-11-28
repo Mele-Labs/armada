@@ -1,0 +1,10 @@
+# ps while M/base built with RUSTC_WRAPPER= (empty). Mine are pids 71693 and 74706: parent 71594 is `cargo build --workspace --locked` itself, with no sccache between. The other rows are other Jobs, which run through sccache or not as they choose.
+ 9157  9154 /opt/homebrew/bin/rustc --crate-name fleet --edition=2021 crates/fleet/src/lib.rs --error-format=j
+10689 10688 /opt/homebrew/bin/rustc --crate-name fleet --edition=2021 crates/fleet/src/lib.rs --error-format=j
+12381 12380 /opt/homebrew/bin/rustc --crate-name pocket --edition=2021 crates/pocket/src/lib.rs --error-format
+71693 71594 rustc --crate-name fleet --edition=2021 crates/fleet/src/lib.rs --error-format=json --json=diagnos
+74336 74335 /opt/homebrew/bin/rustc --crate-name fleet --edition=2021 crates/fleet/src/lib.rs --error-format=j
+74706 71594 rustc --crate-name pocket --edition=2021 crates/pocket/src/lib.rs --error-format=json --json=diagn
+# ~/.cargo/config.toml:
+[build]
+rustc-wrapper = "/opt/homebrew/bin/sccache"

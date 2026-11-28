@@ -1,0 +1,94 @@
+# load_before  59.65 50.19 37.69 
+# start 1795837148.249 tree=2311602bdd8c343f554a1ee531ae3d72f0090714 base=5a0c99c26f attempt=1
+# run_started 1795838619.001
+# ended 1795839485.823
+# exit 0
+# load_after  18.99 20.77 23.93 
+waiting for a Check slot: the fifteen-minute load is 38, at or over 24, so Checks run one at a time
+check build — cargo build --workspace --locked
+   Compiling ipc v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/ipc)
+   Compiling store v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/store)
+   Compiling adapters v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/adapters)
+   Compiling config v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/config)
+   Compiling api v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/api)
+   Compiling fleet v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/fleet)
+warning: unused import: `KeptAttachment`
+  --> crates/fleet/src/gate_holding.rs:14:21
+   |
+14 | use store::{Holder, KeptAttachment, KeptGate, KeptPlan, Store, CHECKS_GREEN, PLAN_APPROVED};
+   |                     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `across`
+  --> crates/fleet/src/clashing.rs:21:22
+   |
+21 | pub(crate) use all::{across, moved};
+   |                      ^^^^^^
+
+warning: unused import: `HostedSessions`
+  --> crates/fleet/src/session_host/replacing.rs:31:11
+   |
+31 | use api::{HostedSessions, Refusal};
+   |           ^^^^^^^^^^^^^^
+
+warning: unused import: `context_reading`
+   --> crates/fleet/src/sessioning.rs:122:23
+    |
+122 | pub(crate) use wire::{context_reading, mod_copy_version, mod_is_older};
+    |                       ^^^^^^^^^^^^^^^
+
+warning: unused variable: `bucket`
+   --> crates/fleet/src/sessioning/marking.rs:248:9
+    |
+248 |     let bucket = bucket_of(state);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_bucket`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `send_hosted_ahead` is never used
+   --> crates/fleet/src/session_host/serving/sending.rs:194:25
+    |
+ 18 | / impl<H, V, W> Fleet<H, V, W>
+ 19 | | where
+ 20 | |     H: AgentHarness + Send + Sync + 'static,
+ 21 | |     H::Error: std::error::Error + Send + Sync + 'static,
+...   |
+ 25 | |     W: WorkProduct + Send + Sync + 'static,
+ 26 | |     W::Error: std::error::Error + Send + Sync + 'static,
+    | |________________________________________________________- method in this implementation
+...
+194 |       pub(super) async fn send_hosted_ahead(
+    |                           ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `fleet` (lib) generated 6 warnings (run `cargo fix --lib -p fleet` to apply 5 suggestions)
+   Compiling pocket v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/pocket)
+   Compiling armada v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/armada)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `armada` (bin "armada") generated 1 warning
+   Compiling testkit v0.0.0 (/private/tmp/armada-red/shared-builds/s2/M/p4107-r1/src/crates/testkit)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14m 27s
+build passed
+     2337.53 real       511.56 user        30.23 sys
+          5511856128  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             2822305  page reclaims
+              103516  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   3  messages sent
+                   4  messages received
+                  12  signals received
+               10037  voluntary context switches
+             1400801  involuntary context switches
+         12486533653  instructions retired
+          8432689250  cycles elapsed
+             8798880  peak memory footprint

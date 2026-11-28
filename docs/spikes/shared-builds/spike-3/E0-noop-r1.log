@@ -1,0 +1,81 @@
+# E0-noop rep 1  wt=/tmp/armada-red/shared-builds/s3/A target=TA commit=bc6018a03f load= 18.48 22.21 22.92   date=Fri Nov 27 21:31:37 EST 2026
+# cmd: nice -n 10 cargo build --workspace --locked
+# env RUSTC_WRAPPER='' CARGO_TARGET_DIR='/tmp/armada-red/shared-builds/s3/TA' CARGO_INCREMENTAL='<unset>'
+   Compiling fleet v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/fleet)
+warning: unused import: `KeptAttachment`
+  --> crates/fleet/src/gate_holding.rs:14:21
+   |
+14 | use store::{Holder, KeptAttachment, KeptGate, KeptPlan, Store, CHECKS_GREEN, PLAN_APPROVED};
+   |                     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `across`
+  --> crates/fleet/src/clashing.rs:21:22
+   |
+21 | pub(crate) use all::{across, moved};
+   |                      ^^^^^^
+
+warning: unused import: `HostedSessions`
+  --> crates/fleet/src/session_host/replacing.rs:31:11
+   |
+31 | use api::{HostedSessions, Refusal};
+   |           ^^^^^^^^^^^^^^
+
+warning: unused import: `context_reading`
+   --> crates/fleet/src/sessioning.rs:122:23
+    |
+122 | pub(crate) use wire::{context_reading, mod_copy_version, mod_is_older};
+    |                       ^^^^^^^^^^^^^^^
+
+warning: unused variable: `bucket`
+   --> crates/fleet/src/sessioning/marking.rs:248:9
+    |
+248 |     let bucket = bucket_of(state);
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_bucket`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `send_hosted_ahead` is never used
+   --> crates/fleet/src/session_host/serving/sending.rs:194:25
+    |
+ 18 | / impl<H, V, W> Fleet<H, V, W>
+ 19 | | where
+ 20 | |     H: AgentHarness + Send + Sync + 'static,
+ 21 | |     H::Error: std::error::Error + Send + Sync + 'static,
+...   |
+ 25 | |     W: WorkProduct + Send + Sync + 'static,
+ 26 | |     W::Error: std::error::Error + Send + Sync + 'static,
+    | |________________________________________________________- method in this implementation
+...
+194 |       pub(super) async fn send_hosted_ahead(
+    |                           ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `fleet` (lib) generated 6 warnings (run `cargo fix --lib -p fleet` to apply 5 suggestions)
+   Compiling armada v0.0.0 (/private/tmp/armada-red/shared-builds/s3/A/crates/armada)
+warning: linker stderr: ld: __eh_frame section too large (max 16MB) to encode dwarf unwind offsets in compact unwind table, performance of exception handling might be affected
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `armada` (bin "armada") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.60s
+       26.85 real        15.25 user         5.09 sys
+          2904326144  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              516864  page reclaims
+              209044  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   4  signals received
+                2609  voluntary context switches
+              184294  involuntary context switches
+          3160900534  instructions retired
+          1284025497  cycles elapsed
+            94028496  peak memory footprint

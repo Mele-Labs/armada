@@ -1,0 +1,1 @@
+        FAIL  (5821/9137) fleet tests::session_auto::every_slot_the_session_holds_is_its_own_for_an_edit_and_a_shell_line

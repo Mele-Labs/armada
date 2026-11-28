@@ -1,0 +1,11 @@
+experiment,rep,target,wall_s,cargo_s,user_s,sys_s,crates_compiled,load1,load15,commit,ws_crates_compiled,exit,cmd
+E0-cold,1,TA,1611.93,1611.0,759.49,64.45,295,19.67,28.01,bc6018a03f,15,0,"nice -n 10 cargo build --workspace --locked"
+E0-noop,1,TA,26.85,26.6,15.25,5.09,2,18.48,22.92,bc6018a03f,2,0,"nice -n 10 cargo build --workspace --locked"
+E0-noop,2,TA,0.69,0.6,0.24,0.18,0,15.26,22.47,bc6018a03f,0,0,"nice -n 10 cargo build --workspace --locked"
+E0-noop,3,TA,0.45,0.3,0.23,0.14,0,15.26,22.47,bc6018a03f,0,0,"nice -n 10 cargo build --workspace --locked"
+E2-build-B-on-TB,1,TB,1227.66,1227.0,442.99,23.17,9,19.87,22.44,bc6018a03f,9,0,"nice -n 10 cargo build --workspace --locked -v"
+E1-B-on-TA,1,TA,649.04,648.0,470.77,21.50,9,9.52,18.28,bc6018a03f,9,0,"nice -n 10 cargo build --workspace --locked -v"
+E1-pingpong-A-on-TA,1,TA,2248.25,2247.0,538.62,27.63,9,26.76,17.59,bc6018a03f,9,0,"nice -n 10 cargo build --workspace --locked -v"
+E1-newer-mtime,1,TC,513.09,512.0,15.12,2.38,11,59.73,35.69,bc6018a03f,4,0,"nice -n 10 cargo build -p core-model -p adapter-traits -p verification -p checks-runner --locked -v"
+E1-concurrent-B-testkit,1,TA,2187.19,2187.0,220.14,29.69,105,20.32,37.77,bc6018a03f,6,0,"nice -n 10 cargo build -p testkit --locked"
+E1-concurrent-A-pocket,1,TA,2451.59,2451.0,161.17,10.63,76,20.32,37.77,bc6018a03f,3,0,"nice -n 10 cargo build -p pocket --locked"

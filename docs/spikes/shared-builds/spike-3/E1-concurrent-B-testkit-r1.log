@@ -1,0 +1,129 @@
+# E1-concurrent-B-testkit rep 1  wt=/tmp/armada-red/shared-builds/s3/B target=TA commit=bc6018a03f load= 20.32 35.25 37.77   date=Fri Nov 27 22:56:04 EST 2026
+# cmd: nice -n 10 cargo build -p testkit --locked
+# env RUSTC_WRAPPER='' CARGO_TARGET_DIR='/tmp/armada-red/shared-builds/s3/TA' CARGO_INCREMENTAL='<unset>'
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling libc v0.2.189
+   Compiling syn v3.0.3
+   Compiling jobserver v0.1.35
+   Compiling cc v1.4.4
+   Compiling bitflags v2.13.1
+   Compiling getrandom v0.3.4
+   Compiling getrandom v0.2.17
+   Compiling bytemuck_derive v1.12.1
+   Compiling bytemuck v1.25.2
+   Compiling rand_core v0.9.5
+   Compiling zerovec-derive v0.11.6
+   Compiling zerovec v0.11.8
+   Compiling rand_chacha v0.9.0
+   Compiling displaydoc v0.2.7
+   Compiling rand v0.9.5
+   Compiling serde_derive v1.0.229
+   Compiling errno v0.3.14
+   Compiling signal-hook-registry v1.4.8
+   Compiling serde v1.0.229
+   Compiling rand_distr v0.5.1
+   Compiling tokio-macros v2.7.2
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.2
+   Compiling serde_json v1.0.151
+   Compiling tokio v1.53.1
+   Compiling half v2.7.1
+   Compiling tinystr v0.8.4
+   Compiling num-complex v0.4.6
+   Compiling icu_locale_core v2.3.0
+   Compiling pulp v0.22.3
+   Compiling dyn-stack v0.13.2
+   Compiling sysctl v0.6.0
+   Compiling zerotrie v0.2.5
+   Compiling potential_utf v0.1.6
+   Compiling crypto-common v0.1.7
+   Compiling raw-cpuid v11.6.0
+   Compiling icu_collections v2.3.0
+   Compiling gemm-common v0.19.0
+   Compiling digest v0.10.7
+   Compiling icu_provider v2.3.1
+   Compiling rand_core v0.6.4
+   Compiling ring v0.17.14
+   Compiling thiserror-impl v2.0.21
+   Compiling thiserror v2.0.21
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling tracing v0.1.44
+   Compiling idna_adapter v1.2.2
+   Compiling ff v0.13.1
+   Compiling tokio-util v0.7.19
+   Compiling libz-sys v1.1.29
+   Compiling h2 v0.4.19
+   Compiling rustls v0.23.45
+   Compiling group v0.13.0
+   Compiling idna v1.1.0
+   Compiling rustls-webpki v0.103.15
+   Compiling crypto-bigint v0.5.5
+   Compiling gemm-f32 v0.19.0
+   Compiling libsqlite3-sys v0.30.1
+   Compiling serde_json_path_core v0.2.2
+   Compiling hyper v1.11.0
+   Compiling gemm-f16 v0.19.0
+   Compiling elliptic-curve v0.13.8
+   Compiling url v2.5.8
+   Compiling hmac v0.12.1
+   Compiling gemm-c32 v0.19.0
+   Compiling gemm-f64 v0.19.0
+   Compiling gemm-c64 v0.19.0
+   Compiling libgit2-sys v0.17.0+1.8.1
+   Compiling tower v0.5.3
+   Compiling hyper-util v0.1.20
+   Compiling serde_json_path_macros v0.1.6
+   Compiling gemm v0.19.0
+   Compiling rfc6979 v0.4.0
+   Compiling tokio-rustls v0.26.6
+   Compiling safetensors v0.7.0
+   Compiling signature v2.2.0
+   Compiling float8 v0.6.1
+   Compiling memmap2 v0.9.11
+   Compiling cpufeatures v0.2.17
+   Compiling num_cpus v1.17.0
+   Compiling store v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/store)
+   Compiling serde_yaml_ng v0.10.0
+   Compiling rusqlite v0.32.1
+   Compiling ipc v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/ipc)
+   Compiling candle-core v0.9.2
+   Compiling sha2 v0.10.9
+   Compiling ecdsa v0.16.9
+   Compiling hyper-rustls v0.27.10
+   Compiling serde_json_path v0.7.2
+   Compiling tower-http v0.6.11
+   Compiling primeorder v0.13.6
+   Compiling serde_urlencoded v0.7.1
+   Compiling notify-types v2.1.0
+   Compiling fsevent-sys v4.1.0
+   Compiling notify v8.2.0
+   Compiling reqwest v0.12.28
+   Compiling checks-runner v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/checks-runner)
+   Compiling p256 v0.13.2
+   Compiling git2 v0.19.0
+   Compiling candle-nn v0.9.2
+   Compiling config v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/config)
+   Compiling adapters v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/adapters)
+   Compiling testkit v0.0.0 (/private/tmp/armada-red/shared-builds/s3/B/crates/testkit)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 36m 27s
+     2187.19 real       220.14 user        29.69 sys
+          1841168384  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+             3997822  page reclaims
+               89558  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                 111  signals received
+               13288  voluntary context switches
+              600806  involuntary context switches
+          3667477693  instructions retired
+          2763450438  cycles elapsed
+            84722408  peak memory footprint
