@@ -892,6 +892,48 @@ when_base_moves:
   A save that changes it is reported as frozen, waiting for a restart.
 - **A Fleet starting runs it once**, at the first tip it reads, so a move made while it was down is not missed.
 
+## Walks
+
+**`walks:` names how a repository's own app is built, listed, opened and pictured as a walk on mock data.**
+It is what lets Fleet do for any repository what it does for the native Bridge: build a Job's walk from its commit, say Building then Ready, open it on a press, keep the look the person approved and compare it on the pull request.
+`../contracts/configuration.md`, *How a repository's walks are made*. `session/showing-a-window.md`, *A native walk*.
+
+```yaml
+walks:
+  build: cargo build --release
+  binary: target/release/app
+  list: ${binary} --list-walks
+  open: ${binary} --walk ${walk} --job ${job} --url ${url} --fleet-port ${fleet_port}
+  take: --take ${name}=${walk}
+  shots: ${binary} --walk ${walk} --check --shots ${shots} --hold 0
+  against: ${binary} --walk ${walk} --check --shots ${shots} --against ${against} --out ${out} --hold 0
+  seed: target
+```
+
+- **Each command is written as a `run` is**: split into words, quotes grouping a word, no shell.
+  Fleet substitutes `${name}` into each word after the split, so a path with a space in it stays one argument.
+- **`build`** runs in a tree of the Job's commit, and `binary` is the one file it leaves there.
+  Fleet keeps that file by commit, three to a repository, and every other command is given its path as `${binary}`.
+  They run in the folder it is kept in.
+- **`list`** prints the walks the program plays, one a line.
+  A walk the Job showed that it does not name is a Failed build, told to the Job.
+- **`open`** starts one walk on the person's screen and stays up until it is closed.
+  It is given `${walk}`, `${job}`, `${url}` (the address the Job showed) and `${fleet_port}`.
+- **`take`** is added to `open` once for each variation the Job showed, given `${name}` and `${walk}`.
+  A repository without it has walks with no takes, and a Job that shows one with variations is refused.
+- **`shots`** plays a walk with no window and writes a picture a step into `${shots}`.
+- **`against`** does the same and compares with the pictures in `${against}`, writing `report.json` (`ipc::LookReport`) into `${out}`.
+  Exit 0 is the same, 1 is a drift, and any other code is a walk that could not be compared.
+- **`seed`** is optional: a folder under the tree that a first build starts from, cloned from the same folder of the repository's preview checkout.
+- **A command that names a `${...}` it is not given, or leaves out one it needs, is refused at load**, naming the key.
+  Every key but `take` and `seed` is required, and an unknown key is refused as anywhere else.
+- **No `walks:` is a repository that cannot show a native walk.**
+  `show_window` on `armada://walk/<name>` is refused, naming `walks:` in the repository's `armada.yml`.
+- **The root's to say.** A workspace's file that names `walks` is refused, because the tree Fleet builds is the repository's.
+- **Read when Fleet starts**, as `commands` is.
+  A save that changes it is reported as frozen, waiting for a restart, and a Job's own branch changing it does not change how its walk is built.
+- **A web page walk is not this.** `walk:` names the server a person walks a Job's work on, and a page is shown with `show_window` on its address.
+
 ## Still open
 
 The engineer-facing walk from "add a new repo" to a working Manifest is designed as the Set Up a Project (Manifest) journey — tracked there, not as an open item here.

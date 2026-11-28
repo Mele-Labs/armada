@@ -9,10 +9,8 @@ use std::time::Duration;
 use api::{HostedSessions, Sessions};
 use ipc::{CheckBeforePr, PrePrChecked, SessionId};
 
-use super::native_walk::{build_of, builds_with, built_all, commit, leased, shown, shown_ready, until, OTHER, URL};
-use super::session_gate::in_its_slot;
+use super::native_walk::{build_of, builds_with, built_all, commit, kept_at, leased, shown, shown_ready, until, walking_slot, OTHER, URL};
 use super::session_host::Rig;
-use crate::tests::peer::Placing;
 
 /// What a build writes as the native Bridge: it plays `walks`. For `--shots` it writes one picture of
 /// fixed bytes and the name of the build's folder, and for `--against` it writes a report, drifted where
@@ -50,7 +48,7 @@ struct Looking {
 
 /// A Job whose native walk is built and Ready, in a build that plays the two walks.
 async fn looking_at_a_walk() -> Looking {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     let slot = leased(&rig, &id).await;
     let marks = std::env::temp_dir().join(format!("looks-{}", id.as_str()));
     std::fs::create_dir_all(&marks).expect("a folder");
@@ -161,8 +159,7 @@ async fn a_second_approval_of_the_same_walk_replaces_the_older_pictures() {
 async fn pictures_that_could_not_be_taken_keep_nothing_and_the_job_is_told() {
     let it = looking_at_a_walk().await;
     let commit = it.built_at(URL).await;
-    let key = crate::walk_builds::key_of(&it.rig.fleet.session_and_hosting(it.id.as_str()).await.expect("hosted").1.manifest_id);
-    let binary = crate::walk_builds::binary_of(&it.rig.fleet.host().home, &key, &commit);
+    let binary = kept_at(&it.rig, &commit);
     std::fs::write(&binary, "#!/bin/sh\nexit 2\n").expect("a binary that cannot play");
 
     it.rig.send(&it.id, &format!("Shipped: {URL}")).await;

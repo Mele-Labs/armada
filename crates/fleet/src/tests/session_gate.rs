@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use api::HostedSessions;
 
-use super::session_host::{denied, eventually, reason, rig_placing, Rig};
+use super::session_host::{denied, eventually, reason, rig_fitted, rig_placing, Rig};
 use crate::tests::peer::Placing;
 
 /// A lease record naming `pid` as its holder, as `armada worktree lease` writes
@@ -36,7 +36,18 @@ pub(super) fn started(pid: u32) -> String {
 }
 
 pub(super) async fn in_its_slot(peers: &Arc<Placing>) -> (Rig, ipc::SessionId) {
-    let rig = rig_placing(Some(Arc::clone(peers)));
+    in_its_slot_fitted(peers, |_| {}).await
+}
+
+/// [`in_its_slot`] over fittings the test changes first: a Manifest that declares what the case is about.
+pub(super) async fn in_its_slot_fitted(
+    peers: &Arc<Placing>,
+    fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>),
+) -> (Rig, ipc::SessionId) {
+    let rig = rig_fitted(|fittings| {
+        fittings.peers = peers.clone();
+        fit(fittings);
+    });
     let id = rig.start().await;
     rig.send(&id, "change a file").await;
     rig.stand_in.init(0);

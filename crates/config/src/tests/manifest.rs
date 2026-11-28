@@ -18,6 +18,7 @@ mod servers;
 mod standing;
 mod test_map;
 mod tracker;
+mod walks;
 mod when_base_moves;
 mod workspaces;
 mod worktrees;
