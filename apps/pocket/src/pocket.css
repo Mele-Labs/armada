@@ -122,6 +122,72 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   }
 }
 
+/* A busy ring: a bright arc with a fading tail circling an element's border, as the native Bridge draws it. */
+@property --pk-ring-turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+:root {
+  --pk-ring-seconds: 6s;
+  --pk-ring-width: 2px;
+}
+.pk-ring {
+  position: relative;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 var(--pk-ring-width)
+    color-mix(in srgb, var(--pk-ring-ink, var(--status-running)) 18%, transparent);
+}
+.pk-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: var(--pk-ring-width);
+  border-radius: inherit;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--pk-ring-turn),
+    transparent 0deg,
+    var(--pk-ring-ink, var(--status-running)) 130deg,
+    color-mix(in srgb, var(--pk-ring-ink, var(--status-running)) 25%, white) 140deg,
+    transparent 141deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  animation: pk-ring-turn var(--pk-ring-seconds) linear infinite;
+}
+@keyframes pk-ring-turn {
+  to {
+    --pk-ring-turn: 360deg;
+  }
+}
+/* A waiting line: a small rounded box for the ring to travel. */
+.pk-ring.pk-ring--line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  padding: var(--space-2) var(--space-3);
+}
+.pk-ring--dot {
+  display: inline-block;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  vertical-align: middle;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pk-ring::before {
+    animation: none;
+  }
+}
+
 .pk-bar {
   display: grid;
   gap: var(--space-2);

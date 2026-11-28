@@ -290,6 +290,10 @@ describe("Pair, through the store", {
       );
       expect(open?.getAttribute("href")).toBe(CODE.verification_uri);
       expect(text()).toContain("Waiting for GitHub");
+      const waiting = host.querySelector('[role="status"].pk-signin__wait');
+      expect(waiting?.classList.contains("pk-ring")).toBe(true);
+      expect(waiting?.querySelector("svg")).toBeNull();
+      expect(host.querySelector(".pk-spin")).toBeNull();
     });
 
     it("polls at the code's interval through pending, and takes the interval slow_down gives", async () => {
