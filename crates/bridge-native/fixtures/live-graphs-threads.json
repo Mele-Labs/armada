@@ -21,6 +21,18 @@
           }
         },
         {
+          "kind": "document",
+          "id": "document:checkout-graphs:r1",
+          "at": "2026-11-10T22:00:02Z",
+          "page": "checkout-graphs",
+          "title": "Checkout after 4.12",
+          "revision": 1,
+          "asked": false,
+          "for_line": {
+            "text": "What the deploy did to checkout-api, with its graphs."
+          }
+        },
+        {
           "kind": "calls",
           "id": "c-g1",
           "names": [
@@ -70,18 +82,6 @@
               "kind": "agent"
             },
             "text": "The canary takes a tenth of the traffic, and its latency climbs faster with payload size than stable's."
-          }
-        },
-        {
-          "kind": "document",
-          "id": "document:checkout-graphs:r1",
-          "at": "2026-11-10T22:04:00Z",
-          "page": "checkout-graphs",
-          "title": "Checkout after 4.12",
-          "revision": 1,
-          "asked": false,
-          "for_line": {
-            "text": "What the deploy did to checkout-api, with its graphs."
           }
         }
       ]
