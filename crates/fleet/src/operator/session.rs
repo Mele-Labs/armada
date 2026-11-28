@@ -105,13 +105,17 @@ where
     async fn operator_session_started(self: &Arc<Self>) -> Result<String, Refusal> {
         let dir = self.operator_dir();
         std::fs::create_dir_all(&dir).map_err(|why| self.hosted_refusal("fleet.operator_session_folder", &format!("the Operator's folder could not be made: {why}")))?;
-        let model: String = self.machine_settings().now().get(keys::MODELS_OPERATOR);
+        let (model, effort): (String, String) = {
+            let now = self.machine_settings().now();
+            (now.get(keys::MODELS_OPERATOR), now.get(keys::EFFORT_OPERATOR))
+        };
         let start = StartSession {
             project: None,
             manifest_id: ManifestId::carried(""),
             title: Some(TITLE.to_string()),
             model: Some(model).filter(|model| !model.trim().is_empty()),
-            effort: None,
+            // "harness default" is no effort named: the harness picks.
+            effort: Some(effort).filter(|effort| crate::tuning::effort_of(effort).is_some()),
             mode: None,
             root: None,
             fork: None,

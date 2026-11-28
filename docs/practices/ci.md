@@ -36,6 +36,13 @@ Decided by the owner, 16 Nov 2026, when each run held a `macos-15` runner for 9 
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
 Its `timeout-minutes` is 90: on 25 Nov 2026 the crate compiled in 21 to 39 minutes across 11 runs, and two runs hit the old 60 on a slow Mac.
 
+**The native Bridge compiles once.** The tests that play a walk or a shot check start the app as a process of its own, since gpui's Mac platform must be made on the main thread and a test thread is not.
+They were integration tests in the crate's tests folder and started `CARGO_BIN_EXE_bridge-native`, so cargo built the crate twice, once as the app and once as the unit tests' harness, both at once on the runner's three cores.
+They are now in `crates/bridge-native/src/as_app/` and start the test binary itself with `BRIDGE_NATIVE_AS_APP` set; a hook in `crates/bridge-native/src/as_app.rs` runs the app's `main` before libtest's own main reads the command line.
+Measured on 25 to 27 Nov 2026, over 43 successful queue runs: the step took 22 to 50 minutes, the crate's compile 41 of the 46 on PR 4091's run, and its 2,750 tests 4. The third-party cache hit every time.
+Decided by the owner, 27 Nov 2026, over debug info off, a larger Mac runner and caching the crate's own build.
+Nearly every pull request that runs `native` changes the crate itself, 41 of 43 in that window, so running it less often would have saved nothing.
+
 **A rebuilt queue group cancels its old native job.**
 When an entry fails, the queue rebuilds every group behind it, and each pull request comes back on a new branch, `gh-readonly-queue/main/pr-<n>-<base sha>`.
 GitHub cancels nothing of the abandoned runs, and the workflow's concurrency group is keyed by commit, so their `native` jobs kept their Mac runners for most of an hour.

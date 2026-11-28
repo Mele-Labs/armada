@@ -123,6 +123,7 @@ where
         if let Some(url) = self.walk_open(session).await {
             self.walk_ended(session, &url).await;
         }
+        self.orchestrators_published(session).await;
     }
 
     /// The fast half of a close: the row says `Ended`, whatever else the session holds is given

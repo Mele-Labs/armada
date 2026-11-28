@@ -232,6 +232,7 @@ impl Job {
             create_refused: None,
             operator_read: None,
             artifact: None,
+            goal_met: None,
         });
         failed.into_iter().chain(self.items.iter().cloned()).collect()
     }

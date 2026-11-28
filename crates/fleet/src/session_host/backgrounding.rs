@@ -13,6 +13,7 @@
 //! read as resting, and excuses a stop. The agent is woken when it ends.
 
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use api::Sessions;
 use adapter_traits::{AgentHarness, Delivery, DroneEvent, TaskStatus, Vcs, WorkProduct};
@@ -57,8 +58,12 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// One thing the session's process or a subagent in it said, as it bears on its background tasks.
-    pub(super) async fn background_heard(&self, id: &str, event: &DroneEvent) {
+    pub(super) async fn background_heard(self: &Arc<Self>, id: &str, event: &DroneEvent) {
         match event {
+            DroneEvent::OutputAt { call, file } => {
+                self.hosts().of(id).state().tailing.file_told(call, file);
+                self.tail_wanted(id, call);
+            }
             DroneEvent::Called { tool, call, detail } => {
                 if let Some(form) = adapters::background_form(tool) {
                     let command = detail.whole().unwrap_or(detail.shown());
@@ -66,6 +71,8 @@ where
                 }
             }
             DroneEvent::TaskStarted { task, call, description, backgrounded: true } => {
+                self.hosts().of(id).state().tailing.task_told(call, task);
+                self.tail_wanted(id, call);
                 self.hosts().of(id).state().check_calls.backgrounded(call, task);
                 let asked = self.hosts().of(id).state().background.take(call);
                 let Some((form, command)) = asked else { return };
@@ -85,6 +92,9 @@ where
             }
             DroneEvent::TaskEnded { task, status, output, exit } => {
                 self.hosts().of(id).state().check_calls.task_ended(task);
+                if self.tail_over(id, task) {
+                    let _ = self.published_hosted(id).await;
+                }
                 self.background_ended(id, task, *status, output.as_deref(), *exit).await;
             }
             DroneEvent::BackgroundWork { outstanding } => self.background_listed(id, outstanding).await,
@@ -144,6 +154,8 @@ where
     /// them can still be running. Their rows are given back.
     pub(crate) async fn cut_off_background(&self, id: &str) -> Vec<String> {
         self.hosts().of(id).state().check_calls.ended_all();
+        self.hosts().of(id).state().tailing = Default::default();
+        self.hosts().of(id).state().activity.tails_all_gone();
         let holder = Holder::session(id);
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;

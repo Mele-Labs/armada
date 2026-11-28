@@ -122,12 +122,36 @@ impl Features for FakeDaemon {
         Ok(ipc::ModulesDrafted { project: draft.project, drafted: Vec::new(), held: Vec::new() })
     }
 
-    async fn start_sub_project(&self, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
-        Ok(ipc::SubProject { id: String::from("sp-1"), project: start.project, name: start.name, jobs: start.jobs, features: Vec::new(), started_at: ipc::Instant::carried("2026-11-26T12:00:00Z") })
+    async fn start_sub_project(self: std::sync::Arc<Self>, start: ipc::StartSubProject) -> Result<ipc::SubProject, Refusal> {
+        Ok(ipc::SubProject {
+            id: String::from("sp-1"),
+            project: start.project,
+            name: start.name,
+            goal: start.goal,
+            jobs: start.jobs,
+            features: Vec::new(),
+            orchestrator: None,
+            started_at: ipc::Instant::carried("2026-11-26T12:00:00Z"),
+            ended_at: None,
+        })
     }
 
-    async fn list_sub_projects(&self, _project: Option<String>) -> Result<ipc::SubProjects, Refusal> {
+    async fn list_sub_projects(self: std::sync::Arc<Self>, _project: Option<String>, _ended: bool) -> Result<ipc::SubProjects, Refusal> {
         Ok(ipc::SubProjects { sub_projects: Vec::new() })
+    }
+
+    async fn turn_into_orchestrator(self: std::sync::Arc<Self>, turn: ipc::TurnIntoOrchestrator) -> Result<ipc::SubProject, Refusal> {
+        Ok(ipc::SubProject {
+            id: String::from("sp-1"),
+            project: turn.project,
+            name: String::new(),
+            goal: turn.goal,
+            jobs: Vec::new(),
+            features: Vec::new(),
+            orchestrator: Some(turn.session_id),
+            started_at: ipc::Instant::carried("2026-11-26T12:00:00Z"),
+            ended_at: None,
+        })
     }
 
     async fn ungroup_sub_project(&self, _ungroup: ipc::UngroupSubProject) -> Result<(), Refusal> {
