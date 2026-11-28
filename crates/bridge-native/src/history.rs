@@ -255,8 +255,8 @@ mod tests {
     fn cmd_bracket_goes_back_through_the_places_and_cmd_close_bracket_forward(cx: &mut TestAppContext) {
         let (window, cx) = open(cx);
         assert_eq!(front(&window, cx), Front::Jobs);
-        cx.simulate_keystrokes("cmd-4");
         cx.simulate_keystrokes("cmd-5");
+        cx.simulate_keystrokes("cmd-3");
         cx.run_until_parked();
         assert_eq!(front(&window, cx), Front::Features);
         cx.simulate_keystrokes("cmd-[");
@@ -278,9 +278,9 @@ mod tests {
     #[gpui::test]
     fn a_visit_after_back_forgets_forward(cx: &mut TestAppContext) {
         let (window, cx) = open(cx);
-        cx.simulate_keystrokes("cmd-4");
-        cx.simulate_keystrokes("cmd-[");
         cx.simulate_keystrokes("cmd-5");
+        cx.simulate_keystrokes("cmd-[");
+        cx.simulate_keystrokes("cmd-3");
         cx.run_until_parked();
         cx.simulate_keystrokes("cmd-]");
         cx.run_until_parked();
@@ -298,7 +298,7 @@ mod tests {
         cx.run_until_parked();
         window.list.update(cx, |list, cx| list.open_job(&second, cx));
         cx.run_until_parked();
-        cx.simulate_keystrokes("cmd-4");
+        cx.simulate_keystrokes("cmd-5");
         cx.run_until_parked();
         assert_eq!(front(&window, cx), Front::Kit);
         cx.simulate_keystrokes("cmd-[");
@@ -322,7 +322,7 @@ mod tests {
         let (window, cx) = open(cx);
         let first = window.jobs[0].clone();
         window.list.update(cx, |list, cx| list.open_job(&first, cx));
-        cx.simulate_keystrokes("cmd-4");
+        cx.simulate_keystrokes("cmd-5");
         cx.run_until_parked();
         window.list.update(cx, |list, cx| list.gone(&[first.to_string()], cx));
         cx.run_until_parked();

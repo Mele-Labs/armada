@@ -104,6 +104,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sub_projects/ungroup",
     },
     Route {
+        operation: "turn_into_orchestrator",
+        method: "POST",
+        path: "/sub_projects/orchestrator",
+    },
+    Route {
         operation: "seed_features",
         method: "POST",
         path: "/features/seed",

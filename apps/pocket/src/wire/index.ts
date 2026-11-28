@@ -38,6 +38,7 @@ export type * from "./setup";
 export type * from "./sketch";
 export type * from "./slot-choice";
 export type * from "./style-sources";
+export type * from "./sub-projects";
 export type * from "./thought";
 export type * from "./values";
 export type * from "./walk-steps";

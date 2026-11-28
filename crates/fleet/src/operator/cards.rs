@@ -134,6 +134,7 @@ where
             create_refused: None,
             operator_read: None,
             artifact: None,
+            goal_met: None,
         };
         let shown = OperatorCard { kind: card.kind, talk_of: card.talk_of.clone(), sessions: card.sessions.clone(), picked: None, steps: Vec::new(), returned: None };
         let row = KeptTurn {

@@ -2,11 +2,15 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "Bridge only"
-description = "List the sub projects the owner started, oldest first. Give project, or leave it out for every project"
+description = "List the open sub projects the owner started, oldest first, or the ones folded away with ended. Give project, or leave it out for every project"
 notes = """
-`GET /sub_projects?project=`, answered with `SubProjects`: `sub_projects`, each a `SubProject` as `start_sub_project` answers it, oldest first.
+`GET /sub_projects?project=&ended=`, answered with `SubProjects`: `sub_projects`, each a `SubProject` as `start_sub_project` answers it, oldest first.
 
 **`project` is optional.** Left out, every project's sub projects are listed. A project that holds none answers an empty list.
+
+**`ended` is the history.** Left out or false, only the open sub projects are listed. `ended=true` lists only the ones his Agree on a Goal met? card folded away, each with `ended_at`.
+
+**An open sub project kept without an orchestrator has one started by the first read that lists it**, as `start_sub_project` starts one, and the answer names it. Fleet marks the sub project asked before the start, so it tries once: a start that fails leaves `orchestrator` absent and no later read tries again.
 
 The Jobs list draws each as a heading on top of the list, its picked Jobs nested under it, and the live Jobs that write to one of its `features` with them, read from `list_features`.
 """

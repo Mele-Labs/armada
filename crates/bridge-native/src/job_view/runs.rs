@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use chrono::{DateTime, Local, Utc};
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, Role, SharedString, Window};
+use gpui::{div, point, prelude::*, px, Animation, AnimationExt, AnyElement, BoxShadow, Context, Div, FontWeight, Hsla, Role, SharedString, Window};
 use ipc::{SessionCheckState, SessionRow, ToolSubagent, ToolSubagentState};
 
 use super::acts::refusal;
@@ -17,7 +17,13 @@ use super::menus::{notice_entries, teach_entries};
 use super::rows::{check_look, chevron, elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, Look, Token};
+
+/// The newest lines a running call's command has written, by the call's id. None where it has written none or is no
+/// background command.
+fn tail_of(tails: &[ipc::TaskTail], call: &str) -> Vec<SharedString> {
+    tails.iter().find(|one| one.call == call).map(|one| one.lines.iter().map(|line| SharedString::from(line.clone())).collect()).unwrap_or_default()
+}
 
 /// The first sentence of a notice: up to the first line break or `. `, without a closing full stop.
 fn summary_of(text: &str) -> String {
@@ -95,6 +101,220 @@ impl Call {
     }
 }
 
+/// One call of a run as the strip and the headline read it.
+struct Seen {
+    /// Its place among the run's rows.
+    at: usize,
+    kind: Kind,
+    phrase: String,
+    /// How long it took, or has taken while it runs.
+    time: String,
+    running: bool,
+}
+
+/// The Job a message went to, by title else name.
+fn peer_name(message: &ipc::ToolMessage) -> String {
+    message.to.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| message.to.name.clone())
+}
+
+/// The hue a kind's tile takes; the rest are drawn plain.
+fn hue_of(kind: Kind) -> Option<Token> {
+    match kind {
+        Kind::Read | Kind::Search | Kind::Web => Some(token::TOOL_LOOK),
+        Kind::Edit => Some(token::TOOL_CHANGE),
+        Kind::Run => Some(token::TOOL_RUN),
+        Kind::Agent | Kind::Message | Kind::Other => None,
+    }
+}
+
+/// A hue a third of the way to white, for a glyph on its own 15% fill.
+fn lightened(hue: Hsla) -> Hsla {
+    Hsla { l: hue.l + (1. - hue.l) * 0.3, ..hue }
+}
+
+/// One call's tile (take A): 20 square, its hue at 15% and its glyph in the hue lightened. The running call's is blue,
+/// edged at 45%, with a loader that turns.
+fn tile(look: &Look, kind: Kind, running: bool, key: &str) -> Div {
+    let (fill, ink, edge) = if running {
+        let blue = look.color(token::STATUS_RUNNING);
+        (blue.opacity(0.15), lightened(blue), blue.opacity(0.45))
+    } else {
+        match hue_of(kind) {
+            Some(hue) => {
+                let hue = look.color(hue);
+                (hue.opacity(0.15), lightened(hue), gpui::transparent_black())
+            }
+            None => (look.color(token::FG_MUTED).opacity(0.06), look.color(token::FG_MUTED), gpui::transparent_black()),
+        }
+    };
+    let mark = if running {
+        glyph(look, "loader-circle", Size::Small, ink)
+            .with_animation(SharedString::from(format!("spin:{key}")), Animation::new(Duration::from_secs(1)).repeat(), |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))))
+            .into_any_element()
+    } else {
+        tool_icons::icon(kind, false, SharedString::from(format!("icon:{key}")), ink, look.length(token::SPACE_3))
+    };
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .size(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+        .rounded(look.length(token::RADIUS_MD))
+        .bg(fill)
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(edge)
+        .child(mark)
+}
+
+/// How long a headline takes to slide in.
+const SLIDE_MS: u64 = 350;
+
+thread_local! {
+    /// When each headline was first drawn, by its key.
+    static SLID_FROM: std::cell::RefCell<std::collections::HashMap<String, std::time::Instant>> = std::cell::RefCell::default();
+}
+
+/// How far a headline has slid in, 0 to 1, from when it was first drawn. A list item's redraw resets an animation's
+/// own start, so the headline reads the clock itself and a scroll back to it moves nothing.
+fn slide_phase(key: &str) -> f32 {
+    let from = SLID_FROM.with(|from| *from.borrow_mut().entry(key.to_string()).or_insert_with(std::time::Instant::now));
+    gpui::ease_in_out((from.elapsed().as_millis() as f32 / SLIDE_MS as f32).min(1.))
+}
+
+/// A run's two newest thoughts, newest first, each as its row id and words.
+fn latest_thoughts(rows: &[SessionRow]) -> (Option<(&str, &str)>, Option<(&str, &str)>) {
+    let mut thoughts = rows.iter().rev().filter_map(|row| match row {
+        SessionRow::Reasoning { id, text, .. } => Some((id.as_str(), text.as_str())),
+        _ => None,
+    });
+    (thoughts.next(), thoughts.next())
+}
+
+/// What a live card's headline says: the run's newest thought, else the running call's phrase, else the last call's.
+fn headline_said(latest: Option<&str>, seen: &[Seen]) -> String {
+    latest.map(str::to_string).or_else(|| seen.iter().find(|one| one.running).or(seen.last()).map(|one| one.phrase.clone())).unwrap_or_default()
+}
+
+/// The card's headline (take A): 14 at 600, wrapping. A newer one slides in from below while the old goes up; while the
+/// agent thinks it pulses in opacity, where the mock's shimmer needs a gradient clipped to text.
+fn headline(look: &Look, key: &str, text: &str, before: Option<&str>, thinking: bool) -> AnyElement {
+    let lift = look.length(token::SPACE_3) + look.length(token::SPACE_1) * 0.5;
+    let line = |text: &str| {
+        div()
+            .w_full()
+            .min_w_0()
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(text.lines().next().unwrap_or("").to_string())
+    };
+    let now = if thinking {
+        line(text)
+            .with_animation(SharedString::from(format!("thinking:{key}")), Animation::new(look.duration(token::DURATION_PULSE)).repeat(), |line, delta| {
+                line.opacity(0.55 + 0.45 * (0.5 + 0.5 * (delta * std::f32::consts::TAU).sin()))
+            })
+            .into_any_element()
+    } else {
+        line(text).into_any_element()
+    };
+    // Settled, the headline sits in the flow and wraps to as many lines as it needs; sliding in, it is clipped to one.
+    if slide_phase(key) >= 1. {
+        return div().flex_1().min_w_0().child(now).into_any_element();
+    }
+    let layer = |inner: AnyElement| div().absolute().left_0().w_full().child(inner);
+    let stack = div().relative().flex_1().min_w_0().h(look.length(token::LEADING_SM)).overflow_hidden();
+    let (coming, going) = (key.to_string(), key.to_string());
+    stack
+        .children(before.map(|old| {
+            layer(line(old).into_any_element()).with_animation(SharedString::from(format!("slide-out:{key}")), Animation::new(Duration::from_millis(SLIDE_MS)), move |layer, _| {
+                let phase = slide_phase(&going);
+                layer.top(-lift * phase).opacity(1. - phase)
+            })
+        }))
+        .child(layer(now).with_animation(SharedString::from(format!("slide-in:{key}")), Animation::new(Duration::from_millis(SLIDE_MS)), move |layer, _| {
+            let phase = slide_phase(&coming);
+            layer.top(lift * (1. - phase)).opacity(phase)
+        }))
+        .into_any_element()
+}
+
+/// The time a call or a run took, counting each frame while it runs.
+fn timer(job: &str, key: &str, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, look: &Look) -> AnyElement {
+    let (since, job) = (at.clone(), job.to_string());
+    let time = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE));
+    if running {
+        // The count goes on each frame the row is drawn.
+        time.with_animation(SharedString::from(format!("count:{key}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
+            time.child(elapsed_words(since.as_str(), &running_now(&job).to_rfc3339()).unwrap_or_default())
+        })
+        .into_any_element()
+    } else {
+        time.children(end.and_then(|end| elapsed_words(at.as_str(), end.as_str()))).into_any_element()
+    }
+}
+
+/// A thought in an open run: plain words above the calls that followed it.
+fn thought_line(id: &str, text: &str, look: &Look) -> AnyElement {
+    labelled(
+        div()
+            .id(SharedString::from(format!("thought:{id}")))
+            .min_w_0()
+            .pt(look.length(token::SPACE_2))
+            .pb(look.length(token::SPACE_1) * 0.5)
+            .text_size(look.length(token::TEXT_2XS) + gpui::px(0.5))
+            .line_height(look.length(token::LEADING_SM))
+            .text_color(look.color(token::FG_MUTED))
+            .child(text.to_string()),
+        Role::Note,
+        text.to_string(),
+    )
+    .into_any_element()
+}
+
+/// One call of an open run: its tile, its phrase and its time, then what stays under it: a message's summary, the
+/// picture a `Read` looked at.
+#[allow(clippy::too_many_arguments)]
+fn call_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, marks: Vec<(std::ops::Range<usize>, gpui::HighlightStyle)>, look: &Look) -> AnyElement {
+    let Call { kind, phrase, working_on: _, peer, note, below } = call;
+    let (peer, named) = peer.unzip();
+    // A brief is not a verb, so a running agent's row says it runs.
+    let said = if running && kind == Kind::Agent { format!("{phrase}, running") } else { phrase.clone() };
+    let said = named.map_or(said.clone(), |named| format!("{said} {named}"));
+    // The tile and the time stay at the top while the phrase wraps; a one-line phrase is centred on the tile.
+    let side = look.length(token::SPACE_4) + look.length(token::SPACE_1);
+    let first = div()
+        .flex()
+        .items_start()
+        .gap(look.length(token::SPACE_2))
+        .min_w_0()
+        .child(tile(look, kind, running, key))
+        .child(
+            div()
+                .when(peer.is_none(), |words| words.flex_1())
+                .min_w_0()
+                .min_h(side)
+                .flex()
+                .items_center()
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_SM))
+                .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
+                .child(gpui::StyledText::new(SharedString::from(phrase)).with_highlights(marks)),
+        )
+        .children(peer.map(|peer| div().flex_1().min_w_0().min_h(side).flex().items_center().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).child(peer)))
+        .child(div().flex_none().h(side).flex().items_center().child(timer(job, key, at, end, running, look)));
+    let under = look.length(token::SPACE_4) + look.length(token::SPACE_1) + look.length(token::SPACE_2);
+    let note = note.map(|line| div().pl(under).min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(line));
+    let below = below.map(|below| div().pl(under).pt(look.length(token::SPACE_1)).min_w_0().child(below));
+    labelled(
+        div().id(SharedString::from(format!("call:{key}"))).flex().flex_col().min_w_0().py(look.length(token::SPACE_1) * 0.5).child(first).children(note).children(below),
+        Role::Row,
+        said,
+    )
+    .into_any_element()
+}
+
 /// One call (take A, approved 10 Nov): a rail in its kind's colour, its kind's icon, the phrase and the
 /// time it took. While it runs a band travels down the rail, the icon moves, the time counts and a
 /// second line says what it works on. Done, it is one grey line, the icon on its last frame.
@@ -125,17 +345,7 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
             ),
         );
     }
-    let (since, job) = (at.clone(), job.to_string());
-    let time = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE));
-    let time = if running {
-        // The count goes on each frame the row is drawn.
-        time.with_animation(SharedString::from(format!("count:{key}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
-            time.child(elapsed_words(since.as_str(), &running_now(&job).to_rfc3339()).unwrap_or_default())
-        })
-        .into_any_element()
-    } else {
-        time.children(end.and_then(|end| elapsed_words(at.as_str(), end.as_str()))).into_any_element()
-    };
+    let time = timer(job, key, at, end, running, look);
     let icon_ink = look.color(if running { ink } else { token::FG_SUBTLE });
     // A brief is not a verb, so a running agent's row says it runs.
     let said = if running && kind == Kind::Agent { format!("{phrase}, running") } else { phrase.clone() };
@@ -318,6 +528,9 @@ impl JobView {
         self.fold(ix, key, format!("Check {name}, latest {word}"), head, Some(body), page, look, cx)
     }
 
+    /// A run of calls as one card (take A, approved 26 Nov). Live: the newest thought as the headline, a strip of
+    /// one tile per call, and the running call in a box under it. Done: the strip, the run's words and its time on one
+    /// line. A press opens either on the thoughts and calls in order.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn calls(
         &self,
@@ -340,9 +553,173 @@ impl JobView {
             .collect();
         let refs: Vec<&str> = texts.iter().map(String::as_str).filter(|text| !text.is_empty()).collect();
         let label = format!("Tool calls: {}", calls::names_of(&refs).join(", "));
-        // Each call ended when the next began; the last, when the item after the run did. A thought after the last call
-        // leaves it the running one, as the agent is still at it.
-        let last = rows.iter().rposition(|row| !matches!(row, SessionRow::Reasoning { .. })).unwrap_or(0);
+        let job = self.shown.clone().unwrap_or_default();
+        let key = format!("calls:{id}");
+        let open = page.opened.contains(&key);
+        // A thought last in a live run means no call runs: the agent is thinking.
+        let thinking = live && matches!(rows.last(), Some(SessionRow::Reasoning { .. }));
+        let running_at = rows.iter().rposition(|row| !matches!(row, SessionRow::Reasoning { .. })).filter(|_| live && !thinking);
+        let (latest, before) = latest_thoughts(rows);
+        let now = running_now(&job).to_rfc3339();
+        // Each call as the strip draws it: its kind, its phrase and the time it took (so far, while it runs).
+        let seen: Vec<Seen> = rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| !matches!(row, SessionRow::Reasoning { .. }))
+            .map(|(at, row)| {
+                let running = running_at == Some(at);
+                let ends = rows.get(at + 1).map(SessionRow::at).or(end);
+                let time = if running { elapsed_words(row.at().as_str(), &now) } else { ends.and_then(|ends| elapsed_words(row.at().as_str(), ends.as_str())) };
+                let (kind, phrase) = match row {
+                    SessionRow::WindowAsk { question, .. } => (Kind::Other, question.clone()),
+                    SessionRow::Tool { message: Some(message), .. } => (Kind::Message, format!("Message to {}", peer_name(message))),
+                    // Fleet's own phrase for the call, where its input carried one; else the one made from its line.
+                    SessionRow::Tool { description: Some(said), .. } if !said.trim().is_empty() => (calls::kind_of(&texts[at]), said.clone()),
+                    _ => (calls::kind_of(&texts[at]), calls::call_line(&texts[at], running)),
+                };
+                Seen { at, kind, phrase, time: time.unwrap_or_default(), running }
+            })
+            .collect();
+        // A tile names its call to a screen reader, and its phrase and time to a pointer.
+        let mut tiles = Some(
+            seen.iter()
+                .map(|one| {
+                    let name = SharedString::from(format!("call-tile:{id}:{}", one.at));
+                    let said = if one.time.is_empty() { one.phrase.clone() } else { format!("{} \u{b7} {}", one.phrase, one.time) };
+                    labelled(tile(look, one.kind, one.running, &name).id(name.clone()).tooltip(tip(said)), Role::ListItem, one.phrase.clone()).into_any_element()
+                })
+                .collect::<Vec<AnyElement>>(),
+        );
+        let spot = self.spot(page, &key, cx);
+        let toggled = key.clone();
+        let first = rows.first().map(SessionRow::at);
+        let head = if live {
+            let headline_key = latest.map_or_else(|| format!("call:{id}:{}", running_at.unwrap_or(0)), |(thought, _)| thought.to_string());
+            let said = headline_said(latest.map(|(_, text)| text), &seen);
+            vec![
+                headline(look, &headline_key, &said, latest.and(before).map(|(_, text)| text), thinking),
+                div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().children(first.map(|at| timer(&job, &format!("run:{id}"), at, None, true, look))).into_any_element(),
+                div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(chevron(look, open)).into_any_element(),
+            ]
+        } else {
+            let total = first.and_then(|first| elapsed_words(first.as_str(), end.or(rows.last().map(SessionRow::at)).map_or("", ipc::Instant::as_str)));
+            vec![
+                div().flex().flex_none().items_center().gap(look.length(token::SPACE_1)).min_w_0().max_w(gpui::relative(0.6)).overflow_hidden().children(tiles.take().unwrap_or_default()).into_any_element(),
+                div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(calls::calls_line(&refs, false)).into_any_element(),
+                div()
+                    .flex_none()
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .children(total)
+                    .into_any_element(),
+                div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(chevron(look, open)).into_any_element(),
+            ]
+        };
+        let head = labelled(
+            div()
+                .id(SharedString::from(key.clone()))
+                .track_focus(&spot.focus)
+                .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                .rounded(look.length(token::RADIUS_MD))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .w_full()
+                .min_w_0()
+                .cursor_pointer()
+                .children(head)
+                .on_click(cx.listener(move |this, _, _, cx| this.toggle(ix, toggled.clone(), cx))),
+            Role::Button,
+            label.clone(),
+        );
+        let hue = look.color(token::STATUS_RUNNING);
+        let mut shadows = look.shadows(token::SHADOW_CARD);
+        if live {
+            // The glow is approved for the live card alone (take A).
+            shadows.push(BoxShadow { color: hue.opacity(0.08), offset: point(px(0.), px(0.)), blur_radius: look.length(token::SPACE_4), spread_radius: px(0.), inset: false });
+        }
+        let mut card = div()
+            .id(SharedString::from(format!("calls-card:{id}")))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+            .w_full()
+            .min_w_0()
+            .px(look.length(token::SPACE_3) + look.length(token::SPACE_1) * 0.5)
+            .py(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_LG) + look.length(token::SPACE_1))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(if live { hue.opacity(0.45) } else { look.color(token::BORDER_SUBTLE) })
+            .bg(look.color(token::BG_RAISED))
+            .shadow(shadows)
+            .child(head);
+        if live {
+            card = card.child(div().flex().flex_wrap().gap(look.length(token::SPACE_1)).min_h(look.length(token::SPACE_4) + look.length(token::SPACE_1)).children(tiles.take().unwrap_or_default()));
+            // The box under the strip, while a call runs: what it works on, its count and Stop.
+            if let Some(one) = seen.iter().find(|one| one.running) {
+                let doing = calls::working_on(&texts[one.at]).unwrap_or_else(|| one.phrase.clone());
+                let since = rows[one.at].at();
+                // What the command has written lately, from the row's activity: Fleet reads it off the output file.
+                let written = self.shown.as_deref().and_then(|job| self.record(job, cx)).and_then(|job| job.activity.as_ref()).map(|activity| tail_of(&activity.tails, rows[one.at].id())).unwrap_or_default();
+                card = card.child(
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("calls-running:{id}")))
+                            .flex()
+                            .flex_col()
+                            .min_w_0()
+                            .pl(look.length(token::SPACE_2) + look.length(token::SPACE_1) * 0.5)
+                            .pr(look.length(token::SPACE_1))
+                            .py(look.length(token::SPACE_1))
+                            .rounded(look.length(token::RADIUS_LG))
+                            .border(look.length(token::BORDER_WIDTH))
+                            .border_color(look.color(token::BORDER_SUBTLE))
+                            .bg(look.color(token::BG_SUNKEN))
+                            .font_family(mono(look))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .line_height(look.length(token::LEADING_SM))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_start()
+                                    .gap(look.length(token::SPACE_2))
+                                    .min_w_0()
+                                    .child(div().flex_1().min_w_0().min_h(look.length(token::H_CONTROL_SM)).flex().items_center().text_color(look.color(token::FG_DEFAULT)).child(div().min_w_0().child(doing.clone())))
+                                    .child(div().flex_none().h(look.length(token::H_CONTROL_SM)).flex().items_center().child(timer(&job, &format!("box:{id}"), since, None, true, look)))
+                                    .child(self.stop_button(look, cx)),
+                            )
+                            .children(written.into_iter().enumerate().map(|(at, line)| {
+                                div().id(SharedString::from(format!("calls-output:{id}:{at}"))).min_w_0().pr(look.length(token::SPACE_1)).truncate().text_color(look.color(token::FG_MUTED)).child(line)
+                            })),
+                        Role::Status,
+                        doing,
+                    ),
+                );
+            }
+        }
+        if open {
+            card = card.child(self.calls_open(ix, id, rows, &texts, running_at, end, page, look, cx));
+        }
+        labelled(card, Role::Group, label).into_any_element()
+    }
+
+    /// An open run: each thought as a plain line above the calls that followed it, each call a compact row that keeps
+    /// what a call has always done: focus, a press or Return that opens what it names, and Teach on a right press.
+    #[allow(clippy::too_many_arguments)]
+    fn calls_open(
+        &self,
+        ix: usize,
+        id: &str,
+        rows: &[SessionRow],
+        texts: &[String],
+        running_at: Option<usize>,
+        end: Option<&ipc::Instant>,
+        page: &Page,
+        look: &Look,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         // The Check run each shell call started, by the call's row id.
         let ran: HashMap<String, (String, u64)> = self
@@ -354,13 +731,11 @@ impl JobView {
             })
             .collect();
         let lines = rows.iter().enumerate().map(|(at, row)| {
-            let running = live && at == last;
-            let end = rows.get(at + 1).map(SessionRow::at).or(end);
-            // A thought between two calls is the run's, drawn as the thread draws one alone.
-            if let SessionRow::Reasoning { id: thought, at: thought_at, text } = row {
-                let seconds = super::lines::seconds_from(at.checked_sub(1).and_then(|before| rows.get(before)).map(SessionRow::at), thought_at);
-                return self.reasoning(ix, thought, text, seconds, false, page, look, cx);
+            if let SessionRow::Reasoning { id: thought, text, .. } = row {
+                return thought_line(thought, text, look);
             }
+            let running = running_at == Some(at);
+            let end = rows.get(at + 1).map(SessionRow::at).or(end);
             let one = match row {
                 SessionRow::WindowAsk { question, .. } => Call::plain(Kind::Other, question.clone(), None),
                 SessionRow::Tool { message: Some(message), .. } => self.message_call(&format!("tool-message:{id}:{at}"), message, page, look, cx),
@@ -377,13 +752,12 @@ impl JobView {
                             SessionRow::Tool { description: Some(said), .. } if !said.trim().is_empty() => said.clone(),
                             _ => calls::call_line(&texts[at], running),
                         },
-                        calls::working_on(&texts[at]).filter(|_| running),
+                        None,
                     )
                 },
             };
-            let stop = running.then(|| self.stop_button(look, cx));
             let marks = self.line_marks(&format!("call:{id}:{at}"), &one.phrase, look);
-            let line = tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, stop, marks, look);
+            let line = call_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, marks, look);
             // A row opens what it names on a press or Return: a message's words under it, the Check run a call
             // started, the file a call read or wrote.
             let opens = match row {
@@ -393,8 +767,7 @@ impl JobView {
                 }
                 _ => None,
             };
-            // In a folded group each call is a Command, as Electron's: it takes focus and a right press offers Teach.
-            if live || texts[at].is_empty() {
+            if texts[at].is_empty() {
                 return match opens {
                     Some(opened) => div()
                         .id(SharedString::from(format!("call-press:{id}:{at}")))
@@ -405,6 +778,7 @@ impl JobView {
                     None => line,
                 };
             }
+            // Each call is a Command, as Electron's: it takes focus and a right press offers Teach.
             let key = format!("call-command:{id}:{at}");
             let spot = self.spot(page, &key, cx);
             let command = div()
@@ -427,23 +801,15 @@ impl JobView {
                 .child(line);
             self.menu_on(command, &spot, "Command", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("command", texts[at].clone(), Some(row.at().clone())), cx).into_any_element()
         });
-        if live {
-            return labelled(
-                div().id(SharedString::from(format!("live:{id}"))).flex().flex_col().gap(look.length(token::SPACE_1)).children(lines),
-                Role::List,
-                label,
-            )
-            .into_any_element();
-        }
-        let line = calls::calls_line(&refs, false);
-        let key = format!("calls:{id}");
-        let head = vec![
-            chevron(look, page.opened.contains(&key)),
-            glyph(look, "wrench", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
-            div().min_w_0().truncate().child(line).into_any_element(),
-        ];
-        let body = div().flex().flex_col().gap(look.length(token::SPACE_1)).children(lines).into_any_element();
-        self.fold(ix, key, label, head, Some(body), page, look, cx)
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1) * 0.5)
+            .pt(look.length(token::SPACE_1))
+            .border_t(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .children(lines)
+            .into_any_element()
     }
 
     /// What a pressed call row opens.
@@ -659,5 +1025,50 @@ mod tests {
     fn a_notice_is_summed_up_by_its_first_sentence() {
         assert_eq!(summary_of("Your checks failed. Look at the log.\nMore"), "Your checks failed");
         assert_eq!(summary_of("One line."), "One line");
+    }
+
+    fn thought(id: &str, text: &str) -> SessionRow {
+        SessionRow::Reasoning { id: id.into(), at: ipc::Instant::carried("2026-11-26T10:00:00Z"), text: text.into() }
+    }
+
+    fn call(id: &str, text: &str) -> SessionRow {
+        SessionRow::Tool { id: id.into(), at: ipc::Instant::carried("2026-11-26T10:00:01Z"), text: text.into(), description: None, subagent: None, image: None, message: None }
+    }
+
+    fn seen_call(phrase: &str, running: bool) -> Seen {
+        Seen { at: 0, kind: Kind::Run, phrase: phrase.into(), time: String::new(), running }
+    }
+
+    #[test]
+    fn the_newer_of_two_thoughts_heads_the_run_and_the_older_slides_out() {
+        let rows = [thought("r1", "first"), call("t1", "Read a.rs"), thought("r2", "second"), call("t2", "Read b.rs")];
+        assert_eq!(latest_thoughts(&rows), (Some(("r2", "second")), Some(("r1", "first"))));
+    }
+
+    #[test]
+    fn a_thought_before_the_calls_still_counts_and_a_run_with_none_has_none() {
+        let rows = [thought("r1", "Looking at the router"), call("t1", "Read a.rs"), call("t2", "Grep b")];
+        assert_eq!(latest_thoughts(&rows), (Some(("r1", "Looking at the router")), None));
+        assert_eq!(latest_thoughts(&[call("t1", "Read a.rs")]), (None, None));
+    }
+
+    #[test]
+    fn the_headline_is_the_newest_thought_else_the_running_calls_phrase_else_the_last() {
+        let seen = [seen_call("Read a.rs", false), seen_call("Running cargo check", true), seen_call("Edited b.rs", false)];
+        assert_eq!(headline_said(Some("Weighing two options"), &seen), "Weighing two options");
+        assert_eq!(headline_said(None, &seen), "Running cargo check");
+        assert_eq!(headline_said(None, &seen[..1]), "Read a.rs");
+        assert_eq!(headline_said(None, &[]), "");
+    }
+
+    #[test]
+    fn a_running_box_holds_the_lines_of_its_own_call_and_none_for_another() {
+        let tails = vec![
+            ipc::TaskTail { call: "toolu_1".into(), lines: vec!["Compiling a".into(), "Compiling b".into()] },
+            ipc::TaskTail { call: "toolu_2".into(), lines: vec!["other".into()] },
+        ];
+        assert_eq!(tail_of(&tails, "toolu_1"), ["Compiling a", "Compiling b"]);
+        assert!(tail_of(&tails, "toolu_3").is_empty());
+        assert!(tail_of(&[], "toolu_1").is_empty());
     }
 }

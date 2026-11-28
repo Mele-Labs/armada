@@ -3,7 +3,7 @@
 **Part of:** [Job](../session.md).
 
 **A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, optional `steps`, a list of short lines, and an optional `artifact`); an empty list clears it.
-Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
+Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)), `goal_met:<sub project>` on a sub project's orchestrator once it said done or every Job of it is done ([Feature catalog](../feature-catalog.md#goal-met)).
 **`task_done:<project>` is answered with Mark done or Keep open**, through `answer_waiting`, and the choice settles every task the job asked in that project without sending the agent a message.
 Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
 **An item about one of the Job's artifacts names it** with `artifact`, the artifact's id or its title.
@@ -132,6 +132,7 @@ A page the job holds no Document at is refused, as is a name that fits two, and 
 
 **Fleet groups the list once, so every Bridge draws the same band** (`get_needs_you`, `GET /sessions/needs_you?session_id=`).
 A Bridge draws it and derives nothing from `waiting_for`: it is not carried on the record, which would give every list a second copy of each item, so a Bridge reads it again when the Job changes.
+**To review replaces it as the place he looks**, one list across Jobs built from these same rows (*To review, across Jobs*).
 Every item is one row of exactly one section, and a row says its glyph, what pressing it does (`act`) and how it is put away (`dismiss`).
 The sections are in the order the band draws them: Questions, To do, To review, Walks, Commands, PRs, Restart and Done, none drawn empty.
 **To do is a thing the agent asked him to do**, such as "Restart the Mac, then check the rows and tell me how many remain": an agent item with no choices and no answer asked, and no walk, command or pull request to press.
@@ -177,6 +178,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `job_conflict` | questions | none: Fleet refuses it |
 | `job_held` | questions | plain; the ask is settled with no answer and the Job that asked is sent `held? <pull or branch>: He dismissed it with no answer.` |
 | `ready_to_try` | to_review | plain; one row for the Job while any card is open, its cards answer it, and a dismissal covers only the cards open then |
+| `goal_met` | questions | none: Fleet refuses it |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
@@ -313,6 +315,7 @@ Native draws them as their own Done group, last, behind a Done Jobs switch in th
 | `rule_act` | Needs you |
 | `operator_suggestion` | Needs you |
 | `operator_undone` | Needs you |
+| `goal_met` | Needs you |
 | `preview_offer` | Needs you: Fleet no longer raises it |
 | `done` | Neither |
 
@@ -385,13 +388,39 @@ The asks it leaves out follow in Fleet's order, and an id that is not an open as
 |---|---|---|
 | First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | The work waits on your answer |
 | Then | A page to read or approve | A page to read |
-| Then | A build to try | Try it once the asks above are answered |
+| Then | A build to try | The work is ready to try |
 | Last | The Job's done | The work is done |
 
 **A refresh comes before a prototype or a walk that needs it.**
 Where the Job has a preview to refresh and also a prototype or a walk, the build to try comes first, with the why *The prototype needs this build*, or *The walk needs this build*.
 The owner's own example, 25 Nov 2026: the prototype could not be tried until the build was refreshed.
 The words are in one place, `crates/fleet/src/session_host/needs_first.rs`.
+
+## To review, across Jobs
+
+**To review replaces Needs you as the place he looks** (the owner, 27 Nov 2026): he kept going in and out of Jobs to find what needed him.
+It is one list of everything waiting on him across a project's live Jobs, or every project's, and he answers each item where it stands, with no Job to open (`list_to_review`, `GET /sessions/to_review?project=`).
+**It is fed from Needs you, never beside it.** Each item is the row `get_needs_you` gives its Job, worked out by the rule per source above over the same `waiting_for`, so the two never disagree: every item of a listed Job is one item here.
+The item adds what tells one Job's from another's: the Job's id and title, its project, its sub project, the features it writes to now (`SessionRecord.features`), what the item is, and the operation that answers it.
+
+| Answered by | Kind | From |
+|---|---|---|
+| `answer_items`: Approve, or send back with notes | `plan`, `sketch`, `document`, `draft` | the page's own source |
+| `answer_ready_to_try` on each open card, by branch and tip | `ready_to_try` | `ready_to_try` |
+| `answer_waiting` with a choice | `clash` | `job_conflict` |
+| `answer_waiting`: Agree or Not yet | `goal_met` | `goal_met`, on the orchestrator's list |
+| `answer_waiting`; `answer_items` for an item raised with `approves`; `begin_session` for a first message or a held child | `question` | any other item with choices or an answer, the Job's or Fleet's |
+| `done_waiting` | `to_do` | an agent's item with nothing to press |
+| `answer_items` | `walk` | `walk` |
+| none: the row's act is the press | `command`, `pull_request`, `restart` | by act |
+| `dismiss_waiting` | `done` | `done` |
+
+**Grouped by sub project first, then feature, then neither.**
+A Job's sub project is the first it orchestrates or he picked it for, else the first with a feature it writes to now, as the Jobs list joins it ([Feature catalog](../feature-catalog.md), *Sub projects*).
+A Job in no sub project goes under its first feature in the library's order, and one that writes to none goes last.
+Within a group the items stand in the order each Job set with `order_waiting`, as above, then oldest first.
+A sub project's group is headed by its goal and holds its orchestrator's items with its Jobs', the Goal met? card among them.
+Fleet raises a clash as `job_conflict` today; a source that settles which of two Jobs lands first takes its place in the same kind.
 
 ## Follow-ups kept for Later
 

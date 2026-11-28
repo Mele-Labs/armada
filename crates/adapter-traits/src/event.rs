@@ -290,6 +290,10 @@ pub enum DroneEvent {
     /// A tool answered. `failed` is the tool's own failure and not a verdict on
     /// the step.
     Answered { call: String, failed: bool },
+    /// A command the harness moved to the background answered with the file its output is being
+    /// written to, as it writes it. **The only place the path is told while the command runs**: the
+    /// start line names none, and the end notice carries it only afterwards.
+    OutputAt { call: String, file: String },
     /// Prose crossed the session, and [`Speaker`] says which way.
     ///
     /// **Advances nothing**: prose is not a completion claim, and there is no

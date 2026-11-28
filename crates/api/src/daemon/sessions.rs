@@ -586,6 +586,10 @@ pub trait Sessions: Send + Sync + 'static {
         session_id: Option<ipc::SessionId>,
     ) -> impl Future<Output = Result<ipc::NeedsYou, Refusal>> + Send;
 
+    /// `list_to_review` — everything waiting on the person across `project`'s live Jobs, or every project's, each item a
+    /// row of its Job's Needs you with the operation that answers it.
+    fn list_to_review(&self, project: Option<String>) -> impl Future<Output = Result<ipc::ToReview, Refusal>> + Send;
+
     /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
     /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.
     fn all_done(

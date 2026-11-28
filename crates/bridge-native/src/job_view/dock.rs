@@ -474,12 +474,15 @@ impl JobView {
                 })
                 .collect()
         };
+        // The thread's first card already stands for the Job's first ask, so a new question opens no panel over it (his note
+        // of 26 Nov: the list kept opening with the card behind it).
+        let carded = self.first_ask(id, cx).is_some();
         if let Some(page) = self.pages.get_mut(id) {
             let mut new = false;
             for key in keys {
                 new |= page.dock.seen.insert(key);
             }
-            if new {
+            if new && !carded {
                 page.dock.open = Some(true);
             }
         }

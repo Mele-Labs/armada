@@ -336,6 +336,8 @@ mod margin;
 mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
 mod needs_you;
+/// Everything waiting on the person across a project's Jobs, in one list. `list_to_review`.
+mod to_review;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
 /// A background act that failed after its reply.
@@ -416,7 +418,7 @@ pub use features::{
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
-pub use sub_projects::{StartSubProject, SubProject, SubProjects, UngroupSubProject};
+pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
@@ -884,6 +886,7 @@ pub use sessions::{
 pub use needs_you::{
     NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection, NeedsYouSectionKind,
 };
+pub use to_review::{ToReview, ToReviewAnswer, ToReviewCard, ToReviewGroup, ToReviewHead, ToReviewItem, ToReviewJob, ToReviewKind, ToReviewSubProject};
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{StartSideJob, SideJobStarted};
@@ -926,7 +929,7 @@ pub use loadout::{
     LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, SessionLoadout, LOADOUT_ITEM_CAP,
 };
 pub use session_activity::{
-    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity,
+    SessionAccount, SessionActivity, SessionLive, SessionTodo, SessionTodoState, SubagentActivity, TaskTail,
 };
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{

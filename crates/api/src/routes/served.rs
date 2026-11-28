@@ -877,6 +877,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/needs_you",
     },
     Route {
+        operation: "list_to_review",
+        method: "GET",
+        path: "/sessions/to_review",
+    },
+    Route {
         operation: "done_waiting",
         method: "POST",
         path: "/sessions/waiting/done",
