@@ -37,7 +37,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Wrench,
   Server,
   AppWindow,
   File,
@@ -50,7 +49,6 @@ import {
   KeyRound,
   GitBranch,
   Layers,
-  Smartphone,
   SquareTerminal,
   Check,
   X,
@@ -101,7 +99,7 @@ import { LandsInChip } from "./LandsInChip";
 import { TaskMark } from "../TaskMark/TaskMark";
 import { SkeletonText, Skeleton } from "../../primitives/Skeleton/Skeleton";
 import { useTeachMenu } from "../TeachPanel/TeachMenu";
-import { callsLine, callLine } from "./calls-line";
+import { CallsCard } from "./CallsCard";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { StartFailedRow } from "./StartFailedRow";
 import { RequestedRow } from "./RequestedRow";
@@ -263,6 +261,17 @@ type SessionThreadKinds =
       text: string;
       fromPhone?: true;
       subagent?: ToolSubagent;
+      /** The call's own phrase for what it does, where its input carried one: the card's line for it. */
+      description?: string;
+      /** What a `SendMessage` call said and to whom. */
+      message?: {
+        to: {
+          name: string;
+          title?: string;
+        };
+        summary?: string;
+        text: string;
+      };
     }
   /** Fleet woke the agent, and why: a quiet row where the turn it started begins. */
   | {
@@ -724,6 +733,16 @@ export type ThreadCard = {
   node: ReactNode;
 };
 
+/** When an item's first row happened: where the run before it ended. */
+const startOf = (item: Item): string =>
+  item.kind === "row"
+    ? item.row.at
+    : item.kind === "subagent"
+      ? item.at
+      : item.kind === "fleetTurn"
+        ? item.notice.at
+        : (item.rows[0]?.at ?? "");
+
 /** When an item's last row happened, in milliseconds, or `NaN` where it is words. */
 const timeOf = (item: Item): number => {
   const at =
@@ -840,6 +859,11 @@ export type SessionThreadProps = {
   working?: boolean;
   /** Ends the running turn: a Stop sits beside the working mark. Absent, none is drawn. */
   onStop?: () => void;
+  /** The newest lines each running background command wrote, by the id of the call that started it: the live card's box draws them. */
+  tails?: readonly {
+    call: string;
+    lines: readonly string[];
+  }[];
   /** What the agent's own rows are labelled. Absent reads `Agent`. */
   agentName?: string;
   /**
@@ -1082,12 +1106,7 @@ type Item =
   | {
       kind: "calls";
       id: string;
-      rows: readonly Extract<
-        SessionThreadRow,
-        {
-          kind: "tool";
-        }
-      >[];
+      rows: readonly RunRow[];
     }
   | {
       kind: "fleetTurn";
@@ -1113,6 +1132,26 @@ type Item =
       at: string;
       subagent: ToolSubagent;
     };
+
+/** A row of a run of calls: a call, or a thought the agent had between them. */
+type RunRow = Extract<
+  SessionThreadRow,
+  {
+    kind: "tool" | "reasoning";
+  }
+>;
+
+/**
+ * Whether a thought after a call stays in its run, as Fleet folds it for the native card: the next row past any other
+ * thought is a call, or nothing is written yet. A thought before words, a question or a card is a row of its own.
+ */
+function thinksOn(rest: readonly SessionThreadRow[]): boolean {
+  for (const row of rest) {
+    if (row.kind === "reasoning") continue;
+    return row.kind === "tool" && row.subagent === undefined && !row.text.startsWith("AskUserQuestion");
+  }
+  return true;
+}
 
 /**
  * A turn Fleet started folds into one item: its notice, then the agent's replies and tool runs until the next row of any other
@@ -1176,7 +1215,12 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
             row,
           ],
         });
-    } else if (row.kind !== "tool")
+    } else if (row.kind === "reasoning" && last?.kind === "calls" && thinksOn(rows.slice(at + 1)))
+      last.rows = [
+        ...last.rows,
+        row,
+      ];
+    else if (row.kind !== "tool")
       items.push({
         kind: "row",
         row,
@@ -1205,17 +1249,6 @@ function itemsOf(rows: readonly SessionThreadRow[], keep: ReadonlySet<string> = 
   return items;
 }
 
-/** The tools a group holds, each named once, in the order they were first called. */
-function namesOf(
-  rows: readonly {
-    text: string;
-  }[],
-): string[] {
-  return [
-    ...new Set(rows.map((one) => one.text.split(/\s/, 1)[0] ?? "")),
-  ].filter((name) => name !== "");
-}
-
 /** Calls the take leaves out of the thread: the agent's own task list and tool loading, and a shown window, whose own row stands for it. */
 const UNDRAWN = new Set([
   "TaskCreate",
@@ -1228,149 +1261,6 @@ const UNDRAWN = new Set([
 
 const undrawn = (row: SessionThreadRow): boolean =>
   row.kind === "tool" && UNDRAWN.has((row.text.split(/\s/, 1)[0] ?? "").split("__").pop() ?? "");
-
-/**
- * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
- * count; pressing it shows each call. A lone call is a group of one.
- */
-function Calls({
-  rows,
-  working,
-  onStop,
-  onTeach,
-}: {
-  rows: readonly {
-    id: string;
-    at: string;
-    text: string;
-    fromPhone?: true;
-  }[];
-  working?: boolean;
-  onStop?: () => void;
-  onTeach?: (pick: TeachPick) => void;
-}) {
-  const names = namesOf(rows);
-  const line = callsLine(rows, working === true);
-  const spacious = useContext(SpaciousTake);
-  // The spacious take draws a working agent's calls one to a line, the newest with the mark.
-  if (working === true && spacious)
-    return (
-      <li
-        className="armada-session-fold armada-session-fold--live"
-        aria-label={`Tool calls: ${names.join(", ")}`}
-      >
-        <ol className="armada-session-live">
-          {rows.map((one, at) => {
-            const now = at === rows.length - 1;
-            return (
-              <li
-                key={one.id}
-                className="armada-session-live__call"
-                data-now={now ? "" : undefined}
-              >
-                <span className="armada-session-live__mark">
-                  {now ? <SessionMark state="working" said="Working" /> : null}
-                </span>
-                <span className="armada-session-live__line">
-                  {/* A run says its whole command; the line cuts it where the column ends. */}
-                  {one.text.startsWith("Bash ")
-                    ? `${now ? "Running" : "Ran"} ${one.text.slice("Bash ".length)}`
-                    : callLine(one, now)}
-                </span>
-                {now && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
-              </li>
-            );
-          })}
-        </ol>
-      </li>
-    );
-  return (
-    <li className="armada-session-fold armada-session-fold--calls">
-      <details>
-        <summary
-          className="armada-session-fold__head"
-          aria-label={`Tool calls: ${names.join(", ")}`}
-        >
-          <ChevronRight
-            size={12}
-            strokeWidth={2}
-            aria-hidden
-            className="armada-session-fold__chevron"
-          />
-          {working === true ? (
-            <SessionMark state="working" said="Working" />
-          ) : (
-            <Wrench size={12} strokeWidth={2} aria-hidden />
-          )}
-          {working === true && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
-          <span className="armada-session-fold__names armada-session-fold__names--line">
-            {line}
-          </span>
-        </summary>
-        <ol className="armada-session-fold__calls">
-          {rows.map((one) => (
-            <Command
-              key={one.id}
-              row={one}
-              {...(onTeach === undefined
-                ? {}
-                : {
-                    onTeach,
-                  })}
-            />
-          ))}
-        </ol>
-      </details>
-    </li>
-  );
-}
-
-/** One call of a group. Where Teach is offered it takes focus, and the menu opens on it. */
-function Command({
-  row,
-  onTeach,
-}: {
-  row: {
-    id: string;
-    at: string;
-    text: string;
-    fromPhone?: true;
-  };
-  onTeach?: (pick: TeachPick) => void;
-}) {
-  const { on, menu } = useTeachMenu(
-    "Command",
-    onTeach === undefined
-      ? undefined
-      : () =>
-          onTeach({
-            kind: "command",
-            text: row.text,
-            at: row.at,
-          }),
-  );
-  return (
-    <li
-      className="armada-session-command"
-      {...(onTeach === undefined
-        ? {}
-        : {
-            tabIndex: 0,
-          })}
-      {...on}
-    >
-      <code className="armada-session-command__text">{row.text}</code>
-      {row.fromPhone === true ? (
-        <Tooltip label="From phone">
-          <span className="armada-session-command__door">
-            <Smartphone size={12} strokeWidth={2} aria-hidden />
-          </span>
-        </Tooltip>
-      ) : null}
-      {menu}
-    </li>
-  );
-}
 
 function CheckMark({ row }: { row: CheckRow }) {
   return (
@@ -1962,7 +1852,7 @@ function useSteady<A extends unknown[], R>(
 
 /** A row is drawn again only when its row or what it is told changes, which `useSteady` keeps still. */
 const SteadyRow = memo(Row);
-const SteadyCalls = memo(Calls);
+const SteadyCalls = memo(CallsCard);
 
 function Row({
   row,
@@ -3474,6 +3364,7 @@ export function AskCards({
 
 export function SessionThread({
   rows,
+  tails,
   onRetry,
   onStartAgain,
   onReport,
@@ -3991,7 +3882,17 @@ export function SessionThread({
                               <SteadyCalls
                                 key={item.id}
                                 rows={item.rows}
-                                working={working === true && !asking && at === items.length - 1}
+                                live={working === true && !asking && at === items.length - 1}
+                                {...(items[at + 1] === undefined
+                                  ? {}
+                                  : {
+                                      end: startOf(items[at + 1]!),
+                                    })}
+                                {...(tails === undefined || at !== items.length - 1
+                                  ? {}
+                                  : {
+                                      tails,
+                                    })}
                                 {...(steady.onStop === undefined
                                   ? {}
                                   : {

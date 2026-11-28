@@ -1092,6 +1092,31 @@ export function rowsOfThread(
             : {
                 subagent: row.subagent,
               }),
+          ...(row.description === undefined || row.description.trim() === ""
+            ? {}
+            : {
+                description: row.description,
+              }),
+          ...(row.message === undefined
+            ? {}
+            : {
+                message: {
+                  to: {
+                    name: row.message.to.name,
+                    ...(row.message.to.title === undefined
+                      ? {}
+                      : {
+                          title: row.message.to.title,
+                        }),
+                  },
+                  ...(row.message.summary === undefined
+                    ? {}
+                    : {
+                        summary: row.message.summary,
+                      }),
+                  text: row.message.text,
+                },
+              }),
         });
         break;
       case "command":
@@ -1906,7 +1931,9 @@ export function sessionOfRecord(
 export function activityOf(wire: WireActivity | undefined): SessionActivity | undefined {
   if (wire === undefined) return undefined;
   const todos = wire.todos ?? [];
-  if (wire.now === undefined && todos.length === 0 && wire.said === undefined) return undefined;
+  const tails = (wire.tails ?? []).filter((one) => one.lines.length > 0);
+  if (wire.now === undefined && todos.length === 0 && wire.said === undefined && tails.length === 0)
+    return undefined;
   return {
     ...(wire.now === undefined
       ? {}
@@ -1922,6 +1949,11 @@ export function activityOf(wire: WireActivity | undefined): SessionActivity | un
       ? {}
       : {
           said: wire.said,
+        }),
+    ...(tails.length === 0
+      ? {}
+      : {
+          tails,
         }),
   };
 }
