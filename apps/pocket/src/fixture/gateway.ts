@@ -3,6 +3,7 @@
 // It checks that a call is signed, not that the signature is good: there is no pairing behind it.
 
 import type {
+  AnswerItems,
   AnswerPart,
   AnswerReadyToTry,
   AnswerWaiting,
@@ -18,6 +19,7 @@ import type {
 import type { OperatorBody, PhoneSession, QueuedAct } from "../gateway";
 import { DESIGN_PAGE, sealedPage, SHOTS } from "./artifacts";
 import { decide } from "./operator";
+import { toReviewOf } from "./review";
 import type { FixtureMac } from "./wire";
 
 export type Answered = {
@@ -165,13 +167,23 @@ export function answer(
               text,
             });
       }
+      case "/api/sessions/to_review":
+        return json(toReviewOf(mac));
       case "/api/sessions/artifacts":
         return mac.threads[id] === undefined
           ? said(404, "No Job has that id on this Mac.")
           : json(mac.artifacts?.[id] ?? []);
       case "/api/sessions/artifacts/page": {
         const revision = Number(url.searchParams.get("revision") ?? "2");
-        if (url.searchParams.get("artifact") !== DESIGN_PAGE || revision < 1 || revision > 2)
+        // The design page, and any page a Job's artifacts hold, drawn as the design page is.
+        const held = (mac.artifacts?.[id] ?? []).some(
+          (one) => one.id === url.searchParams.get("artifact") && one.form === "page",
+        );
+        if (
+          (url.searchParams.get("artifact") !== DESIGN_PAGE && !held) ||
+          revision < 1 ||
+          revision > 2
+        )
           return json(
             {
               code: "fleet.artifact_not_held",
@@ -220,6 +232,8 @@ export function answer(
       body: sent,
     });
     if (path === "/api/sessions/dispatch") return dispatched(mac, sent as unknown as OperatorBody);
+    if (path === "/api/sessions/items/answer")
+      return itemsAnswered(mac, sent as unknown as AnswerItems);
     if (path === "/api/queued/take_back") return tookBack(mac, String(sent?.["id"] ?? ""));
     if (path === "/api/sessions")
       return json(
@@ -349,6 +363,56 @@ const hosted = (record: SessionRecord) =>
 const drop = (record: SessionRecord, item: string) =>
   (record.waiting_for = (record.waiting_for ?? []).filter((one) => one.id !== item));
 const push = (thread: SessionThread, row: SessionRow) => thread.rows.push(row);
+
+/** `answer_items`: each item taken off its Job's list, or refused as Fleet refuses one it no longer waits on. */
+function itemsAnswered(mac: FixtureMac, sent: AnswerItems): Answered {
+  return json({
+    outcomes: sent.items.map((one) => {
+      const thread = mac.threads[one.session_id];
+      const held = (thread?.session.waiting_for ?? []).some((item) => item.id === one.item);
+      if (thread === undefined || !held)
+        return {
+          session_id: one.session_id,
+          item: one.item,
+          outcome: {
+            kind: "refused",
+            code: "fleet.items_not_waiting",
+            message: "The Job no longer waits on this.",
+          },
+        };
+      // Fleet's `answering_items.rs`: an agent's item approves only when raised with `approves`, and a send-back says what to change.
+      const waiting = (thread.session.waiting_for ?? []).find((item) => item.id === one.item)!;
+      const refused = (code: string, message: string) => ({
+        session_id: one.session_id,
+        item: one.item,
+        outcome: {
+          kind: "refused" as const,
+          code,
+          message,
+        },
+      });
+      if (one.how === "approve" && waiting.source === "agent" && waiting.approves !== true)
+        return refused(
+          "fleet.items_not_approvable",
+          `"${waiting.text}" has no Approve: it is answered on its own`,
+        );
+      if (one.how === "send_back" && (one.notes ?? []).every((note) => note.text.trim() === ""))
+        return refused(
+          "fleet.items_send_back_empty",
+          `"${waiting.text}" is sent back with a note saying what to change`,
+        );
+      drop(thread.session, one.item);
+      settle(mac, thread);
+      return {
+        session_id: one.session_id,
+        item: one.item,
+        outcome: {
+          kind: "settled",
+        },
+      };
+    }),
+  });
+}
 
 /** What each Job act does to the fixture, as Fleet would. Answers undefined for 204 with no body. */
 function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answered | undefined {
@@ -615,6 +679,9 @@ function act(mac: FixtureMac, path: string, sent: Record<string, unknown>): Answ
       settle(mac, thread);
       return json(card);
     }
+    case "/api/sessions/waiting/done":
+      drop(record, String(sent["item_id"] ?? ""));
+      return answered();
     case "/api/sessions/waiting/answer":
     case "/api/sessions/waiting/dismiss": {
       const given = sent as AnswerWaiting & DismissWaiting;

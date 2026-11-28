@@ -872,7 +872,7 @@ async fn typed(app: &App, method: Method, path: &str, body: &str) -> (StatusCode
 }
 
 #[tokio::test]
-async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as_listed() {
+async fn a_phone_reaches_a_jobs_artifacts_thread_file_and_to_review_through_the_gateway_as_listed() {
     let calls = Seen::default();
     let recorded = calls.clone();
     // Fleet, answering by path: the page as sealed HTML, the file as a refusal, the rest as JSON.
@@ -892,7 +892,7 @@ async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as
 
     let json = "application/json";
     let ok = r#"{"ok":true}"#;
-    let table: [(Method, &str, &str, StatusCode, &str, &str); 14] = [
+    let table: [(Method, &str, &str, StatusCode, &str, &str); 17] = [
         (Method::GET, "/api/sessions/artifacts?session_id=s1", "", StatusCode::OK, json, ok),
         (Method::GET, "/api/sessions/artifacts/page?session_id=s1&artifact=a1&revision=3", "", StatusCode::OK, "text/html; charset=utf-8", "<p>page</p>"),
         (Method::POST, "/api/sessions/artifacts/part/answer", r#"{"session_id":"s1","part":"p1"}"#, StatusCode::OK, json, ok),
@@ -907,6 +907,9 @@ async fn a_phone_reaches_a_jobs_artifacts_thread_and_file_through_the_gateway_as
         (Method::POST, "/api/sessions/judge/dismiss", r#"{"session_id":"s1","reading":"r1","note":"n1"}"#, StatusCode::OK, json, ok),
         (Method::POST, "/api/sessions/judge/read", r#"{"session_id":"s1","reading":"r1"}"#, StatusCode::OK, json, ok),
         (Method::GET, "/api/judge_types/armada?project=p1", "", StatusCode::OK, json, ok),
+        (Method::GET, "/api/sessions/to_review?project=p1", "", StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/items/answer", r#"{"items":[{"session_id":"s1","item":"i1","how":"approve"}]}"#, StatusCode::OK, json, ok),
+        (Method::POST, "/api/sessions/waiting/done", r#"{"session_id":"s1","item_id":"i1"}"#, StatusCode::OK, json, ok),
     ];
     for (method, path, body, status, kind, answer) in table {
         let before = calls.lock().unwrap().len();
