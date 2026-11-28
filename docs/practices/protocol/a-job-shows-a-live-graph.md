@@ -25,9 +25,10 @@ Bridge links `ipc`, so it reads the same types; the native card is `crates/bridg
   Its `data.name` names a feed of the Job; `data.values` draws rows given once.
 - **`headline`** is `{field, unit?, since?: {label, at}, better?: up|down}`, the latest value of the spec's feed over the chart.
 - **`strip`** is up to 8 `{label, feed, field, unit?, shown?, since?, better?}`, in place of a spec.
-- **`source`** is `{recipe: {call, map, every_secs}}`.
-  `call` is a project metric's `MetricCall` (`crates/ipc/src/metrics.rs`), held to `adapters::problem_with`'s rules, with no credential.
+- **`source`** is `{recipe: {call, map, every_secs, credential?}}`.
+  `call` is a project metric's `MetricCall` (`crates/ipc/src/metrics.rs`), held to `adapters::problem_with`'s rules.
   `every_secs` is 10 to 86400.
+  `credential` is a metric recipe's `MetricCredential`, `{name, how, url?}`: its token is read from this Mac's keychain for each run and fills `{credential}`, and every why is scrubbed of it.
 
 **The map prints `{"<feed>": [rows]}`**, or a list of rows where the graph reads one feed.
 One call can feed several feeds that way, which a dashboard query answering several series needs.
@@ -39,10 +40,12 @@ Every refusal is a 422: `fleet.graph_refused` (each problem said at once), `flee
 
 ## What Bridge is sent
 
-`GraphShown` is the card: `id`, `title`, `form` (`chart` with `spec` and `headline?`, or `strip` with `stats`), `fed_by` (`recipe` with `every_secs`, or `points`), `live`, `shown_at`, `read_at?` and `broken?`.
+`GraphShown` is the card: `id`, `title`, `form` (`chart` with `spec` and `headline?`, or `strip` with `stats`), `fed_by` (`recipe` with `every_secs`, or `points`), `live`, `shown_at`, `read_at?`, `broken?` and `no_token?`.
 Bridge words `fed_by` under the title.
 **`live` is false once the graph is withdrawn or its Job has ended**, and the card stays.
 `broken` is why the recipe's last read gave nothing, and the rows it held are kept.
+**`no_token` is the credential the keychain does not hold**, and the recipe is not run until it does; `broken` says which token is missing too, so a card read after a restart says it before the next pass.
+Bridge draws it as a project metric's block draws its missing token: what to make, and where.
 
 **The change on a headline or a stat is Fleet's**: `delta` is `{said, since?, tone}`, as `+41%`, `since deploy`, `worse`.
 It runs from the value at `since.at`, the latest row at or before it, to the latest row; with no `since`, from the feed's first row.

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::graph::{read_spec, FieldType, Row, Spec};
-use crate::{Instant, MetricCall, SessionId};
+use crate::{Instant, MetricCall, MetricCredential, SessionId};
 
 /// The most rows one feed keeps, oldest dropped first.
 pub const GRAPH_FEED_KEPT: usize = 2000;
@@ -117,6 +117,10 @@ pub struct GraphRecipe {
     pub call: MetricCall,
     pub map: String,
     pub every_secs: u32,
+    /// The token `{credential}` is filled with, read from this Mac's keychain by its name for each run, as a metric
+    /// recipe's is. The token never crosses the wire.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential: Option<MetricCredential>,
 }
 
 /// `graph_points`: rows the agent worked out itself, added to one feed of its Job.
@@ -167,6 +171,10 @@ pub struct GraphShown {
     /// Why the recipe's last read gave none, in a sentence. The rows it held are kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub broken: Option<String>,
+    /// The credential the recipe names and this Mac's keychain does not hold, so it is not run. A project metric's
+    /// `no_token` state, said on the card as the metric block says it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_token: Option<MetricCredential>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -584,6 +592,7 @@ pub struct GraphReading {
     pub shown_at: Option<Instant>,
     pub read_at: Option<Instant>,
     pub broken: Option<String>,
+    pub no_token: Option<MetricCredential>,
 }
 
 impl GraphChecked {
@@ -627,6 +636,7 @@ impl GraphChecked {
             shown_at: reading.shown_at.clone().unwrap_or_else(|| Instant::carried("")),
             read_at: reading.read_at.clone(),
             broken: reading.broken.clone(),
+            no_token: reading.no_token.clone(),
         }
     }
 }

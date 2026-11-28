@@ -192,3 +192,49 @@ async fn a_jobs_end_stops_its_recipes() {
     let card = rig.fleet.list_graphs(None, Some(job.clone())).await.unwrap().graphs.remove(0);
     assert!(!card.live);
 }
+
+#[tokio::test]
+async fn a_recipe_signs_in_with_its_credentials_token_and_without_one_the_card_names_it() {
+    let clock = Arc::new(Held::started());
+    let keychain = Arc::new(super::requesting::Held::default());
+    let (held, tokens) = (Arc::clone(&clock), Arc::clone(&keychain));
+    let rig = rig_fitted(move |fittings| {
+        fittings.clock = held;
+        fittings.metric_tokens = tokens;
+    });
+    let job = rig.start().await;
+    let root = std::path::Path::new(&rig.root);
+    printed(&rig, "rows.json", r#"{"latency":[{"at":"2026-11-27T14:00:00Z","ms":200}]}"#);
+    // The rows print only where the token reached the call; a failing call says the token, which must not be kept.
+    let script = format!(
+        r#"if [ -f {fail} ]; then echo "refused $TOKEN" >&2; exit 1; fi; test "$TOKEN" = t0ken-0f-gr4fana && cat {rows}"#,
+        fail = root.join("fail").display(),
+        rows = root.join("rows.json").display()
+    );
+    let recipe = format!(
+        r#"{{"call":{{"transport":"cli","argv":["/bin/sh","-c",{}],"env":[{{"name":"TOKEN","value":"{{credential}}"}}]}},"map":".","every_secs":15,"credential":{{"name":"grafana","how":"A Grafana service account token with Viewer","url":"https://grafana.example/org/serviceaccounts"}}}}"#,
+        ipc::encode(&script).unwrap()
+    );
+    rig.fleet.show_graph(None, p99(&job, "p99 latency", Some(recipe))).await.expect("a credential is held to a metric's rules");
+
+    rig.fleet.graphs_read_when_due().await;
+    let card = rig.fleet.list_graphs(None, Some(job.clone())).await.unwrap().graphs.remove(0);
+    let credential = card.no_token.as_ref().expect("the card names the missing token");
+    assert_eq!((credential.name.as_str(), credential.url.as_deref()), ("grafana", Some("https://grafana.example/org/serviceaccounts")));
+    assert_eq!(card.broken.as_deref(), Some("No grafana token on this Mac."));
+    assert_eq!(feed_rows(&rig, &job, "latency").await, 0, "nothing ran without it");
+
+    keychain.values.lock().unwrap().insert("//grafana".into(), "t0ken-0f-gr4fana".into());
+    clock.on(16);
+    rig.fleet.graphs_read_when_due().await;
+    assert_eq!(feed_rows(&rig, &job, "latency").await, 1, "the token filled the call");
+    let card = rig.fleet.list_graphs(None, Some(job.clone())).await.unwrap().graphs.remove(0);
+    assert_eq!((card.no_token, card.broken), (None, None));
+
+    printed(&rig, "fail", "");
+    clock.on(16);
+    rig.fleet.graphs_read_when_due().await;
+    let card = rig.fleet.list_graphs(None, Some(job.clone())).await.unwrap().graphs.remove(0);
+    let why = card.broken.expect("the failed call is said");
+    assert!(why.contains("refused") && !why.contains("t0ken-0f-gr4fana"), "scrubbed of the token: {why}");
+}

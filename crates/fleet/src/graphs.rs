@@ -5,8 +5,12 @@
 //! `crate::project_metrics` runs one. The recipes due in one pass run together and each Job is sent one
 //! `graphs.changed` once they have all finished, so a 15 second recipe is one event a tick. **A broken read keeps the
 //! rows** and records why on the graph. A graph's recipe stops when it is withdrawn or its Job ends.
+//!
+//! **A recipe that names a credential reads its token from this Mac's keychain for each run**, as a metric recipe does
+//! (`crate::project_metrics`), and a why is scrubbed of it. Where the keychain holds none the recipe is not run and its
+//! card says which credential is missing and where it is made.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -14,8 +18,8 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Graphs, Refusal};
 use ipc::graph::Row;
 use ipc::{
-    GraphChecked, GraphFeed, GraphList, GraphPoints, GraphPointsTaken, GraphReading, GraphRecipe, GraphShown, GraphsChanged, Instant, SessionId,
-    ShowGraph, WireError, WithdrawGraph, GRAPHS_A_JOB, GRAPH_FEED_KEPT,
+    GraphChecked, GraphFeed, GraphList, GraphPoints, GraphPointsTaken, GraphReading, GraphRecipe, GraphShown, GraphsChanged, Instant, MetricCredential,
+    SessionId, ShowGraph, WireError, WithdrawGraph, GRAPHS_A_JOB, GRAPH_FEED_KEPT,
 };
 use store::{KeptGraph, KeptGraphFeed};
 
@@ -29,18 +33,40 @@ const GRAPH_TOO_MANY: &str = "fleet.graph_too_many";
 const GRAPH_NOT_SHOWN: &str = "fleet.graph_not_shown";
 const GRAPH_UNPLACED: &str = "fleet.graph_unplaced";
 
-/// The graph recipes running now, by (Job, graph id), so a slow one is not started again by the next pass.
+/// The graph recipes running now, by (Job, graph id), so a slow one is not started again by the next pass, and the ones
+/// whose last pass found no token for their credential. Neither is kept: a restart finds both again in a pass.
 #[derive(Default)]
-pub(crate) struct Running(Mutex<HashSet<(String, String)>>);
+pub(crate) struct Running {
+    now: Mutex<HashSet<(String, String)>>,
+    tokenless: Mutex<HashMap<(String, String), MetricCredential>>,
+}
 
 impl Running {
     fn begin(&self, key: &(String, String)) -> bool {
-        self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(key.clone())
+        self.now.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(key.clone())
     }
 
     fn finished(&self, key: &(String, String)) {
-        self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(key);
+        self.now.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(key);
     }
+
+    /// Where the keychain held `credential`'s token on this pass, or held none.
+    fn token_found(&self, key: &(String, String), missing: Option<&MetricCredential>) {
+        let mut held = self.tokenless.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        match missing {
+            Some(credential) => held.insert(key.clone(), credential.clone()),
+            None => held.remove(key),
+        };
+    }
+
+    fn tokenless(&self, job: &str, id: &str) -> Option<MetricCredential> {
+        self.tokenless.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(&(job.to_string(), id.to_string())).cloned()
+    }
+}
+
+/// What a graph's card says while its credential's token is missing, kept as its `broken` so a restart says it too.
+pub(crate) fn no_token_said(credential: &MetricCredential) -> String {
+    format!("No {} token on this Mac.", credential.name)
 }
 
 /// A kept graph read back as Fleet checked it. `None` for one this build no longer reads, which is left out.
@@ -115,6 +141,7 @@ where
                     shown_at: Some(Instant::carried(one.shown_at.clone())),
                     read_at: one.read_at.clone().map(Instant::carried),
                     broken: one.broken.clone(),
+                    no_token: self.graphs_running().tokenless(job, &one.id),
                 };
                 Some(checked_of(one)?.card(&by_name, &reading))
             })
@@ -185,13 +212,25 @@ where
         if due_now.is_empty() {
             return;
         }
-        let runs: Vec<_> = due_now
-            .iter()
-            .map(|one| {
-                let (recipe, feeds) = (one.recipe.clone(), one.feeds.clone());
-                tokio::task::spawn_blocking(move || adapters::run_graph_recipe(&recipe, &feeds))
-            })
-            .collect();
+        let mut runs = Vec::with_capacity(due_now.len());
+        for one in &due_now {
+            let token = match &one.recipe.credential {
+                None => Ok(None),
+                Some(credential) => match self.metric_token(credential).await {
+                    Ok(Some(token)) => Ok(Some(token)),
+                    Ok(None) => Err((Some(credential.clone()), no_token_said(credential))),
+                    Err(why) => Err((None, why)),
+                },
+            };
+            self.graphs_running().token_found(&one.key, token.as_ref().err().and_then(|(missing, _)| missing.as_ref()));
+            runs.push(match token {
+                Ok(token) => {
+                    let (recipe, feeds) = (one.recipe.clone(), one.feeds.clone());
+                    tokio::task::spawn_blocking(move || adapters::run_graph_recipe(&recipe, &feeds, token.as_ref()))
+                }
+                Err((_, why)) => tokio::task::spawn(async move { Err(why) }),
+            });
+        }
         let mut read: BTreeMap<String, BTreeMap<String, GraphFeed>> = BTreeMap::new();
         for (one, run) in due_now.iter().zip(runs) {
             let (job, id) = &one.key;

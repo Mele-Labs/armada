@@ -109,19 +109,19 @@ pub fn run_metric(recipe: &MetricRecipe, token: Option<&Secret<String>>) -> Resu
         .map_err(|why| fills.scrubbed(&format!("the `map` did not print an answer of rows: {}", why.why)))
 }
 
-/// The problems of a graph's recipe, held to a metric recipe's rules with no credential, or none.
+/// The problems of a graph's recipe, held to a metric recipe's rules, its credential's name with them, or none.
 pub fn graph_recipe_problem(recipe: &GraphRecipe) -> Option<String> {
     problem_with(&as_metric(recipe))
 }
 
-/// The rows a graph's recipe reads now, by feed, or why it did not. `feeds` are the graph's. **Blocks**, as
-/// [`run_metric`] does.
-pub fn run_graph_recipe(recipe: &GraphRecipe, feeds: &[String]) -> Result<Vec<(String, Vec<ipc::graph::Row>)>, String> {
-    let (printed, _) = mapped(&as_metric(recipe), None)?;
-    ipc::recipe_rows(&printed, feeds)
+/// The rows a graph's recipe reads now, by feed, or why it did not. `feeds` are the graph's, and `token` the one its
+/// credential names, read for this run. **Blocks**, as [`run_metric`] does, and the why is scrubbed of the token.
+pub fn run_graph_recipe(recipe: &GraphRecipe, feeds: &[String], token: Option<&Secret<String>>) -> Result<Vec<(String, Vec<ipc::graph::Row>)>, String> {
+    let (printed, fills) = mapped(&as_metric(recipe), token)?;
+    ipc::recipe_rows(&printed, feeds).map_err(|why| fills.scrubbed(&why))
 }
 
-/// A graph's recipe as the metric recipe it runs as: no credential, so no token is ever filled.
+/// A graph's recipe as the metric recipe it runs as.
 fn as_metric(recipe: &GraphRecipe) -> MetricRecipe {
     MetricRecipe {
         id: String::from("graph"),
@@ -129,7 +129,7 @@ fn as_metric(recipe: &GraphRecipe) -> MetricRecipe {
         call: recipe.call.clone(),
         map: recipe.map.clone(),
         every_secs: Some(recipe.every_secs),
-        credential: None,
+        credential: recipe.credential.clone(),
     }
 }
 
