@@ -17,8 +17,8 @@ pub(crate) enum Placed {
 }
 
 impl Placed {
-    pub(crate) fn of(daemon: &impl Admitting, caller: Caller) -> Placed {
-        match daemon.words_reach_at(caller) {
+    pub(crate) async fn of(daemon: &impl Admitting, caller: Caller) -> Placed {
+        match daemon.words_reach_at(caller).await {
             Some(reach) => Placed::Words(reach),
             None => Placed::Anyone,
         }
@@ -38,6 +38,27 @@ impl Placed {
     /// Whether the caller is the Operator's own session.
     pub(crate) fn is_the_operator(&self) -> bool {
         matches!(self, Placed::Words(reach) if reach.is_the_operator())
+    }
+
+    /// Whether a setting of the caller's left `operation` out of what it is offered.
+    pub(crate) fn is_withheld(&self, operation: &str) -> bool {
+        matches!(self, Placed::Words(reach) if reach.is_withheld(operation))
+    }
+
+    /// Whether the tool is in the list the caller is shown.
+    pub(crate) fn listed(&self, operation: &str) -> bool {
+        match self {
+            Placed::Anyone => true,
+            Placed::Words(reach) => reach.listed(operation),
+        }
+    }
+
+    /// Why the caller's own settings refuse `operation`: a tool switched off, or one open only after he has said so.
+    pub(crate) fn held_back(&self, operation: &str) -> Option<String> {
+        match self {
+            Placed::Anyone => None,
+            Placed::Words(reach) => reach.held_back(operation),
+        }
     }
 
     pub(crate) fn may(&self, operation: &str) -> bool {

@@ -19,8 +19,8 @@ pub(super) struct Reaching {
     pub(super) routes: Vec<(usize, String)>,
 }
 
-fn add(edges: &mut BTreeSet<(usize, Node, Option<String>)>, from: usize, to: Node, label: Option<String>) {
-    edges.insert((from, to, label));
+fn add(edges: &mut BTreeMap<(usize, Node, Option<String>), BTreeSet<String>>, file: &str, from: usize, to: Node, label: Option<String>) {
+    edges.entry((from, to, label)).or_default().insert(file.to_string());
 }
 
 /// The parts that reach each module through libraries only, the module's own part counted.
@@ -48,7 +48,7 @@ fn only_services(det: &Detected, parts: &BTreeSet<usize>) -> Vec<usize> {
 }
 
 pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece]) -> Reaching {
-    let mut edges: BTreeSet<(usize, Node, Option<String>)> = BTreeSet::new();
+    let mut edges: BTreeMap<(usize, Node, Option<String>), BTreeSet<String>> = BTreeMap::new();
     let piece_of = |path: &str| -> Option<usize> {
         pieces
             .iter()
@@ -101,7 +101,7 @@ pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece])
             let Some(path) = path_of(literal) else { continue };
             if let Some(there) = served.get(&normal(path)) {
                 if let Some((to, route)) = there.iter().find(|(to, _)| pieces[*to].part != own_part) {
-                    add(&mut edges, from, Node::Piece(*to), Some(route.clone()));
+                    add(&mut edges, &source.path, from, Node::Piece(*to), Some(route.clone()));
                 }
             }
         }
@@ -119,19 +119,19 @@ pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece])
                 match det.roles[module] {
                     Role::Store => {
                         if let Some(found) = det.stores.iter().find(|found| found.owners.contains(&module)) {
-                            add(&mut edges, from, Node::Part(found.part), None);
+                            add(&mut edges, &source.path, from, Node::Part(found.part), None);
                         }
                     }
                     Role::Lib => {
                         if let Some(to) = lib_piece(module).filter(|to| *to != from) {
-                            add(&mut edges, from, Node::Piece(to), None);
+                            add(&mut edges, &source.path, from, Node::Piece(to), None);
                         }
                     }
                     Role::Entry | Role::Service | Role::Api => {
                         let Some(owner) = det.own[module] else { continue };
                         let after = source.text.match_indices(&format!("{ident}::")).filter_map(|(at, found)| source.text[at + found.len()..].split(|c: char| !(c.is_alphanumeric() || c == '_')).next()).find_map(|word| by_word.get(&(owner, word.to_string())));
                         if let Some(to) = after {
-                            add(&mut edges, from, Node::Piece(*to), None);
+                            add(&mut edges, &source.path, from, Node::Piece(*to), None);
                         }
                     }
                     Role::Skip => {}
@@ -142,7 +142,7 @@ pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece])
         // An import of a sibling piece.
         for word in imported_words(&source.text) {
             if let Some(to) = by_word.get(&(own_part, word.to_string())).filter(|to| **to != from) {
-                add(&mut edges, from, Node::Piece(*to), None);
+                add(&mut edges, &source.path, from, Node::Piece(*to), None);
             }
         }
 
@@ -150,7 +150,7 @@ pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece])
         for found in &det.stores {
             let writes_files = found.idents.is_empty() && found.owners.is_empty() && det.parts[found.part].wire.paths.contains(&source.path);
             if writes_files || found.idents.iter().any(|ident| refers(&source.text, ident)) {
-                add(&mut edges, from, Node::Part(found.part), None);
+                add(&mut edges, &source.path, from, Node::Part(found.part), None);
             }
         }
 
@@ -163,12 +163,12 @@ pub(super) fn reach(repo: &Repo, det: &Detected, pieces: &[super::model::Piece])
                 || outside_quoted[at].iter().any(|word| source.text.contains(&format!("\"{word}\"")))
                 || found.hosts.iter().any(|host| source.text.contains(host.as_str()) || hosts.contains(host));
             if hit {
-                add(&mut edges, from, Node::Part(found.part), None);
+                add(&mut edges, &source.path, from, Node::Part(found.part), None);
             }
         }
     }
 
-    let edges: Vec<Edge> = edges.into_iter().map(|(from, to, label)| Edge { from, to, label }).collect();
+    let edges: Vec<Edge> = edges.into_iter().map(|((from, to, label), files)| Edge { from, to, label, files: files.into_iter().collect() }).collect();
     let links = links_of(repo, det, pieces, &edges);
     Reaching { edges, links, routes }
 }

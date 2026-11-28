@@ -153,6 +153,8 @@ pub struct Arrival {
     pub source: Source,
     pub session_id: String,
     pub manifest_id: String,
+    /// The project this arrival is for alone, where it belongs to one and to no repository; empty where the repository says which hear it.
+    pub project: String,
     /// What arrived, in a line: the Job's title, the question.
     pub subject: String,
     /// Its words: what was dispatched, what was asked.

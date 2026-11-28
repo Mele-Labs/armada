@@ -204,6 +204,7 @@ fn dispatch_arrival(id: &str, dispatch: &DispatchJob, request: &str, away: bool)
         source: Source::Dispatch { away },
         session_id: String::new(),
         manifest_id: dispatch.start.manifest_id.as_str().to_string(),
+        project: String::new(),
         subject: dispatch.start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(request)),
         words: request.to_string(),
     }

@@ -12,7 +12,7 @@
 //! `merge_by`, [`merge_by`]; `pr_mode`, [`pr_mode`]; and
 //! `freeze`, [`freeze`]; `standing_rules`, [`standing`]; `ci_gate`, [`ci_gate`];
 //! `tracker`, [`tracker`]; `test_map`, [`test_map`]; `connectors`,
-//! [`connectors`]; `when_base_moves`, [`when_base_moves`]. Every other section
+//! [`connectors`]; `when_base_moves`, [`when_base_moves`]; `walks`, [`walks`]. Every other section
 //! the concept page describes is refused: permissions, secrets, skills, budget.
 //!
 //! **A key nothing reads is worse than a key that is not there.** A `budget:
@@ -43,6 +43,7 @@ mod runner;
 mod runs;
 mod seed;
 mod serving;
+mod walks;
 mod workspace;
 
 use referring::{after_merge, preparation, required_by};
@@ -59,6 +60,7 @@ pub use seed::{BadSeedPath, Seed};
 pub use ci_gate::DEFAULT_CI_GATE;
 pub use serving::{Link, Server};
 pub use tracker::TrackerBlock;
+pub use walks::Walks;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU32;
@@ -122,6 +124,8 @@ const TOP_LEVEL: &[&str] = &[
     "connectors",
     // What runs in the checkout once the base moves there: [`when_base_moves`].
     "when_base_moves",
+    // How the app is built and pictured as a native walk: [`walks`].
+    "walks",
 ];
 /// The keys M1 reads inside `checks.<name>`. **`expect_exit_code` is spelled
 /// here as a workflow step spells it**, for the reason `drone:` below gives
@@ -238,6 +242,8 @@ pub struct Manifest {
     connectors: bool,
     /// See [`when_base_moves`]. Not live, for `commands`' reason.
     when_base_moves: Vec<Preparation>,
+    /// See [`walks`]. Not live, for `connectors`' reason.
+    walks: Option<Walks>,
     /// What Kit's copy of this file did to it, where one was read. See [`kit`].
     kit: Option<FromKit>,
     /// The two `lifetime = "Live"` keys, behind a cell every clone shares.
@@ -691,6 +697,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         placed.is_a_workspace(),
         out,
     );
+    let walks = walks::read(&mut top, placed.is_a_workspace(), out);
     // After `checks` for `setup.requires`' reason, one registry along: every
     // entry resolves against it, and a file's order is never something an
     // author has to think about.
@@ -739,6 +746,7 @@ fn read(path: &Path, root: &Value, placed: &Placed, out: &mut Vec<Refusal>) -> O
         test_map_shared,
         connectors,
         when_base_moves,
+        walks,
         kit: None,
         live: Cell::holding(InForce {
             dials: drone.dials,

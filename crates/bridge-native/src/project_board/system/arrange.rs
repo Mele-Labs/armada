@@ -970,7 +970,7 @@ mod tests {
     }
 
     fn map(parts: Vec<SystemPart>, links: Vec<SystemLink>) -> SystemMap {
-        SystemMap { project: "p".into(), part: None, feature: None, parts, links, features: Vec::new(), stops: Vec::new(), librarian_at: None }
+        SystemMap { project: "p".into(), part: None, feature: None, parts, links, features: Vec::new(), stops: Vec::new(), librarian_at: None, lit: None }
     }
 
     fn level_one() -> SystemMap {

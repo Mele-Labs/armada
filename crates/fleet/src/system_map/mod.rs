@@ -179,18 +179,21 @@ where
     }
 
     /// `get_system_map`.
-    pub(crate) async fn system_map_read(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<SystemMap, Refusal> {
+    pub(crate) async fn system_map_read(&self, project: String, part: Option<String>, feature: Option<String>, lit: Option<String>) -> Result<SystemMap, Refusal> {
         let maps = self.system_mapped(&project).await?;
         let (features, filed, additions, librarian_at) = self.system_ground(&project, &maps).await?;
         let map = FeatureMap::new(features.clone(), filed);
         let in_map = |feature: &str, file: &str| map.filed_of(feature).any(|one| one == file);
         let ground = Ground { project: &project, maps: &maps, features: &features, filed: &in_map, additions: &additions, librarian_at };
+        let feature_of = |slug: &str| features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(WireError::raised(NO_FEATURE, format!("the project holds no feature `{slug}`"), self.run_id())));
         if let Some(slug) = feature {
-            let found = features.iter().find(|one| one.slug == slug).ok_or_else(|| Refusal::NotFound(WireError::raised(NO_FEATURE, format!("the project holds no feature `{slug}`"), self.run_id())))?;
-            return Ok(ground.level_three(found));
+            return Ok(ground.level_three(feature_of(&slug)?));
         }
         match part {
-            None => Ok(ground.level_one()),
+            None => match lit {
+                Some(slug) => Ok(ground.level_one_lit(feature_of(&slug)?)),
+                None => Ok(ground.level_one()),
+            },
             Some(id) => match ground.find(&id) {
                 Some(Found::Detected { repo, part }) => Ok(ground.level_two(repo, part)),
                 Some(Found::Added(_)) => Ok(ground.level_one()).map(|one| SystemMap { part: Some(id), parts: Vec::new(), links: Vec::new(), ..one }),
@@ -198,6 +201,15 @@ where
             },
         }
     }
+}
+
+/// Level one of the map of the checkout at `root` with `feature` lit, for the tests.
+#[cfg(test)]
+pub(crate) fn read_lit_for_test(root: &Path, manifest: &str, feature: &store::KeptFeature) -> SystemMap {
+    let maps = vec![mapped(&Member { manifest: manifest.to_string(), root: root.to_path_buf(), folders: Vec::new(), kit: Vec::new() })];
+    let features = vec![feature.clone()];
+    let filed = |_: &str, _: &str| false;
+    Ground { project: "p", maps: &maps, features: &features, filed: &filed, additions: &[], librarian_at: None }.level_one_lit(feature)
 }
 
 /// One level of the map of the checkout at `root`, for the tests: no store, no Fleet, features given.

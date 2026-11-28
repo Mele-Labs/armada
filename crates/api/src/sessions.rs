@@ -832,6 +832,26 @@ pub(crate) async fn set_operator_acts<D: Sessions>(State(served): State<Served<D
     }
 }
 
+/// Each project's Operator, and the output styles he may pick.
+pub(crate) async fn list_operator_settings<D: Sessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_operator_settings().await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// What one project's Operator is. 200 with every project's; 404 for a project he has none of; 422 for a value Fleet refuses.
+pub(crate) async fn set_operator_settings<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let set: ipc::SetOperatorSettings = match ipc::decode_body("what a project's Operator is set to", &body) {
+        Ok(set) => set,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().set_operator_settings(set).await {
+        Ok(listed) => answer(StatusCode::OK, &listed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent asks whether a pull request or a branch should land. 200 with the ask's id, and Fleet's answer where it
 /// had one; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
 pub(crate) async fn ask_held<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {

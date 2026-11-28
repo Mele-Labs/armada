@@ -121,6 +121,9 @@ pub struct FakeDaemon {
     pub session_on: Mutex<Option<u16>>,
     /// Whether the session at [`Self::session_on`] is the Operator's own.
     pub session_is_the_operator: Mutex<bool>,
+    /// Acts the Operator's project switched off, and acts it holds until he has said so.
+    pub operator_switched_off: Mutex<Vec<&'static str>>,
+    pub operator_unsaid: Mutex<Vec<&'static str>>,
     /// Every pull request page read for him, by manifest id and number, in order.
     pub opened: std::sync::Arc<Mutex<Vec<(String, u64)>>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
@@ -167,6 +170,8 @@ impl FakeDaemon {
             words_on: Mutex::new(None),
             session_on: Mutex::new(None),
             session_is_the_operator: Mutex::new(false),
+            operator_switched_off: Mutex::new(Vec::new()),
+            operator_unsaid: Mutex::new(Vec::new()),
             opened: std::sync::Arc::default(),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),

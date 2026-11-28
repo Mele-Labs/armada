@@ -96,6 +96,7 @@ where
                 source: Source::Fleet,
                 session_id: String::new(),
                 manifest_id: String::new(),
+                project: feature.project.clone(),
                 subject: format!("`{}` is not in {project}'s library", feature.slug),
                 words: format!(
                     "Feature `{slug}` in project {project} (id {id}) is pending. {named} {files} {owners} Bring him one card: confirm it, \
@@ -134,6 +135,7 @@ where
                 source: Source::Fleet,
                 session_id: String::new(),
                 manifest_id: String::new(),
+                project: project.clone(),
                 subject: format!("{title} in {name} holds more than eight features"),
                 words: format!(
                     "Area `{area}` ({title}) in project {name} (id {project}) holds {}. Other areas the project keeps: {others}. Bring him one card \

@@ -82,12 +82,20 @@ impl Store {
             .map_err(failed("keeping a message to the Operator"))
     }
 
-    /// Keep a send he made while no Operator session ran. `talk` is the send as JSON.
-    pub fn add_operator_held_send(&mut self, talk: &str, at: &str) -> Result<(), WriteError> {
+    /// Keep a send he made while no Operator session ran, and say its number. `talk` is the send as JSON.
+    pub fn add_operator_held_send(&mut self, talk: &str, at: &str) -> Result<i64, WriteError> {
         self.conn
             .execute("INSERT INTO operator_held_sends (talk, at) VALUES (?1, ?2)", params![talk, at])
-            .map(|_| ())
+            .map(|_| self.conn.last_insert_rowid())
             .map_err(failed("keeping a send to the Operator until it is up"))
+    }
+
+    /// Kept send `n` as JSON again, where it has not been told: the project he picked for it is in it now.
+    pub fn route_operator_held_send(&mut self, n: i64, talk: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE operator_held_sends SET talk = ?2 WHERE n = ?1 AND delivered_at IS NULL", params![n, talk])
+            .map(|changed| changed > 0)
+            .map_err(failed("routing a kept send to a project's Operator"))
     }
 
     /// The sends not yet told to a session, oldest first, each with its number.

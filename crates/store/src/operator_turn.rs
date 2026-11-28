@@ -53,6 +53,8 @@ pub struct KeptTurn {
     /// Why a picked card came back to the front, and when. Since 14 Nov 2026.
     pub returned_why: Option<String>,
     pub returned_at: Option<String>,
+    /// The project of the Operator the item belongs to: the project of the session that raised a card. Absent on an item Fleet raised.
+    pub project: Option<String>,
 }
 
 /// What the page remembers between two looks.
@@ -67,7 +69,7 @@ pub struct KeptPage {
     pub top_at: Option<String>,
 }
 
-const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at, card, picked, picked_at, steps, returned_why, returned_at";
+const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at, card, picked, picked_at, steps, returned_why, returned_at, project";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
     Ok(KeptTurn {
@@ -96,6 +98,7 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
         steps: row.get(22)?,
         returned_why: row.get(23)?,
         returned_at: row.get(24)?,
+        project: row.get(25)?,
     })
 }
 
@@ -109,9 +112,9 @@ impl Store {
         let doing = "keeping an item of the person's Your turn";
         let ord: i64 = self.conn.query_row("SELECT coalesce(max(ord), 0) + 1 FROM operator_turn", [], |row| row.get(0)).map_err(failed(doing))?;
         let kept = self.conn.execute(
-            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, card) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
-            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.left_at, one.call, one.follows, one.card],
+            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, card, project) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.left_at, one.call, one.follows, one.card, one.project],
         );
         match kept.map_err(failed(doing))? {
             0 => Ok(None),

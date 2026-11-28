@@ -105,6 +105,8 @@ mod session_summaries;
 mod studio;
 mod studio_sketch;
 mod studio_zones;
+/// A system map with a feature lit, and one from before `lit`.
+mod system_map;
 /// The Board row, and the redaction it exists for.
 mod timeline;
 mod bay_history;

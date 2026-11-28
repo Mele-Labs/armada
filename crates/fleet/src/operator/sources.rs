@@ -23,6 +23,7 @@ impl Report {
             source: Source::Agent,
             session_id: self.session_id.clone(),
             manifest_id: self.manifest_id.clone(),
+            project: String::new(),
             subject: self.title.clone(),
             words: self.what.clone(),
         }
@@ -68,6 +69,7 @@ pub fn ask_arrival(ask: &store::KeptJobAsk) -> Arrival {
         source: Source::Agent,
         session_id: ask.session_id.clone(),
         manifest_id: ask.manifest_id.clone(),
+        project: String::new(),
         subject,
         words,
     }
@@ -92,6 +94,7 @@ impl NewIssue {
             source: Source::Tracker,
             session_id: String::new(),
             manifest_id: self.manifest_id.clone(),
+            project: String::new(),
             subject: self.title.clone(),
             words: format!("{} by {}: {}", self.reference, self.author, self.excerpt),
         }
@@ -132,6 +135,7 @@ impl Note {
             source: Source::Person,
             session_id: String::new(),
             manifest_id: self.manifest_id.clone(),
+            project: String::new(),
             subject: subject_of(&self.text),
             words: format!("{}\n\n{}{}", self.text.trim(), self.left(), self.features),
         }
@@ -175,6 +179,7 @@ impl BridgeError {
             source: Source::Bridge,
             session_id: String::new(),
             manifest_id: self.manifest_id.clone(),
+            project: String::new(),
             subject: subject_of(&self.message),
             words: self.words(),
         }

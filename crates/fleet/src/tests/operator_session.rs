@@ -15,8 +15,11 @@ async fn saved(rig: &Rig, name: &str, word: &str) {
         .unwrap_or_else(|why| panic!("{name} {word}: {why:?}"));
 }
 
+/// The live Operator's session, in a rig whose one repository is its one project's.
 pub(super) async fn live(rig: &Rig) -> Option<String> {
-    rig.fleet.operator_session_id().await
+    let all = rig.fleet.operator_sessions().await;
+    assert!(all.len() <= 1, "one project, one Operator: {all:?}");
+    all.into_iter().next().map(|(_, id)| id)
 }
 
 #[tokio::test]
@@ -33,13 +36,14 @@ async fn the_operators_session_starts_with_its_switch_in_a_folder_of_its_own_and
 
     let kept = rig.fleet.store().lock().await.session(&id).expect("read").expect("a row");
     assert!(kept.manifest_id.is_none(), "no repository: {kept:?}");
-    assert!(kept.cwd.ends_with("operator/session"), "its own folder: {}", kept.cwd);
     let hosting = rig.fleet.store().lock().await.hosting(&id).expect("read").expect("hosted");
     assert!(hosting.operator && hosting.lease_slot.is_none() && hosting.manifest_id.is_empty(), "{hosting:?}");
+    let project = hosting.project.clone().expect("the Operator is a project's");
+    assert!(kept.cwd.ends_with(&format!("operator/session/{project}")), "a folder of its own under the project's id: {}", kept.cwd);
 
     eventually(|| async { rig.stand_in.starts().iter().any(|one| one.session == id) }).await;
     let start = rig.stand_in.starts().into_iter().find(|one| one.session == id).expect("its process");
-    assert!(start.operator, "its process is told the Operator's rules: {start:?}");
+    assert!(start.operator.is_some(), "its process is told the Operator's rules: {start:?}");
 
     let record = api::Sessions::list_sessions(rig.fleet.as_ref(), None, None, None).await.expect("listed").sessions.into_iter().find(|one| one.id.as_str() == id).expect("on the ledger");
     assert!(record.operator, "the record says so");

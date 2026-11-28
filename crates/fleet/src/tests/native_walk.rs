@@ -9,10 +9,9 @@ use std::time::Duration;
 use api::{HostedSessions, Sessions};
 use ipc::{OpenNativeWalk, SessionId, SessionRow, ShowWindow, WalkBuild, WalkBuildState, WalkStep, WindowClosed, WithdrawWindow};
 
-use super::session_gate::in_its_slot;
+use super::session_gate::{in_its_slot, in_its_slot_fitted};
 use super::session_host::Rig;
 use crate::tests::peer::Placing;
-use crate::walk_builds::Program;
 
 pub(super) const URL: &str = "armada://walk/sidebar";
 pub(super) const OTHER: &str = "armada://walk/footer";
@@ -96,9 +95,41 @@ fn script(walks: &[&str]) -> String {
     )
 }
 
-/// Fleet builds as `script` says, in place of cargo.
+/// The script a repository's declared `build` runs, in its home: what a test writes to say how the build goes.
+const BUILD_SCRIPT: &str = "walk-build.sh";
+
+/// An `armada.yml` declaring `walks:` as this repository's does, but for `build`, which is `script` in the home
+/// the test is given so the build is a stand-in and not cargo.
+pub(super) fn declared(home: &str) -> config::Manifest {
+    let text = format!(
+        "version: 1\nid: 01FIXTUREMANIFEST\nwalks:\n  build: sh {home}/{BUILD_SCRIPT}\n  binary: crates/bridge-native/target/release/bridge-native\n  \
+         list: ${{binary}} --list-walks\n  open: ${{binary}} --walk ${{walk}} --job ${{job}} --url ${{url}} --fleet-port ${{fleet_port}}\n  \
+         take: --take ${{name}}=${{walk}}\n  shots: ${{binary}} --walk ${{walk}} --check --shots ${{shots}} --hold 0\n  \
+         against: ${{binary}} --walk ${{walk}} --check --shots ${{shots}} --against ${{against}} --out ${{out}} --hold 0\n  \
+         seed: crates/bridge-native/target\n"
+    );
+    config::Manifest::parse(Path::new("armada.yml"), &text).expect("walks as armada.yml declares them")
+}
+
+/// [`in_its_slot`] in a repository whose Manifest declares its walks.
+pub(super) async fn walking_slot() -> (Rig, SessionId) {
+    in_its_slot_fitted(&Placing::nothing(), |fittings| {
+        let home = fittings.host.home.clone();
+        fittings.starting_in.as_mut().expect("a served repository").manifest = declared(&home);
+    })
+    .await
+}
+
+/// Fleet builds as `script` says, in place of cargo: the script the declared `build` runs.
 pub(super) fn builds_with(rig: &Rig, script: String) {
-    rig.fleet.walk_builds().built_by(Program { program: "sh".into(), args: vec!["-c".into(), script] });
+    std::fs::write(Path::new(&rig.fleet.host().home).join(BUILD_SCRIPT), script).expect("a build script");
+}
+
+/// Where the build of `commit` is kept in the rig's repository.
+pub(super) fn kept_at(rig: &Rig, commit: &str) -> PathBuf {
+    let id = rig.manifest.as_str();
+    let walks = rig.fleet.walks_declared(id).expect("declared");
+    crate::walk_builds::binary_of(&rig.fleet.host().home, &crate::walk_builds::key_of(id), commit, &walks)
 }
 
 /// The walk's build on the newest open row of `url`.
@@ -137,7 +168,7 @@ async fn waiting_ids(rig: &Rig, id: &SessionId) -> Vec<String> {
 
 /// A job holding a slot with a commit, whose build plays both walks, with a native walk shown and built.
 async fn walking() -> (Rig, SessionId) {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar", "footer"]));
     shown_ready(&rig, &id, URL).await;
@@ -170,7 +201,7 @@ fn running(rig: &Rig, id: &SessionId, url: &str) -> bool {
 
 #[tokio::test]
 async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_page_takes_on_it() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     let record = rig.fleet.show_window(None, shown(&id, URL)).await.expect("a native walk is shown");
     assert!(record.attachments.iter().any(|one| one.target == URL), "kept on the ledger as any window is");
@@ -190,9 +221,83 @@ async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_pag
     assert_eq!(rig.fleet.walk_open(id.as_str()).await.as_deref(), Some(URL), "nothing refused was written");
 }
 
+/// The Manifest of another repository: its own app, built to `out/app.sh`, named and started in its own words.
+fn another_repositorys(home: &str, take: &str) -> config::Manifest {
+    let text = format!(
+        "version: 1\nid: 01FIXTUREMANIFEST\nwalks:\n  build: sh {home}/{BUILD_SCRIPT}\n  binary: out/app.sh\n  list: ${{binary}} names\n  \
+         open: ${{binary}} play ${{walk}} for ${{job}} at ${{url}} on ${{fleet_port}}\n{take}  shots: ${{binary}} snap ${{walk}} ${{shots}}\n  \
+         against: ${{binary}} snap ${{walk}} ${{shots}} ${{against}} ${{out}}\n"
+    );
+    config::Manifest::parse(Path::new("armada.yml"), &text).expect("another repository's walks")
+}
+
+/// What that repository's build writes as its app: `names` lists two walks, anything else records how it was started.
+const ANOTHER_APP: &str = "mkdir -p out && cat > out/app.sh <<'EOF'\n\
+     #!/bin/sh\n\
+     if [ \"$1\" = names ]; then echo sidebar; echo footer; exit 0; fi\n\
+     echo \"$$ $(pwd -P) $@\" >> starts.txt\n\
+     exec sleep 60\n\
+     EOF\n\
+     chmod +x out/app.sh";
+
+#[tokio::test]
+async fn a_repository_declaring_its_own_walk_is_built_readied_and_opened_through_the_declaration() {
+    let (rig, id) = in_its_slot_fitted(&Placing::nothing(), |fittings| {
+        let home = fittings.host.home.clone();
+        fittings.starting_in.as_mut().expect("a served repository").manifest = another_repositorys(&home, "  take: with ${name} as ${walk}\n");
+    })
+    .await;
+    leased(&rig, &id).await;
+    builds_with(&rig, ANOTHER_APP.into());
+    let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
+    rig.fleet.show_window(None, ShowWindow { variations: takes, ..shown(&id, URL) }).await.expect("shown");
+    assert_eq!(state_of(&rig, &id, URL).await, Some(WalkBuildState::Building));
+
+    built_all(&rig).await;
+
+    assert_eq!(state_of(&rig, &id, URL).await, Some(WalkBuildState::Ready), "{:?}", build_of(&rig, &id, URL).await);
+    opened(&rig, &id, URL, 1).await;
+    let started = starts(&rig).remove(0);
+    let said = format!("play sidebar for {} at {URL} on 12345 with Sidebar as sidebar with Footer as footer", id.as_str());
+    assert!(started.ends_with(&said), "started as the declaration says: {started}");
+    assert!(!started.contains("--walk"), "none of the native Bridge's own flags: {started}");
+    let commit = build_of(&rig, &id, URL).await.expect("a build").commit;
+    let kept = kept_at(&rig, &commit);
+    assert_eq!(kept.file_name().and_then(|name| name.to_str()), Some("app.sh"), "kept under the name the declaration gives");
+    assert!(kept.is_file());
+}
+
+#[tokio::test]
+async fn a_repository_whose_manifest_declares_no_walks_refuses_a_native_walk_and_names_the_field() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    leased(&rig, &id).await;
+
+    let refused = said(rig.fleet.show_window(None, shown(&id, URL)).await);
+
+    assert!(refused.contains("`walks:`") && refused.contains("armada.yml"), "{refused}");
+    assert_eq!(rig.fleet.walk_open(id.as_str()).await, None, "nothing was written");
+    rig.fleet.show_window(None, shown(&id, "http://localhost:5173/x")).await.expect("a page is still shown");
+}
+
+#[tokio::test]
+async fn a_walk_with_takes_is_refused_where_the_declaration_has_no_take() {
+    let (rig, id) = in_its_slot_fitted(&Placing::nothing(), |fittings| {
+        let home = fittings.host.home.clone();
+        fittings.starting_in.as_mut().expect("a served repository").manifest = another_repositorys(&home, "");
+    })
+    .await;
+    leased(&rig, &id).await;
+    let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
+
+    let refused = said(rig.fleet.show_window(None, ShowWindow { variations: takes, ..shown(&id, URL) }).await);
+
+    assert!(refused.contains("walks.take"), "{refused}");
+    rig.fleet.show_window(None, shown(&id, URL)).await.expect("a walk with no takes is shown");
+}
+
 #[tokio::test]
 async fn a_native_walk_the_build_he_runs_lacks_is_shown_and_its_row_says_building_at_the_jobs_commit() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     let slot = leased(&rig, &id).await;
     assert!(!build(&rig).join(APP).exists(), "he has no build that plays it");
 
@@ -205,7 +310,7 @@ async fn a_native_walk_the_build_he_runs_lacks_is_shown_and_its_row_says_buildin
 
 #[tokio::test]
 async fn a_build_that_plays_the_walk_and_its_takes_is_ready_and_only_then_asks_him() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar", "footer"]));
     let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
@@ -220,7 +325,7 @@ async fn a_build_that_plays_the_walk_and_its_takes_is_ready_and_only_then_asks_h
 
 #[tokio::test]
 async fn a_build_that_does_not_play_the_walk_fails_names_it_to_the_job_and_asks_him_nothing() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["footer"]));
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
@@ -237,7 +342,7 @@ async fn a_build_that_does_not_play_the_walk_fails_names_it_to_the_job_and_asks_
 
 #[tokio::test]
 async fn a_failed_cargo_build_is_told_as_its_last_twenty_lines() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, "for n in $(seq 1 30); do echo \"line $n\" >&2; done; exit 101".into());
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
@@ -251,7 +356,7 @@ async fn a_failed_cargo_build_is_told_as_its_last_twenty_lines() {
 
 #[tokio::test]
 async fn a_job_that_holds_no_slot_has_nothing_to_build_and_is_told() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     let mut hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
     hosting.lease_slot = None;
     rig.fleet.store().lock().await.keep_hosting(&hosting).expect("kept");
@@ -292,16 +397,14 @@ async fn a_branch_that_moved_is_built_again_where_the_jobs_turn_ends_and_the_pre
     let opened_again = rig.fleet.open_native_walk(press(&id, URL)).await.expect("opened");
     assert!(opened_again.started, "the newer commit stops the walk of the older and starts again");
     until(|| async { starts(&rig).len() == 2 }).await;
-    let home = rig.fleet.host().home.clone();
-    let key = crate::walk_builds::key_of(rig.fleet.repositories().first().expect("served").manifest().id().as_str());
     for commit in [&first, &moved] {
-        assert!(crate::walk_builds::binary_of(&home, &key, commit).is_file(), "the first build stays beside the second: {commit}");
+        assert!(kept_at(&rig, commit).is_file(), "the first build stays beside the second: {commit}");
     }
 }
 
 #[tokio::test]
 async fn a_walk_left_building_by_a_fleet_that_stopped_is_built_when_fleet_starts_again() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar", "footer"]));
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
@@ -319,7 +422,7 @@ async fn a_walk_left_building_by_a_fleet_that_stopped_is_built_when_fleet_starts
 
 #[tokio::test]
 async fn a_walk_that_failed_is_refused_on_the_press_with_why() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, "echo broke >&2; exit 1".into());
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
@@ -337,9 +440,7 @@ async fn a_walk_that_failed_is_refused_on_the_press_with_why() {
 async fn a_build_gone_since_the_walk_was_ready_is_built_again_and_the_press_is_refused() {
     let (rig, id) = walking().await;
     let commit = build_of(&rig, &id, URL).await.expect("a build").commit;
-    let home = rig.fleet.host().home.clone();
-    let key = crate::walk_builds::key_of(&rig.fleet.repositories().first().expect("served").manifest().id().as_str().to_string());
-    std::fs::remove_file(crate::walk_builds::binary_of(&home, &key, &commit)).expect("gone");
+    std::fs::remove_file(kept_at(&rig, &commit)).expect("gone");
 
     let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
 
@@ -352,7 +453,7 @@ async fn a_build_gone_since_the_walk_was_ready_is_built_again_and_the_press_is_r
 
 #[tokio::test]
 async fn a_row_written_before_walks_were_built_runs_from_the_build_he_keeps() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar"]));
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
@@ -397,9 +498,7 @@ async fn the_walk_runs_as_armada_from_a_bundle_of_its_own_around_the_jobs_built_
     assert!(info.contains("dev.armada.bridge.native.walk"), "apart from his running native Bridge: {info}");
     let linked = std::fs::metadata(bundle.join("MacOS/Armada")).expect("the executable");
     let commit = build_of(&rig, &id, URL).await.expect("a build").commit;
-    let home = rig.fleet.host().home.clone();
-    let key = crate::walk_builds::key_of(rig.fleet.repositories().first().expect("served").manifest().id().as_str());
-    let app = std::fs::metadata(crate::walk_builds::binary_of(&home, &key, &commit)).expect("the built app");
+    let app = std::fs::metadata(kept_at(&rig, &commit)).expect("the built app");
     assert_eq!(linked.ino(), app.ino(), "a hard link to the Job's build, not a copy");
 }
 
@@ -434,7 +533,7 @@ async fn two_presses_start_one_app_from_the_jobs_build_with_the_walk_the_job_the
 
 #[tokio::test]
 async fn a_native_walks_variations_are_other_native_walks_and_the_app_starts_with_each_as_a_take() {
-    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let (rig, id) = walking_slot().await;
     leased(&rig, &id).await;
     builds_with(&rig, script(&["sidebar", "footer"]));
     let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];

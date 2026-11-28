@@ -48,7 +48,7 @@ fn stop(step: u32, part: &str, files: &[&str]) -> PathStop {
 }
 
 fn empty(project: &str) -> SystemMap {
-    SystemMap { project: project.into(), part: None, feature: None, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None }
+    SystemMap { project: project.into(), part: None, feature: None, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None, lit: None }
 }
 
 /// One level of the map: level one with neither argument, level two with a part, level three with a feature.

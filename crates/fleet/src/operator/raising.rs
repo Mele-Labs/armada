@@ -121,7 +121,7 @@ where
         let _turn = self.operator_seat().raising.turn.lock().await;
         let present = self.store().lock().await.operator_turn_present().unwrap_or_default();
         let gone = |session: &str, item: &str| {
-            if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) || item.starts_with(super::cards::CARD) {
+            if item.starts_with(super::turning::RED) || item.starts_with(super::disking::DISK_HOLD) || item.starts_with(super::cards::CARD) || item.starts_with(super::fleet_cards::FLEET_CARD) {
                 return false;
             }
             match lists.iter().find(|(id, _)| id == session) {

@@ -9,11 +9,13 @@ use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Projects;
 use crate::served::Served;
 
-/// `?part=&feature=` on `get_system_map`: neither is level one, `part` level two, `feature` level three.
+/// `?part=&feature=&lit=` on `get_system_map`: none is level one, `part` level two, `feature` level three, and `lit` level
+/// one with that feature lit.
 #[derive(serde::Deserialize)]
 pub(crate) struct Level {
     part: Option<String>,
     feature: Option<String>,
+    lit: Option<String>,
 }
 
 /// `?part=&feature=` on `get_system_part`: one part, one feature, or neither for the whole project.
@@ -30,7 +32,7 @@ pub(crate) struct OfPath {
 }
 
 pub(crate) async fn get_system_map<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, Query(asked): Query<Level>) -> Response {
-    match served.daemon().get_system_map(project, asked.part.filter(|one| !one.is_empty()), asked.feature.filter(|one| !one.is_empty())).await {
+    match served.daemon().get_system_map(project, asked.part.filter(|one| !one.is_empty()), asked.feature.filter(|one| !one.is_empty()), asked.lit.filter(|one| !one.is_empty())).await {
         Ok(map) => answer(StatusCode::OK, &map, served.run_id()),
         Err(refusal) => refused(refusal),
     }

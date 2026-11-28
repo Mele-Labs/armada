@@ -846,7 +846,7 @@ impl JobView {
             let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
             page.refused = None;
             page.pending.push(Pending { key, text: text.clone(), seen, tags: mentions.clone(), body: None, failed: false, about: about.clone() });
-            let talk = TalkToOperator { words: text, about: about.map(|(card, _)| card), attachments: Vec::new(), mentions };
+            let talk = TalkToOperator { words: text, about: about.map(|(card, _)| card), attachments: Vec::new(), mentions, project: None, looking_at: None };
             cx.spawn_in(window, async move |this, cx| {
                 let attachments = cx.background_executor().spawn(async move { encoded_files(files) }).await;
                 let _ = this.update_in(cx, |this, window, cx| this.say_to_operator(key, TalkToOperator { attachments, ..talk }, window, cx));

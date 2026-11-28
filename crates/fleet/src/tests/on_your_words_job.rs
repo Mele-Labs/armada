@@ -125,13 +125,13 @@ async fn its_door_is_a_jobs_plus_the_extras_and_another_jobs_is_not() {
     rig.send(&ordinary, "hi").await;
     let caller = |from: u16| api::Caller::at(format!("127.0.0.1:{from}").parse().unwrap());
 
-    let reach = rig.fleet.words_reach_at(caller(52000)).expect("its connection");
+    let reach = rig.fleet.words_reach_at(caller(52000)).await.expect("its connection");
     assert!(!reach.is_a_hosted_session(), "its acts are placed as a Job on your words's");
     for extra in ["tell_session", "ask_the_person", "list_sessions"] {
         assert!(reach.may(extra), "`{extra}` is its");
     }
 
-    let session = rig.fleet.words_reach_at(caller(52001)).expect("a Job's connection");
+    let session = rig.fleet.words_reach_at(caller(52001)).await.expect("a Job's connection");
     assert!(session.is_a_hosted_session());
     assert!(session.may("list_sessions") && session.may("ask_the_person"));
     assert!(!session.may("tell_session"));
@@ -144,5 +144,5 @@ async fn an_ended_job_on_your_words_places_no_caller() {
     rig.send(&on, "hello").await;
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: on }).await.expect("ended");
     let caller = api::Caller::at("127.0.0.1:52000".parse().unwrap());
-    assert!(rig.fleet.words_reach_at(caller).is_none(), "no process, no placement");
+    assert!(rig.fleet.words_reach_at(caller).await.is_none(), "no process, no placement");
 }

@@ -188,9 +188,9 @@ impl Projects for FakeDaemon {
         Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new(), by_librarian: None })
     }
 
-    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemMap, Refusal> {
+    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>, _lit: Option<String>) -> Result<ipc::SystemMap, Refusal> {
         held(&project)?;
-        Ok(ipc::SystemMap { project, part, feature, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None })
+        Ok(ipc::SystemMap { project, part, feature, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None, lit: None })
     }
 
     async fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemPartAnswers, Refusal> {
@@ -220,11 +220,11 @@ impl Projects for FakeDaemon {
     }
 
     async fn map_system_with_librarian(&self, project: String) -> Result<ipc::SystemMap, Refusal> {
-        self.get_system_map(project, None, None).await
+        self.get_system_map(project, None, None, None).await
     }
 
     async fn answer_system_addition(&self, project: String, _answer: ipc::AnswerSystemAddition) -> Result<ipc::SystemMap, Refusal> {
-        self.get_system_map(project, None, None).await
+        self.get_system_map(project, None, None, None).await
     }
 
     async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {

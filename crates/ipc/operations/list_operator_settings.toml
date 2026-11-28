@@ -1,0 +1,9 @@
+[operations.list_operator_settings]
+ask_tool = "none"
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Each project's Operator: its switch, model, effort, role, words, prompt, output style, tools, where it asks decisions, name and accent, with what he set and the session that runs it, and the output styles he may pick"
+notes = """
+Since 28 Nov 2026. `GET /operator/settings`, answered with `OperatorSettingsList`: `projects`, each `{ project, project_name, settings, set, session_id? }`, and `styles`, each `{ name, description? }`, the styles he may pick with their files' own words, `armada:Operator` first. `settings` is every value resolved: `on`, `model`, `effort`, `role` (`partner`, `dispatcher` or `reviewer`), `words`, `prompt`, `output_style`, `tools` `{ start_jobs, merge, end_jobs, file_issues }`, `decisions` (`cards` or `chat`), `name`, `accent?` and `acts?`. `set` is what he set, each value absent where he has not. A tool he did not set follows the role. Kept as learned values of the project, never in its file, and never machine settings.
+"""
