@@ -349,14 +349,8 @@ pub(super) fn holds(job: &SessionRecord) -> String {
             _ => format!("Waits on you: {}", crate::job_view::plain_of(&item.text)),
         };
     }
-    if let Some(held) = job.held_open_by.first() {
-        return match held {
-            ipc::HeldOpenBy::Watch { name } => format!("Waits on its watch {name}"),
-            ipc::HeldOpenBy::Job { name } => format!("Waits on its Job {name}"),
-            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::Queue } => format!("Pull request #{number} in the merge queue"),
-            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::AutoMerge } => format!("Pull request #{number} merges once its Checks pass"),
-            ipc::HeldOpenBy::PullRequest { number, on: ipc::PullRequestWait::Checks { .. } } => format!("Pull request #{number} waits on its Checks"),
-        };
+    if let Some(held) = super::built::held_said(job) {
+        return held;
     }
     if let Some(wait) = job.claim_waits.first() {
         return if wait.holder.is_empty() { format!("Waits on {}", wait.item) } else { format!("Waits on {}, held by {}", wait.item, wait.holder) };

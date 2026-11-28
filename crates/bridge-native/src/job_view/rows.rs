@@ -767,7 +767,7 @@ impl JobView {
             return Some(line);
         }
         Some(match item {
-            ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
+            ThreadItem::Row { row } => return self.with_graphs(row.id(), self.row(ix, row, page, look, now, window, cx), look, cx),
             ThreadItem::Calls { id, rows, .. } => {
                 // A dispute the agent called is one item, the record's, so its call is not drawn twice.
                 let rows = match (after, rows.split_last()) {

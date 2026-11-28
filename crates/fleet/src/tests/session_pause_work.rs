@@ -23,6 +23,9 @@ fn call(act: SessionCheckAct, cwd: &str, run: Option<u64>) -> SessionCheckCall {
         outcome: (act == SessionCheckAct::End).then_some(SessionCheckState::Failed),
         took_ms: None,
         log: None,
+        tree: None,
+        queue_wait_ms: None,
+        cpu_ms: None,
     }
 }
 

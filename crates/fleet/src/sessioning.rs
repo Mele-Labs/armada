@@ -1173,6 +1173,14 @@ where
         self.held_withdrawn(caller, withdrawn).await
     }
 
+    async fn settle_clash(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        settle: ipc::SettleClash,
+    ) -> Result<ipc::JobClash, Refusal> {
+        self.clash_settled(caller, settle).await
+    }
+
     async fn report_bug(
         &self,
         caller: Option<api::Caller>,

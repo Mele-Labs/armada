@@ -127,7 +127,7 @@ pub(crate) fn curate(entries: &mut Vec<LogEntry>, answer: &Distilled, distil: &D
 fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>, held: &dyn Held) -> Option<usize> {
     let repository = match learnt.section {
         LogSection::Repo => distil.repository,
-        LogSection::Machine | LogSection::Habits => "",
+        LogSection::Machine | LogSection::Habits | LogSection::Project => "",
     };
     if held.denied(learnt.section, repository, &learnt.text) {
         return None;

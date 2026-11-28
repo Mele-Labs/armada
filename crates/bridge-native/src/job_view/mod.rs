@@ -106,6 +106,8 @@ mod lanes_copy;
 mod ledger;
 mod mods_made;
 mod mod_panel;
+#[cfg(test)]
+mod operator_harness;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
@@ -154,6 +156,7 @@ mod job_browser;
 mod loadout_tab;
 mod feature_tab;
 mod tokens_tab;
+mod graph_card;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
@@ -1464,6 +1467,7 @@ impl Render for JobView {
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
         self.sync_tokens_link(&id, window, cx);
+        self.sync_graphs(&id, graph_card::Place::Thread, cx);
         self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
@@ -1559,7 +1563,7 @@ impl Render for JobView {
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(false, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_judge_sheet(&id, window, cx));

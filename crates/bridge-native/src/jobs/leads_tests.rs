@@ -44,7 +44,7 @@ fn leads() -> leads::Leads {
 
 /// The list by `group`, with no library held: the headings come from the rows.
 fn grouped(group: Group) -> Vec<Line> {
-    lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], group, false, &leads::Leads::default())
+    lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], group, false, &leads::Leads::default(), &built::Builds::default())
 }
 
 /// Each heading, and each Job by id with its muted line, in the order drawn.
@@ -122,7 +122,7 @@ fn a_sub_project_heads_its_jobs_on_top_with_a_joined_one_and_each_still_stands_i
     let mut held = leads::Leads::default();
     // mock-01 he picked; mock-02 writes to the sub project's feature and joins it; one with no Job listed is not drawn.
     held.subs = vec![sub("s1", "Librarian rollout", &["mock-01"], &["job-list-and-live-status"]), sub("s2", "Gone quiet", &["mock-15"], &[])];
-    let lines = lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], Group::State, false, &held);
+    let lines = lines_led(&three(), &[], Scope::Active, "", &[], &Names::default(), None, &[], Group::State, false, &held, &built::Builds::default());
     let drawn = drawn(&lines);
     assert_eq!(drawn[..3], ["# Librarian rollout", "mock-01", "mock-02 (Joined: it writes to Job list and live status)"]);
     assert!(matches!(&lines[0], Line::Group(head) if head.lead == Some(leads::Lead::SubProject { id: "s1".into() })));

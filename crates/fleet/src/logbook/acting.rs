@@ -37,12 +37,14 @@ const TEXT_REFUSED: &str = "fleet.logbook_text_refused";
 const TEXT_FORGOTTEN: &str = "fleet.logbook_text_forgotten";
 /// A `repo` entry that names no repository. A 422.
 const REPOSITORY_MISSING: &str = "fleet.logbook_repository_missing";
+const PROJECT_MISSING: &str = "fleet.logbook_project_missing";
 /// The store would not read or keep it. A 500.
 const FAILED: &str = "fleet.logbook_failed";
 
 fn section_of(section: LogSection) -> LogbookSection {
     match section {
         LogSection::Repo => LogbookSection::Repo,
+        LogSection::Project => LogbookSection::Project,
         LogSection::Habits => LogbookSection::Habits,
         LogSection::Machine => LogbookSection::Machine,
     }
@@ -51,6 +53,7 @@ fn section_of(section: LogSection) -> LogbookSection {
 fn section_in(section: LogbookSection) -> LogSection {
     match section {
         LogbookSection::Repo => LogSection::Repo,
+        LogbookSection::Project => LogSection::Project,
         LogbookSection::Habits => LogSection::Habits,
         LogbookSection::Machine => LogSection::Machine,
     }
@@ -150,6 +153,7 @@ fn wired(logged: &Logged, root: Option<&str>, titles: &HashMap<String, String>) 
         repository: (entry.section == LogSection::Repo)
             .then(|| root.map(str::to_string).unwrap_or_else(|| entry.repository.clone()))
             .filter(|repository| !repository.is_empty()),
+        project: (entry.section == LogSection::Project).then(|| entry.repository.clone()).filter(|project| !project.is_empty()),
         kind: kind_of(entry.kind),
         topic: entry.topic.map(topic_of),
         title: entry.title.clone(),
@@ -510,9 +514,18 @@ where
                 })?;
                 Some(self.logbook_repository(&named)?)
             }
-            LogSection::Habits | LogSection::Machine => None,
+            LogSection::Habits | LogSection::Machine | LogSection::Project => None,
         };
-        let key = root.as_deref().map(key_of).unwrap_or_default();
+        // A project entry is kept under the project's id, where a repository's is under its key.
+        let key = match section {
+            LogSection::Project => {
+                let named = teach.project.ok_or_else(|| {
+                    self.logbook_refused(PROJECT_MISSING, "A project entry needs the project it is for.".to_string())
+                })?;
+                self.logbook_project(&named).await?
+            }
+            _ => root.as_deref().map(key_of).unwrap_or_default(),
+        };
         let now = self.logbook_now();
         let evidence = teach.source.map(|from| LogEvidence {
             session_id: from.session_id,
@@ -524,8 +537,11 @@ where
         let entry = {
             let mut store = self.store().lock().await;
             let words = logbook_words(&text);
-            let said = store
-                .logbook_of(&key)
+            let held = match section {
+                LogSection::Project => store.logbook_of_projects(std::slice::from_ref(&key)),
+                _ => store.logbook_of(&key),
+            };
+            let said = held
                 .map_err(|why| self.logbook_fault(why))?
                 .into_iter()
                 .find(|one| one.section == section && one.repository == key && logbook_words(&one.text) == words);

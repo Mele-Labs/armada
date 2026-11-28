@@ -164,10 +164,14 @@ fn view_label(scope: Scope, group: Group) -> String {
 
 mod asleep_mac;
 mod board;
+mod board_clashes;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
 mod name_sheet;
+mod built;
+#[cfg(test)]
+mod built_tests;
 #[cfg(test)]
 mod prioritise_tests;
 #[cfg(test)]
@@ -459,9 +463,16 @@ fn standing_of(job: &SessionRecord) -> (u8, u8) {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Stand {
     Needs,
+    /// Ready to try, and the running preview holds its build: he can try it now.
+    InPreview,
+    /// Ready to try with no preview offer, as a Job of a repository without a preview is.
     Ready,
+    /// Ready to try on a build the running preview does not hold yet: still checking, off the list, or waiting on Refresh.
+    NotInPreview,
     Working,
     Ci,
+    /// Its turn ended and nothing runs, but a watch, a Job it started or its pull request keeps it open.
+    Waiting,
     /// Held for a slot, a limit or another Job, or stopped: nothing runs and nothing asks him.
     Held,
     /// Alive and quiet: its turn ended with nothing for him.
@@ -479,6 +490,9 @@ impl Stand {
             Stand::Working => "Working",
             Stand::Ci => "Waiting on ci",
             Stand::Ready => "Ready to try",
+            Stand::InPreview => "In your preview",
+            Stand::NotInPreview => "Not in your preview yet",
+            Stand::Waiting => "Waiting on",
             Stand::Held => "Held",
             Stand::Idle => "Idle",
             Stand::Done => "Done",
@@ -493,7 +507,8 @@ impl Stand {
             Stand::Needs => token::STATUS_AWAITING_REVIEW,
             Stand::Working => token::STATUS_RUNNING,
             Stand::Ci => token::STATUS_NOT_STARTED,
-            Stand::Ready => token::STATUS_COMPLETED_SUCCESS,
+            Stand::Ready | Stand::InPreview => token::STATUS_COMPLETED_SUCCESS,
+            Stand::NotInPreview | Stand::Waiting => token::STATUS_NOT_STARTED,
             Stand::Held => token::STATUS_HANDED_IN,
             Stand::Idle | Stand::Done | Stand::Ended | Stand::Saved => token::FG_MUTED,
         }
@@ -502,8 +517,10 @@ impl Stand {
 
 /// The state group a Job stands in, from Fleet's mark. A Job whose only open item is a Ready to try stands there, not
 /// under Needs you; one with a question or a failure stays under Needs you. A Job with a pull request whose checks
-/// still run, and no work of its own going, is Waiting on ci. Anything else follows Fleet's group for it.
-fn stand_in(job: &SessionRecord) -> Stand {
+/// still run, and no work of its own going, is Waiting on ci. A Ready Job that offered a build stands by where the running
+/// preview has it, as `builds` says. A Job with nothing going that something else keeps open is Waiting on. Anything else
+/// follows Fleet's group for it.
+fn stand_in(job: &SessionRecord, builds: &built::Builds) -> Stand {
     if job.state == SessionState::Ended || crate::move_to_mac::moved(job) {
         return Stand::Ended;
     }
@@ -515,7 +532,11 @@ fn stand_in(job: &SessionRecord) -> Stand {
         || mark.group == JobGroup::Ready
         || (mark.lamp == JobLamp::Needs && open().next().is_some() && open().all(|item| item.source == WaitingSource::ReadyToTry))
     {
-        return Stand::Ready;
+        return match builds.get(job.id.as_str()) {
+            None => Stand::Ready,
+            Some(built::Built::In) => Stand::InPreview,
+            Some(_) => Stand::NotInPreview,
+        };
     }
     if matches!(mark.lamp, JobLamp::Needs | JobLamp::Failed) {
         return Stand::Needs;
@@ -528,6 +549,9 @@ fn stand_in(job: &SessionRecord) -> Stand {
     });
     if checking && mark.lamp != JobLamp::Running {
         return Stand::Ci;
+    }
+    if !job.held_open_by.is_empty() && job.running.is_empty() && mark.lamp != JobLamp::Running && mark.group == JobGroup::Done {
+        return Stand::Waiting;
     }
     // A Job Fleet marks Done has its own group, apart from the quiet ones Fleet files with it.
     if mark.state == JobState::Done {
@@ -544,7 +568,7 @@ fn stand_in(job: &SessionRecord) -> Stand {
 
 /// Where a Job stands as By state words it, and the hue its group wears: what a chip for the Job elsewhere is drawn in.
 pub(crate) fn stand_of(job: &SessionRecord) -> (&'static str, crate::look::Token) {
-    let stand = stand_in(job);
+    let stand = stand_in(job, &built::Builds::default());
     (stand.words(), stand.hue())
 }
 
@@ -747,7 +771,9 @@ pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
         if named { item.text.clone() } else { format!("{kind}: {}", item.text) }
     });
     let running = job.running.first().filter(|_| !waits).map(|one| one.what.clone());
-    let line = waiting.or(running).or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
+    // A Job something else keeps open says what, never the last step of a turn that has ended.
+    let held = (!waits).then(|| built::held_said(job)).flatten();
+    let line = waiting.or(running).or(held).or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
     Some(crate::job_view::plain_of(&line)).filter(|line| !line.is_empty())
 }
 
@@ -785,11 +811,12 @@ fn lines_grouped(
     group: Group,
     hide_done: bool,
 ) -> Vec<Line> {
-    lines_led(jobs, ideas, scope, query, order, names, project, asleep, group, hide_done, &leads::Leads::default())
+    lines_led(jobs, ideas, scope, query, order, names, project, asleep, group, hide_done, &leads::Leads::default(), &built::Builds::default())
 }
 
 /// [`lines_grouped`] with the sub projects: by feature a Job stands under each feature its row's `features` names, by area
-/// once under each area, and a Job under none stands under No feature, last.
+/// once under each area, and a Job under none stands under No feature, last. `builds` says where each Job's offered build
+/// stands against the running preview.
 #[allow(clippy::too_many_arguments)]
 fn lines_led(
     jobs: &[SessionRecord],
@@ -803,6 +830,7 @@ fn lines_led(
     group: Group,
     hide_done: bool,
     leads: &leads::Leads,
+    builds: &built::Builds,
 ) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
@@ -837,7 +865,7 @@ fn lines_led(
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
     // With the Done Jobs switch off, the Jobs Fleet marks Done are left out in every grouping.
-    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| !hide_done || stand_in(job) != Stand::Done).collect();
+    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| !hide_done || stand_in(job, builds) != Stand::Done).collect();
     // Jobs on a Mac that is asleep stand apart, under its fold.
     let (sleeping, picked): (Vec<&SessionRecord>, Vec<&SessionRecord>) = picked.into_iter().partition(|job| asleep_on(job).is_some());
     // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
@@ -918,7 +946,7 @@ fn lines_led(
         }
         Group::State => {
             for job in picked {
-                let stand = stand_in(job);
+                let stand = stand_in(job, builds);
                 match projects.iter_mut().find(|(_, _, held, _)| *held == Some(stand)) {
                     Some((.., held)) => held.push(job),
                     None => projects.push((format!("stand:{}", stand.words()), stand.words().to_string(), Some(stand), vec![job])),
@@ -1004,7 +1032,8 @@ fn lines_led(
         }),
         flow: flow_of(job),
         track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
-        now: now_of(job).map(Into::into),
+        // A Ready Job's offered build says where the running preview has it, in every grouping.
+        now: builds.get(job.id.as_str()).filter(|_| matches!(stand_in(job, builds), Stand::InPreview | Stand::NotInPreview)).map(built::Built::said).or_else(|| now_of(job)).map(Into::into),
         queued: None,
         place: places.contains(job.id.as_str()),
         mac: job.mac.clone().map(Into::into),
@@ -1402,6 +1431,8 @@ pub struct JobsList {
     anchor: Option<SharedString>,
     /// The projects' libraries the feature groupings read (`leads`), when they were last asked for, and the read under way.
     leads: leads::Leads,
+    /// Where each Job's offered build stands against the running preview, from the offers Fleet last listed.
+    builds: built::Builds,
     leads_at: Option<std::time::Instant>,
     leads_read: Option<Task<()>>,
     /// The sheet that names a sub project, while it is open.
@@ -1512,10 +1543,15 @@ impl JobsList {
                 this.hold_asked_titles(&mut jobs);
                 this.hold_ending(&mut jobs);
             }
+            let builds = built::Builds::of(held.offers.as_ref());
             if !unmoved && (jobs != this.jobs || names != this.names) {
                 this.jobs = jobs;
                 this.names = names;
+                this.builds = builds;
                 this.place_new();
+                this.relist(cx);
+            } else if builds != this.builds {
+                this.builds = builds;
                 this.relist(cx);
             }
             if operator != this.operator {
@@ -1610,6 +1646,7 @@ impl JobsList {
             selected: Vec::new(),
             anchor: None,
             leads: leads::Leads::default(),
+            builds: built::Builds::default(),
             leads_at: None,
             leads_read: None,
             naming: None,
@@ -2062,7 +2099,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        let mut lines = lines_led(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done, &self.leads);
+        let mut lines = lines_led(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done, &self.leads, &self.builds);
         if !self.ending.is_empty() {
             for line in lines.iter_mut() {
                 if let Line::Job(row) = line {
