@@ -626,6 +626,17 @@ export type DismissWaiting = {
   misread?: boolean;
 };
 
+/**
+ * `done_waiting`: the person did what an agent's item asked of him. The item closes as a dismissed one does,
+ * and the Job is sent one turn, `Done: <item text>` and the note on the next line.
+ */
+export type DoneWaiting = {
+  session_id: SessionId;
+  item_id: string;
+  /** What he found or did, such as `2 remain`. Left out or blank, the turn is the line alone. */
+  note?: string;
+};
+
 /** An item the person closed, as the Job's record lists it. Fleet kept the item whole when it was closed. */
 export type ClosedWaiting = {
   /** The item as Needs you drew it when it was closed. Its `id` is what `reopen_waiting` takes. */

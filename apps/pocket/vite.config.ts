@@ -10,7 +10,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 import { answer, type Posted } from "./src/fixture/gateway";
 import { pairing, STORE_AT } from "./src/fixture/store";
-import { PARTS_JOB } from "./src/fixture/artifacts";
+import { PARTS_JOB, toReviewTry } from "./src/fixture/artifacts";
 import {
   ARTIFACTS_JOB,
   artifactsJob,
@@ -181,8 +181,14 @@ function fixtureGateway(): Plugin {
     [PARTS_JOB]: parts.artifacts,
     [ARTIFACTS_JOB]: showed.artifacts,
   };
+  // A second Job ready to try, so To review shows its one Ready to try card with two Jobs in it.
+  const second = toReviewTry(now);
+  macs["studio"]!.threads["rv"]?.session.waiting_for?.unshift(second.item);
   macs["studio"]!.tries = {
     [PARTS_JOB]: parts.tries,
+    rv: [
+      second.card,
+    ],
   };
   // Jobs marked for the list's Needs you and Ready for you groups.
   macs["studio"]!.live.unshift(...markedJobs(now));

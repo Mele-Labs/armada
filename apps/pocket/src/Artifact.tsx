@@ -549,6 +549,85 @@ function PartBlock({
   );
 }
 
+/** An artifact's parts in the order the Job added them, each answered on its own, with a picture opened full screen over them. */
+export function ArtifactParts({
+  machine,
+  id,
+  artifact,
+  keep,
+  reread,
+}: {
+  machine: Machine;
+  id: string;
+  artifact: JobArtifact;
+  keep: string;
+  reread: () => void;
+}) {
+  const [opened, setOpened] = useState<Opened | undefined>(undefined);
+  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const acts = useMemo(
+    () => partActs(machine, id, artifact, reread),
+    [
+      machine,
+      id,
+      artifact,
+    ],
+  );
+  return (
+    <WithKeptStyles machine={machine}>
+      {partsOf(artifact).map((part) => (
+        <PartBlock
+          key={`${part.id} ${part.drawn}`}
+          machine={machine}
+          id={id}
+          artifact={artifact}
+          part={part}
+          keep={`${keep}:${part.id}`}
+          acts={acts}
+          onOpen={setOpened}
+          chosen={chosen[part.id]}
+          onChoose={(take) =>
+            setChosen((was) => ({
+              ...was,
+              [part.id]: take,
+            }))
+          }
+          reread={reread}
+        />
+      ))}
+      {opened === undefined ? null : (
+        <Pictures
+          pictures={opened.pictures}
+          at={opened.at}
+          onAt={(at) =>
+            setOpened({
+              ...opened,
+              at,
+            })
+          }
+          {...(opened.part === undefined
+            ? {}
+            : {
+                ...(chosen[opened.part] === undefined
+                  ? {}
+                  : {
+                      picked: chosen[opened.part],
+                    }),
+                onPick: (take: string) => {
+                  setChosen((was) => ({
+                    ...was,
+                    [opened.part!]: take,
+                  }));
+                  setOpened(undefined);
+                },
+              })}
+          onClose={() => setOpened(undefined)}
+        />
+      )}
+    </WithKeptStyles>
+  );
+}
+
 export function ArtifactView({
   origin,
   id,
@@ -563,19 +642,6 @@ export function ArtifactView({
   const machine = macOf(origin)?.machine;
   const [read, reread] = useArtifacts(machine, id);
   const artifact = read.artifacts?.find((one) => one.id === wanted);
-  const [opened, setOpened] = useState<Opened | undefined>(undefined);
-  const [chosen, setChosen] = useState<Record<string, string>>({});
-  const acts = useMemo(
-    () =>
-      machine === undefined || artifact === undefined
-        ? undefined
-        : partActs(machine, id, artifact, reread),
-    [
-      machine,
-      id,
-      artifact,
-    ],
-  );
   const newest = artifact === undefined ? 0 : newestOf(artifact);
   useEffect(() => {
     if (machine !== undefined && artifact !== undefined) markSeen(machine, id, artifact, newest);
@@ -689,58 +755,8 @@ export function ArtifactView({
         <Trouble says="That Job holds no such artifact." />
       ) : null}
       {draft?.kind === "draft" ? <DraftText text={draft.text} /> : null}
-      {machine === undefined || artifact === undefined || acts === undefined ? null : (
-        <WithKeptStyles machine={machine}>
-          {partsOf(artifact).map((part) => (
-            <PartBlock
-              key={`${part.id} ${part.drawn}`}
-              machine={machine}
-              id={id}
-              artifact={artifact}
-              part={part}
-              keep={`${keep}:${part.id}`}
-              acts={acts}
-              onOpen={setOpened}
-              chosen={chosen[part.id]}
-              onChoose={(take) =>
-                setChosen((was) => ({
-                  ...was,
-                  [part.id]: take,
-                }))
-              }
-              reread={reread}
-            />
-          ))}
-          {opened === undefined ? null : (
-            <Pictures
-              pictures={opened.pictures}
-              at={opened.at}
-              onAt={(at) =>
-                setOpened({
-                  ...opened,
-                  at,
-                })
-              }
-              {...(opened.part === undefined
-                ? {}
-                : {
-                    ...(chosen[opened.part] === undefined
-                      ? {}
-                      : {
-                          picked: chosen[opened.part],
-                        }),
-                    onPick: (take: string) => {
-                      setChosen((was) => ({
-                        ...was,
-                        [opened.part!]: take,
-                      }));
-                      setOpened(undefined);
-                    },
-                  })}
-              onClose={() => setOpened(undefined)}
-            />
-          )}
-        </WithKeptStyles>
+      {machine === undefined || artifact === undefined ? null : (
+        <ArtifactParts machine={machine} id={id} artifact={artifact} keep={keep} reread={reread} />
       )}
     </Reader>
   );

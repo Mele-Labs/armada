@@ -6,6 +6,9 @@ Since 27 Nov 2026. `docs/concepts/session/waiting-on-the-person.md`, *To review,
 **Additive only**: one operation, its route and the types in `crates/ipc/src/to_review.rs`; no field on an existing type, no event kind and no error.
 There is no number to bump: the protocol ID moves with `crates/ipc/src`, the operation file and the route table.
 The native Bridge, Pocket and the Operator page read it.
+Pocket reads it through the Phone Gateway's `/api/sessions/to_review`, and answers its items through `/api/sessions/items/answer` (`answer_items`) and `/api/sessions/waiting/done` (`done_waiting`) besides the routes a Job's thread already uses.
+The Operator's read and pick ride on the item as `operator_read`, copied from its `WaitingItem`; `NeedsYouRow` does not carry them, so `get_needs_you` is unchanged.
+Pocket draws them above the item's form.
 
 | Where | Side | Carries |
 | --- | --- | --- |

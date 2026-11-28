@@ -172,6 +172,10 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/thread", get(forward::forward))
         .route("/api/sessions/repository_file", get(forward::forward))
         .route("/api/sessions/ready_to_try/answer", post(forward::forward))
+        // To review: every Job's asks in one list, and the two answers no other phone route carries.
+        .route("/api/sessions/to_review", get(forward::forward))
+        .route("/api/sessions/items/answer", post(forward::forward))
+        .route("/api/sessions/waiting/done", post(forward::forward))
         // The Judge on demand: a press, a note sent or dismissed, a reading opened, and the judge types a press offers.
         .route("/api/sessions/judge", post(forward::forward))
         .route("/api/sessions/judge/send", post(forward::forward))
