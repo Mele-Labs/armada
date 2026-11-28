@@ -549,6 +549,7 @@ impl JobView {
     /// each take, never counted in words.
     fn walk_beat(&self, url: &str, title: &str, takes: Option<usize>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = url.to_string();
+        let building = self.shown.as_ref().is_some_and(|id| self.walk_building(id, url, cx));
         let name = labelled(
             words(look, title.to_string(), token::FG_DEFAULT, true, false, false)
                 .id(SharedString::from(format!("now-walk:{url}")))
@@ -558,7 +559,7 @@ impl JobView {
                 .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                 .on_click(cx.listener(move |this, _, window, cx| this.press_walk(&key, window, cx))),
             Role::Button,
-            format!("Walk: {title}"),
+            if building { format!("Walk: {title}, Building") } else { format!("Walk: {title}") },
         );
         let ticks = takes.map(|takes| {
             labelled(
@@ -575,6 +576,12 @@ impl JobView {
             )
             .into_any_element()
         });
+        if building {
+            let mark = super::walks_tab::spinning(glyph(look, "loader-circle", Size::Small, look.color(token::STEP_RUNNING)), url, look);
+            let lead = labelled(div().id(SharedString::from(format!("now-lead:walk:{url}"))).flex_none().w(look.length(token::SPACE_4)).flex().justify_center().tooltip(tip("Building")).child(mark), Role::Image, "Building").into_any_element();
+            let said = div().flex_none().text_color(look.color(token::STEP_RUNNING)).child("Building").into_any_element();
+            return beat(look, lead, name, Some(said), None).into_any_element();
+        }
         beat(look, lead(look, &format!("walk:{url}"), "footprints", token::STATUS_AWAITING_REVIEW, "Walk waiting on you", true), name, ticks, None).into_any_element()
     }
 

@@ -412,8 +412,13 @@ impl JobView {
     /// Open on a native walk: Fleet starts the Job's own build of the native app on it, in a window
     /// of its own (`POST /sessions/window/open`). `in_tab`: pressed in the walk's tab, which says
     /// what Fleet answered.
-    fn open_walk(&mut self, url: &str, in_tab: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_walk(&mut self, url: &str, in_tab: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        // A walk Fleet is still building opens once built: the press brings its tab forward and asks Fleet for nothing.
+        if self.walk_building(&id, url, cx) {
+            self.bring_walk_forward(url, window, cx);
+            return;
+        }
         if in_tab {
             self.row_tabs_of(&id).opened.insert(url.to_string(), Opened::Pending);
             cx.notify();
@@ -434,6 +439,8 @@ impl JobView {
             cx.notify();
         });
         if self.fleet.is_none() {
+            #[cfg(test)]
+            self.mock_posted.push(("/sessions/window/open".into(), url.to_string()));
             let answer = crate::mock::walk_refused(url).map_or(Ok(Vec::new()), Err);
             done(self, answer, window, cx);
             return;
@@ -785,13 +792,43 @@ impl JobView {
             Some(Opened::Refused(why)) => Some(labelled(div().id("walk-said").flex_1().min_w_0().text_color(look.color(token::FG_MUTED)).child(SharedString::from(why.clone())), Role::Alert, why).into_any_element()),
             _ => None,
         };
-        let open = labelled(
-            button(look, "walk-open", "Open", Tone::Primary, false, None, !pending).when(!pending, |button| {
-                button.on_click(cx.listener(move |this, _, window, cx| this.open_walk(&key, true, window, cx)))
-            }),
-            Role::Button,
-            "Open",
-        );
+        // Open is greyed until Fleet has built the walk; a press on it only brings this tab forward.
+        let building = self.walk_building(id, url, cx);
+        let open = if building {
+            labelled(
+                button(look, "walk-open", "Open", Tone::Primary, false, None, false)
+                    .tooltip(super::rows::tip("Opens once built"))
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_walk(&key, true, window, cx))),
+                Role::Button,
+                "Open, opens once built",
+            )
+        } else {
+            labelled(
+                button(look, "walk-open", "Open", Tone::Primary, false, None, !pending).when(!pending, |button| {
+                    button
+                        .tab_index(0)
+                        .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                        .on_click(cx.listener(move |this, _, window, cx| this.open_walk(&key, true, window, cx)))
+                }),
+                Role::Button,
+                "Open",
+            )
+        };
+        let said = if building {
+            let mark = super::walks_tab::spinning(super::rows::glyph(look, "loader-circle", super::rows::Size::Small, look.color(token::STEP_RUNNING)), url, look);
+            Some(
+                labelled(
+                    div().id("walk-said").flex().items_center().gap(look.length(token::SPACE_2)).text_color(look.color(token::STEP_RUNNING)).child(mark).child("Building"),
+                    Role::Status,
+                    "Building",
+                )
+                .into_any_element(),
+            )
+        } else {
+            said
+        };
         labelled(
             div()
                 .id("walk-body")

@@ -336,6 +336,19 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.mark = Some(ipc::JobMark { state: ipc::JobState::Working, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
         }
     }
+    // The Job's native walks that Fleet is building or has built are owed him as they are shown, each with the artifact that
+    // names it; the one whose build failed is not, as Fleet raises no item for it.
+    if scenario == "walk-builds" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {
+            for (title, name, text) in [("Walk bar buttons", "walkBarButtons", "Walk the bar buttons"), ("Strip marks", "stripMarks", "Walk the strip marks")] {
+                let url = format!("armada://walk/{name}");
+                let artifact = format!(r#"{{"kind":"artifact","target":"{url}","state":"standing","detail":{{"form":"window","title":"{title}","brief":"The bar's buttons stand in one row."}},"since":"2026-11-15T14:25:00Z","changed_at":"2026-11-15T14:25:00Z"}}"#);
+                one.attachments.push(ipc::decode::<ipc::Attachment>("walk artifact", artifact.as_bytes()).map_err(|why| why.to_string())?);
+                let item = format!(r#"{{"id":"walk:{url}","text":"{text}","since":"2026-11-15T14:25:00Z","source":"walk","act":{{"kind":"walk","target":"{url}"}}}}"#);
+                one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("walk item", item.as_bytes()).map_err(|why| why.to_string())?);
+            }
+        }
+    }
     // The first Job owes him one walk, of a page on this machine, with the steps its Job passed to `show_window`.
     if scenario == "job-web-walk" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
