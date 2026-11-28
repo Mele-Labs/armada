@@ -1570,7 +1570,7 @@ impl JobView {
             let held = pull.clone();
             let button = small_button(look, "pull-act", word, true, on)
                 .tooltip(tip(said))
-                .children(spinning.then(|| glyph(look, "loader-circle", Size::Small, look.color(token::TEXT_ON_ACCENT))))
+                .when(spinning, |button| button.opacity(1.).relative().child(crate::parts::ring::ring_overlay(look, "pull-act-ring", look.length(token::RADIUS_MD), look.color(token::TEXT_ON_ACCENT))))
                 .when_some(which.filter(|_| on), |button, which| button.on_click(cx.listener(move |this, _, window, cx| this.press_pull(&held, which, format!("ledger:pr:{}", held.number), window, cx))));
             labelled(button, Role::Button, word)
         });

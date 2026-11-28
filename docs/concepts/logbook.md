@@ -25,12 +25,16 @@ Of the open retro items, "Chrome is not in /Applications" had been learned by 8 
 
 A `repo` section belongs to one repository, and a Job in another never sees it. `habits` and `machine` have no repository and go to every Job on this Mac.
 
+A fourth section, `project`, belongs to one project and goes to every Job in a repository that project holds.
+It is taught from a place with no repository, such as the Operator's thread, with `save_teaching` at the `project` reach.
+It is kept in the store only, and Distil, Tidy and Organize never read it as a repository's.
+
 ## An entry
 
 | Part | Is |
 |---|---|
 | `text` | One or two lines saying what to do |
-| `section` | `repo`, `habits` or `machine` |
+| `section` | `repo`, `project`, `habits` or `machine` |
 | `kind` | `command`, `gotcha`, `convention`, `environment` or `habit` |
 | `paths` | Optional. The paths it applies to, so a subagent working there is handed it |
 | `evidence` | The record rows that show it |

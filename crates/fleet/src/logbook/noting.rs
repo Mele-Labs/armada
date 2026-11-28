@@ -20,8 +20,9 @@ const SUBAGENT_HEADER: &str = "The Logbook, for where you work. Each line stands
 pub(crate) const SUBAGENT_HEADER_TOKENS: usize = 30;
 
 /// The sections as the note takes them, with the words that open each.
-const SECTIONS: [(LogSection, &str); 3] = [
+const SECTIONS: [(LogSection, &str); 4] = [
     (LogSection::Habits, "How the owner works:"),
+    (LogSection::Project, "What this repository's project taught, for every repository it holds:"),
     (LogSection::Repo, "How this repository runs, from what its Jobs learnt. A command here is to run, never a Check:"),
     (LogSection::Machine, "What this Mac has:"),
 ];

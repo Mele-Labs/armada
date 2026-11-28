@@ -90,3 +90,43 @@ Closing the tab ends the walk and does not settle its `walk:` item, which still 
 A newer window of the same page replaces it, though: a dev server started again often takes another port, and 19 Oct 2026 the owner was left a walk on a server long stopped, after approving the same walks on its new port.
 A Bridge that quits with a tab open may not reach Fleet to say so.
 The walk then reads open until it is approved or replaced.
+
+## A native walk
+
+**A screen of the native Bridge is shown on `armada://walk/<name>`**, with no `steps`, `origins` or `sign_in`: its walk file in `crates/bridge-native` holds the steps.
+Each variation is another native walk's address.
+**Fleet builds the native Bridge from the Job's own commit**, so a new screen needs no preview refresh first.
+It takes the commit the Job's slot stands on, so only committed work is built.
+One warm tree of the repository is checked out at that commit, with its `target` cloned from the preview checkout's the first time, and one build runs at a time across Fleet.
+A newer commit of the same walk replaces a queued older one.
+Each build is kept by commit, three to a repository, so a walk that is running is never overwritten.
+**The window row carries where the build stands**: Building, Ready or Failed, with the commit.
+While it is Building or Failed the walk raises no Needs you item, so he is asked only once a build opens.
+It is Ready when the built app names the walk and each take in `--list-walks`.
+A failed build is told to the Job in Fleet's own voice, with the last lines of the build or the walk it does not play, and is never his.
+A Job that holds no slot has no commit to build, and its row reads Failed.
+**A commit the Job makes afterwards is built again** where its turn ends and where a build ends, with no call from the Job, and the row goes back to Building.
+One press on the row opens the walk from the build that is Ready, and a newer commit's build replaces the app that is running.
+A row written before walks were built from a Job's branch carries no build and runs from the build he keeps.
+**The bar has two presses.**
+Approve says the look is right, and the Job wires it and then offers a preview.
+Ship it says the same and the change lands without a preview: it closes the plan's first open `you_approved` gate, as his Looks good on a Ready to try card does.
+Skip on a Ready to try card lands a change whose look he approved on the walk without trying it, and closes the step as Looks good does.
+
+## The look he approved
+
+**What lands is what he approved.**
+His Approve or Ship it on a native walk whose build is Ready plays that walk from the build's kept binary, headless, and keeps one picture a step under `approved-looks/<job>/<walk>` in Fleet's support folder.
+Where a take was pressed, the walk of that take is the one kept.
+The send never waits: the pictures are taken in a task of their own.
+Fleet keeps a record of each (job, walk, address, commit, time, folder), and a newer approval of the same walk replaces the older pictures.
+Where the pictures cannot be taken, nothing is kept and the Job is told in Fleet's own voice, as a walk that did not build is.
+**Before the Job's pull request opens**, each look the Job kept is set against its head commit.
+Fleet asks the walk build queue for that commit's binary, plays the walk with `--against` the approved folder, and reads the `LookReport` the binary writes.
+A step that drifted fails the pre-PR check, and the Job is told which steps, with the side by side and difference pictures of each.
+The Job either fixes the screen or shows the walk again with `show_window` for a new approval.
+A Job that kept no look has nothing run.
+**A push to a pull request that is open** is checked the same way, once a commit.
+A drift is told to the Job, and so is a look that could not be compared (a build that failed or ran out of time, a walk that would not play), naming why.
+Silence never reads as a match.
+Fleet never writes to the forge, and a drift never goes to him.

@@ -42,10 +42,15 @@ pub(crate) fn item_closed(item: &str) -> String {
     format!("{item} closed or left your Job while you waited on it. Fleet holds no claim on it for you.")
 }
 
-/// The word to a Job whose files another Job holds, or reached after it. Both carry on.
+/// The word to a Job whose files another Job holds, or reached after it: the two agree which lands first, and say so.
 pub(crate) fn files_shared(files: &[&Wanted], by: &Claimant) -> String {
     let paths: Vec<String> = files.iter().map(|file| file.named.clone()).collect();
-    format!("{} also writes {}. Both Jobs carry on. Keep your change to these files to what your work needs.", holder_named(by), listed(&paths))
+    format!(
+        "{} also writes {}. Message it at {} to agree which of you lands first, record that with `settle_clash`, and call `raise_conflict` if you cannot agree.",
+        holder_named(by),
+        listed(&paths),
+        crate::session_host::address_of(&by.holder.id)
+    )
 }
 
 #[cfg(test)]

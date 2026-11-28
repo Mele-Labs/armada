@@ -39,6 +39,7 @@ mod session_viewed;
 mod session_rail;
 mod session_limit;
 mod session_priority;
+mod kept_looks;
 mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
@@ -64,6 +65,8 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
+/// The owner's reasons for how a project's catalog is shaped.
+mod catalog_rules;
 mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
@@ -215,6 +218,8 @@ mod clash_told;
 mod review_offered;
 /// Each claim Fleet told a Job another holds, so a restart does not tell it again.
 mod claims_told;
+/// Two Jobs that write the same files, and the order they settled.
+mod job_clashes;
 /// A Job's terminals: their numbers, names, and the shell its agent last saw in each.
 mod job_shells;
 /// A Session dispatched to wait on another, until its condition is met.
@@ -292,6 +297,7 @@ pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use feature_decisions::KeptFeatureDecision;
+pub use catalog_rules::{rule_act as catalog_rule_act, KeptCatalogRule};
 pub use features::{
     feature_state, gist_by as feature_gist_by, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptJobFeature, KeptSection,
@@ -299,6 +305,7 @@ pub use features::{
 pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
 pub use system_additions::{addition_state, KeptAddition};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
+pub use job_clashes::{standing as job_clash_standing, KeptClash};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
 pub use story_asks::KeptQuestion;
@@ -350,6 +357,7 @@ pub use projects::{
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptApproval, KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
+pub use kept_looks::KeptLook;
 pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED, WALK_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;

@@ -17,16 +17,21 @@ fn address(job: &SessionId) -> String {
     address_of(job.as_str())
 }
 
+/// A conflict in a wire type alone, which stands as `job_conflict`. One naming files is asked as `clash_order`.
 fn conflict(from: &SessionId, with: &SessionId) -> RaiseConflict {
     RaiseConflict {
         with: address(with),
-        files: vec!["crates/ipc/src/operator_page.rs".into()],
+        files: Vec::new(),
         wire: vec!["OperatorTurnItem".into()],
         mine: "Adds a field to the card.".into(),
         theirs: "Renames the card.".into(),
         breaks: "The native card no longer reads the item.".into(),
         session_id: Some(from.clone()),
     }
+}
+
+fn naming_files(from: &SessionId, with: &SessionId) -> RaiseConflict {
+    RaiseConflict { files: vec!["crates/ipc/src/operator_page.rs".into()], ..conflict(from, with) }
 }
 
 fn holding(from: &SessionId, pull: Option<u64>, branch: Option<&str>) -> AskHeld {
@@ -415,4 +420,64 @@ async fn a_landing_question_reads_the_pull_requests_title_and_the_job_that_asked
     assert!(said.contains("Take a draft out") && said.contains("Add the field") && said.contains("#3745"), "{said}");
     assert_ne!(said, "Should #3745 land?");
     assert_eq!(text(&by_branch.id), "Should fleet/add-the-field land? Asked by Add the field");
+}
+
+/// The owner's rule: nothing may wait on the Operator alone. With it on, a conflict naming files is still his to
+/// order, on the sender's Needs you, and his choice is the pair's order on both rows and told to both Jobs.
+#[tokio::test]
+async fn a_conflict_naming_files_asks_him_which_lands_first_and_his_choice_settles_it_for_both() {
+    let rig = rig_placing(None);
+    let (one, two) = two(&rig).await;
+    on(&rig).await;
+
+    let raised = Arc::clone(&rig.fleet).raise_conflict(None, naming_files(&one, &two)).await.expect("raised");
+
+    let mut pair = [address(&one), address(&two)];
+    pair.sort();
+    let id = format!("clash:{}:{}", pair[0], pair[1]);
+    assert!(items(&rig, &one, WaitingSource::JobConflict).await.is_empty(), "the Operator holds the conflict: {}", raised.id);
+    let asked = items(&rig, &one, WaitingSource::ClashOrder).await;
+    let [item] = asked.as_slice() else { panic!("one item: {asked:?}") };
+    assert_eq!((item.id.as_str(), item.text.as_str()), (id.as_str(), "Which lands first, \"Add the field\" or \"Rename the card\"?"));
+    assert_eq!(item.options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), ["Add the field", "Rename the card"]);
+    assert!(items(&rig, &two, WaitingSource::ClashOrder).await.is_empty(), "only the sender holds it");
+    for job in [&one, &two] {
+        let clashes = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session.clashes;
+        assert_eq!(clashes.iter().map(|clash| clash.standing).collect::<Vec<_>>(), [ipc::ClashStanding::Waiting], "it waits on him on both rows");
+    }
+
+    chose(&rig, &one, &id, 1).await;
+
+    assert!(items(&rig, &one, WaitingSource::ClashOrder).await.is_empty(), "the item goes");
+    for job in [&one, &two] {
+        let clashes = Arc::clone(&rig.fleet).get_session(job.clone()).await.expect("the Job").session.clashes;
+        let [clash] = clashes.as_slice() else { panic!("one clash: {clashes:?}") };
+        assert_eq!((clash.standing, clash.first.as_ref()), (ipc::ClashStanding::Ruled, Some(&two)));
+        assert_eq!(clash.files, ["crates/ipc/src/operator_page.rs"]);
+    }
+    let waits = format!("He chose that \"Rename the card\" ({}) lands first on `crates/ipc/src/operator_page.rs`. Wait until it lands before you land yours.", address(&two));
+    assert!(notes_to(&rig, &one).await.contains(&waits), "{:?}", notes_to(&rig, &one).await);
+    let goes = format!("He chose that you land first on `crates/ipc/src/operator_page.rs`. \"Add the field\" ({}) waits until you land.", address(&one));
+    assert!(notes_to(&rig, &two).await.contains(&goes), "{:?}", notes_to(&rig, &two).await);
+}
+
+/// One ask, one item: with the Operator off, a conflict naming files lists only its clash's order, before his choice
+/// and after it.
+#[tokio::test]
+async fn with_the_operator_off_a_conflict_naming_files_is_one_item_on_the_senders_needs_you() {
+    let rig = rig_placing(None);
+    let (one, two) = two(&rig).await;
+
+    Arc::clone(&rig.fleet).raise_conflict(None, naming_files(&one, &two)).await.expect("raised");
+
+    let listed = Arc::clone(&rig.fleet).get_session(one.clone()).await.expect("the Job").session.waiting_for;
+    let asks: Vec<WaitingSource> = listed.iter().map(|item| item.source).filter(|source| matches!(source, WaitingSource::JobConflict | WaitingSource::ClashOrder)).collect();
+    assert_eq!(asks, [WaitingSource::ClashOrder], "{listed:?}");
+    let id = listed.iter().find(|item| item.source == WaitingSource::ClashOrder).map(|item| item.id.clone()).expect("the item");
+    assert!(rig.fleet.store().lock().await.open_job_ask(&id.replacen("clash:", "conflict:", 1)).expect("read").is_some(), "the conflict is still kept for the Operator");
+
+    chose(&rig, &one, &id, 0).await;
+
+    assert!(items(&rig, &one, WaitingSource::JobConflict).await.is_empty(), "his choice does not bring the conflict back");
+    assert!(items(&rig, &one, WaitingSource::ClashOrder).await.is_empty());
 }

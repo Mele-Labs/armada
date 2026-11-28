@@ -6,7 +6,7 @@
 //! sheet held off the room's edges, so the thread stays in view behind it; Esc puts it away.
 
 use gpui::{
-    div, prelude::*, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, Focusable as _, FontWeight,
+    div, prelude::*, Animation, AnimationExt, AnyElement, App, Context, Entity, FocusHandle, Focusable as _, FontWeight,
     KeyDownEvent, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
@@ -15,12 +15,16 @@ use ipc::{
 };
 
 use super::acts::{button, kbd, Tone};
+use crate::dropdown::Entry;
 use super::menus::{disable_label, Teach};
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::refusal::Failed;
 use crate::look::{token, ActiveLook, Look};
+
+/// What a project's id is prefixed with in the menu's entry ids.
+const PROJECT_PICK: &str = "project:";
 
 /// The most of a thing's text a source carries: Fleet refuses more than 200 characters.
 const MOST_TEXT: usize = 200;
@@ -40,6 +44,11 @@ pub(super) struct Open {
     source: TeachingSource,
     say: Entity<TextareaState>,
     everywhere: bool,
+    /// Taught from the Operator's thread: it has no repository, so the reach is a project's Logbook.
+    beside: bool,
+    /// The project the teaching is kept for, by id, and the ones to pick from, as `(id, name)`.
+    project: Option<String>,
+    projects: Vec<(String, String)>,
     stage: Stage,
     proposal: Option<TeachingProposal>,
     saving: bool,
@@ -218,11 +227,22 @@ pub(super) fn reading_of(proposal: &TeachingProposal, repository: &str) -> Vec<S
     sections
 }
 
-fn reach_of(everywhere: bool) -> TeachingReach {
-    if everywhere {
+fn reach_of(open: &Open) -> TeachingReach {
+    if open.beside {
+        TeachingReach::Project
+    } else if open.everywhere {
         TeachingReach::Everywhere
     } else {
         TeachingReach::Repository
+    }
+}
+
+/// What the panel names where the teaching applies: the project's name from the Operator's thread, else the repository.
+fn place_name(open: &Open) -> String {
+    if open.beside {
+        open.projects.iter().find(|(id, _)| open.project.as_ref() == Some(id)).map(|(_, name)| name.clone()).unwrap_or_default()
+    } else {
+        open.repository.clone()
     }
 }
 
@@ -233,7 +253,8 @@ fn read_body(open: &Open, said: &str) -> ReadTeaching {
         message: String::new(),
         said: said.to_string(),
         repository: place_of(open).0,
-        reach: reach_of(open.everywhere),
+        reach: reach_of(open),
+        project: open.beside.then(|| open.project.clone()).flatten(),
         session_id: place_of(open).1,
         source: Some(open.source.clone()),
     }
@@ -242,6 +263,10 @@ fn read_body(open: &Open, said: &str) -> ReadTeaching {
 /// Where a teaching was given: the repository and the Job. Bridge's own interface was taught in
 /// neither, as Electron's `placeOf` sends it.
 fn place_of(open: &Open) -> (Option<String>, Option<String>) {
+    // The Operator's has no repository: the project says where it applies, and the Operator's session is where it was given.
+    if open.beside {
+        return (None, Some(open.job.to_string()));
+    }
     if matches!(open.source.kind, TeachingSourceKind::Panel | TeachingSourceKind::Row | TeachingSourceKind::TitleBar) {
         return (None, None);
     }
@@ -255,8 +280,9 @@ fn save_body(open: &Open, proposal: &TeachingProposal) -> SaveTeaching {
     proposal.tweak.truncate(1);
     SaveTeaching {
         proposal,
-        reach: reach_of(open.everywhere),
+        reach: reach_of(open),
         repository: place_of(open).0,
+        project: open.beside.then(|| open.project.clone()).flatten(),
         session_id: place_of(open).1,
         cite: Some(format!("Teach, {}", source_name(open.source.kind).to_lowercase())),
         source: Some(open.source.clone()),
@@ -297,7 +323,8 @@ impl JobView {
         say.update(cx, |say, cx| say.set_value(kept, window, cx));
         let typing = cx.subscribe_in(&say, window, |this, say, event: &InputEvent, _, cx| {
             if matches!(event, InputEvent::Change) {
-                let Some(job) = this.shown.clone() else { return };
+                // The panel's own Job: a key in it runs with the Operator's parts in place or the Job's, so `shown` may be either.
+                let Some(job) = this.teach.as_ref().map(|open| open.job.clone()) else { return };
                 let text = say.read(cx).value().to_string();
                 this.keep_words(&format!("teach:{job}"), &text, cx);
                 cx.notify();
@@ -305,6 +332,10 @@ impl JobView {
         });
         let back = window.focused(cx).unwrap_or_else(|| self.focus.clone());
         let source = source_of(kind_of(teach.kind), &teach.text, teach.ids.clone());
+        let beside = self.beside_in();
+        let projects = if beside { self.own_projects(cx) } else { Vec::new() };
+        // The Cockpit's project where it is listed, else the first.
+        let project = beside.then(|| crate::features::chosen::get(cx).filter(|chosen| projects.iter().any(|(id, _)| id == chosen)).or_else(|| projects.first().map(|(id, _)| id.clone()))).flatten();
         cx.emit(teach);
         self.teach_clock += 1;
         let latest = self.teach_clock;
@@ -313,6 +344,9 @@ impl JobView {
             source,
             say: say.clone(),
             everywhere: false,
+            beside,
+            project,
+            projects,
             stage: Stage::Writing,
             proposal: None,
             saving: false,
@@ -506,12 +540,13 @@ impl JobView {
     }
 
     /// The panel, held off the room's edges on its trailing side, over the thread.
-    pub(super) fn render_teach(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let open = self.teach.as_ref()?;
+    /// Drawn where it was opened: over the Job's thread, or over the Operator's.
+    pub(super) fn render_teach(&self, beside: bool, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let open = self.teach.as_ref().filter(|open| open.beside == beside)?;
         let look = cx.look();
         let on_bridge = matches!(open.source.kind, TeachingSourceKind::Panel | TeachingSourceKind::Row | TeachingSourceKind::TitleBar);
         let bare = matches!(open.source.kind, TeachingSourceKind::Panel | TeachingSourceKind::TitleBar);
-        let ready = !open.say.read(cx).value().trim().is_empty();
+        let ready = !open.say.read(cx).value().trim().is_empty() && (!open.beside || open.project.is_some());
         let margin = look.length(token::SPACE_4);
         let caption = |said: &str| div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(said.to_string()));
         let section = |name: &str, children: Vec<AnyElement>| {
@@ -572,9 +607,11 @@ impl JobView {
         } else {
             body.push(section("Instruction", vec![text(open.say.read(cx).value().to_string(), false).into_any_element()]));
         }
-        if !on_bridge {
+        if !on_bridge || open.beside {
             let everywhere = open.everywhere;
-            let said = if everywhere { "Every repository".to_string() } else { open.repository.clone() };
+            let said = if everywhere { "Every repository".to_string() } else { place_name(open) };
+            // From the Operator's thread the chip picks a project, and its name is what VoiceOver reads.
+            let name = if open.beside { "Project it applies to" } else { "Where it applies" };
             let live = open.stage == Stage::Writing;
             body.push(
                 div()
@@ -599,17 +636,17 @@ impl JobView {
                                 .text_color(look.color(token::FG_DEFAULT))
                                 .when(live, |chip| chip.cursor_pointer().hover(|style| style.border_color(look.color(token::BORDER_STRONG))))
                                 .tooltip(tip("Where it applies"))
-                                .aria_toggled(if everywhere { gpui::Toggled::True } else { gpui::Toggled::False })
+                                .when(!open.beside, |chip| chip.aria_toggled(if everywhere { gpui::Toggled::True } else { gpui::Toggled::False }))
                                 .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                                     if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.platform {
                                         cx.stop_propagation();
-                                        this.teach_reach(window, cx);
+                                        this.teach_reach(true, window, cx);
                                     }
                                 }))
-                                .on_click(cx.listener(|this, _, window, cx| this.teach_reach(window, cx)))
-                                .child(div().truncate().when(!everywhere, |chip| chip.font_family(mono(look))).child(SharedString::from(said.clone()))),
+                                .on_click(cx.listener(|this, _, window, cx| this.teach_reach(false, window, cx)))
+                                .child(div().truncate().when(!everywhere && !open.beside, |chip| chip.font_family(mono(look))).child(SharedString::from(said.clone()))),
                             Role::Button,
-                            "Where it applies",
+                            name,
                         ),
                     )
                     .into_any_element(),
@@ -659,7 +696,7 @@ impl JobView {
             ),
             Stage::Shown => {
                 if let Some(proposal) = &open.proposal {
-                    for one in reading_of(proposal, &open.repository) {
+                    for one in reading_of(proposal, &place_name(open)) {
                         body.push(self.teach_section(&one, look));
                     }
                 }
@@ -703,7 +740,7 @@ impl JobView {
                     .gap(look.length(token::SPACE_1))
                     .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Teach"))
                     .when(!on_bridge, |titles| {
-                        titles.child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(open.repository.clone())))
+                        titles.child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).truncate().child(SharedString::from(place_name(open))))
                     }),
             )
             .child(labelled(
@@ -834,12 +871,44 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The reach chip: this repository, or every one. Only while the box is up.
-    fn teach_reach(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(open) = self.teach.as_mut().filter(|open| open.stage == Stage::Writing) {
-            open.everywhere = !open.everywhere;
-            cx.notify();
+    /// The reach chip: this repository, or every one; from the Operator's thread, the project's menu. Only while the box is up.
+    fn teach_reach(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.teach.as_mut().filter(|open| open.stage == Stage::Writing) else { return };
+        if open.beside {
+            self.teach_projects_menu(from_keys, window, cx);
+            return;
         }
+        open.everywhere = !open.everywhere;
+        cx.notify();
+    }
+
+    /// This Mac's own projects, as `(id, name)`: a copy another Mac holds is that Mac's to teach. A walk's are the mock's.
+    pub(super) fn own_projects(&self, cx: &App) -> Vec<(String, String)> {
+        match &self.fleet {
+            Some(fleet) => fleet.read(cx).held().projects.as_ref().map(|read| read.projects.iter().filter(|one| one.mac.is_none()).map(|one| (one.id.clone(), one.name.clone())).collect()).unwrap_or_default(),
+            None => crate::features::mock::projects(),
+        }
+    }
+
+    /// The projects to keep the teaching for, in a menu under the chip, the one picked ticked.
+    fn teach_projects_menu(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.teach.as_ref().filter(|open| !open.projects.is_empty()) else { return };
+        let entries = open
+            .projects
+            .iter()
+            .map(|(id, name)| Entry::Choice { id: super::judge_cards::interned(format!("{PROJECT_PICK}{id}")), label: name.clone().into(), on: open.project.as_ref() == Some(id) })
+            .collect();
+        let back = open.chip.clone();
+        let Some(at) = super::head::drawn(window, cx, Role::Button, "Project it applies to").map(super::head::below_left) else { return };
+        self.open_pop("Project it applies to", entries, at, from_keys, Some(back), |this, id, _, cx| this.teach_project(id, cx), window, cx);
+    }
+
+    fn teach_project(&mut self, pick: &str, cx: &mut Context<Self>) {
+        let Some(id) = pick.strip_prefix(PROJECT_PICK) else { return };
+        if let Some(open) = self.teach.as_mut() {
+            open.project = Some(id.to_string());
+        }
+        cx.notify();
     }
 }
 
@@ -879,5 +948,83 @@ mod tests {
     fn a_source_with_no_text_is_named_by_its_kind_and_a_long_one_is_cut() {
         assert_eq!(source_of(TeachingSourceKind::TitleBar, "  ", Vec::new()).text, "Title bar");
         assert_eq!(source_of(TeachingSourceKind::Words, &"a".repeat(300), Vec::new()).text.len(), MOST_TEXT);
+    }
+
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    use super::super::operator_harness::{open, JOB, OPERATOR};
+
+    const PROJECTS: [(&str, &str, Option<&str>); 2] = [("storefront", "Storefront", None), ("pocket", "Pocket", None)];
+
+    fn words() -> Teach {
+        Teach { kind: "words", text: "run it twice".into(), at: None, ids: Vec::new() }
+    }
+
+    /// Teach pressed on words in the Operator's thread.
+    fn teach_from_the_operator(view: &Entity<JobView>, cx: &mut VisualTestContext) {
+        view.update_in(cx, |view, window, cx| {
+            view.on_beside(|this| this.teach_open(words(), window, cx)).expect("the Operator is beside");
+        });
+    }
+
+    /// Teach pressed on words in the Job's thread.
+    fn teach_from_the_job(view: &Entity<JobView>, cx: &mut VisualTestContext) {
+        view.update_in(cx, |view, window, cx| view.teach_open(words(), window, cx));
+    }
+
+    /// What the open panel would send to read and to save.
+    fn bodies(view: &Entity<JobView>, cx: &mut VisualTestContext) -> (ReadTeaching, SaveTeaching) {
+        view.read_with(cx, |view, _| {
+            let open = view.teach.as_ref().expect("the panel is open");
+            (read_body(open, "it applies"), save_body(open, &TeachingProposal::default()))
+        })
+    }
+
+    fn picked(view: &Entity<JobView>, cx: &mut VisualTestContext) -> (Option<String>, Vec<String>) {
+        view.read_with(cx, |view, _| {
+            let open = view.teach.as_ref().expect("the panel is open");
+            (open.project.clone(), open.projects.iter().map(|(id, _)| id.clone()).collect())
+        })
+    }
+
+    #[gpui::test]
+    fn teach_from_the_operator_reads_and_saves_for_a_project(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        teach_from_the_operator(&view, cx);
+        let (read, save) = bodies(&view, cx);
+        assert_eq!((read.reach, read.project.as_deref(), read.repository.as_deref(), read.session_id.as_deref()), (TeachingReach::Project, Some("storefront"), None, Some(OPERATOR)), "read_teaching");
+        assert_eq!((save.reach, save.project.as_deref(), save.repository.as_deref(), save.session_id.as_deref()), (TeachingReach::Project, Some("storefront"), None, Some(OPERATOR)), "save_teaching");
+    }
+
+    #[gpui::test]
+    fn a_jobs_teach_still_reads_and_saves_for_its_repository(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        let cwd = view.read_with(cx, |view, cx| view.record(JOB, cx).map(|record| record.cwd.clone())).expect("the Job's record");
+        teach_from_the_job(&view, cx);
+        let (read, save) = bodies(&view, cx);
+        assert_eq!((read.reach, read.project.as_deref(), read.repository.as_deref(), read.session_id.as_deref()), (TeachingReach::Repository, None, Some(cwd.as_str()), Some(JOB)), "read_teaching");
+        assert_eq!((save.reach, save.project.as_deref(), save.repository.as_deref(), save.session_id.as_deref()), (TeachingReach::Repository, None, Some(cwd.as_str()), Some(JOB)), "save_teaching");
+        assert_eq!(picked(&view, cx), (None, Vec::new()), "a Job's panel offers no projects");
+    }
+
+    #[gpui::test]
+    fn the_first_project_is_the_cockpits_where_listed(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        cx.update(|_, cx| crate::features::chosen::set("pocket", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx), (Some("pocket".to_string()), vec!["storefront".to_string(), "pocket".to_string()]), "the Cockpit's project, not the first");
+        assert_eq!(bodies(&view, cx).0.project.as_deref(), Some("pocket"));
+        view.update_in(cx, |view, window, cx| view.teach_close(window, cx));
+        cx.update(|_, cx| crate::features::chosen::set("gone", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx).0.as_deref(), Some("storefront"), "a project he chose that is not listed falls back to the first");
+    }
+
+    #[gpui::test]
+    fn a_project_copied_from_another_mac_is_not_offered_or_picked(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &[("copy", "Copy", Some("other-mac")), ("storefront", "Storefront", None)]);
+        cx.update(|_, cx| crate::features::chosen::set("copy", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx), (Some("storefront".to_string()), vec!["storefront".to_string()]), "the copy is the other Mac's to teach");
     }
 }

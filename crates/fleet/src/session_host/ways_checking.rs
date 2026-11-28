@@ -67,18 +67,24 @@ where
         ways::note(&self.preferences_in_force())
     }
 
-    /// Tell every Job with a running process `note`, as Fleet's word. **Only a Job running**: one
-    /// that is not reads the note as it starts. News that asks nothing, so a Job's `all_done` stands.
-    /// The Operator is not a Job, so it is not told.
-    pub(crate) async fn ways_told(self: &Arc<Self>, note: &str) {
+    /// The note the Operator starts with: how he takes things in, without a Job's own acts.
+    pub(crate) fn operator_ways_note(&self) -> String {
+        ways::operator_note(&self.preferences_in_force())
+    }
+
+    /// Tell every session with a running process how he works now, as Fleet's word: a Job `job_note`,
+    /// the Operator `operator_note`. **Only one running**: one that is not reads its note as it starts.
+    /// News that asks nothing, so a Job's `all_done` stands. A note that did not change is `None`.
+    pub(crate) async fn ways_told(self: &Arc<Self>, job_note: Option<&str>, operator_note: Option<&str>) {
         let live = self.store().lock().await.live_session_ids().unwrap_or_default();
         for id in live {
-            let job_running = {
+            let (running, operator) = {
                 let host = self.hosts().of(&id);
                 let state = host.state();
-                state.process.is_some() && !state.operator
+                (state.process.is_some(), state.operator)
             };
-            if job_running {
+            let note = if operator { operator_note } else { job_note };
+            if let (true, Some(note)) = (running, note) {
                 let _ = self.told_news_by_fleet(&id, note, ipc::Notice::Taught).await;
             }
         }

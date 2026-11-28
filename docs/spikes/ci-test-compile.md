@@ -5,6 +5,7 @@ The compile of the whole `test` Check is 278 seconds of wall time, and 212 of th
 sccache caches only rlib and staticlib compiles, so at best it takes off the libraries before that unit; a nextest archive saves runner time but puts a second job, and a second wait for a runner, on the queue's path.
 What it did find: a pull request's `test_compile` never restored `main`'s cache, and compiled every third-party crate on 5 of 6 pull requests; restoring it saved crates compiled, not time.
 What did pay, on 6 Nov: type-checking Armada's own crates on four threads with no debug info takes 31% off `fleet`'s test harness (*Four threads and no debug info*).
+The four threads were dropped on 28 Nov: with them the compile ran the 16 GB runner out of memory and the runner died (*Memory*).
 What did not, on 6 Nov: splitting `fleet`, measured as a prototype that took 13 s off a shard's 265 s compile (*Splitting fleet*).
 
 Measured on 5 Nov 2026 on a 4-core, 16 GB `ubuntu-latest` runner, run 42111453908, from a branch that was never merged.
@@ -102,6 +103,27 @@ A person's machine and the shipped build are unchanged.
 Two other levers were measured and not taken.
 `TMPDIR` on `/dev/shm`: the store and `fleet` suites went from 255 to 212 s, and 8 tests failed; the runner's disk is ext4 with `nobarrier` and `data=writeback`, so a sync is already cheap.
 The slowest test, `a_numbered_file_converts_at_every_count_the_old_list_had` at 55 to 101 s, was cut instead by #3323.
+
+## Memory
+
+Measured on 28 Nov 2026 on 4-core, 16 GB `ubuntu-latest` runners, from a branch never merged.
+Each variant ran `cargo nextest run --workspace --exclude acceptance --no-run` with `main`'s `test` cache restored, and sampled `free -m` and the five largest processes every 5 s.
+
+| Variant | Run, job | Least free | Largest compiles | Compile |
+|---|---|---|---|---|
+| Four threads, as `test` had it | 46104038611, 140852663366 | ran out | | The runner died 4 min in; the job hung to its 40 min limit with no log |
+| One thread | 46104038611, 140852663073 | 1,828 MB | `fleet` 7.4 GB, `armada` 3.6 and 3.4 GB | 6 min 28 s |
+| One thread, again | 46107669759, 140863953071 | 1,260 MB | `fleet` 7.7 GB, `armada` 3.8 and 3.7 GB | 6 min 51 s |
+| Four threads, `CARGO_BUILD_JOBS=2` | 46104038611, 140852663312 | 2,376 MB | `fleet` 9.8 GB, `armada` 3.8 GB | 6 min 34 s |
+| One thread, `CARGO_BUILD_JOBS=2` | 46107669759, 140863952927 | 2,841 MB | `fleet` 9.9 GB, `armada` 3.5 GB | 8 min 17 s |
+| One thread and 8 GB more swap, as `test` has it now, three runs | 46109342855 | 2,036, 1,600 and 1,474 MB, at most 384 MB of swap | | 5 min 22 s, 6 min 42 s, 6 min 55 s |
+
+An earlier run, 46103000549, ran the four test shards whole with four threads and streamed output.
+All four passed, with 893 to 1,965 MB free at least, all of it during the compile; the tests themselves held about 1 GB.
+A trace of every TERM, KILL, INT, HUP and QUIT signal found none sent to the runner's own processes, and the kernel log named no out-of-memory kill.
+
+`CARGO_BUILD_JOBS` is not a ceiling under `armada check`, which sets it to the runner's width (`crates/checks-runner/src/build_slots.rs`), so the two-job rows are not what a Check would do without a change to the runner.
+That one-thread `fleet` read 9.9 GB with two jobs and 7.7 GB without is not explained; a 5 s sample may catch a different moment of the same compile.
 
 ## Splitting fleet
 

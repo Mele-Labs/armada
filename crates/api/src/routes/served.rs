@@ -702,6 +702,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_held",
     },
     Route {
+        operation: "settle_clash",
+        method: "POST",
+        path: "/sessions/settle_clash",
+    },
+    Route {
         operation: "list_bug_reports",
         method: "GET",
         path: "/bug_reports",
@@ -870,6 +875,11 @@ const ROUTES: &[Route] = &[
         operation: "get_needs_you",
         method: "GET",
         path: "/sessions/needs_you",
+    },
+    Route {
+        operation: "list_to_review",
+        method: "GET",
+        path: "/sessions/to_review",
     },
     Route {
         operation: "done_waiting",

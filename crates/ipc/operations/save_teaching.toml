@@ -4,9 +4,11 @@ transport = "HTTP"
 agent_access = "No"
 description = "Keep a checked teaching: a Logbook entry for the agent note, a mod for each part that changes something and a rule piece for a rule"
 notes = """
-`POST /teachings`, body `{note?, words?, fleet?, tweak?, layout?, rule?, reach, repository?, session_id?, cite?, source?}`: the parts `read_teaching` answers with, as the person left them, then `reach` (`repository` or `everywhere`), `repository` (a root `list_repositories` names, required for `repository`), `session_id` and `cite` (the Session and message the teaching came from) and `source` (as `read_teaching` takes it). Answers `{entry?, mods, rule?}`: the Logbook entry's id when there was a note, the names of the mods written, each of them on, and the rule piece written when there was a `rule`, as `save_lifecycle_piece` answers it.
+`POST /teachings`, body `{note?, words?, fleet?, tweak?, layout?, rule?, reach, repository?, session_id?, cite?, source?}`: the parts `read_teaching` answers with, as the person left them, then `reach` (`repository`, `project` or `everywhere`), `repository` (a root `list_repositories` names, required for `repository`), `project` (a project id `list_projects` names, required for `project`), `session_id` and `cite` (the Session and message the teaching came from) and `source` (as `read_teaching` takes it). Answers `{entry?, mods, rule?}`: the Logbook entry's id when there was a note, the names of the mods written, each of them on, and the rule piece written when there was a `rule`, as `save_lifecycle_piece` answers it.
 
-**The note becomes a Logbook entry** through the same code as `teach_logbook_entry`, with `{session_id, cite}` as its one evidence row. **Each other part becomes a mod**, by what it changes:
+**The note becomes a Logbook entry** through the same code as `teach_logbook_entry`, with `{session_id, cite}` as its one evidence row. **A `project` reach keeps a note and nothing else**: a repository-kind note (`repo`, or `project`) is kept as a `project` entry under that project's id, and every Job in a repository the project holds is told it; a `habits` or `machine` note stays where it is. A part other than a note, or no note, with a `project` reach is a 422 `fleet.teaching_input_refused`, as is no `project`; a project Fleet does not hold is a 404 `fleet.no_such_project`.
+
+**Each other part becomes a mod**, by what it changes:
 
 | Part | Mod | Name |
 | --- | --- | --- |

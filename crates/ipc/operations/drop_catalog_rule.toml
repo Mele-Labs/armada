@@ -1,0 +1,13 @@
+[operations.drop_catalog_rule]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Take one rule out of a project's feature catalog. Give project and rule, its id"
+notes = """
+`POST /features/rules/drop`, body `DropCatalogRule` `{ project, rule }`. Answers `CatalogRules`: the rules left, newest first.
+
+The rule is gone: the librarian and the Operator are no longer given it. The change it was kept with stays.
+
+**The Operator and Bridge reach it**, as `change_feature` is. 422 `fleet.not_the_operator` for any other session, and 403 `api.the_persons_own` from inside a Job. 422 `fleet.feature_project` for a project Fleet does not hold, 404 `fleet.catalog_rule_unknown` for a rule it does not keep.
+"""

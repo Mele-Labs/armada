@@ -656,6 +656,7 @@ impl JobView {
             .shadow(shadows)
             .child(head);
         if live {
+            card = card.relative().child(crate::parts::ring::ring_overlay(look, SharedString::from(format!("calls-ring:{id}")), look.length(token::RADIUS_LG) + look.length(token::SPACE_1), hue));
             card = card.child(div().flex().flex_wrap().gap(look.length(token::SPACE_1)).min_h(look.length(token::SPACE_4) + look.length(token::SPACE_1)).children(tiles.take().unwrap_or_default()));
             // The box under the strip, while a call runs: what it works on, its count and Stop.
             if let Some(one) = seen.iter().find(|one| one.running) {

@@ -568,6 +568,10 @@ where
         if turn_over && !terminal {
             self.subagents_stopped(&session.id).await;
         }
+        // A walk built from a commit the Job has moved past is built again, with no one asking.
+        if turn_over {
+            Box::pin(self.walk_builds_moved(&session.id)).await;
+        }
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
             self.row_put(&session.id, row).await;
@@ -690,10 +694,6 @@ where
             if let Some(why) = crate::native_walks::takes_no(&show) {
                 return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
             }
-            // His one press must open it: a walk the build he runs cannot play goes back to the Job.
-            if let Some(why) = crate::native_walks::unplayable(&self.host().home, &show).await {
-                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, &why));
-            }
         } else if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }
@@ -774,6 +774,14 @@ where
                 .keep_session_gate_walk(&id, group, at.as_str())
                 .map_err(|why| self.ledger_fault(why))?;
         }
+        // A native walk is built from the Job's commit, and says so on its row: nothing asks him until it opens.
+        let (build, ask) = match native {
+            true => {
+                let (build, ask) = Box::pin(self.walk_build_wanted(&id, &url)).await;
+                (Some(build), ask)
+            }
+            false => (None, None),
+        };
         self.row_put(
             &id,
             ipc::SessionRow::Window {
@@ -786,10 +794,15 @@ where
                 origins,
                 brief,
                 group,
+                build,
                 ended_at: None,
             },
         )
         .await;
+        // Asked once the row is out, so a build that ends at once finds the walk wanting it.
+        if let Some(ask) = ask {
+            self.walk_builds().asked(ask);
+        }
         // Read again past the row: a window it replaces stops waiting by it.
         let record = {
             let store = self.store().lock().await;
@@ -1055,6 +1068,10 @@ where
         self.needs_you_read(caller, session_id).await
     }
 
+    async fn list_to_review(&self, project: Option<String>) -> Result<ipc::ToReview, Refusal> {
+        self.to_review_listed(project).await
+    }
+
     async fn all_done(
         &self,
         caller: Option<api::Caller>,
@@ -1149,6 +1166,14 @@ where
         withdrawn: ipc::WithdrawHeld,
     ) -> Result<ipc::HeldWithdrawn, Refusal> {
         self.held_withdrawn(caller, withdrawn).await
+    }
+
+    async fn settle_clash(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        settle: ipc::SettleClash,
+    ) -> Result<ipc::JobClash, Refusal> {
+        self.clash_settled(caller, settle).await
     }
 
     async fn report_bug(

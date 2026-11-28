@@ -132,6 +132,11 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::LIBRARIAN_ASK_SHARE,
         s::DRONES_AT_ONCE,
         s::CHECKS_AT_ONCE,
+        s::MEMORY_PRESSURE_LEVEL,
+        s::CHECKS_WHILE_SHORT,
+        s::CHECK_START_SPACING_SECONDS,
+        s::LOAD_LIMIT,
+        s::LOAD_WINDOW,
         s::MEMORY_SPARE_PERCENT,
         s::DISK_FLOOR_GIB,
         s::DISK_RECLAIM_FLOOR_GIB,
@@ -273,7 +278,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 23 + 12 + 17 + 30 + 4 + 22 + s::prompt_keys().count();
+    let handles = 28 + 12 + 17 + 30 + 4 + 22 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

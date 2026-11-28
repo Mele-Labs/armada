@@ -600,6 +600,38 @@
   --ask-api-client: #E6A587;
 }
 
+/* ── chart.css ─────────────────────────────── */
+/* Chart series — which series a mark of a graph belongs to, in six hues, in
+   this order. docs/contracts/design-system.md, Colour.
+
+   Their own file because a series says which line it is and nothing about a
+   Job: they alias no status, and the sketch hues do, so a red p99 line would
+   read as failed. Red and green are left out for that reason. A series takes
+   the slots in order and keeps its slot while others come and go.
+
+   The dark steps are the data-viz reference palette's dark steps, its red and
+   green dropped. Measured 27 Nov 2026 with the data-viz validator, in this
+   order: OKLCH L 0.48 to 0.67 and C 0.10 or more; worst adjacent pair under
+   protan or deutan ΔE 8.4 (yellow, aqua), worst unsimulated 19.3 (magenta,
+   yellow); every slot 3:1 or more on --bg-raised #161C23 and on #231F2E. The
+   first three pass every pair, which a scatter needs: ΔE 9.4 and 20.9. Nearest
+   status hue, unsimulated: ΔE 6.2 (violet, --status-rejected). Text never
+   wears a series hue: a dot or a line key beside the words carries it. */
+:root {
+  /* Blue. The first series, and a graph of one. */
+  --chart-1: #3987E5;
+  /* Orange, darker and redder than --status-escalated. */
+  --chart-2: #D95926;
+  /* Aqua, greener than --status-handed-in. */
+  --chart-3: #199E70;
+  /* Yellow, deeper than --status-awaiting-review. */
+  --chart-4: #C98500;
+  /* Magenta, away from --status-completed-failed's red. */
+  --chart-5: #D55181;
+  /* Violet, bluer than --status-rejected. */
+  --chart-6: #9085E9;
+}
+
 /* ── typography.css ─────────────────────────────── */
 /* Tighter than web defaults. This is a dashboard.
    Mono signals "this is a fact the system reported" and runs one step
@@ -1286,6 +1318,16 @@
   --ask-terminal: #4D7323;
   --ask-features: #A43E77;
   --ask-api-client: #97481F;
+
+  /* Chart series: the reference light steps, orange, aqua, yellow and magenta taken
+     darker to clear 3:1 on --bg-raised and 3.19:1 or more on --bg-sunken. Worst adjacent
+     pair under protan or deutan ΔE 8.7, unsimulated 17.6; the first three pass every pair. */
+  --chart-1: #2A78D6;
+  --chart-2: #DD5F2C;
+  --chart-3: #17946A;
+  --chart-4: #B07600;
+  --chart-5: #D2507F;
+  --chart-6: #6250D6;
 
   /* Diff */
   --diff-add-bg: #D8F0DF;

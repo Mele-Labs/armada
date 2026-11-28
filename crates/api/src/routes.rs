@@ -448,6 +448,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/raise_conflict", post(crate::sessions::raise_conflict::<D>))
         .route("/sessions/ask_held", post(crate::sessions::ask_held::<D>))
         .route("/sessions/withdraw_held", post(crate::sessions::withdraw_held::<D>))
+        .route("/sessions/settle_clash", post(crate::sessions::settle_clash::<D>))
         .route("/operator/cards", post(crate::sessions::raise_card::<D>))
         .route("/operator/cards/revise", post(crate::sessions::revise_card::<D>))
         .route("/operator/cards/settle", post(crate::sessions::settle_card::<D>))
@@ -533,6 +534,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::list_closed_waiting::<D>),
         )
         .route("/sessions/needs_you", get(crate::sessions::get_needs_you::<D>))
+        .route("/sessions/to_review", get(crate::sessions::list_to_review::<D>))
         .route(
             "/sessions/waiting/done",
             post(crate::hosted_sessions::done_waiting::<D>),
@@ -979,6 +981,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/librarian/rank", post(crate::features::rank_with_librarian::<D>))
         .route("/features/librarian/rank/forget", post(crate::features::forget_librarian_ranking::<D>))
         .route("/features/change", post(crate::features::change_feature::<D>))
+        .route("/features/areas/change", post(crate::features::change_area::<D>))
+        .route("/features/reject", post(crate::features::reject_in_catalog::<D>))
+        .route("/features/rules", get(crate::features::list_catalog_rules::<D>))
+        .route("/features/rules/drop", post(crate::features::drop_catalog_rule::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))
         .route("/features/who", get(crate::features::get_whos_on_what::<D>))

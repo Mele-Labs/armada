@@ -698,16 +698,20 @@ The acts of each row are `actionsOf` in `classic-final:packages/shell/src/Palett
 | Issue | Open ↵, Start a Job on it ⇧⌘N, Pin ⇧⌘F |
 | Task | Open ↵, Dispatch ⇧⌘N, Tick ⌘D, Pin ⇧⌘F |
 | Command | Run ↵, Pin ⇧⌘F |
-| Setting | Switch on or Switch off ↵, Choose ↵ or Change value ↵, then Open in Settings ⌘, and Set alias |
+| Setting | Switch on or Switch off ↵, or Choose ↵ or Change value ↵, which open its page; then Open in Settings ⌘, and Set alias |
 | A page of Settings | Open in Settings ↵, Set alias |
 | Any other row | Set alias and Record hotkey only |
 
 Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin return to the results with the palette still up.
 
 > **Rule.** Every setting is a row, found while something is typed, and Return changes it where it stands.
-> A switch flips and the palette stays up on it, a choice lists its choices in the panel, and a value is typed into the panel's field, which starts from what it holds.
+> A switch flips and the palette stays up on it.
+> A choice opens a page of its own over the results, as Raycast pushes one: the field narrows its choices, the one in force is ticked, and Return saves the one under the cursor.
+> A value's page is the field alone, starting from what it holds, and Return saves it; one it does not take is refused on the page.
+> Return goes back to the results as they were, with the row saying its new value; Esc, or ⌫ in an empty field, goes back with no change.
 > Each goes through Settings' own save, so a refusal is the one Settings gives, said on the row.
 > Why: the owner asked on 26 Nov 2026 for every setting in the palette, and picked changing it there over opening Settings on it.
+> On 27 Nov he asked that a choice open as a page, as Raycast's do, rather than a menu beside the results, and that a pick go back to the results.
 > ⌘↵ is Dispatch while words are typed, so Open in Settings takes Settings' own key, ⌘,.
 > A setting row takes no pin and no hotkey, which the opening list and a key pressed anywhere never reach.
 

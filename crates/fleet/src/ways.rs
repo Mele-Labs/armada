@@ -16,13 +16,43 @@ pub(crate) const HEADER: &str = "How the owner works with Jobs, from his Setting
 pub(crate) fn note(prefs: &Preferences) -> String {
     let mut lines = vec![HEADER, take_in_line(prefs)];
     if prefs.take_in == TakeIn::Look {
-        lines.push(match prefs.look_questions {
-            LookQuestions::PicturesMix => "Questions with options that look different: draw each option as a mock and offer them as pictures, with the parts he might take from one and not another named by data-part.",
-            LookQuestions::PicturesWhole => "Questions with options that look different: draw each option as a mock and offer them as pictures.",
-        });
+        lines.push(look_questions_line(prefs.look_questions));
     }
     lines.extend(answer_line(prefs.answer_with));
     lines.join("\n")
+}
+
+/// The first line of the Operator's note. Nothing checks the Operator's replies, so it does not say Fleet does.
+const OPERATOR_HEADER: &str = "How the owner takes things in, from his Settings. They are this Mac's, for every project.";
+
+/// The note the Operator starts with and is told again on a change: the Job's lines **without a Job's
+/// own acts**, since the Operator has no `all_done`, no done card and no `waiting_for` to send back.
+pub(crate) fn operator_note(prefs: &Preferences) -> String {
+    let results = match prefs.take_in {
+        TakeIn::Read => take_in_line(prefs),
+        TakeIn::Look => match prefs.look_results {
+            LookResults::PictureEvery => "Results: lead every answer and result with a picture through show_sketch, a mock for a screen and a diagram for anything else, with two lines of text under it.",
+            LookResults::PictureScreens => take_in_line(prefs),
+            LookResults::WalkVisible => "Results: open anything he would see as a walk with show_window, and a diagram through show_sketch for the rest.",
+        },
+        TakeIn::Listen => "Results: he listens. Open each reply with two or three plain sentences he can hear, before any picture or detail, with no paths or code in them.",
+    };
+    let mut lines = vec![OPERATOR_HEADER, results];
+    if prefs.take_in == TakeIn::Look {
+        lines.push(look_questions_line(prefs.look_questions));
+    }
+    lines.extend(match prefs.answer_with {
+        AnswerWith::Buttons => Some("Answers: ask every question with two to four options, your pick first, a cost on each, one decision a question."),
+        other => answer_line(other),
+    });
+    lines.join("\n")
+}
+
+fn look_questions_line(look: LookQuestions) -> &'static str {
+    match look {
+        LookQuestions::PicturesMix => "Questions with options that look different: draw each option as a mock and offer them as pictures, with the parts he might take from one and not another named by data-part.",
+        LookQuestions::PicturesWhole => "Questions with options that look different: draw each option as a mock and offer them as pictures.",
+    }
 }
 
 fn take_in_line(prefs: &Preferences) -> &'static str {

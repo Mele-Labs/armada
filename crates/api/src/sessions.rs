@@ -635,6 +635,21 @@ pub(crate) async fn get_needs_you<D: Sessions>(
     }
 }
 
+/// `?project=`, left out for every project.
+#[derive(Deserialize)]
+pub(crate) struct ForToReview {
+    #[serde(default)]
+    project: Option<String>,
+}
+
+/// Everything waiting on the person across a project's Jobs, or every project's. 200.
+pub(crate) async fn list_to_review<D: Sessions>(State(served): State<Served<D>>, Query(asked): Query<ForToReview>) -> Response {
+    match served.daemon().list_to_review(asked.project).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
@@ -839,6 +854,19 @@ pub(crate) async fn withdraw_held<D: Sessions>(State(served): State<Served<D>>, 
     };
     match served.shared().withdraw_held(crate::acting::asking(), withdrawn).await {
         Ok(held) => answer(StatusCode::OK, &held, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The agent records the order it and another Job agreed for files both write. 200 with the clash as both Jobs'
+/// records carry it; 422 for a part Fleet refuses. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn settle_clash<D: Sessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let settle: ipc::SettleClash = match ipc::decode_body("the order two Jobs agreed", &body) {
+        Ok(settle) => settle,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().settle_clash(crate::acting::asking(), settle).await {
+        Ok(clash) => answer(StatusCode::OK, &clash, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

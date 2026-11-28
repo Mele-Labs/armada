@@ -709,6 +709,31 @@ pub struct MessagePeer {
     pub title: Option<String>,
 }
 
+/// A native walk built from the Job's commit, so a screen he approves is the Job's own build.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WalkBuild {
+    pub state: WalkBuildState,
+    /// The Job's commit the build is of.
+    pub commit: String,
+    /// When the state was last set.
+    pub at: Instant,
+    /// Why it failed, for the Job: the build's last lines, or the walk the build does not play.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
+}
+
+/// Where a walk's build stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WalkBuildState {
+    /// Waiting its turn or building: the row says Building and nothing asks him.
+    Building,
+    /// Built and plays the walk: the Needs you item appears and one press opens it.
+    Ready,
+    /// The build failed or does not play the walk: the Job is told, never him.
+    Failed,
+}
+
 /// One row of a hosted session's thread.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -830,6 +855,11 @@ pub enum SessionRow {
         /// closes on his Approve of the walks shown for it. **Kept when the walk ends.**
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group: Option<String>,
+        /// A native walk's build from the Job's commit: **no Needs you item while it builds or
+        /// failed**, and a moved branch builds again. Absent on a web page, and on a row written before
+        /// walks were built from a Job's branch. **The row is replaced by id** when it changes.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        build: Option<WalkBuild>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]
