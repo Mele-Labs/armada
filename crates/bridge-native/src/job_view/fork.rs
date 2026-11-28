@@ -205,7 +205,8 @@ impl JobView {
     }
 
     fn fork_menu(&mut self, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator is never a closed Job: a send with no live session waits in Fleet for the next one.
+        let live = self.beside_in() || self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         // The Operator's thread offers Reply and Teach only.
         let side = self.beside_in();
         let mut entries = vec![Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false }];
@@ -367,7 +368,8 @@ impl JobView {
             }
         }
         let look = cx.look();
-        let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        // The Operator is never a closed Job: a send with no live session waits in Fleet for the next one.
+        let live = self.beside_in() || self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         let side = self.beside_in();
         let act = |id: &'static str, said: &'static str, icon: &'static str| {
             labelled(
