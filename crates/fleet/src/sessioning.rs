@@ -1068,6 +1068,10 @@ where
         self.needs_you_read(caller, session_id).await
     }
 
+    async fn list_to_review(&self, project: Option<String>) -> Result<ipc::ToReview, Refusal> {
+        self.to_review_listed(project).await
+    }
+
     async fn all_done(
         &self,
         caller: Option<api::Caller>,
