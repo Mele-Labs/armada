@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, SetupKind, Vcs, WhatWasRead, WorkPr
 use api::Refusal;
 use config::settings as keys;
 use ipc::{
-    ManifestId, OperatorActs, OperatorDecisions, OperatorRole, OperatorSettings, OperatorTag, OperatorSettingsList, OperatorSettingsSet, OperatorToolsSet,
+    ManifestId, OperatorActs, OperatorDecisions, OperatorRole, OperatorSettings, OperatorTag, OperatorSettingsList, OperatorSettingsSet, OperatorStyle, OperatorToolsSet,
     ProjectOperatorSettings, SessionId, SetOperatorSettings, StartSession,
 };
 
@@ -178,11 +178,12 @@ where
         }
     }
 
-    /// The output styles he may pick: the mod's `armada:Operator` first, then each one the harness finds.
-    async fn operator_styles(&self) -> Vec<String> {
+    /// The output styles he may pick: the mod's `armada:Operator` first, then each one the harness finds, each with its
+    /// file's own words for it where the file has them.
+    async fn operator_styles(&self) -> Vec<OperatorStyle> {
         let setup = self.setup();
         let read = tokio::task::spawn_blocking(move || setup.read()).await;
-        let mut styles = vec![adapters::OPERATOR_STYLE.to_string()];
+        let mut styles = vec![OperatorStyle { name: adapters::OPERATOR_STYLE.to_string(), description: None }];
         let Ok(inventory) = read else { return styles };
         if let Some(WhatWasRead::Read { items, .. }) = inventory.kind(SetupKind::OutputStyles) {
             for item in items {
@@ -190,8 +191,10 @@ where
                     Some(plugin) => format!("{plugin}:{}", item.name),
                     None => item.name.clone(),
                 };
-                if !styles.contains(&name) {
-                    styles.push(name);
+                match styles.iter_mut().find(|one| one.name == name) {
+                    // The mod's own is listed first whatever the harness found; its words come from its file.
+                    Some(one) => one.description = one.description.take().or_else(|| item.says.clone()),
+                    None => styles.push(OperatorStyle { name, description: item.says.clone() }),
                 }
             }
         }

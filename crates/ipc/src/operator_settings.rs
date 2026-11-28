@@ -178,7 +178,15 @@ pub struct ProjectOperatorSettings {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorSettingsList {
     pub projects: Vec<ProjectOperatorSettings>,
-    pub styles: Vec<String>,
+    pub styles: Vec<OperatorStyle>,
+}
+
+/// An output style he may pick, with its file's own words for it, so a picker can say what each changes.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorStyle {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 /// `set_operator_settings`: what he sets for one project, and the values he gives back to their defaults.
