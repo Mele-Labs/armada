@@ -193,7 +193,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         },
         "strip-red-taken" => Strip { lines: vec![line(armada(&red(r#","taken_by":{"id":"mock-06","title":"Quiet the write-clash notices"}"#), "", 40, None))], ..rest() },
         // Main green, the queue stuck two hours on `native`: the fragment rides in the line's `checkout` place, any field after `main`.
-        "strip-queue-stuck" => Strip { lines: vec![line(stuck_view())], ..rest() },
+        // The same queue with main's card shut, for a screen that carries the card's acts beside it.
+        "strip-queue-stuck" | "strip-queue-stuck-away" => Strip { lines: vec![line(stuck_view())], ..rest() },
         "strip-all" => {
             let mut lines = vec![line(armada(GREEN, "", 40, None))];
             lines.extend(others());

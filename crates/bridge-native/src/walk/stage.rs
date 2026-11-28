@@ -241,7 +241,15 @@ impl Stage {
                 let threads = Some(crate::mock::threads(walk.scenario)?).filter(|threads| !threads.is_empty());
                 let screen = cx.new(|cx| JobsScreen::new(list, threads, window, cx));
                 // Inside the app's frame, as the Jobs screen always is, so Fleet's states raise its toasts.
-                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen, window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_behind(screen.clone(), window, cx));
+                // The stuck queue's Repair Job opens the dispatch sheet, so that walk has the sheet's screen over the Jobs.
+                if walk.name == "queue-stuck" {
+                    let sheet = cx.new(|cx| crate::dispatch::DispatchScreen::new(screen, &jobs, window, cx).over(held.into()));
+                    let focus = Focus { keys, within: sheet.read(cx).within.clone() };
+                    window.focus(&focus.keys, cx);
+                    let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(sheet.into(), cx));
+                    return Ok(Stage { view: stood.into(), focus });
+                }
                 let focus = Focus { keys, within: held.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
                 let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(held.into(), cx));

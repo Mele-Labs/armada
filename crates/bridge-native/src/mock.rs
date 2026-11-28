@@ -84,7 +84,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
 pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
-        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "queue-stuck" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, the first Job's two questions answered from the review sheet (`asks_answered`).
         "asks-answered" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
@@ -282,6 +282,15 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-06").filter(|_| scenario == "jobs-projects") {
             one.title = None;
+        }
+    }
+    // The first stuck pull request's Job holds the row Fleet raises for a stuck merge queue, on the repository the stuck scene draws.
+    if scenario == "queue-stuck" {
+        let root = crate::merge_strip::stuck_view().root;
+        let item = format!(r#"{{"id":"queue-stuck:{root}","text":"The merge queue is stuck: native got no runner.","since":"2026-11-09T14:20:00Z","source":"fleet_call","act":{{"kind":"queue_stuck","target":"{root}"}}}}"#);
+        let item = ipc::decode::<WaitingItem>("stuck queue item", item.as_bytes()).map_err(|why| why.to_string())?;
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-02") {
+            one.waiting_for.push(item);
         }
     }
     if scenario == "needs-long" {

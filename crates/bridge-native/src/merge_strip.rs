@@ -20,7 +20,6 @@ pub(crate) mod stuck;
 pub(crate) mod words;
 
 pub use scenes::{apply, begin, end};
-#[cfg(test)]
 pub(crate) use scenes::stuck_view;
 
 use std::cell::RefCell;
@@ -123,6 +122,11 @@ impl Global for Opening {}
 
 pub fn live(cx: &App) -> Option<gpui::Entity<MergeStrip>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
+}
+
+/// The merge line a walk's strip draws for `root`, where there is no Fleet to read it from.
+pub(crate) fn walked_line(root: &str, cx: &App) -> Option<MergeLineView> {
+    live(cx)?.read(cx).data.lines.iter().find(|line| line.view.root == root).map(|line| line.view.clone())
 }
 
 /// The title bar's reading of the live link: whether Fleet is on standby.

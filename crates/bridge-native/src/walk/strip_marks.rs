@@ -86,13 +86,19 @@ pub static LIVE: [Step; 5] = [
     marks("Fleet stopped, with the same Job open: the title bar says so, and the line Fleet last said stays drawn, as Electron keeps it", "strip-live-down", "button", READY),
 ];
 
-/// The stuck merge queue alone: the band on main's card, and where its log opens.
-pub static QUEUE_STUCK: [Step; 5] = [
+/// The stuck merge queue alone: the band on main's card, and where its log opens; then the Job holding the first
+/// stuck pull request, whose Needs you row carries the same acts.
+pub static QUEUE_STUCK: [Step; 10] = [
     marks("A merge queue stuck on a job with no runner: an amber band on main's card, since when, and the pull requests in their order", "strip-queue-stuck", "status", "Merge queue stuck"),
     step("Open log goes to the failed job's page", Verb::Look, "button", "Open log"),
     step("Queue again puts each pull request back in the merge queue now", Verb::Look, "button", "Queue again"),
     step("Tell Jobs sends each Job that holds one what stopped the queue", Verb::Look, "button", "Tell Jobs"),
     step("Repair Job opens the dispatch sheet with the facts written in", Verb::Look, "button", "Repair Job"),
+    press_on("Native Bridge foundation holds #3395, the first stuck pull request: open it", "row", "Native Bridge foundation", "button", "Needs you"),
+    step("Needs you carries a row for the stuck queue, with the same four acts under it, in one line", Verb::Key("alt-cmd-y"), "button", "Queue again"),
+    marks("Main's card put away: the row stands on the same merge line, and its acts are the card's", "strip-queue-stuck-away", "button", "Queue again"),
+    step("Hover Queue again for what it does", Verb::Hover, "button", "Queue again"),
+    press_on("Repair Job opens the dispatch sheet with the facts written in", "button", "Repair Job", "dialog", "Dispatch"),
 ];
 
 pub static STEPS: [Step; 42] = [

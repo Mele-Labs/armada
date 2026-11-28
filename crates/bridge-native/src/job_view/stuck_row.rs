@@ -3,7 +3,7 @@
 //! on the merge line when pressed.
 
 use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString};
-use ipc::{NeedsYouAct, NeedsYouRow};
+use ipc::{MergeLineView, NeedsYouAct, NeedsYouRow, RepositorySummary};
 
 use super::JobView;
 use crate::labels::labelled;
@@ -12,11 +12,23 @@ use crate::merge_strip::stuck::{self, Ask};
 use crate::titlebar::parts::{tip, Btn, Weight};
 
 impl JobView {
+    /// The merge line for `root` and the repositories Fleet serves: what the live Fleet holds, or on mock data what
+    /// the walk's strip draws.
+    fn stuck_line(&self, root: &str, cx: &gpui::App) -> Option<(MergeLineView, Vec<RepositorySummary>)> {
+        match &self.fleet {
+            Some(fleet) => {
+                let held = fleet.read(cx).held();
+                let line = held.merge_lines.iter().flatten().find(|line| line.root == root)?.clone();
+                Some((line, held.repositories.clone().unwrap_or_default()))
+            }
+            None => Some((crate::merge_strip::walked_line(root, cx)?, crate::mock::repositories())),
+        }
+    }
+
     /// The row's acts, where the merge line for its root still says the queue is stuck: when it moved, none.
     pub(super) fn stuck_acts(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let NeedsYouAct::QueueStuck { root } = &row.act else { return None };
-        let held = self.fleet.as_ref()?.read(cx).held();
-        let line = held.merge_lines.iter().flatten().find(|line| line.root == *root)?;
+        let (line, _) = self.stuck_line(root, cx)?;
         let facts = line.queue_stuck.as_ref()?;
         let told = stuck::held_by_a_job(facts, &line.pulls);
         let hue = look.color(token::STATUS_AWAITING_REVIEW);
@@ -82,19 +94,16 @@ impl JobView {
 
     /// Queue again: each stuck pull request goes back in the merge queue, as the card's press asks.
     fn stuck_queue_again(&mut self, item: &str, root: &str, cx: &mut Context<Self>) {
-        let Some(fleet) = self.fleet.clone() else { return };
-        let held = fleet.read(cx).held();
-        let Some(numbers) = held.merge_lines.iter().flatten().find(|line| line.root == root).and_then(|line| line.queue_stuck.as_ref()).map(|facts| facts.pulls.clone()) else { return };
-        let manifest = stuck::manifest_of(held.repositories.as_deref().unwrap_or_default(), root);
+        let Some((line, repositories)) = self.stuck_line(root, cx) else { return };
+        let Some(numbers) = line.queue_stuck.as_ref().map(|facts| facts.pulls.clone()) else { return };
+        let manifest = stuck::manifest_of(&repositories, root);
         let asks = numbers.into_iter().map(|number| stuck::queue_ask(manifest.as_deref(), root, number)).collect();
         self.stuck_ask(item, asks, stuck::NOT_QUEUED, cx);
     }
 
     /// Tell Jobs: each Job that holds a stuck pull request is sent the facts, as the card's press sends them.
     fn stuck_tell_jobs(&mut self, item: &str, root: &str, cx: &mut Context<Self>) {
-        let Some(fleet) = self.fleet.clone() else { return };
-        let held = fleet.read(cx).held();
-        let Some(line) = held.merge_lines.iter().flatten().find(|line| line.root == root) else { return };
+        let Some((line, _)) = self.stuck_line(root, cx) else { return };
         let Some(facts) = line.queue_stuck.as_ref() else { return };
         let asks = stuck::tells_of(facts, &line.pulls).into_iter().map(|(session, message)| stuck::tell_ask(root, &session, message)).collect();
         self.stuck_ask(item, asks, stuck::NOT_SENT, cx);
@@ -102,16 +111,19 @@ impl JobView {
 
     /// Repair Job: the dispatch sheet, drafted from the facts and naming the repository.
     fn stuck_repair_job(&mut self, root: &str, cx: &mut Context<Self>) {
-        let Some(fleet) = self.fleet.clone() else { return };
-        let held = fleet.read(cx).held();
-        let Some(brief) = held.merge_lines.iter().flatten().find(|line| line.root == root).and_then(|line| line.queue_stuck.as_ref()).map(stuck::brief_of) else { return };
-        let repository = held.repositories.as_deref().unwrap_or_default().iter().find(|one| one.root == root).map(stuck::name_of);
+        let Some((line, repositories)) = self.stuck_line(root, cx) else { return };
+        let Some(brief) = line.queue_stuck.as_ref().map(stuck::brief_of) else { return };
+        let repository = repositories.iter().find(|one| one.root == root).map(stuck::name_of);
         crate::dispatch::screen::open_drafted(brief, repository, cx);
     }
 
     /// Ask Fleet off the main thread. A refusal stands under the row in Fleet's words and raises the failure toast,
     /// as the card's does; pressing again clears it.
     fn stuck_ask(&mut self, item: &str, asks: Vec<Result<Ask, (String, String)>>, headline: &'static str, cx: &mut Context<Self>) {
+        // On mock data nothing answers, as with every other act sent from here.
+        if self.fleet.is_none() {
+            return;
+        }
         let Some(job) = self.shown.clone() else { return };
         let key = format!("item:{item}");
         let port = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
