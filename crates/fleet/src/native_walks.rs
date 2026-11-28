@@ -280,10 +280,12 @@ where
             },
         };
         let port = self.host().port.to_string();
-        let program = wrapped(&crate::runtime::support_dir(&home), &kept, &binary);
         let started = self
             .native_walks()
             .started_once(&id, &url, &made, || {
+                // Wrapped only when it starts: a press that finds it running must not relink the
+                // executable a walk still starting is reading.
+                let program = wrapped(&crate::runtime::support_dir(&home), &kept, &binary);
                 tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
                     .args(&takes)

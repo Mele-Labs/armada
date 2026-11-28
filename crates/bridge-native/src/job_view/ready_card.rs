@@ -1215,7 +1215,7 @@ pub(super) mod tests {
         assert_eq!(said["answer"], serde_json::json!({"kind": "needs_rework", "words": "Darker edge"}));
         let good: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::LooksGood).expect("it encodes")).expect("json");
         assert_eq!(good["answer"], serde_json::json!({"kind": "looks_good"}));
-        let skip: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::Skip).expect("it encodes")).expect("json");
+        let skip: serde_json::Value = ipc::decode("skip", answer_body("job-1", &held, ReadyAnswer::Skip).expect("it encodes").as_bytes()).expect("json");
         assert_eq!(skip["answer"], serde_json::json!({"kind": "skip"}));
         assert_eq!((skip["branch"].as_str(), skip["tip"].as_str()), (Some("native/chip"), Some("aaaa1111")));
         let remind: serde_json::Value = serde_json::from_str(&answer_body("job-1", &held, ReadyAnswer::Remind { until: Instant::carried("2026-11-16T09:00:00+00:00") }).expect("it encodes")).expect("json");

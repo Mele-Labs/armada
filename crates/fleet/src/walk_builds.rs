@@ -99,16 +99,18 @@ struct Queue {
     owed: Vec<(String, String)>,
 }
 
-/// Every walk build Fleet owes and the one it is making. Never written down: a Fleet that starts
-/// finds each Building row at its Job's next turn end.
+/// Every walk build Fleet owes and the one it is making. Never written down: **a Fleet that starts
+/// asks again for every Building row of a live Job** on its first look, so a restart mid-build never
+/// leaves a walk reading Building with nothing building it.
 pub(crate) struct WalkBuilds {
     queue: Mutex<Queue>,
     program: Mutex<Program>,
+    resumed: std::sync::atomic::AtomicBool,
 }
 
 impl Default for WalkBuilds {
     fn default() -> WalkBuilds {
-        WalkBuilds { queue: Mutex::default(), program: Mutex::new(Program::cargo()) }
+        WalkBuilds { queue: Mutex::default(), program: Mutex::new(Program::cargo()), resumed: std::sync::atomic::AtomicBool::new(false) }
     }
 }
 
@@ -214,7 +216,9 @@ fn tree_at(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> 
     if seed.is_dir() && !into.exists() {
         // A volume that cannot clone leaves the tree to build cold, which is slow and not wrong.
         let _ = std::fs::create_dir_all(into.parent().expect("inside the tree"));
-        let _ = checks_runner::Priority::Low.spawning("cp").args(["-c", "-R"]).arg(&seed).arg(&into).status();
+        // macOS clones with `-c`; GNU cp, as on CI, clones where it can with `--reflink=auto`.
+        let clone = if cfg!(target_os = "macos") { "-c" } else { "--reflink=auto" };
+        let _ = checks_runner::Priority::Low.spawning("cp").args([clone, "-R"]).arg(&seed).arg(&into).status();
     }
     Ok(tree)
 }
@@ -351,6 +355,11 @@ where
         for url in open {
             let Some((SessionRow::Window { build: Some(held), .. }, _)) = self.walk_row_of(session, &url).await else { continue };
             if held.commit == head {
+                // Building at this commit with nothing building it, as after a restart: asked again,
+                // and `asked` leaves one already waiting or running alone.
+                if held.state == WalkBuildState::Building {
+                    self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+                }
                 continue;
             }
             let building = WalkBuild { state: WalkBuildState::Building, commit: head.clone(), at: self.instant(), why: None };
@@ -372,6 +381,9 @@ where
 
     /// One look of the notice loop: tell what is owed, and start the next build once none is going.
     pub(crate) async fn walk_builds_driven(self: &Arc<Self>) {
+        if !self.walk_builds().resumed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            Box::pin(self.walk_builds_resumed()).await;
+        }
         for (session, text) in self.walk_builds().owed_taken() {
             let _ = self.told_by_fleet(&session, &text, ipc::Notice::WalkFailed).await;
         }
@@ -383,6 +395,22 @@ where
             fleet.walk_builds_moved(&ask.session).await;
             fleet.walk_builds().done();
         });
+    }
+
+    /// Fleet started: every live Job's walks read again, and each still Building asked for again.
+    pub(crate) async fn walk_builds_resumed(&self) {
+        let live: Vec<String> = {
+            let store = self.store().lock().await;
+            store
+                .find_sessions(&store::SessionSearch { state: Some(store::SessionState::Live), ..Default::default() })
+                .unwrap_or_default()
+                .into_iter()
+                .map(|session| session.id.to_string())
+                .collect()
+        };
+        for session in live {
+            self.walk_builds_moved(&session).await;
+        }
     }
 
     /// Build one ask, and write how it went on the walk's row. A walk that has gone, or moved to a

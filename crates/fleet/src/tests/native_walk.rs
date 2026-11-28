@@ -275,7 +275,7 @@ async fn a_branch_that_moved_is_built_again_where_the_jobs_turn_ends_and_the_pre
 
     let moved = commit(&slot, "second");
     rig.fleet
-        .report_session(ipc::SessionReport { harness: "claude".into(), session_id: id.clone(), fact: ipc::SessionFact::TurnCompleted { said: None } })
+        .report_session(ipc::SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id.clone(), fact: ipc::SessionFact::TurnCompleted { said: None } })
         .await
         .expect("the turn ended");
 
@@ -297,6 +297,24 @@ async fn a_branch_that_moved_is_built_again_where_the_jobs_turn_ends_and_the_pre
     for commit in [&first, &moved] {
         assert!(crate::walk_builds::binary_of(&home, &key, commit).is_file(), "the first build stays beside the second: {commit}");
     }
+}
+
+#[tokio::test]
+async fn a_walk_left_building_by_a_fleet_that_stopped_is_built_when_fleet_starts_again() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    leased(&rig, &id).await;
+    builds_with(&rig, script(&["sidebar", "footer"]));
+    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
+    // The queue is Fleet's memory alone: a restart loses the ask and leaves the row reading Building.
+    let lost = rig.fleet.walk_builds().next_for_test().expect("the build was asked for");
+    rig.fleet.walk_builds().done_for_test();
+    assert_eq!(lost.url, URL);
+    assert_eq!(state_of(&rig, &id, URL).await, Some(WalkBuildState::Building));
+
+    built_all(&rig).await;
+
+    assert_eq!(state_of(&rig, &id, URL).await, Some(WalkBuildState::Ready), "nothing built the walk a restart left Building");
+    assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "it asks him once built");
 }
 
 #[tokio::test]
