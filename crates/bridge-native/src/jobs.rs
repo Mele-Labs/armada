@@ -1953,11 +1953,6 @@ impl JobsList {
         true
     }
 
-    /// The Operator's session is shut again: the Job that was open before it is open once more.
-    pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
-        self.open_quietly(was, cx);
-    }
-
     /// A Job opens as no pick does: the Job's box does not take the keys. For a place over the Jobs screen that draws one of its Job's parts.
     pub fn open_quietly(&mut self, id: Option<SharedString>, cx: &mut Context<Self>) {
         self.opened = id.clone();

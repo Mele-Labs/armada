@@ -501,7 +501,7 @@ mod tests {
     #[gpui::test]
     fn the_operators_selection_offers_reply_and_teach_only(cx: &mut TestAppContext) {
         let (view, stage, cx) = staged(cx, &[]);
-        assert!(view.read_with(cx, |view, cx| view.closed(super::super::operator_harness::OPERATOR, cx)), "the Operator's session holds no live Job record");
+        assert!(!view.read_with(cx, |view, cx| view.closed(super::super::operator_harness::OPERATOR, cx)), "the Operator's box stays open though its session holds no live Job record");
         assert_eq!(menu(&view, true, cx), ["teach", "reply"], "the menu: Reply stays with no live session, and no Fork, Ask or Judge");
         select(&view, true, OPERATOR_ROW, cx);
         assert_eq!(bar_buttons(&stage, true, OPERATOR_ROW, cx), Some(vec!["Reply".to_string(), "Teach".to_string()]), "the bar: Reply stays with no live session, and no Fork, Ask or Judge");
