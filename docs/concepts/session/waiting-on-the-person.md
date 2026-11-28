@@ -14,6 +14,9 @@ Native's press is the Jobs screens' work (`docs/concepts/artifact.md`).
 **`waiting_for` refuses an item with a `walk` act**, and tells the agent to call `show_window`: the window is the one record of a walk, and its item leaves at his Approve.
 On 19 Oct 2026 Jobs listed walks in their own words, one with no window behind it and one that stayed after he approved.
 Only the act says it (`walk_asks.rs`); Fleet does not read the item's words, and an item kept before the rule is left off every read.
+**It refuses an item with a `queue_stuck` act** (`fleet.session_waiting_fleet_act`): that act is Fleet's own.
+Fleet sets it on the call it raises for a stuck merge queue, its target the repository's root, and the row offers what main's merge card offers: Queue again, Tell Jobs, Repair Job and the failed job's log.
+On 28 Nov 2026 the owner found that row with only its words and a dismiss, and main's card the one place to act.
 **It refuses an item that is a merge wait** (`fleet.session_waiting_merging`): its `approve_pr` act names one of the Job's pull requests that is queued, has auto-merge on or has merged, or its words name such a pull request's number or link (`merge_waits.rs`).
 A merge wait is not a Needs you item, since Fleet follows the merge and tells the Job when it lands; the agent rewords.
 An item kept already, or written again as it was, is never taken off for it.

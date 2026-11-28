@@ -36,6 +36,7 @@ mod deck;
 mod delivery_line;
 mod draft_doc;
 mod dock;
+mod stuck_row;
 mod needs_card;
 mod done;
 mod now;

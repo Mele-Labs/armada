@@ -2445,9 +2445,9 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "queue-stuck",
-        title: "A stuck merge queue on main's card",
+        title: "A stuck merge queue on main's card and on its Job's Needs you",
         screen: Screen::Marks,
-        scenario: "jobs-many",
+        scenario: "queue-stuck",
         steps: &strip_marks::QUEUE_STUCK,
     },
     Walk {

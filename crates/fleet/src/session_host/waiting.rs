@@ -74,6 +74,7 @@ pub(crate) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
+const SESSION_WAITING_FLEET_ACT: &str = "fleet.session_waiting_fleet_act";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
 const SESSION_WAITING_LOOK: &str = "fleet.session_waiting_look";
@@ -340,6 +341,7 @@ fn act_kind_text(kind: WaitingActKind) -> &'static str {
         WaitingActKind::ApprovePr => "approve_pr",
         WaitingActKind::Run => "run",
         WaitingActKind::Message => "message",
+        WaitingActKind::QueueStuck => "queue_stuck",
     }
 }
 
@@ -350,6 +352,7 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
         "approve_pr" => Some(WaitingActKind::ApprovePr),
         "run" => Some(WaitingActKind::Run),
         "message" => Some(WaitingActKind::Message),
+        "queue_stuck" => Some(WaitingActKind::QueueStuck),
         _ => None,
     }
 }
@@ -914,6 +917,12 @@ where
             }
             if asks_to_walk(item.act.as_ref().map(|act| act.kind)) {
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
+            }
+            if item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::QueueStuck) {
+                return Err(self.hosted_refusal(
+                    SESSION_WAITING_FLEET_ACT,
+                    &format!("Refused: item \"{}\" has a queue_stuck act, which is Fleet's own. Call waiting_for again without it.", item.id.trim()),
+                ));
             }
         }
         // A run item meant for another Mac names it, and Fleet checks the name against the Macs it knows.

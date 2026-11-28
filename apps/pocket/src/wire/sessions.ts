@@ -124,7 +124,12 @@ export type WaitingActKind =
   /** Show a command; `target` is the command. */
   | "run"
   /** Send the Session a message: go to its box. `target` is the Session's id. Since 23.80. */
-  | "message";
+  | "message"
+  /**
+   * Fleet's own: the merge queue of the repository whose root is `target` is stuck, and the row offers what main's
+   * merge card offers for it. `waiting_for` refuses it from an agent.
+   */
+  | "queue_stuck";
 
 export type WaitingAct = {
   kind: WaitingActKind;

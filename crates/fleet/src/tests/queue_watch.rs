@@ -340,3 +340,42 @@ async fn an_entry_past_its_estimate_is_stuck_on_the_merge_line_with_no_job_named
     assert_eq!(line.len(), 1);
     assert!(line[0].text.contains("#13 waited past the forge's estimate"), "{}", line[0].text);
 }
+
+/// 28 Nov 2026: the owner found the stuck queue's row on Needs you with only its words and a dismiss, and main's merge
+/// card the one place to act on it. The row names the stuck repository, so it offers the card's acts.
+#[tokio::test]
+async fn a_stuck_queues_needs_you_row_offers_main_cards_acts_for_its_repository() {
+    use crate::session_host::{fleet_calls::call_item, needs_you::needs_you_of};
+    use ipc::NeedsYouAct;
+
+    let rig = a_rig();
+    let session = rig.a_hosted_session_on(13).await;
+    let forge = &rig.fleet.vcs().main_ci;
+    forge.pulls_are(Some(vec![open(13)]));
+    forge.queue_is(Some(vec![entry(13, 'a', LONG_AGO, Some(600))]));
+    let served = rig.fleet.repositories().served().remove(0);
+
+    visited(&rig).await;
+    rig.fleet.queue_watched(&served).await;
+
+    let items: Vec<_> = rig.fleet.store().lock().await.calls_of(&session).expect("reads").iter().map(call_item).collect();
+    let rows: Vec<_> = needs_you_of(&session, &items).sections.into_iter().flat_map(|section| section.rows).collect();
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(rows[0].act, NeedsYouAct::QueueStuck { root: served.root().to_string() });
+}
+
+#[test]
+fn a_call_of_any_other_notice_still_goes_to_its_job() {
+    use crate::session_host::{fleet_calls::call_item, needs_you::needs_you_of};
+    use ipc::NeedsYouAct;
+
+    let call = store::KeptCall {
+        id: "call:1".into(),
+        session_id: "job-a".into(),
+        notice: "write_clash".into(),
+        text: "Another Job wrote a.rs.".into(),
+        raised_at: "2026-11-28T03:00:00Z".into(),
+    };
+    let rows: Vec<_> = needs_you_of("job-a", &[call_item(&call)]).sections.into_iter().flat_map(|section| section.rows).collect();
+    assert_eq!(rows[0].act, NeedsYouAct::Message);
+}

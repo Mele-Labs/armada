@@ -1612,6 +1612,17 @@ impl FleetConnection {
         self.held.offers = Some(offers);
     }
 
+    /// The merge lines and repositories, as a read of them would hold them.
+    pub fn hold_merge_lines(&mut self, lines: Vec<MergeLineView>, repositories: Vec<RepositorySummary>) {
+        self.held.merge_lines = Some(lines);
+        self.held.repositories = Some(repositories);
+    }
+
+    /// A Job's Needs you, as read for the `waiting_for` its record holds.
+    pub fn hold_needs(&mut self, job: &str, view: NeedsYou, read_for: Vec<WaitingItem>) {
+        self.held.needs.insert(job.to_string(), HeldNeeds { view, read_for });
+    }
+
     /// Connected to a stand-in Fleet on `port`, as the link says it once the socket opens.
     pub fn connect_at(&mut self, port: u16, cx: &mut Context<Self>) {
         self.held.fold(vec![Signal::State(LinkState::Connecting { port, pid: 1 }), Signal::State(LinkState::Connected)]);
