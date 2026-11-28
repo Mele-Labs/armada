@@ -39,6 +39,7 @@ mod session_viewed;
 mod session_rail;
 mod session_limit;
 mod session_priority;
+mod kept_looks;
 mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
@@ -350,6 +351,7 @@ pub use projects::{
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptApproval, KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
+pub use kept_looks::KeptLook;
 pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED, WALK_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;

@@ -82,6 +82,9 @@ pub(crate) struct Place {
     pub(crate) preview: PathBuf,
 }
 
+/// Where a build's binary is sent, for an ask no row waits on: the path, or why there is none.
+pub(crate) type Answer = Arc<tokio::sync::watch::Sender<Option<Result<PathBuf, String>>>>;
+
 /// One build asked for: the Job's walk at one commit.
 #[derive(Clone, Debug)]
 pub(crate) struct Ask {
@@ -89,6 +92,9 @@ pub(crate) struct Ask {
     pub(crate) url: String,
     pub(crate) commit: String,
     pub(crate) place: Place,
+    /// **Set where no row waits on the build**: a look checked against the one he approved needs the
+    /// binary of a commit and nothing else. Such an ask is never replaced, and writes no row.
+    pub(crate) answer: Option<Answer>,
 }
 
 #[derive(Default)]
@@ -119,8 +125,12 @@ impl WalkBuilds {
     /// one running is left to end: its row is no longer the commit wanted, so its result is dropped.
     pub(crate) fn asked(&self, ask: Ask) {
         let mut queue = self.queue.lock().expect("not poisoned");
-        queue.waiting.retain(|one| !(one.session == ask.session && one.url == ask.url));
-        let running = queue.running.as_ref().is_some_and(|one| one.session == ask.session && one.url == ask.url && one.commit == ask.commit);
+        if ask.answer.is_some() {
+            queue.waiting.push(ask);
+            return;
+        }
+        queue.waiting.retain(|one| one.answer.is_some() || !(one.session == ask.session && one.url == ask.url));
+        let running = queue.running.as_ref().is_some_and(|one| one.answer.is_none() && one.session == ask.session && one.url == ask.url && one.commit == ask.commit);
         if !running {
             queue.waiting.push(ask);
         }
@@ -294,7 +304,7 @@ where
         match self.walk_place(session).await {
             Ok((place, commit)) => {
                 let build = WalkBuild { state: WalkBuildState::Building, commit: commit.clone(), at: self.instant(), why: None };
-                (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place }))
+                (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place, answer: None }))
             }
             Err(why) => {
                 let text = format!("Your native walk {url} cannot be built: {why}. The person is not asked about it until it builds.");
@@ -305,7 +315,7 @@ where
     }
 
     /// The newest open native walk row on `url`, with the build it carries.
-    async fn walk_row_of(&self, session: &str, url: &str) -> Option<(SessionRow, Vec<String>)> {
+    pub(crate) async fn walk_row_of(&self, session: &str, url: &str) -> Option<(SessionRow, Vec<String>)> {
         let rows = self.rows_of(session).await.ok()?;
         let row = rows.into_iter().rev().find(|row| matches!(row, SessionRow::Window { url: shown, ended_at: None, build: Some(_), .. } if shown == url))?;
         let names = match &row {
@@ -358,13 +368,13 @@ where
                 // Building at this commit with nothing building it, as after a restart: asked again,
                 // and `asked` leaves one already waiting or running alone.
                 if held.state == WalkBuildState::Building {
-                    self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+                    self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone(), answer: None });
                 }
                 continue;
             }
             let building = WalkBuild { state: WalkBuildState::Building, commit: head.clone(), at: self.instant(), why: None };
             if self.walk_build_set(session, &url, None, building).await {
-                self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+                self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone(), answer: None });
             }
         }
     }
@@ -416,6 +426,11 @@ where
     /// Build one ask, and write how it went on the walk's row. A walk that has gone, or moved to a
     /// newer commit, since it was asked for is not built.
     async fn walk_built(self: &Arc<Self>, ask: &Ask) {
+        if let Some(answer) = &ask.answer {
+            // No row to write: the binary, or why there is none, goes to whoever asked.
+            answer.send_replace(Some(self.walk_compiled(ask).await));
+            return;
+        }
         let Some((SessionRow::Window { build: Some(held), .. }, names)) = self.walk_row_of(&ask.session, &ask.url).await else { return };
         if held.commit != ask.commit || held.state != WalkBuildState::Building {
             return;

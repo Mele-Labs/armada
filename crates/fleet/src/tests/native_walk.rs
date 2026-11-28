@@ -14,8 +14,8 @@ use super::session_host::Rig;
 use crate::tests::peer::Placing;
 use crate::walk_builds::Program;
 
-const URL: &str = "armada://walk/sidebar";
-const OTHER: &str = "armada://walk/footer";
+pub(super) const URL: &str = "armada://walk/sidebar";
+pub(super) const OTHER: &str = "armada://walk/footer";
 const APP: &str = "Armada.app/Contents/MacOS/Armada";
 
 /// The kept build he runs, under the rig's own home: never this Mac's.
@@ -25,7 +25,7 @@ fn build(rig: &Rig) -> PathBuf {
     crate::native_walks::running_build(&home)
 }
 
-fn shown(id: &SessionId, url: &str) -> ShowWindow {
+pub(super) fn shown(id: &SessionId, url: &str) -> ShowWindow {
     ShowWindow { url: url.into(), title: None, session_id: Some(id.clone()), ..Default::default() }
 }
 
@@ -39,7 +39,7 @@ fn said<T: std::fmt::Debug>(answer: Result<T, api::Refusal>) -> String {
 }
 
 /// Wait for `check`, which may take git and a script: a minute.
-async fn until<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
+pub(super) async fn until<F: std::future::Future<Output = bool>>(mut check: impl FnMut() -> F) {
     for _ in 0..6000 {
         if check().await {
             return;
@@ -62,7 +62,7 @@ fn git(at: &Path, args: &[&str]) -> String {
 }
 
 /// The slot the Job holds, a repository with one commit.
-async fn leased(rig: &Rig, id: &SessionId) -> PathBuf {
+pub(super) async fn leased(rig: &Rig, id: &SessionId) -> PathBuf {
     let mut hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
     hosting.lease_slot = Some(1);
     rig.fleet.store().lock().await.keep_hosting(&hosting).expect("kept");
@@ -74,7 +74,7 @@ async fn leased(rig: &Rig, id: &SessionId) -> PathBuf {
 }
 
 /// One more commit on the slot's branch: the Job moved on. Its sha.
-fn commit(slot: &Path, name: &str) -> String {
+pub(super) fn commit(slot: &Path, name: &str) -> String {
     std::fs::write(slot.join(format!("{name}.txt")), name).expect("a file");
     git(slot, &["add", "."]);
     git(slot, &["commit", "--quiet", "-m", name]);
@@ -97,12 +97,12 @@ fn script(walks: &[&str]) -> String {
 }
 
 /// Fleet builds as `script` says, in place of cargo.
-fn builds_with(rig: &Rig, script: String) {
+pub(super) fn builds_with(rig: &Rig, script: String) {
     rig.fleet.walk_builds().built_by(Program { program: "sh".into(), args: vec!["-c".into(), script] });
 }
 
 /// The walk's build on the newest open row of `url`.
-async fn build_of(rig: &Rig, id: &SessionId, url: &str) -> Option<WalkBuild> {
+pub(super) async fn build_of(rig: &Rig, id: &SessionId, url: &str) -> Option<WalkBuild> {
     rig.rows(id).await.into_iter().rev().find_map(|row| match row {
         SessionRow::Window { url: shown, ended_at: None, build, .. } if shown == url => Some(build),
         _ => None,
@@ -114,7 +114,7 @@ async fn state_of(rig: &Rig, id: &SessionId, url: &str) -> Option<WalkBuildState
 }
 
 /// The notice loop's looks, until no build is waiting or running.
-async fn built_all(rig: &Rig) {
+pub(super) async fn built_all(rig: &Rig) {
     until(|| async {
         rig.fleet.walk_builds_driven().await;
         !rig.fleet.walk_builds().busy()
@@ -123,7 +123,7 @@ async fn built_all(rig: &Rig) {
 }
 
 /// Show the walk and let its build end.
-async fn shown_ready(rig: &Rig, id: &SessionId, url: &str) {
+pub(super) async fn shown_ready(rig: &Rig, id: &SessionId, url: &str) {
     rig.fleet.show_window(None, shown(id, url)).await.expect("shown");
     built_all(rig).await;
     assert_eq!(state_of(rig, id, url).await, Some(WalkBuildState::Ready), "{:?}", build_of(rig, id, url).await);
