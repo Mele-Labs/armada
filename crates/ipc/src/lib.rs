@@ -612,7 +612,7 @@ pub use graphs::{
 };
 pub use projects::MergeProjects;
 pub use system_map::{
-    AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
+    AdditionAnswer, AnswerSystemAddition, LitFeature, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,
 };
 pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{

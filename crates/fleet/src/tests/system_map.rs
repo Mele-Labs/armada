@@ -135,6 +135,56 @@ fn a_feature_is_its_files_by_part_in_level_ones_order() {
     assert_eq!(steps, vec![(1, "api", "bridge-native"), (2, "bridge-native", "fleet"), (3, "fleet", "store-armada-sqlite")]);
 }
 
+fn owning(paths: &[&str]) -> KeptFeature {
+    KeptFeature {
+        id: "f1".to_string(),
+        project: "p".to_string(),
+        area: "board".to_string(),
+        slug: "board".to_string(),
+        title: "Board".to_string(),
+        summary: String::new(),
+        state: "confirmed".to_string(),
+        manifest_id: String::new(),
+        entry_points: Vec::new(),
+        paths: paths.iter().map(|path| (*path).to_string()).collect(),
+        position: 0,
+        added_at: String::new(),
+    }
+}
+
+#[test]
+fn a_lit_feature_is_the_whole_of_level_one_with_the_parts_it_owns_files_in_and_their_files() {
+    let home = TempDir::new();
+    a_workspace(home.path());
+    let whole = read_for_test(home.path(), "armada", None, None);
+    let map = crate::system_map::read_lit_for_test(home.path(), "armada", &owning(&["crates/bridge-native/src/project_board.rs", "crates/fleet/src/project_board.rs"]));
+
+    assert_eq!((map.part.as_deref(), map.feature.as_deref()), (None, None), "it is level one");
+    assert_eq!((&map.parts, &map.links), (&whole.parts, &whole.links), "every part and link of level one, the unlit ones too");
+    let lit = map.lit.expect("lit");
+    let owned: Vec<(&str, &[String])> = lit.owned.iter().map(|stop| (stop.part.as_str(), stop.files.as_slice())).collect();
+    assert_eq!(owned, vec![("bridge-native", &["crates/bridge-native/src/project_board.rs".to_string()][..]), ("fleet", &["crates/fleet/src/project_board.rs".to_string()][..])]);
+    assert!(lit.links.iter().any(|link| link.from == "bridge-native" && link.to == "fleet"), "the route the board names reaches the service, owned at both ends: {:?}", lit.links);
+    assert_eq!(lit.called, vec!["store-armada-sqlite".to_string()], "a part it owns no file in is called, not owned");
+}
+
+#[test]
+fn a_part_a_lit_features_files_call_is_lit_by_the_link_that_reaches_it_and_no_further() {
+    let home = TempDir::new();
+    a_workspace(home.path());
+    let outside = read_for_test(home.path(), "armada", None, None).parts.into_iter().find(|one| one.kind == SystemPartKind::Outside).expect("something outside").id;
+    let map = crate::system_map::read_lit_for_test(home.path(), "armada", &owning(&["crates/bridge-native/src/project_board.rs"]));
+
+    let lit = map.lit.expect("lit");
+    assert_eq!(lit.owned.iter().map(|stop| stop.part.as_str()).collect::<Vec<_>>(), vec!["bridge-native"]);
+    assert_eq!(lit.called, vec!["fleet".to_string()], "the route the board posts to is served by Fleet, one hop away");
+    let reach: Vec<(&str, &str, Option<&str>)> = lit.links.iter().map(|link| (link.from.as_str(), link.to.as_str(), link.label.as_deref())).collect();
+    assert_eq!(reach, vec![("bridge-native", "fleet", Some("/projects/project/:project/board"))], "level one's own link, as it labels it");
+    for further in ["store-armada-sqlite", outside.as_str(), "api"] {
+        assert!(!lit.called.contains(&further.to_string()), "what Fleet reaches is two hops from the board, so {further} stays dim: {:?}", lit.called);
+    }
+}
+
 /// A web app with an API shaped like a small importer: a React frontend, a browser extension, a FastAPI backend, a command
 /// and session files.
 fn a_web_app(root: &Path) {
