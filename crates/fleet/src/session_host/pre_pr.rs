@@ -19,6 +19,7 @@ use checks_runner::{Attempt, CheckWidth};
 use ipc::{CheckBeforePr, ManifestId, PrePrCheckRan, PrePrChecked};
 use verification::Exit;
 
+use crate::approved_looks_checking::Compared;
 use crate::daemon::Fleet;
 
 const PRE_PR_UNNAMED: &str = "fleet.pre_pr_unnamed";
@@ -177,8 +178,42 @@ where
         let read = slot.clone();
         let changed = tokio::task::spawn_blocking(move || crate::clashing::changed_since_base(Path::new(&read), &base))
             .await;
-        let Ok(Ok(changed)) = changed else { return Ok(nothing) };
-        let changed: Vec<String> = changed.into_iter().collect();
+        let configured = match changed {
+            Ok(Ok(changed)) => self.configured_checked(&served, &slot, changed.into_iter().collect()).await,
+            _ => nothing,
+        };
+        Ok(self.with_looks(&id, configured).await)
+    }
+
+    /// **The looks the Job kept, set against its head commit** after the Checks: a look that drifted fails
+    /// the pull request's opening as a Check does, and the Job is told which steps and where the pictures are.
+    /// A Job that kept none runs nothing. A slot with changes to commit is told that first, as before.
+    async fn with_looks(&self, id: &str, mut answer: PrePrChecked) -> PrePrChecked {
+        if answer.checks.is_empty() && !answer.passed {
+            return answer;
+        }
+        let looks = self.looks_compared(id, None, crate::approved_looks_checking::BUILD_WAIT).await;
+        if looks.is_empty() {
+            return answer;
+        }
+        for (look, compared) in looks {
+            let (passed, tail) = match compared {
+                Compared::Same => (true, String::new()),
+                Compared::Drifted(text) | Compared::Unrun(text) => (false, text),
+            };
+            answer.checks.push(PrePrCheckRan { name: format!("look:{}", look.walk), passed, tail });
+        }
+        answer.passed = answer.checks.iter().all(|one| one.passed);
+        answer.says = says(&answer.checks);
+        answer
+    }
+
+    async fn configured_checked(
+        &self,
+        served: &crate::repositories::Served,
+        slot: &str,
+        changed: Vec<String>,
+    ) -> PrePrChecked {
         let workspaces = served.workspaces();
         let to_run: Vec<ToRun> = config::pre_pr_checks(served.manifest(), &workspaces, &changed)
             .into_iter()
@@ -196,6 +231,6 @@ where
                 })
             })
             .collect();
-        Ok(ran_in(std::path::PathBuf::from(&slot), to_run).await)
+        ran_in(std::path::PathBuf::from(slot), to_run).await
     }
 }

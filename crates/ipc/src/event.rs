@@ -196,6 +196,10 @@ pub enum Event {
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]
     SessionChanged(SessionRecord),
+    // One Job's graphs, whole, and the rows its feeds took since the last, after a show, a withdraw or a
+    // read. `docs/practices/protocol/a-job-shows-a-live-graph.md`.
+    #[serde(rename = "graphs.changed")]
+    GraphsChanged(crate::GraphsChanged),
     // One row of a hosted session's thread, appended or replaced by its id. Since 23.49.
     #[serde(rename = "session.row")]
     SessionRow(SessionRowChanged),

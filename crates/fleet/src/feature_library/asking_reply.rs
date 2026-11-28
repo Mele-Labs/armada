@@ -65,8 +65,9 @@ pub(super) struct Named {
     pub(super) area: String,
 }
 
-/// What the model is asked. `docs` are the name and text of each doc he gave that Fleet read.
-pub(super) fn question(screen: &Screen, words: &str, files: &[String], docs: &[(String, String)], features: &[Named], board: Option<&AskedBoard>) -> String {
+/// What the model is asked. `docs` are the name and text of each doc he gave that Fleet read, and `rules` the project's
+/// catalog rules as `catalog_rules::rules_text` gives them, empty where it keeps none.
+pub(super) fn question(screen: &Screen, words: &str, files: &[String], docs: &[(String, String)], features: &[Named], rules: &str, board: Option<&AskedBoard>) -> String {
     let acts = screen.acts();
     let mut text = format!(
         "You are the librarian of a software project's feature catalog. Its owner typed into the Ask box on {}. \
@@ -112,6 +113,7 @@ pub(super) fn question(screen: &Screen, words: &str, files: &[String], docs: &[(
     if let Screen::Feature(slug) = screen {
         text.push_str(&format!("A file goes under `{slug}` unless his words name another feature.\n"));
     }
+    text.push_str(rules);
     if !features.is_empty() {
         text.push_str("\nFeatures (slug | title | area):\n");
         for one in features.iter().take(MOST_FEATURES) {

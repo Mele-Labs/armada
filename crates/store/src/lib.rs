@@ -39,6 +39,7 @@ mod session_viewed;
 mod session_rail;
 mod session_limit;
 mod session_priority;
+mod kept_looks;
 mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
@@ -64,6 +65,8 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
+/// The owner's reasons for how a project's catalog is shaped.
+mod catalog_rules;
 mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
@@ -123,6 +126,8 @@ mod for_you;
 mod waiting_order;
 /// The sub projects the owner started from the Jobs list.
 mod sub_projects;
+/// A Job's live graphs and the rows of its feeds. `docs/practices/protocol/a-job-shows-a-live-graph.md`.
+mod job_graphs;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.
 mod request_runs;
 /// What a Job holds standing in the states of its lifecycles, and the moves between them.
@@ -294,6 +299,7 @@ pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
 pub use feature_decisions::KeptFeatureDecision;
+pub use catalog_rules::{rule_act as catalog_rule_act, KeptCatalogRule};
 pub use features::{
     feature_state, gist_by as feature_gist_by, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptJobFeature, KeptSection,
@@ -330,6 +336,7 @@ pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, Kep
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use waiting_order::KeptWaitingPlace;
 pub use sub_projects::KeptSubProject;
+pub use job_graphs::{KeptGraph, KeptGraphFeed, KeptGraphRowsAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
@@ -353,6 +360,7 @@ pub use projects::{
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptApproval, KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
+pub use kept_looks::KeptLook;
 pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED, WALK_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;

@@ -1,0 +1,15 @@
+[operations.graph_points]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Add rows you worked out yourself to a feed of your Job, which every graph reading that feed draws at once. Body: feed (the name a show_graph spec's data.name or a strip stat's feed reads), rows (a list of at most 1000 objects, such as {\"at\": \"2026-11-27T14:06:00Z\", \"p99\": 231}) and session_id. A row the feed holds already is not added again. Each feed keeps its newest 2000 rows. A feed may take rows before any graph reads it. Answers how many rows were new, how many the feed keeps and how many it was ever given"
+notes = """
+`POST /sessions/graph/points`, body `GraphPoints`: `feed`, `rows` and an optional `session_id`. Answered with `GraphPointsTaken`: `session_id`, `feed`, `new`, `kept` and `added`. Publishes one `graphs.changed` carrying the rows that were new, where any were.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal. A `feed` that is not letters, digits and `_ . / : -`, no rows, or more than 1000 is 422 `fleet.graph_refused`, and nothing is kept.
+
+**A row is an object**, kept as the agent gave it. A row equal to one the feed holds is dropped, so sending the same window twice adds nothing. Past 2000 rows a feed drops its oldest. `added` counts every row the feed took, never lowered by the cap, and is what `GraphFeed.added` carries.
+
+`agent_access` is `Yes`: the numbers are the Job's own work.
+"""

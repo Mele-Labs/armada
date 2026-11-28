@@ -68,6 +68,27 @@ pub fn plot(reading: &MetricReading) -> Plot {
     Plot::Kept(kept)
 }
 
+/// What Graph draws as a spec the thread's graph compiler reads: the points as an area in time, the metric's unit in its
+/// y title so the axis and the readout carry it. A single point is a dot, since an area needs two.
+pub fn graph_spec(title: &str, points: &[Point], unit: Option<&str>) -> Result<ipc::graph::Spec, ipc::graph::Refusal> {
+    let values: Vec<serde_json::Value> = points.iter().map(|(at, value)| serde_json::json!({"at": at.to_rfc3339(), "value": value})).collect();
+    let named = match unit {
+        Some(unit) => format!("{title} ({unit})"),
+        None => title.to_string(),
+    };
+    let mark = if points.len() < 2 { serde_json::json!({"type": "line", "point": true}) } else { serde_json::json!({"type": "area", "interpolate": "monotone"}) };
+    // The scale leaves zero out, so a metric that moves a little near a large value still shows its shape.
+    let spec = serde_json::json!({
+        "data": {"values": values},
+        "mark": mark,
+        "encoding": {
+            "x": {"field": "at", "type": "temporal", "title": "Time"},
+            "y": {"field": "value", "type": "quantitative", "title": named, "scale": {"zero": false}, "axis": {"tickCount": 2}},
+        },
+    });
+    ipc::graph::read_spec(&spec.to_string())
+}
+
 /// A number as it is read: whole where it is whole, else two places at most.
 pub fn show_number(value: f64) -> String {
     if value.fract() == 0. && value.abs() < 1e15 {

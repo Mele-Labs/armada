@@ -97,3 +97,28 @@ fn the_side_chat_opens_asks_tells_and_comes_back_after_its_split_is_shut() {
 fn a_pages_own_script_runs_and_cannot_press_for_him() {
     plays("native-page-scripts");
 }
+
+/// `--check` draws a walk the same each time it is played, so a replay against the pictures he approved
+/// drifts only when the screen did: the merge strip pulses and tells the time, and its second play,
+/// set against its first, reports no step drifted.
+#[test]
+fn a_walk_played_twice_draws_the_same_pictures() {
+    let dir = std::env::temp_dir().join(format!("walk-twice-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let (first, second, out) = (dir.join("first"), dir.join("second"), dir.join("out"));
+    let walk = |shots: &std::path::Path, against: Option<&std::path::Path>| {
+        let mut app = super::app();
+        app.args(["--walk", "merge-strip-live", "--check", "--hold", "0", "--shots"]).arg(shots);
+        if let Some(against) = against {
+            app.arg("--against").arg(against).arg("--out").arg(&out);
+        }
+        app.output().expect("the app runs")
+    };
+    assert!(walk(&first, None).status.success(), "the first play did not reach its end");
+    let again = walk(&second, Some(&first));
+    let report: ipc::LookReport = ipc::decode("LookReport", &std::fs::read(out.join("report.json")).expect("the report is written")).expect("the report reads back");
+    assert!(again.status.success() && !report.drifted, "the second play drew differently: {:?}", report.steps.iter().filter(|step| step.drifted).collect::<Vec<_>>());
+    assert!(!report.steps.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+

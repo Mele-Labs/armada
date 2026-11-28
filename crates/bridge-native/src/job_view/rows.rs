@@ -109,6 +109,7 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
         | ThreadItem::Judged { at, .. } => Some(at),
         ThreadItem::ReadyToTry(card) => Some(&card.at),
         ThreadItem::Margin(card) => Some(&card.at),
+        ThreadItem::Graph(card) => Some(&card.at),
         ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
     }
 }
@@ -767,7 +768,7 @@ impl JobView {
             return Some(line);
         }
         Some(match item {
-            ThreadItem::Row { row } => return self.with_graphs(row.id(), self.row(ix, row, page, look, now, window, cx), look, cx),
+            ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => {
                 // A dispute the agent called is one item, the record's, so its call is not drawn twice.
                 let rows = match (after, rows.split_last()) {
@@ -792,6 +793,7 @@ impl JobView {
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
             // A round of margin talk is not drawn here yet.
             ThreadItem::Margin(_) => return None,
+            ThreadItem::Graph(item) => return self.graph_item(item, look, cx),
         })
     }
 

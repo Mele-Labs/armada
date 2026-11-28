@@ -27,7 +27,7 @@ fn repository(at: &Path) -> String {
 
 fn ask(session: &str, url: &str, commit: &str) -> Ask {
     let place = Place { key: "armada".into(), slot: PathBuf::from("/nowhere"), preview: PathBuf::from("/nowhere") };
-    Ask { session: session.into(), url: url.into(), commit: commit.into(), place }
+    Ask { session: session.into(), url: url.into(), commit: commit.into(), place, answer: None }
 }
 
 #[test]

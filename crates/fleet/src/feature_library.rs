@@ -10,6 +10,7 @@
 pub(crate) mod asking;
 mod asking_rank;
 mod asking_reply;
+pub(crate) mod catalog_rules;
 pub(crate) mod brief;
 mod changing;
 mod consulting;

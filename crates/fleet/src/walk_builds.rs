@@ -22,6 +22,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 use ipc::{SessionRow, WalkBuild, WalkBuildState};
 
+use crate::approved_looks::tail_of;
 use crate::daemon::Fleet;
 
 /// Under Fleet's support folder: `<repository key>/tree` and `<repository key>/bins/<commit>`.
@@ -38,9 +39,6 @@ const BUILT: &str = "crates/bridge-native/target/release/bridge-native";
 
 /// What a build may take, held turns included: a cold build on a loaded machine is long.
 const BUDGET: Duration = Duration::from_secs(90 * 60);
-
-/// How many of the build's last lines the Job is given.
-const TAIL: usize = 20;
 
 /// Where one repository's walk builds are kept.
 fn root_of(home: &str, key: &str) -> PathBuf {
@@ -89,6 +87,8 @@ pub(crate) struct Ask {
     pub(crate) url: String,
     pub(crate) commit: String,
     pub(crate) place: Place,
+    /// Set where no row waits on the build: `crate::approved_looks_checking`.
+    pub(crate) answer: Option<crate::approved_looks_checking::Answer>,
 }
 
 #[derive(Default)]
@@ -119,8 +119,8 @@ impl WalkBuilds {
     /// one running is left to end: its row is no longer the commit wanted, so its result is dropped.
     pub(crate) fn asked(&self, ask: Ask) {
         let mut queue = self.queue.lock().expect("not poisoned");
-        queue.waiting.retain(|one| !(one.session == ask.session && one.url == ask.url));
-        let running = queue.running.as_ref().is_some_and(|one| one.session == ask.session && one.url == ask.url && one.commit == ask.commit);
+        queue.waiting.retain(|one| !one.replaced_by(&ask));
+        let running = queue.running.as_ref().is_some_and(|one| one.replaced_by(&ask) && one.commit == ask.commit);
         if !running {
             queue.waiting.push(ask);
         }
@@ -223,13 +223,6 @@ fn tree_at(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> 
     Ok(tree)
 }
 
-/// The last [`TAIL`] lines of what a failed build printed: cargo prints on stderr.
-fn tail_of(stderr: &str, stdout: &str) -> String {
-    let text = if stderr.trim().is_empty() { stdout } else { stderr };
-    let lines: Vec<&str> = text.lines().collect();
-    lines[lines.len().saturating_sub(TAIL)..].join("\n")
-}
-
 /// [`tree_at`] for a test of it.
 #[cfg(test)]
 pub(crate) fn tree_at_for_test(root: &Path, place: &Place, commit: &str) -> Result<PathBuf, String> {
@@ -294,7 +287,7 @@ where
         match self.walk_place(session).await {
             Ok((place, commit)) => {
                 let build = WalkBuild { state: WalkBuildState::Building, commit: commit.clone(), at: self.instant(), why: None };
-                (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place }))
+                (build, Some(Ask { session: session.to_string(), url: url.to_string(), commit, place, answer: None }))
             }
             Err(why) => {
                 let text = format!("Your native walk {url} cannot be built: {why}. The person is not asked about it until it builds.");
@@ -305,7 +298,7 @@ where
     }
 
     /// The newest open native walk row on `url`, with the build it carries.
-    async fn walk_row_of(&self, session: &str, url: &str) -> Option<(SessionRow, Vec<String>)> {
+    pub(crate) async fn walk_row_of(&self, session: &str, url: &str) -> Option<(SessionRow, Vec<String>)> {
         let rows = self.rows_of(session).await.ok()?;
         let row = rows.into_iter().rev().find(|row| matches!(row, SessionRow::Window { url: shown, ended_at: None, build: Some(_), .. } if shown == url))?;
         let names = match &row {
@@ -358,13 +351,13 @@ where
                 // Building at this commit with nothing building it, as after a restart: asked again,
                 // and `asked` leaves one already waiting or running alone.
                 if held.state == WalkBuildState::Building {
-                    self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+                    self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone(), answer: None });
                 }
                 continue;
             }
             let building = WalkBuild { state: WalkBuildState::Building, commit: head.clone(), at: self.instant(), why: None };
             if self.walk_build_set(session, &url, None, building).await {
-                self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone() });
+                self.walk_builds().asked(Ask { session: session.to_string(), url, commit: head.clone(), place: place.clone(), answer: None });
             }
         }
     }
@@ -390,7 +383,7 @@ where
         let Some(ask) = self.walk_builds().next() else { return };
         let fleet = Arc::clone(self);
         tokio::spawn(async move {
-            fleet.walk_built(&ask).await;
+            fleet.walk_driven(&ask).await;
             // Before the turn is given up, so what moved while it built is asked for as this one ends.
             fleet.walk_builds_moved(&ask.session).await;
             fleet.walk_builds().done();
@@ -415,7 +408,7 @@ where
 
     /// Build one ask, and write how it went on the walk's row. A walk that has gone, or moved to a
     /// newer commit, since it was asked for is not built.
-    async fn walk_built(self: &Arc<Self>, ask: &Ask) {
+    pub(crate) async fn walk_built(self: &Arc<Self>, ask: &Ask) {
         let Some((SessionRow::Window { build: Some(held), .. }, names)) = self.walk_row_of(&ask.session, &ask.url).await else { return };
         if held.commit != ask.commit || held.state != WalkBuildState::Building {
             return;
@@ -450,7 +443,7 @@ where
     }
 
     /// The binary of the ask's commit: kept already, or built in the repository's tree and copied out.
-    async fn walk_compiled(&self, ask: &Ask) -> Result<PathBuf, String> {
+    pub(crate) async fn walk_compiled(&self, ask: &Ask) -> Result<PathBuf, String> {
         let home = self.host().home.clone();
         let binary = binary_of(&home, &ask.place.key, &ask.commit);
         if binary.is_file() {

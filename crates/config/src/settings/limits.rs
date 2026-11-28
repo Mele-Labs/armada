@@ -17,6 +17,11 @@ pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
 pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
 pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
 pub const QUEUE_REQUEUES_PER_COMMIT: Integer = Integer("limits.queueRequeuesPerCommit");
+pub const MEMORY_PRESSURE_LEVEL: Integer = Integer("limits.memoryPressureLevel");
+pub const CHECKS_WHILE_SHORT: Integer = Integer("limits.checksWhileShort");
+pub const CHECK_START_SPACING_SECONDS: Integer = Integer("limits.checkStartSpacingSeconds");
+pub const LOAD_LIMIT: Integer = Integer("limits.loadLimit");
+pub const LOAD_WINDOW: Integer = Integer("limits.loadWindow");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -54,6 +59,80 @@ pub(super) const LIMITS: &[Entry] = &[
         shipped: Shipped::Supplied,
         applies: Applies::Live,
         row: Some("checks-at-once"),
+        env: None,
+        tip: None,
+    },
+    // **The kernel's warn level, 2.** Measured 28 Nov 2026: with 23 GB in the
+    // compressor and swap at 6.9 of 8 GB the level read 2, and seven Checks
+    // started at once took the load from 17 to 49 while the cores busy fell
+    // from 9.7 to 7. Fleet's build turns already called 2 short (20 Nov).
+    Entry {
+        key: MEMORY_PRESSURE_LEVEL.0,
+        section: Section::Limits,
+        title: "Memory pressure that holds Checks",
+        description: "The kernel's memory pressure level (1 normal, 2 warn, 4 critical) at or over which Checks run one at a time and Jobs' builds take turns. Zero never holds them for memory.",
+        kind: Kind::Integer { min: 0, max: 4, unit: "level" },
+        shipped: Shipped::Integer(2),
+        applies: Applies::Live,
+        row: Some("check-start-gate"),
+        env: None,
+        tip: None,
+    },
+    // **One**, as the load gate of 14 Nov 2026 ran: a Check started beside
+    // another on a short machine makes both slower and neither sooner.
+    Entry {
+        key: CHECKS_WHILE_SHORT.0,
+        section: Section::Limits,
+        title: "Checks while the machine is short",
+        description: "How many Check slots may be in use for another Check to start while memory is short, or the load over its limit. The first always starts.",
+        kind: Kind::Integer { min: 1, max: 8, unit: "slots" },
+        shipped: Shipped::Integer(1),
+        applies: Applies::Live,
+        row: Some("check-start-gate"),
+        env: None,
+        tip: None,
+    },
+    // **A minute**: the pressure level and the one-minute load each show a
+    // new Check within it, so the next start sees what the last one did.
+    // Eight waiting Checks take seven minutes to all start.
+    Entry {
+        key: CHECK_START_SPACING_SECONDS.0,
+        section: Section::Limits,
+        title: "Time between Check starts",
+        description: "How long after one Check starts another may start beside a running one, on this machine. Zero starts every waiting Check at once.",
+        kind: Kind::Integer { min: 0, max: 600, unit: "seconds" },
+        shipped: Shipped::Integer(60),
+        applies: Applies::Live,
+        row: Some("check-start-gate"),
+        env: None,
+        tip: None,
+    },
+    // **Off**: the owner's choice of 28 Nov 2026. On his 18-core M5 Pro the
+    // load read 2 to 3 times the cores busy, so 24 held Checks back at about
+    // half the CPU; the operating system schedules CPU, as with Drones.
+    Entry {
+        key: LOAD_LIMIT.0,
+        section: Section::Limits,
+        title: "Load that holds Checks",
+        description: "The load average at or over which Checks run one at a time and Jobs' builds take turns. Zero reads no load.",
+        kind: Kind::Integer { min: 0, max: 200, unit: "load" },
+        shipped: Shipped::Integer(0),
+        applies: Applies::Live,
+        row: Some("check-start-gate"),
+        env: None,
+        tip: None,
+    },
+    // **One minute**: the fifteen-minute figure held Checks for fifteen
+    // minutes after the machine recovered, and opened only to let a crowd in.
+    Entry {
+        key: LOAD_WINDOW.0,
+        section: Section::Limits,
+        title: "Load average read",
+        description: "Which load average the load limit reads: 1, 5 or 15 minutes.",
+        kind: Kind::Integer { min: 1, max: 15, unit: "minutes" },
+        shipped: Shipped::Integer(1),
+        applies: Applies::Live,
+        row: Some("check-start-gate"),
         env: None,
         tip: None,
     },
