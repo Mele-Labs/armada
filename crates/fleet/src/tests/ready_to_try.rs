@@ -214,7 +214,7 @@ async fn looks_good_keeps_the_verdict_tells_the_job_to_land_and_answers_the_card
 
     let answered = answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
 
-    assert_eq!((answered.state, answered.verdict), (ReadyState::Answered, Some(NoteVerdict::Good)));
+    assert_eq!((answered.state, answered.verdict, answered.skipped), (ReadyState::Answered, Some(NoteVerdict::Good), false));
     let note = rig.fleet.build_notes_read().await.notes.into_iter().next().expect("the note");
     assert_eq!((note.looked_at, note.verdict), (true, Some(NoteVerdict::Good)), "the note says what the card says");
     let told = rig.thread_of(&session).await;
@@ -224,6 +224,28 @@ async fn looks_good_keeps_the_verdict_tells_the_job_to_land_and_answers_the_card
     );
     let again = answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await;
     assert_eq!((code(again), rig.thread_of(&session).await.len()), ("fleet.ready_to_try_settled".to_string(), told.len()), "an answered card takes no other");
+}
+
+#[tokio::test]
+async fn skip_answers_the_card_closes_the_first_you_approved_gate_and_tells_the_job_he_skipped_the_preview() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    planned_on_his_approve(&rig, &session).await;
+
+    let answered = answer(&rig, &session, &tip, ReadyAnswer::Skip).await.expect("answered");
+
+    assert_eq!((answered.state, answered.verdict), (ReadyState::Answered, Some(NoteVerdict::Good)), "the card is settled as Looks good settles it");
+    assert!(answered.skipped, "the card says he skipped");
+    let reloaded = card(&rig, &session, &tip).await;
+    assert_eq!((reloaded.verdict, reloaded.skipped), (Some(NoteVerdict::Good), true), "a card read again still says Skipped, with the verdict good");
+    let facts = closed_gates(&rig, &session).await;
+    assert_eq!(facts.iter().map(Option::is_some).collect::<Vec<_>>(), [true, false, false], "the first open you_approved gate and no other");
+    assert!(facts[0].as_deref().is_some_and(|fact| fact.contains("skipped") && fact.contains("Keeps one thing")), "the gate says he skipped: {facts:?}");
+    let told = rig.thread_of(&session).await;
+    let last = told.last().map(String::as_str).expect("the Job was told");
+    assert!(last.contains("skipped the preview") && last.contains("Land it") && !last.contains("tried"), "{last}");
+    assert!(answer(&rig, &session, &tip, ReadyAnswer::Skip).await.is_err(), "an answered card takes no other");
 }
 
 /// Two groups gated `you_approved` around one that is not, so the first open gate is told from the next.

@@ -25,7 +25,7 @@ use super::{Verb, Walk};
 use crate::labels::{label_root, labelled};
 use crate::look::{token, ActiveLook};
 
-actions!(walk, [Next, Back, Reload, Approve, TakeNote, CancelNote, OpenTakes]);
+actions!(walk, [Next, Back, Reload, Approve, ShipIt, TakeNote, CancelNote, OpenTakes]);
 
 /// The bar's keys. **Electron's walk bar binds these in `CaptureBar.tsx` (`QUEUE_KEYS`)**, not in
 /// the action registry, so they are restated here until the registry carries them.
@@ -34,6 +34,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("alt-cmd-right", Next, Some("walk")),
         KeyBinding::new("alt-cmd-left", Back, Some("walk")),
         KeyBinding::new("cmd-enter", Approve, Some("walk")),
+        KeyBinding::new("shift-cmd-enter", ShipIt, Some("walk")),
         KeyBinding::new("cmd-r", Reload, Some("walk")),
         KeyBinding::new("alt-cmd-a", TakeNote, Some("walk")),
         KeyBinding::new("alt-cmd-t", OpenTakes, Some("walk")),
@@ -300,6 +301,17 @@ impl WalkWindow {
         } else {
             self.send_notes(false, cx);
         }
+    }
+
+    /// ⇧⌘↵: Ship it, which approves the walk and lands the change without a preview. Nothing while
+    /// notes are held or on their way: they go first, with ⌘↵, so the Job reads them before it lands.
+    fn ship_it(&mut self, _: &ShipIt, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.sending || !self.held.is_empty() {
+            return;
+        }
+        let Some(fleet) = self.fleet_or_say(cx) else { return };
+        let take = self.taken();
+        self.send(cx, "Shipped", |_| {}, |_| {}, move || fleet.ship(take.as_ref()));
     }
 
     fn fleet_or_say(&mut self, cx: &mut Context<Self>) -> Option<WalkFleet> {
@@ -639,6 +651,7 @@ impl WalkWindow {
         } else {
             self.send_notes_button(cx).into_any_element()
         };
+        let ship = ship_button(self.sending || !self.held.is_empty(), cx);
         let look = cx.look();
         let steps = self.walk.steps;
         let step = steps[self.at];
@@ -696,6 +709,7 @@ impl WalkWindow {
                     this.take_note(&TakeNote, window, cx)
                 }),
             ))
+            .child(div().flex_none().w(look.length(token::SPACE_8) * 6.).child(ship))
             .child(
                 // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves; wider
                 // for a walk with takes, as it names the one on screen.
@@ -834,37 +848,74 @@ fn sending_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
 /// Approve as Electron's walk bar draws it: a secondary button filling its slot, the word and a
 /// check centred, and the ⌘↵ chord. With takes it names the one on screen, which Electron's does not.
 fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> impl IntoElement {
-    let look = cx.look();
     let said: SharedString = match take {
         Some(take) => format!("Approve {take}").into(),
         None => "Approve".into(),
     };
-    labelled(
-        div()
-            .id("walk-approve")
-            .w_full()
-            .h(look.length(token::H_CONTROL_SM))
-            .flex()
-            .items_center()
-            .justify_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_2))
-            .rounded(look.length(token::RADIUS_MD))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .bg(look.color(token::BG_RAISED))
-            .text_size(look.length(token::TEXT_SM))
-            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-            .text_color(look.color(token::FG_DEFAULT))
-            .cursor_pointer()
-            .hover(|style| style.bg(look.color(token::BG_HOVER)))
-            .child(div().min_w_0().truncate().child(said.clone()))
-            .child(gpui::svg().path(crate::assets::icon_path("check")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT)))
-            .child(chord("⌘↵", cx))
-            .on_click(cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))),
-        Role::Button,
+    verdict_button(
+        "walk-approve",
         said,
+        "Approve the walk and preview it in the app before landing it",
+        "⌘↵",
+        true,
+        cx,
+        |this, window, cx| this.approve(&Approve, window, cx),
     )
+}
+
+/// Ship it, beside Approve: the same button, which lands the change without a preview in the app.
+/// Off while notes are held or on their way, so they reach the Job first.
+fn ship_button(held: bool, cx: &mut Context<WalkWindow>) -> impl IntoElement {
+    verdict_button(
+        "walk-ship",
+        "Ship it".into(),
+        "Approve the walk and land the change without previewing in the app",
+        "⇧⌘↵",
+        !held,
+        cx,
+        |this, window, cx| this.ship_it(&ShipIt, window, cx),
+    )
+}
+
+/// One of the bar's two verdicts: a secondary button filling its slot, the word, a check and the chord.
+fn verdict_button(
+    id: &'static str,
+    said: SharedString,
+    tip: &'static str,
+    keys: &'static str,
+    on: bool,
+    cx: &mut Context<WalkWindow>,
+    press: impl Fn(&mut WalkWindow, &mut Window, &mut Context<WalkWindow>) + 'static,
+) -> impl IntoElement {
+    let look = cx.look();
+    let body = div()
+        .id(id)
+        .w_full()
+        .h(look.length(token::H_CONTROL_SM))
+        .flex()
+        .items_center()
+        .justify_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_DEFAULT))
+        .bg(look.color(token::BG_RAISED))
+        .text_size(look.length(token::TEXT_SM))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .text_color(look.color(token::FG_DEFAULT))
+        .child(div().min_w_0().truncate().child(said.clone()))
+        .child(gpui::svg().path(crate::assets::icon_path("check")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT)))
+        .child(chord(keys, cx))
+        .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip).build(window, cx));
+    let body = if on {
+        body.cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)))
+    } else {
+        body.opacity(0.5)
+    };
+    labelled(body, Role::Button, said)
 }
 
 impl Render for WalkWindow {
@@ -892,6 +943,7 @@ impl Render for WalkWindow {
                 .on_action(cx.listener(Self::back))
                 .on_action(cx.listener(Self::reload))
                 .on_action(cx.listener(Self::approve))
+                .on_action(cx.listener(Self::ship_it))
                 .on_action(cx.listener(Self::take_note))
                 // The layer's ⌥⌘A is bound with no context, which gpui ranks
                 // above the walk's own; taken here first, it is the walk's note wherever the keys are.
