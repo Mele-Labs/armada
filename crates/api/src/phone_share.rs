@@ -77,6 +77,10 @@ const ACTS: &[&str] = &[
     "/sessions/artifacts/vote",
     "/sessions/artifacts/seen",
     "/sessions/ready_to_try/answer",
+    "/sessions/judge",
+    "/sessions/judge/send",
+    "/sessions/judge/dismiss",
+    "/sessions/judge/read",
     "/sessions/waiting/done",
 ];
 
@@ -93,6 +97,9 @@ fn ruling(method: &Method, path: &str) -> Option<Ruling> {
         "/alerts" | "/events" | "/models" | "/plan_usage" | "/queued" | "/sessions/kept_styles" if get => Some(Ruling::Passes),
         // Only acts waiting for another Mac, which holds nothing but what it shared.
         "/queued/take_back" if post => Some(Ruling::Passes),
+        // Refresh preview moves this Mac's build, and the judge types are a repository's: neither names a Job.
+        "/fleet/build/change" if post => Some(Ruling::Passes),
+        "/judge_types/:repository" if get => Some(Ruling::Passes),
         "/sessions" if get => Some(Ruling::Jobs),
         "/sessions/to_review" if get => Some(Ruling::ToReview),
         "/sessions/items/answer" if post => Some(Ruling::ItemsInBody),

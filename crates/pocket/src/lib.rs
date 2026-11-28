@@ -60,6 +60,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
 pub use fleet_client::{Answer, Unreachable};
+pub use forward::FORWARDED;
 pub use door::{bind_door, Door, DoorCert, CERT_FILE};
 pub use cloudflared::tunnel_sign_in;
 pub use his_stores::{HisStores, JoinedStore};
