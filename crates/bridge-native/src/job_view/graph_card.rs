@@ -1,17 +1,21 @@
 //! A graph in a Job's thread: a card with a live dot, the title and where Fleet reads it from, the
 //! latest value large where the graph has a headline, and the chart; or, as a stat strip, a row per
-//! number with its sparkline. Each card is an entity of its own that watches the feeds it reads, so a
-//! new row draws that card again in place and nothing else. The Graphs tab holds the same cards larger.
+//! number with its sparkline. Each card is an entity of its own that watches its Job's book, so a new
+//! row or a card Fleet sent again draws that card again in place and nothing else. The Graphs tab
+//! holds the same cards larger.
 //!
-//! The thread draws a Job's cards after the item each names (`after`); on mock data the walk's scenario
-//! holds them (`graph/mock.rs`), since a graph is not a thread item on the wire yet.
+//! The thread draws a card where its `show_graph` call stands, its `graph` item; a later call of the
+//! same id is marked `again` and draws nothing, since the card at the first already shows it. A card
+//! whose recipe broke says why, muted, over the rows it kept, and one whose credential has no token
+//! on this Mac says what to make and where, as a project metric's block does.
 
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, EntityId, FocusHandle, FontWeight, Global, Hsla, Role, SharedString, Subscription, WeakEntity, Window};
+use ipc::{MetricCredential, ThreadGraph};
 
-use super::rows::{glyph, tip, Size};
+use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::graph::compile::{self, Chart, Key};
 use crate::graph::feeds::{self, FeedBook};
@@ -46,14 +50,18 @@ pub struct GraphCard {
     drawn: Drawn,
     view: WeakEntity<JobView>,
     pub focus: FocusHandle,
+    /// Watches its Job's book, which holds the card as Fleet last sent it and the rows its feeds hold.
     _watch: Option<Subscription>,
 }
 
 impl GraphCard {
-    fn new(card: Rc<Card>, place: Place, view: WeakEntity<JobView>, cx: &mut Context<Self>) -> GraphCard {
-        let book = feeds::book(cx);
+    fn new(card: Rc<Card>, book: Option<Entity<FeedBook>>, place: Place, view: WeakEntity<JobView>, cx: &mut Context<Self>) -> GraphCard {
         let watch = book.as_ref().map(|book| {
             cx.observe(book, |this: &mut GraphCard, book, cx| {
+                // Fleet sends a Job's cards whole each time, so its words, live dot and changes are read again too.
+                if let Some(card) = book.read(cx).card(&this.card.id) {
+                    this.card = card;
+                }
                 this.drawn = Self::work_out(&this.card, &book, cx);
                 cx.notify();
             })
@@ -384,6 +392,78 @@ impl GraphCard {
     }
 }
 
+impl GraphCard {
+    /// The credential the recipe needs and this Mac lacks: what to make, and a link to where it is made.
+    fn token_note(&self, credential: &MetricCredential, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let id = &self.card.id;
+        let missing = format!("No {} token on this Mac", credential.name);
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1) / 2.)
+            .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(missing.clone())))
+            .child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(credential.how.clone())));
+        let make = credential.url.clone().map(|url| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("graph-token-make:{id}")))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .text_color(look.color(token::FG_MUTED))
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                    .tooltip(tip(format!("Open {url}")))
+                    .child(glyph(look, "external-link", Size::Small, look.color(token::FG_MUTED)))
+                    .child("Make one")
+                    .on_click(cx.listener(move |_, _, _, cx| cx.open_url(&url))),
+                Role::Link,
+                format!("Make a {} token", credential.name),
+            )
+        });
+        let note = div()
+            .id(SharedString::from(format!("graph-token:{id}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(look.color(token::DEGRADED).opacity(0.10))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(glyph(look, "key-round", Size::Small, look.color(token::DEGRADED))))
+            .child(words)
+            .children(make);
+        labelled(note, Role::Status, format!("{missing}. {}", credential.how)).into_any_element()
+    }
+
+    /// Why the recipe's last read gave nothing, muted: the rows it kept still draw under it.
+    fn broken_line(&self, why: &str, look: &Look) -> AnyElement {
+        labelled(
+            div()
+                .id(SharedString::from(format!("graph-broken:{}", self.card.id)))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_MUTED))
+                .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(glyph(look, "unplug", Size::Small, look.color(token::FG_MUTED))))
+                .child(div().flex_1().min_w_0().child(SharedString::from(why.to_string()))),
+            Role::Status,
+            format!("Not read: {why}"),
+        )
+        .into_any_element()
+    }
+}
+
 impl gpui::Render for GraphCard {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
@@ -399,6 +479,13 @@ impl gpui::Render for GraphCard {
             Drawn::Waiting(why) => div().h(look.length(token::SPACE_12) * 2.).flex().items_center().justify_center().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(why.clone())).into_any_element(),
         };
         let header = self.header(look, cx);
+        let note = match (&self.card.no_token, &self.card.broken) {
+            (Some(credential), _) => Some(self.token_note(credential, look, cx)),
+            (None, Some(why)) => Some(self.broken_line(why, look)),
+            (None, None) => None,
+        };
+        // A card with no token and no rows yet is the note alone: its empty chart would only say the same.
+        let body = (!(self.card.no_token.is_some() && matches!(self.drawn, Drawn::Waiting(_)))).then_some(body);
         let said = format!("Graph: {}", self.card.title);
         let card = div()
             .id(SharedString::from(format!("graph-card:{:?}:{}", self.place, self.card.id)))
@@ -427,7 +514,8 @@ impl gpui::Render for GraphCard {
                 }
             }))
             .child(header)
-            .child(body);
+            .children(note)
+            .children(body);
         labelled(card, Role::Article, said)
     }
 }
@@ -441,6 +529,16 @@ struct Held {
 impl Global for Held {}
 
 impl JobView {
+    /// Ask Fleet for the Job's graphs once it is on screen; `graphs.changed` keeps them after.
+    pub(super) fn want_graphs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        if self.shown.as_ref() != Some(id) {
+            return;
+        }
+        if let Some(fleet) = self.fleet.clone() {
+            fleet.update(cx, |fleet, cx| fleet.read_graphs(id, cx));
+        }
+    }
+
     /// Make the cards of `job` for `place` that are not made yet, as the Job draws: a card is an entity,
     /// and the thread's items are drawn where none can be made.
     pub(super) fn sync_graphs(&self, job: &SharedString, place: Place, cx: &mut Context<Self>) {
@@ -453,12 +551,13 @@ impl JobView {
             return;
         }
         let weak = cx.entity().downgrade();
+        let book = feeds::book(job, cx);
         let mut held = cx.default_global::<Held>().cards.remove(&key).unwrap_or_default();
         held.retain(|id, _| cards.iter().any(|card| card.id == *id));
         for card in cards {
             if !held.contains_key(&card.id) {
                 let id = card.id.clone();
-                let made = cx.new(|cx| GraphCard::new(card, place, weak.clone(), cx));
+                let made = cx.new(|cx| GraphCard::new(card, book.clone(), place, weak.clone(), cx));
                 held.insert(id, made);
             }
         }
@@ -469,14 +568,39 @@ impl JobView {
         cx.try_global::<Held>()?.cards.get(&(cx.entity_id(), job.to_string(), place))?.get(id).cloned()
     }
 
-    /// A thread item drawn with the graphs that stand after it, or as it was where none do.
-    pub(super) fn with_graphs(&self, id: &str, drawn: Option<AnyElement>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let job = self.shown.as_deref()?;
-        let cards: Vec<Entity<GraphCard>> = feeds::after(job, id, cx).iter().filter_map(|card| self.held_graph(job, Place::Thread, &card.id, cx)).collect();
-        if cards.is_empty() {
-            return drawn;
+    /// A `show_graph` call's place in the thread: the card of the graph it names, nothing for a later call of the same
+    /// id, and the call's line where Fleet holds no graph by that id, as for a call it refused.
+    pub(super) fn graph_item(&self, item: &ThreadGraph, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if item.again {
+            return None;
         }
-        Some(div().flex().flex_col().gap(look.length(token::SPACE_4)).children(drawn).children(cards.into_iter().map(|card| div().pt(look.length(token::SPACE_1)).child(card))).into_any_element())
+        let job = self.shown.as_deref()?;
+        if let Some(card) = self.held_graph(job, Place::Thread, &item.graph, cx) {
+            return Some(div().pt(look.length(token::SPACE_1)).child(card).into_any_element());
+        }
+        // Until Fleet has answered, a graph it holds is not drawn as one it lacks.
+        if !feeds::is_read(job, cx) {
+            return None;
+        }
+        let said = format!("show_graph {}", item.graph);
+        Some(
+            labelled(
+                div()
+                    .id(SharedString::from(format!("graph-call:{}", item.id)))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .tooltip(tip("Fleet holds no graph by this id"))
+                    .child(glyph(look, "chart-line", Size::Small, look.color(token::FG_SUBTLE)))
+                    .child(div().font_family(mono(look)).child(SharedString::from(said.clone()))),
+                Role::Label,
+                said,
+            )
+            .into_any_element(),
+        )
     }
 
     /// The Graphs tab's body: every graph of the Job, larger, one under the other.
@@ -516,3 +640,90 @@ impl JobView {
 
 /// The tab's kind in a Job's panes.
 pub(super) const KIND: &str = "graphs";
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use gpui::{prelude::*, Role};
+    use ipc::{GraphFedBy, GraphFeed, GraphForm, GraphList, GraphShown, GraphsChanged, Instant, MetricCredential, SessionId};
+
+    use super::super::column_strip::tests::drawn::fresh;
+    use super::super::parts_fold::{drawn, drawn_like};
+    use super::super::JobView;
+    use crate::graph::feeds::{FeedBook, Graphs};
+
+    const JOB: &str = "watch-checkout";
+    const FEED: &str = "checkout-api/latency";
+
+    fn shown(id: &str, title: &str) -> GraphShown {
+        let spec = ipc::graph::read_spec(&format!(r#"{{"data":{{"name":"{FEED}"}},"mark":"line","encoding":{{"x":{{"field":"at","type":"temporal"}},"y":{{"field":"p99","type":"quantitative"}}}}}}"#)).expect("reads");
+        GraphShown { id: id.into(), title: title.into(), form: GraphForm::Chart { spec, headline: None }, fed_by: GraphFedBy::Recipe { every_secs: 15 }, live: true, shown_at: Instant::carried("2026-11-10T22:01:00Z"), read_at: None, broken: None, no_token: None }
+    }
+
+    fn grafana() -> MetricCredential {
+        MetricCredential { name: "grafana".into(), how: "A Grafana service account token".into(), url: Some("https://grafana.example/tokens".into()) }
+    }
+
+    fn graphs() -> Vec<GraphShown> {
+        let mut tokenless = shown("graph-percentiles", "Latency percentiles");
+        tokenless.no_token = Some(grafana());
+        tokenless.broken = Some("No grafana token on this Mac.".into());
+        vec![shown("graph-p99", "p99 latency"), tokenless]
+    }
+
+    /// The live graphs' Job open on its thread, with a book as Fleet's `list_graphs` would fill it: p99 and a graph whose
+    /// token is missing. The thread's other `show_graph` calls name graphs Fleet does not hold.
+    fn opened(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, gpui::Entity<FeedBook>, &mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let rows = (0..5).map(|at| serde_json::json!({"at": format!("2026-11-10T22:0{at}:00Z"), "p99": 200 + at * 10}).as_object().cloned().unwrap_or_default()).collect();
+        let book = cx.new(|_| {
+            let mut book = FeedBook::unread();
+            book.read_list(GraphList { session_id: SessionId::carried(JOB), graphs: graphs(), feeds: vec![GraphFeed { name: FEED.into(), rows, added: 5 }] });
+            book
+        });
+        cx.update(|cx| {
+            let mut by_job = BTreeMap::new();
+            by_job.insert(JOB.to_string(), book.clone());
+            cx.set_global(Graphs { by_job, _tick: None });
+        });
+        let jobs = crate::mock::jobs("live-graphs").expect("the fixture decodes");
+        let threads = crate::mock::threads("live-graphs").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(4000.)));
+        list.update(cx, |list, cx| list.open(JOB.into(), cx));
+        fresh(cx);
+        fresh(cx);
+        (view, book, cx)
+    }
+
+    #[gpui::test]
+    fn a_graph_stands_once_where_it_was_first_shown_and_fleet_sending_it_again_redraws_it_in_place(cx: &mut gpui::TestAppContext) {
+        let (_view, book, cx) = opened(cx);
+        assert_eq!(drawn_like(cx, Role::Article, "Graph: p99"), ["Graph: p99 latency"], "the later call of the same id draws no second card");
+        let mut again = graphs();
+        again[0].title = "p99 after the rollback".into();
+        book.update(cx, |book, cx| {
+            book.take_changed(GraphsChanged { session_id: SessionId::carried(JOB), graphs: again, feeds: Vec::new() });
+            cx.notify();
+        });
+        fresh(cx);
+        assert_eq!(drawn_like(cx, Role::Article, "Graph: p99"), ["Graph: p99 after the rollback"], "the card is replaced where it stands");
+    }
+
+    #[gpui::test]
+    fn a_missing_token_is_said_on_its_card_and_a_call_fleet_holds_no_graph_for_is_its_line(cx: &mut gpui::TestAppContext) {
+        let (_view, _book, cx) = opened(cx);
+        assert!(drawn(cx, Role::Status, "No grafana token on this Mac. A Grafana service account token"), "{:?}", drawn_like(cx, Role::Status, "No"));
+        assert!(drawn(cx, Role::Link, "Make a grafana token"));
+        assert!(drawn_like(cx, Role::Status, "Not read").is_empty(), "the token's sentence is not said twice");
+        assert!(drawn(cx, Role::Label, "show_graph graph-errors"), "{:?}", drawn_like(cx, Role::Label, "show_graph"));
+    }
+}

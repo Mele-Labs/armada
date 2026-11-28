@@ -456,7 +456,7 @@ impl JobView {
                     Zone::Bays => self.pane_bays(&id, look, cx),
                     Zone::Spine => Some(self.pane_spine(&id, look, cx)),
                     Zone::Judge => self.pane_judge(&id, look, cx),
-                    Zone::Artifacts => self.pane_artifacts(&id, look, cx),
+                    Zone::Artifacts => self.pane_artifacts(&id, look, window, cx),
                     Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                     Zone::Qa => self.pane_questions(&id, look, window, cx),
                     Zone::Children => self.pane_children(&id, look, cx),

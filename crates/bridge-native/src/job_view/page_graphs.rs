@@ -157,7 +157,7 @@ fn draw_page(html: &str, job: &str, live_only: bool, cx: &App) -> String {
         donut: f32::from(look.length(token::SPACE_8)) * 4.,
     };
     let none: BTreeMap<String, Vec<ipc::graph::Row>> = BTreeMap::new();
-    let book = feeds::book(cx);
+    let book = feeds::book(job, cx);
     let rows: &dyn Feeds = match &book {
         Some(book) => book.read(cx),
         None => &none,
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn a_live_graph_draws_its_card_on_the_rows_held_and_names_what_it_cannot_draw() {
         let spec = read_spec(r#"{"data":{"name":"feed"},"mark":"line","encoding":{"x":{"field":"at","type":"temporal"},"y":{"field":"ms","type":"quantitative","title":"p99 (ms)"}}}"#).expect("reads");
-        let card = |id: &str, form: Form| Rc::new(crate::graph::Card { id: id.into(), title: "p99 latency".into(), source: String::new(), live: true, form, after: String::new() });
+        let card = |id: &str, form: Form| Rc::new(crate::graph::Card { id: id.into(), title: "p99 latency".into(), source: String::new(), live: true, form, broken: None, no_token: None });
         let cards = [card("graph-p99", Form::Chart { spec, headline: None }), card("graph-health", Form::Strip(Vec::new()))];
         let row = |at: &str, ms: f64| serde_json::json!({"at": at, "ms": ms}).as_object().cloned().unwrap_or_default();
         let mut rows = BTreeMap::new();

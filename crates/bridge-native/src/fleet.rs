@@ -13,8 +13,10 @@ use ipc::{
     Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
     WorkflowChange, WorkflowChanges,
     WatchList, WatchSummary,
+    GraphList, GraphsChanged,
 };
 
+use crate::graph::feeds::{FeedBook, Graphs, Taken};
 use crate::link::{self, LinkState, Signal};
 use crate::log::Note;
 
@@ -197,6 +199,10 @@ pub struct Held {
     watches_asked: BTreeSet<String>,
     /// The Jobs `watches.changed` has spoken for since the connection: an older read must not land over it.
     watches_spoken: BTreeSet<String>,
+    /// The Jobs whose graphs a view has asked for since the connection or the last gap, so each is read once.
+    graphs_asked: BTreeSet<String>,
+    /// The `graphs.changed` folded since the last take, oldest first: the connection puts each in its Job's book.
+    graphs_moved: Vec<GraphsChanged>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
     /// Moves on each `kit.changed` and each gap in the stream: Kit reads its link again.
@@ -261,6 +267,8 @@ impl Held {
             watches: BTreeMap::new(),
             watches_asked: BTreeSet::new(),
             watches_spoken: BTreeSet::new(),
+            graphs_asked: BTreeSet::new(),
+            graphs_moved: Vec::new(),
             operator_page_moved: 0,
             kit_moved: 0,
             workflow_changes: BTreeMap::new(),
@@ -311,6 +319,8 @@ impl Held {
         // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
         self.watches_asked.clear();
         self.watches_spoken.clear();
+        // And a `graphs.changed`: each Job's graphs are read whole again when a view next asks.
+        self.graphs_asked.clear();
     }
 
     /// A read of a Job's watches lands unless `watches.changed` has spoken for that Job since it was asked.
@@ -432,6 +442,22 @@ impl Held {
         std::mem::take(&mut self.shells)
     }
 
+    /// The `graphs.changed` folded since the last take, oldest first.
+    pub fn take_graphs_moved(&mut self) -> Vec<GraphsChanged> {
+        std::mem::take(&mut self.graphs_moved)
+    }
+
+    /// A Job's graph cards came or went: its thread measures again from its first `show_graph` call, whose place
+    /// was drawn without a card, or with one.
+    fn graphs_placed(&mut self, session: &str) {
+        if let Some(held) = self.threads.get_mut(session) {
+            if let Some(at) = held.items.iter().position(|item| matches!(item, ThreadItem::Graph(_))) {
+                held.mark_dirty(at);
+                held.version += 1;
+            }
+        }
+    }
+
     /// The Job browser's news folded since the last take, oldest first.
     pub fn take_browser(&mut self) -> BrowserNews {
         std::mem::take(&mut self.browser)
@@ -450,6 +476,7 @@ impl Held {
         self.watches.remove(id);
         self.watches_asked.remove(id);
         self.watches_spoken.remove(id);
+        self.graphs_asked.remove(id);
         self.removed.push(id.to_string());
     }
 
@@ -666,6 +693,8 @@ impl Held {
                             self.watches_spoken.insert(id.clone());
                             self.watches.insert(id, list.watches);
                         }
+                        // A Job's cards arrive whole and its feeds' rows appended; the connection puts them in its book.
+                        Event::GraphsChanged(changed) => self.graphs_moved.push(changed),
                         Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
                         Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
                         Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
@@ -707,6 +736,16 @@ fn describe(state: &LinkState) -> Note {
         LinkState::Unreachable(why) => Note::warn("Fleet is unreachable").field("why", why.as_str()),
         LinkState::Connected => Note::info("connected to Fleet"),
     }
+}
+
+/// The book of `session`'s graphs, made empty where none is held yet.
+fn graph_book(session: &str, cx: &mut gpui::App) -> gpui::Entity<FeedBook> {
+    if let Some(book) = crate::graph::feeds::book(session, cx) {
+        return book;
+    }
+    let book = gpui::AppContext::new(cx, |_| FeedBook::unread());
+    cx.default_global::<Graphs>().by_job.insert(session.to_string(), book.clone());
+    book
 }
 
 /// How old the merge line kept on disk may be and still draw on open (`remembered.ts`).
@@ -1305,6 +1344,74 @@ impl FleetConnection {
         .detach();
     }
 
+    /// Read a Job's graphs and every row their feeds keep (`GET /sessions/graphs?session_id=`) into its book, once since
+    /// the connection or the last gap; `graphs.changed` keeps the book current after. A failed read is asked again next time.
+    pub fn read_graphs(&mut self, session: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if !self.held.graphs_asked.insert(session.to_string()) {
+            return;
+        }
+        // The book is there from the ask, so a page the Job opens meanwhile watches the one the answer fills.
+        let book = graph_book(session, cx);
+        let id = session.to_string();
+        let path = format!("/sessions/graphs?session_id={session}");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
+                    }
+                    ipc::decode::<GraphList>("GraphList", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                match answer {
+                    Ok(list) => {
+                        book.update(cx, |book, cx| {
+                            book.read_list(list);
+                            cx.notify();
+                        });
+                        this.held.graphs_placed(&id);
+                    }
+                    Err(why) => {
+                        this.held.graphs_asked.remove(&id);
+                        Note::warn("a Job's graphs could not be read").field("job", id.as_str()).field("why", why).emit();
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// Each `graphs.changed` folded, into its Job's book. A Job no view asked for has no book and is read whole when
+    /// one does; a book whose rows went by unseen is read again.
+    fn graphs_moved(&mut self, cx: &mut Context<Self>) {
+        for changed in self.held.take_graphs_moved() {
+            let id = changed.session_id.as_str().to_string();
+            let Some(book) = crate::graph::feeds::book(&id, cx) else { continue };
+            let (taken, placed) = book.update(cx, |book, cx| {
+                let before: Vec<String> = book.cards().iter().map(|card| card.id.clone()).collect();
+                let taken = book.take_changed(changed);
+                let placed = book.cards().iter().map(|card| card.id.as_str()).ne(before.iter().map(String::as_str));
+                if taken != Taken::Unread {
+                    cx.notify();
+                }
+                (taken, placed)
+            });
+            if placed {
+                self.held.graphs_placed(&id);
+            }
+            if taken == Taken::Missed {
+                self.held.graphs_asked.remove(&id);
+                self.read_graphs(&id, cx);
+            }
+        }
+    }
+
     /// Read workflow change `change` (`GET /workflows/changes`) off the main thread and hold it, for
     /// a proposed workflow's card to draw its steps. The thread row names the workflow but not where
     /// it is kept, so the repository's list is read, then Kit's. `after` is the definition the card
@@ -1383,6 +1490,7 @@ impl FleetConnection {
                             keep_merge_lines(read);
                         }
                     }
+                    this.graphs_moved(cx);
                     // A change that reached too far back, or a gap in the stream: read those again.
                     for id in this.held.stale_threads() {
                         if let Some(held) = this.held.threads.get_mut(&id) {
@@ -1501,6 +1609,14 @@ impl FleetConnection {
     /// Connected to a stand-in Fleet on `port`, as the link says it once the socket opens.
     pub fn connect_at(&mut self, port: u16, cx: &mut Context<Self>) {
         self.held.fold(vec![Signal::State(LinkState::Connecting { port, pid: 1 }), Signal::State(LinkState::Connected)]);
+        cx.notify();
+    }
+
+    /// Events folded as the drain folds a batch, and each `graphs.changed` put in its Job's book.
+    pub fn fold_events(&mut self, events: Vec<Event>, cx: &mut Context<Self>) {
+        let batch = events.into_iter().enumerate().map(|(at, event)| Signal::Stream(StreamMessage::Event(ipc::Delivered { cursor: Cursor::at(at as u64 + 1), event }))).collect();
+        self.held.fold(batch);
+        self.graphs_moved(cx);
         cx.notify();
     }
 

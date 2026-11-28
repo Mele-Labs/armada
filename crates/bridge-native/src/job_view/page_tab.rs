@@ -176,7 +176,7 @@ impl PageTab {
                     WebPageEvent::Pictured => cx.notify(),
                 });
                 self._hearing = Some(hearing);
-                self._feeding = self.html.as_deref().is_some_and(super::page_graphs::holds_live).then(|| crate::graph::feeds::book(cx)).flatten().map(|book| cx.observe(&book, |this, _, cx| this.redraw_graphs(cx)));
+                self._feeding = self.html.as_deref().is_some_and(super::page_graphs::holds_live).then(|| crate::graph::feeds::book(&self.job, cx)).flatten().map(|book| cx.observe(&book, |this, _, cx| this.redraw_graphs(cx)));
                 Held::Ready(page)
             }
             Err(why) => Held::Refused(why.into()),

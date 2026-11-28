@@ -61,6 +61,18 @@
           }
         },
         {
+          "kind": "graph",
+          "id": "call-graph-p99",
+          "at": "2026-11-10T22:01:10Z",
+          "graph": "graph-p99"
+        },
+        {
+          "kind": "graph",
+          "id": "call-graph-percentiles",
+          "at": "2026-11-10T22:01:11Z",
+          "graph": "graph-percentiles"
+        },
+        {
           "kind": "row",
           "row": {
             "kind": "message",
@@ -73,6 +85,18 @@
           }
         },
         {
+          "kind": "graph",
+          "id": "call-graph-errors",
+          "at": "2026-11-10T22:02:10Z",
+          "graph": "graph-errors"
+        },
+        {
+          "kind": "graph",
+          "id": "call-graph-health",
+          "at": "2026-11-10T22:02:11Z",
+          "graph": "graph-health"
+        },
+        {
           "kind": "row",
           "row": {
             "kind": "message",
@@ -83,6 +107,25 @@
             },
             "text": "The canary takes a tenth of the traffic, and its latency climbs faster with payload size than stable's."
           }
+        },
+        {
+          "kind": "graph",
+          "id": "call-graph-split",
+          "at": "2026-11-10T22:03:10Z",
+          "graph": "graph-split"
+        },
+        {
+          "kind": "graph",
+          "id": "call-graph-payload",
+          "at": "2026-11-10T22:03:11Z",
+          "graph": "graph-payload"
+        },
+        {
+          "kind": "graph",
+          "id": "call-graph-p99-again",
+          "at": "2026-11-10T22:03:20Z",
+          "graph": "graph-p99",
+          "again": true
         }
       ]
     }
