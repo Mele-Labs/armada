@@ -29,6 +29,9 @@ fn modules_of(place: &Place) -> &'static [&'static str] {
         Front::Kit => &["kit"],
         Front::Features => &["project_board", "features"],
         Front::Usage => &["usage_page"],
+        // A screen added since names no modules until it is listed here.
+        #[allow(unreachable_patterns)]
+        _ => &[],
     }
 }
 
