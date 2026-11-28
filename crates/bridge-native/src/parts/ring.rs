@@ -116,14 +116,15 @@ fn sweep(phase: f32, radius: Pixels, width: Pixels, reach: Pixels, ink: Hsla) ->
     .size_full()
 }
 
-/// The ring over an element's border: absolutely placed, its own size, turning once per spin.
+/// The ring over an element's border: absolutely placed, its own size, turning once per three spins.
 /// `radius` is the element's corner radius; `ink` is the arc's colour.
 pub fn ring_overlay(look: &Look, id: impl Into<ElementId>, radius: Pixels, ink: Hsla) -> impl IntoElement {
     let edge = look.length(token::BORDER_WIDTH);
     let (width, reach) = (edge * 2., edge * 0.5);
     div().absolute().inset_0().with_animation(
         id,
-        Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
+        // Three spins of the glyph spinner: a border is a long path, so the same pace reads as a blur.
+        Animation::new(look.duration(token::DURATION_SPIN) * 3).repeat(),
         move |layer, phase| layer.child(sweep(phase, radius, width, reach, ink)),
     )
 }
