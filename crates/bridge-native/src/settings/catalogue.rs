@@ -148,7 +148,7 @@ impl SettingsOverlay {
                 }
                 Body::Models => items.extend(self.model_items(entry)),
                 Body::Workflows => items.extend(self.workflow_items(entry, cx)),
-                Body::Mods(None) | Body::Values(_) | Body::Store | Body::Keyboard | Body::Shared | Body::Account | Body::Layout | Body::Time | Body::Ways | Body::Judges => {}
+                Body::Mods(None) | Body::Values(_) | Body::Store | Body::Keyboard | Body::Shared | Body::Account | Body::Layout | Body::Time | Body::Motion | Body::Ways | Body::Judges => {}
             }
         }
         // A theme mod is drawn on Theme and on Mods; it is one thing, offered once.

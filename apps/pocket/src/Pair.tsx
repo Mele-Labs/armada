@@ -2,7 +2,6 @@
 // Bridge (Settings, Phone) names the Mac; opened from the link, its code is already in the address.
 
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
 import { Button } from "./kit/components/primitives/Button/Button";
 
 import { refusal } from "./client";
@@ -110,8 +109,8 @@ export function Pair({ code: fromUrl, origin: again }: { code: string; origin?: 
             </Button>
           </section>
         ) : (
-          <p className="pk-fact pk-waiting">
-            <LoaderCircle className="pk-spin" aria-hidden="true" /> Waiting for Confirm on your Mac
+          <p className="pk-fact pk-waiting pk-ring pk-ring--line">
+            Waiting for Confirm on your Mac
           </p>
         )}
       </div>

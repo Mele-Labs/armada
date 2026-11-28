@@ -958,6 +958,9 @@ impl SettingsOverlay {
         if let Body::Time = shown.body {
             return self.time_stops(cx);
         }
+        if let Body::Motion = shown.body {
+            return self.motion_stops(cx);
+        }
         if let Body::Ways = shown.body {
             return self.ways_stops(cx);
         }
@@ -1220,7 +1223,7 @@ impl SettingsOverlay {
                 }
                 true
             }
-            "left" if bare && !self.in_text(window) && !self.side.is_focused(window) && !self.on_slider(window) => {
+            "left" if bare && !self.in_text(window) && !self.side.is_focused(window) && !self.on_slider(window) && !self.on_motion(window) => {
                 window.focus(&self.side, cx);
                 cx.notify();
                 true

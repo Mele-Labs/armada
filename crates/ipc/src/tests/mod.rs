@@ -61,6 +61,7 @@ mod layout;
 mod key_bindings;
 mod kit_pieces;
 mod time_format;
+mod motion;
 mod home_layout;
 /// Where Jobs' time went: a figure nobody produced is an absent key.
 mod time_summary;

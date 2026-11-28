@@ -31,6 +31,7 @@ mod review_offer;
 pub mod screen;
 mod theme;
 pub mod time;
+pub mod motion;
 pub(crate) mod view;
 pub mod walk;
 pub mod ways;
