@@ -573,3 +573,14 @@ async fn a_graceful_stop_that_is_ignored_is_killed_after_the_grace_period() {
     assert_eq!(exit, Exit::Signalled { signal: libc::SIGKILL });
     assert!(took >= Duration::from_millis(900), "killed before the grace period: {took:?}");
 }
+
+/// **A run's CPU time is what its processes spent**, read as the difference across it: a child
+/// that only counts shows time, which a wall clock alone could not tell from a wait.
+#[tokio::test]
+async fn the_cpu_time_across_a_run_counts_what_its_child_spent() {
+    let before = crate::run::children_cpu().expect("readable");
+    let ran = attempt("/bin/sh -c 'i=0; while [ $i -lt 200000 ]; do i=$((i+1)); done'", Duration::from_secs(60)).await;
+    assert_eq!(ran.exit, Exit::Code(0));
+    let after = crate::run::children_cpu().expect("readable");
+    assert!(after > before, "the child's time is counted once it is waited for: {before:?} then {after:?}");
+}

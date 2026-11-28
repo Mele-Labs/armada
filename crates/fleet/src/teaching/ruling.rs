@@ -88,6 +88,7 @@ pub(crate) fn scope_for(reach: TeachingReach, manifest: Option<&str>) -> Result<
         (TeachingReach::Everywhere, _) => Ok(PieceScope::Everywhere),
         (TeachingReach::Repository, Some(id)) => Ok(PieceScope::Within { id: id.to_string() }),
         (TeachingReach::Repository, None) => Err("a rule for one repository needs the repository".to_string()),
+        (TeachingReach::Project, _) => Err("a rule cannot be kept for one project".to_string()),
     }
 }
 

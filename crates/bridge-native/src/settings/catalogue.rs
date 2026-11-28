@@ -151,6 +151,9 @@ impl SettingsOverlay {
                 Body::Mods(None) | Body::Values(_) | Body::Store | Body::Keyboard | Body::Shared | Body::Account | Body::Layout | Body::Time | Body::Ways | Body::Judges => {}
             }
         }
+        // A theme mod is drawn on Theme and on Mods; it is one thing, offered once.
+        let mut seen = std::collections::HashSet::new();
+        items.retain(|one| seen.insert(one.id.clone()));
         items
     }
 
@@ -197,7 +200,12 @@ impl SettingsOverlay {
     fn mod_items(&self, entry: &'static Entry, page: super::mods::Page, cx: &App) -> Vec<Item> {
         self.mod_rows(page, cx)
             .into_iter()
-            .map(|one| item(entry, format!("mod:{}", one.name), one.title.clone(), vec!["mod".into(), super::mods::kind_said(one.kind).to_string()], Kind::Toggle(one.enabled)))
+            .map(|one| {
+                let kind = super::mods::kind_said(one.kind);
+                // Named as a mod, so a row read outside the page says what it switches: dusk theme mod.
+                let label = format!("{} {} mod", one.title, kind.to_lowercase());
+                item(entry, format!("mod:{}", one.name), label, vec!["mod".into(), kind.to_string(), one.title.clone()], Kind::Toggle(one.enabled))
+            })
             .collect()
     }
 

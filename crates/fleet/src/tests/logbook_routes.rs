@@ -56,6 +56,7 @@ fn teach(rig: &Rig, section: LogbookSection, repository: bool, text: &str) -> Te
     TeachLogbookEntry {
         section,
         repository: repository.then(|| rig.root.clone()),
+        project: None,
         kind: LogbookKind::Convention,
         text: text.to_string(),
         paths: Vec::new(),

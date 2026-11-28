@@ -195,12 +195,15 @@ where
         self.save_preference_now(save).await
     }
 
-    /// A change to how he works with Jobs is told to the Jobs running, the new note as Fleet's word, so
-    /// the next result and question follow it. A save that leaves the note as it was tells none.
+    /// A change to how he works is told to the Jobs running and to the Operator, each its own new note as
+    /// Fleet's word, so the next result and question follow it. A save that leaves a note as it was tells none.
     async fn preferences_saved(self: Arc<Self>, before: Preferences, now: Preferences) {
-        let note = crate::ways::note(&now);
-        if note != crate::ways::note(&before) {
-            self.ways_told(&note).await;
+        let job = crate::ways::note(&now);
+        let operator = crate::ways::operator_note(&now);
+        let job = (job != crate::ways::note(&before)).then_some(job);
+        let operator = (operator != crate::ways::operator_note(&before)).then_some(operator);
+        if job.is_some() || operator.is_some() {
+            self.ways_told(job.as_deref(), operator.as_deref()).await;
         }
     }
 

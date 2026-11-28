@@ -288,14 +288,32 @@ where
         if save.reach == TeachingReach::Repository && root.is_none() {
             return Err(self.teaching_refused(INPUT_REFUSED, "A teaching for one repository needs the repository."));
         }
+        // A project's reach keeps a note, under a project Fleet holds, and nothing else.
+        let project = match save.reach {
+            TeachingReach::Project => {
+                let named = save.project.as_deref().map(str::trim).filter(|named| !named.is_empty());
+                let named = named.ok_or_else(|| self.teaching_refused(INPUT_REFUSED, "A teaching for one project needs the project."))?;
+                if proposal.note.is_none() || proposal.words.is_some() || proposal.fleet.is_some() || !proposal.tweak.is_empty() || proposal.layout.is_some() || proposal.rule.is_some() {
+                    return Err(self.teaching_refused(INPUT_REFUSED, "A teaching for one project keeps a note and nothing else."));
+                }
+                Some(self.logbook_project(named).await?)
+            }
+            TeachingReach::Repository | TeachingReach::Everywhere => None,
+        };
         // A rule for a repository is held to the repository's Manifest id.
         let manifest = root.as_deref().and_then(|root| self.manifest_id_at(root));
         let mut plan = self.teaching_planned(&save, root.as_deref(), manifest.as_deref())?;
         let entry = match &save.proposal.note {
             Some(note) => {
+                // A repository-kind note taught to a project is the project's, whatever section the reader gave it.
+                let section = match (&project, note.section) {
+                    (Some(_), LogbookSection::Repo) => LogbookSection::Project,
+                    (_, section) => section,
+                };
                 let taught = TeachLogbookEntry {
-                    section: note.section,
-                    repository: if note.section == LogbookSection::Repo { save.repository.clone() } else { None },
+                    section,
+                    repository: if section == LogbookSection::Repo { save.repository.clone() } else { None },
+                    project: if section == LogbookSection::Project { project.clone() } else { None },
                     kind: note.kind,
                     text: note.text.clone(),
                     paths: Vec::new(),

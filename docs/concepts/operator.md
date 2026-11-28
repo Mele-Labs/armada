@@ -3,8 +3,9 @@
 **What it is:** One agent on your Mac that watches every project, puts one decision at a time in front of you, and does the rest.
 
 > One long-running agent session per Mac, with Fleet's tools, across every project Fleet serves.
-> It puts one card in front of you at a time: one decision, two to four options, its pick first, a cost on each.
-> Everything else goes to a feed of what happened since you last looked.
+> It shows you things the way your Settings ask: a picture first, a table over a paragraph, a page for anything long, takes for options that look different, a walk for something to press.
+> Every decision is one card, with two to four options, its pick first and a cost on each, in whatever form suits that decision.
+> What only happened goes to a feed of what happened since you last looked.
 > How much it does without asking is a value for each project.
 > When its context fills it hands on to a fresh copy.
 
@@ -17,6 +18,7 @@ Its page is in the native Bridge, and [Native Bridge](native-bridge.md) owns how
 ## What it is for
 
 **One agent watches what you are doing, and you talk to it.**
+It answers you as a copilot: a picture, a table, a page or takes, never only paragraphs.
 What needs a decision reaches you as a card with its read and its pick.
 What only happened goes to the feed.
 Nothing waits in a list to be found.
@@ -38,8 +40,11 @@ Its `session_id` is on the page, so the page follows the copy in front.
 **It is not a Job.**
 It has no Needs you list, no plan, no preview and no end, so the door offers it none of a Job's own acts: `waiting_for`, `all_done`, `finish_up`, `record_plan`, `offer_preview`, the Later items, `write_feature_sections`, and the asks a Job sends it.
 A call to one is refused, whatever it was told.
-Its prompt carries its own rules and no Job's id, no Logbook and none of how you work with Jobs.
+Its prompt carries its own rules and no Job's id and no Logbook.
+It does carry how you take things in, from your Settings, without a Job's own acts, and Fleet tells it when you change them.
+Those Settings are this Mac's, so they hold for every project.
 The mod sends none of its replies back to a list, and it runs with the mod's `Operator` output style whatever style you picked.
+That style leads with a picture or a table and keeps a decision on a card.
 
 **Detection stays Fleet's.**
 The Operator is told what Fleet saw and is never asked whether something happened.
@@ -48,6 +53,8 @@ The Operator is told what Fleet saw and is never asked whether something happene
 
 **One card is in front at a time.**
 A card is one decision: a title, its read, two to four options with the Operator's pick first, and a cost on each option.
+The Operator picks each decision's form: a table for one between Jobs or features, a mock for one about a screen, takes for options that look different, a page for a long read.
+It draws that in its thread and the card's read names it.
 Keys 1 to 4 pick an option.
 A card never holds a count or a status report.
 
@@ -187,6 +194,7 @@ Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held
 
 **Both arrive in the Operator's session.**
 It may answer in the Job's thread, or put up a card.
+A conflict that names files is also Fleet's own question to him, which lands first, on the sending Job's Needs you whether the Operator is on or off ([Fleet](fleet.md), *Claims a Job holds*).
 
 ## How it acts
 

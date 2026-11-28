@@ -112,7 +112,6 @@ impl JobView {
                 .rounded(look.length(token::RADIUS_SM))
                 .text_size(look.length(token::TEXT_SM))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(div().id(SharedString::from(format!("background-mark:{at}"))).flex_none().child(self.working_mark(look, look.color(token::STATUS_RUNNING))).tooltip(tip("Running in the background")))
                 .child(div().flex_1().min_w_0().truncate().child(SharedString::from(work.what.clone())))
                 .child(div().flex_none().text_color(look.color(token::FG_MUTED)).child("shell"))
                 .children(since.map(|since| div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(since))),
@@ -152,7 +151,6 @@ impl JobView {
                 .text_size(look.length(token::TEXT_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(div().id("subagents-mark").child(self.working_mark(look, look.color(token::STATUS_RUNNING))).tooltip(tip("Running")))
                 .child(SharedString::from(count.clone()))
                 .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Large, look.color(token::FG_MUTED)))
                 .on_click(cx.listener(move |this, _, _, cx| this.flip_in_card(ix, "subagents", cx))),
@@ -183,6 +181,8 @@ impl JobView {
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .bg(look.color(token::BG_RAISED))
                     .shadow(look.shadows(token::SHADOW_OVERLAY))
+                    .relative()
+                    .child(crate::parts::ring::ring_overlay(look, "subagents-ring", look.length(token::RADIUS_MD), look.color(token::STATUS_RUNNING)))
                     .child(head)
                     .children(rows),
                 Role::Region,

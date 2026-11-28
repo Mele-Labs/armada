@@ -423,7 +423,7 @@ pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJo
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
-pub use job_asks::{HeldWithdrawn, WithdrawHeld};
+pub use job_asks::{ClashFirst, ClashStanding, HeldWithdrawn, JobClash, SettleClash, WithdrawHeld};
 pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,

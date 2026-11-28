@@ -30,6 +30,15 @@ pub struct Told {
     live: PathBuf,
     /// How much of `live` Fleet has been told.
     told: AtomicU64,
+    /// How long the run waited for a place, in milliseconds, once it has one.
+    waited_ms: AtomicU64,
+}
+
+/// `waited_ms` before the run has its place.
+const NOT_WAITED: u64 = u64::MAX;
+
+fn millis(took: Duration) -> u64 {
+    u64::try_from(took.as_millis()).unwrap_or(NOT_WAITED - 1)
 }
 
 /// How often what a run has printed is told to Fleet. It is also how soon a stop reaches the run.
@@ -59,6 +68,10 @@ pub fn begin(cwd: &Path, name: &str, filter: Option<&str>) -> Option<Told> {
         outcome: None,
         took_ms: None,
         log: None,
+        // Read before the run can write to the slot, so it is the tree the run builds.
+        tree: adapters::snapshot::tree_as_it_stands(Path::new(&cwd)).ok(),
+        queue_wait_ms: None,
+        cpu_ms: None,
     };
     let run = say(&fleet, &call)?.run?;
     Some(Told {
@@ -68,6 +81,7 @@ pub fn begin(cwd: &Path, name: &str, filter: Option<&str>) -> Option<Told> {
         run,
         live: std::env::temp_dir().join(format!("armada-check-{}-{run}.log", std::process::id())),
         told: AtomicU64::new(0),
+        waited_ms: AtomicU64::new(NOT_WAITED),
     })
 }
 
@@ -91,6 +105,11 @@ pub(crate) fn ending(ran: &Ran) -> (SessionCheckState, String) {
 }
 
 impl Told {
+    /// The run has its place, after waiting `for_place` for it.
+    pub(crate) fn waited(&self, for_place: Duration) {
+        self.waited_ms.store(millis(for_place), Ordering::Relaxed);
+    }
+
     /// `command` in `root`, with its output told to Fleet as it prints and ended by a stop a person
     /// asks for there. **A stop is carried out on the Check's whole process group**: `SIGTERM` and
     /// then `SIGKILL` after the grace period, or `SIGKILL` at once.
@@ -136,6 +155,9 @@ impl Told {
             outcome: None,
             took_ms: None,
             log: Some(text),
+            tree: None,
+            queue_wait_ms: None,
+            cpu_ms: None,
         };
         let answer = say(&self.fleet, &call)?;
         self.told.store(upto, Ordering::Relaxed);
@@ -164,18 +186,19 @@ impl Told {
         (String::from_utf8_lossy(&bytes[..cut]).into_owned(), from + cut as u64)
     }
 
-    /// Tell Fleet how it ended, with what it printed.
-    pub fn end(self, ran: &Ran, took: Duration) {
+    /// Tell Fleet how it ended, with what it printed and the CPU time its processes took.
+    pub fn end(self, ran: &Ran, took: Duration, cpu: Option<Duration>) {
         let (outcome, log) = ending(ran);
-        self.ended(outcome, took, log, ran.target.clone());
+        self.ended(outcome, took, cpu, log, ran.target.clone());
     }
 
     /// The Check could not be run at all, and Fleet is told that, so the row does not stay out.
-    pub fn refused(self, why: &str, took: Duration) {
-        self.ended(SessionCheckState::Failed, took, why.to_string(), None);
+    pub fn refused(self, why: &str, took: Duration, cpu: Option<Duration>) {
+        self.ended(SessionCheckState::Failed, took, cpu, why.to_string(), None);
     }
 
-    fn ended(self, outcome: SessionCheckState, took: Duration, log: String, target: Option<String>) {
+    fn ended(self, outcome: SessionCheckState, took: Duration, cpu: Option<Duration>, log: String, target: Option<String>) {
+        let waited = self.waited_ms.load(Ordering::Relaxed);
         // The last of what printed, so a viewer still following reads to the end.
         self.chunk();
         let _ = std::fs::remove_file(&self.live);
@@ -186,8 +209,11 @@ impl Told {
             target,
             run: Some(self.run),
             outcome: Some(outcome),
-            took_ms: Some(u64::try_from(took.as_millis()).unwrap_or(u64::MAX)),
+            took_ms: Some(millis(took)),
             log: Some(log),
+            tree: None,
+            queue_wait_ms: (waited != NOT_WAITED).then_some(waited),
+            cpu_ms: cpu.map(millis),
         };
         say(&self.fleet, &call);
     }

@@ -11,6 +11,7 @@ export type * from "./document-answer";
 export type * from "./enums";
 export type * from "./hosted-sessions";
 export type * from "./ids";
+export type * from "./job-asks";
 export type * from "./job-compact";
 export type * from "./job-lanes";
 export type * from "./job-mark";

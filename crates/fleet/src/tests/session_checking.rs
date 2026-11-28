@@ -27,6 +27,9 @@ fn call(act: SessionCheckAct, cwd: &str) -> SessionCheckCall {
         outcome: None,
         took_ms: None,
         log: None,
+        tree: None,
+        queue_wait_ms: None,
+        cpu_ms: None,
     }
 }
 
@@ -247,4 +250,44 @@ async fn a_failed_runs_row_carries_its_blame_and_a_passed_runs_does_not() {
         Some(ipc::CheckBlame { path: "crates/store/src/reads.rs".into(), line: Some(88) })
     );
     assert_eq!(blame_of(passed), None);
+}
+
+/// **A run keeps what it built and what it cost**: the tree told at its start, and the wait for a
+/// place and the CPU time told at its end, so two Jobs' runs of the same tree can be matched.
+#[tokio::test]
+async fn an_ended_session_check_keeps_its_tree_queue_wait_and_cpu_time() {
+    let home = TempDir::new();
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
+    let root = fleet.repositories().first().expect("served").root().to_string();
+    let slot = leased(&root, 2, "fleet/topic", By::Job("s1"));
+    fleet
+        .report_session(SessionReport {
+            harness: "a_harness".into(),
+            session_id: SessionId::carried("s1"),
+            fact: SessionFact::Started {
+                cwd: slot.clone(),
+                title: None,
+                origin: ipc::SessionOrigin::Bridge,
+                mod_version: None,
+            },
+        })
+        .await
+        .expect("kept");
+    let mut start = call(SessionCheckAct::Start, &slot);
+    start.tree = Some("4b825dc642cb6eb9a060e54bf8d69288fbee4904".into());
+    let run = fleet.session_check_reported(start).await.expect("begins").run.expect("held");
+
+    let mut end = call(SessionCheckAct::End, &slot);
+    end.run = Some(run);
+    end.outcome = Some(SessionCheckState::Passed);
+    end.took_ms = Some(61_500);
+    end.queue_wait_ms = Some(1_500);
+    end.cpu_ms = Some(240_000);
+    fleet.session_check_reported(end).await.expect("ends");
+
+    let kept = fleet.store().lock().await.session_check(i64::try_from(run).unwrap()).unwrap().expect("kept");
+    assert_eq!(kept.tree.as_deref(), Some("4b825dc642cb6eb9a060e54bf8d69288fbee4904"));
+    assert_eq!(kept.queue_wait_ms, Some(1_500));
+    assert_eq!(kept.cpu_ms, Some(240_000));
+    assert_eq!(kept.took_ms, Some(61_500), "the wait stays inside took_ms");
 }

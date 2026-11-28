@@ -103,7 +103,12 @@ where
     /// [`Self::logbook_read`], or with no repository the habits and this Mac's alone.
     pub(crate) async fn logbook_read_in(&self, root: Option<&str>) -> Vec<Logged> {
         let key = root.map(crate::run_memory::places::key_of).unwrap_or_default();
-        let learnt = self.store().lock().await.logbook_of(&key).unwrap_or_default();
+        let projects = root.map(|root| self.projects_holding_root(root)).unwrap_or_default();
+        let store = self.store().lock().await;
+        let mut learnt = store.logbook_of(&key).unwrap_or_default();
+        // A project's entries are told to every repository it holds, and read by id apart from `logbook_of`.
+        learnt.extend(store.logbook_of_projects(&projects).unwrap_or_default());
+        drop(store);
         let mut all: Vec<Logged> = learnt.into_iter().map(|entry| Logged { entry, from: Source::Learnt }).collect();
         let missing = self.missing_now().await;
         all.extend(
@@ -114,6 +119,25 @@ where
         let browser = crate::machine_note::browser_line(adapters::browser_shell::found().as_deref());
         all.push(Logged::folded(Source::Machine, LogKind::Environment, browser, 0));
         all
+    }
+
+    /// The id of a project Fleet holds, or the refusal that says it holds none by that id.
+    pub(crate) async fn logbook_project(&self, named: &str) -> Result<String, api::Refusal> {
+        let projects = self.projects_held_read().await;
+        let held = core_model::ScopeId::new(named).ok().and_then(|id| projects.get(&id).map(|one| one.id().as_str().to_string()));
+        held.ok_or_else(|| {
+            api::Refusal::NotFound(ipc::WireError::raised(crate::projects::NO_SUCH_PROJECT, format!("Fleet holds no project {named}"), self.run_id()))
+        })
+    }
+
+    /// The ids of the projects that hold the repository at `root`, by its Manifest's id, or the implicit one it carries before it has an `armada.yml`.
+    pub(crate) fn projects_holding_root(&self, root: &str) -> Vec<String> {
+        let Some(repository) = self.repositories().at(root) else { return Vec::new() };
+        let id = match repository.manifest() {
+            Some(manifest) => manifest.id().clone(),
+            None => ipc::ManifestId::carried(repository.implicit_id()).to_domain(),
+        };
+        self.projects_held().holding(&id).into_iter().map(|one| one.id().as_str().to_string()).collect()
     }
 
     /// The entries to serve a repository's next agent: standing ones, tripped first, then by how
@@ -181,7 +205,7 @@ where
         }
         let section = match section {
             None => None,
-            Some(word) => Some(LogSection::of_text(word.trim()).ok_or_else(|| unasked(format!("`{word}` is not a section: `repo`, `habits` or `machine`")))?),
+            Some(word) => Some(LogSection::of_text(word.trim()).ok_or_else(|| unasked(format!("`{word}` is not a section: `repo`, `project`, `habits` or `machine`")))?),
         };
         let root = self.served_named(manifest)?.root().to_string();
         let found = recalling::searched(self.logbook_read(&root).await, query, section);
