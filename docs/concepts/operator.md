@@ -1,6 +1,6 @@
 # Operator
 
-**What it is:** One agent on your Mac that watches every project, puts one decision at a time in front of you, and does the rest.
+**What it is:** One agent for each of your projects that watches it, puts one decision at a time in front of you, and does the rest.
 
 > One long-running agent session per project, with Fleet's tools, in each project of his.
 > It shows you things the way your Settings ask: a picture first, a table over a paragraph, a page for anything long, takes for options that look different, a walk for something to press.
@@ -30,11 +30,8 @@ It runs for as long as its context lasts, holds Fleet's tools, and keeps what it
 It reads code and pull requests, starts, messages and ends Jobs, and lands pull requests.
 
 **There is one for each project.**
-It hears the arrivals of the repositories its project holds and his words sent to it, and no other project's.
-A repository two projects hold tells both, and the text names the other.
-A repository in no project becomes a project of its own, so it has an Operator.
-The machine's `features.operator` switch is the master, and each project has its own, on by default.
-What it is set to, and what it may do unasked, is set for each project: `list_operator_settings`, `set_operator_settings`.
+Each hears its own project and no other, and *One for each project* says how that is kept.
+What each is set to, and what it may do unasked, is set for each project, and *What he sets for each project* lists it.
 
 **It hands on when its context fills.**
 A fresh copy takes over with the open cards, the saved level of each project, what it waits on and what you told it in the talk.
@@ -51,6 +48,49 @@ That style leads with a picture or a table and keeps a decision on a card.
 
 **Detection stays Fleet's.**
 The Operator is told what Fleet saw and is never asked whether something happened.
+
+## One for each project
+
+**Each project has its own Operator session.**
+It hears the arrivals of the repositories its project holds, his words sent to it, and the Jobs of its project, and nothing of another project.
+Its session starts with the project, is titled Operator, and keeps the project through a hand-on.
+
+**A repository in no project becomes a project of its own.**
+On the tick, while the machine's switch is on, Fleet adds a project named after the repository, holding the whole repository, so it has an Operator.
+With the switch off Fleet makes no project he did not.
+
+**A repository two projects hold tells both.**
+Each project's Operator hears its arrivals, and the text says the repository is shared and names the other project.
+
+**Two switches decide whether one runs.**
+`features.operator` is the machine's master, and each project has its own switch, on by default.
+A project's Operator runs only while both are on.
+Either off ends its session, and both on starts it.
+
+## His words in All
+
+**His words reach one project's Operator and no other's.**
+Fleet picks it with no memory and no model, from these signals in order, and the first that names one project decides.
+
+| Order | Signal | The Operator that hears it |
+|---|---|---|
+| 1 | The card the talk is about, `about` | The card's project |
+| 2 | `project` on the talk, the project of the screen he is on | That project |
+| 3 | `looking_at`, the Job he has open | That Job's project |
+| 4 | His words name one project, or one repository, by name, as a whole word in any case | The only project that name picks out |
+| 5 | His words tag a feature as `#slug` | The only project that holds the feature |
+| 6 | His words hold a file path that exists under a repository | The only project whose repository holds it |
+| 7 | Only one project's Operator runs | That project |
+
+**Where none decides and only one project's Operator is on, it hears them**, and its session starts if none runs.
+
+**Where none decides and more than one is on, Fleet asks him.**
+It keeps his words, with their attachments and mentions, and raises one card of its own, "Which project is this for?".
+Its options are up to four projects, the ones his words hit most signals of first, then the one he last talked to.
+Each costs the same: its Operator hears this and nothing of the others.
+His pick delivers the kept words to that project's Operator, and starts its session where none runs.
+The card is Fleet's and not an Operator's, so no Operator raises, revises or settles it.
+With the machine's switch off the words are refused with `fleet.operator_session_not_running`, as any send is.
 
 ## The page
 
@@ -153,6 +193,7 @@ The Operator is not handed them, so only you answer them, or Autopilot while you
 ## What it may do
 
 **It is a value for each project, `operator_acts`.**
+It is set with the rest of the project's Operator, in *What he sets for each project*.
 
 | Value | The Operator |
 |---|---|
@@ -166,6 +207,88 @@ Armada starts at `act_then_tell`.
 
 **Whatever the level, a change you would see or a decision that is yours is always a card.**
 The level moves how much it does unasked and never lowers this.
+Where the project asks its decisions in the talk, the decision is a question there.
+
+## What he sets for each project
+
+**Each project's Operator is set apart from every other's.**
+`list_operator_settings` answers each project with what its Operator is set to, what he set, and the session that runs it.
+`set_operator_settings` keeps what he gives for one project and returns the values he names to their default.
+They are kept as values of the project, never in its file and never as machine settings.
+
+| Setting | What it is | Default | It applies |
+|---|---|---|---|
+| Switch | Whether the project has an Operator | On | At the next tick, when its session starts or ends |
+| Model | The model of its session | The machine's `operator-model` | At once: the session is handed on to a fresh copy |
+| Effort | How hard its session thinks | The machine's `effort.operator` | At once, as the model does |
+| Role | `copilot`, `dispatcher` or `reviewer` | `copilot` | At once, as the model does |
+| His words | What this Operator is for, put first in its prompt | None | At once, as the model does |
+| Prompt | His addition, put after the rules | None | At once, as the model does |
+| Output style | The style it runs in, any the harness finds | `armada:Operator` | At once, as the model does |
+| Tools | Start Jobs, merge pull requests, end Jobs and file issues, each on or off | The role's | On the next call |
+| Cards or chat | Where it asks its decisions, `cards` or `chat` | `cards` | On the next call, and the live session is told in one line |
+| Name | What it is called where a name is drawn | Operator | On the next call |
+| Accent | A `#rrggbb` colour, refused in any other form | None, and Bridge draws its own | On the next call |
+| Acts | `operator_acts`, what it does unasked | Unset, so it asks once | On the next call |
+
+**A role is a block of rules and a default for each tool.**
+His own switch for a tool wins over the role's.
+
+| Role | Start Jobs | Merge | End Jobs | File issues |
+|---|---|---|---|---|
+| `copilot` | On | On | On | On |
+| `dispatcher` | On | Off | On | On |
+| `reviewer` | Off | Off | Off | Off |
+
+**The prompt is these parts in order.**
+His words, the role's rules, the Operator's rules, a paragraph moving decisions to the talk where the project asks them there, and his prompt.
+A part he left empty is left out.
+Where it may file issues, it files as a Job does, through its shell into the project's tracker, and it still never comments on, labels, closes or edits an issue or a pull request on his behalf.
+
+## What Fleet refuses
+
+**Fleet enforces each switch, and the prompt does not.**
+Fleet reads the project's settings at each call, so a switch he turned reaches the next one.
+
+| Tool | Refused at the door | Refused at the gate, in a shell command |
+|---|---|---|
+| Start Jobs | `start_another_session`, `dispatch_job` | None |
+| Merge pull requests | `merge_pull_request_by_number`, `enable_auto_merge`, `set_session_auto_land` | `gh pr merge`, and `gh api` on a path that merges |
+| End Jobs | `close_session` | None |
+| File issues | None | `gh issue create`, `bd create`, `bd new` |
+
+**A switched-off act is gone from the Operator's reach.**
+The refusal names the switch, as in "is off for this project's Operator: Settings, Operator, End Jobs".
+The gate is Fleet's PreToolUse hook, and it matches the command's words and no more.
+It misses a script that runs the command and a call that reaches the forge without `gh`, and it also refuses a line that only names the act.
+The door is the strong half.
+
+**Its level is enforced as well.**
+A say is his press on one of that Operator's cards, or his words delivered to it, and it stays open for 15 minutes, the card-settle window.
+It is kept in memory, so a restart clears it.
+
+| Level | Refused until a say is open |
+|---|---|
+| `act_then_tell`, or unset | Nothing |
+| `ask_before_starting` | Starting a Job |
+| `only_when_told` | Every tool act: a start, an end, a merge and a filed issue |
+
+**Chat mode refuses `raise_card`.**
+Fleet refuses it for a project whose Operator asks its decisions in the talk, with `fleet.operator_chat_mode`.
+Its rules gain a paragraph: each decision is one question in the talk, with two to four numbered options, its pick first and a cost on each.
+Every arrival still reaches it.
+
+**Another project's repository, Job, pull request or files are held.**
+At the door, a start, an end, a message to a Job, a merge, or a read of issues that names something outside the project is refused with `fleet.operator_other_project`, and nothing is done.
+At the gate, the file tools aimed at another project's checkout are refused the same way.
+A repository two projects hold is inside both, and one no project holds is nobody's, so neither is held.
+Fleet raises a card of its own to him, "<Name> (<project>) wants to <act> in <other project>", with three options.
+
+| Option | What Fleet does |
+|---|---|
+| Let it through | Lets that project's Operator reach the other for one hour, and tells it to call again |
+| Hand it to the other project's Operator | Tells that Operator what was asked, in the original words, and tells the first not to call again. If that Operator is not running the card stands |
+| Refuse | Tells the Operator no, and not to call again |
 
 ## What reaches it
 
@@ -236,8 +359,9 @@ Where the repository holds no workflow for the kind, the start is refused as a p
 **It writes to a forge only to land a pull request.**
 It never comments on, labels or edits an issue or a pull request for you.
 
-**It reads across repositories.**
-The work a thought belongs to is often in another repository, and one Operator serves the Mac.
+**It reads the repositories of its own project.**
+The work a thought belongs to is often in another repository of the project, and its calls name the repository themselves.
+A call that names another project's repository, Job or pull request is held, as *What Fleet refuses* says.
 
 ## A backlog report
 
@@ -263,7 +387,7 @@ The backlog stays readable on the Issues screen without the Operator.
 ## With the session not running
 
 **Fleet then does what it did with the Operator off.**
-The switch, a session that has not started yet and one that has ended all read the same.
+Either switch, a session that has not started yet and one that has ended all read the same.
 
 | Arrives | What happens |
 |---|---|
@@ -350,9 +474,11 @@ A call from a process Fleet does not host is denied at once.
 
 | Setting | Scope |
 |---|---|
-| `operator_acts`, what it may do unasked, one of `act_then_tell`, `ask_before_starting` and `only_when_told` | Project, read and set from the page's wire |
-| `operator`, the Operator's own switch | Machine |
-| `operator-model`, `sonnet`, the model of its own session, never the proposer's cheap tier | Machine |
+| `operator_acts`, what it may do unasked, one of `act_then_tell`, `ask_before_starting` and `only_when_told` | Project, read and set from the page's wire, or with the rest through `set_operator_settings` |
+| Everything in *What he sets for each project*, read with `list_operator_settings` and set with `set_operator_settings` | Project |
+| `operator`, the Operator's own switch | Machine, the master over each project's own switch |
+| `operator-model`, `sonnet`, the model of its own session, never the proposer's cheap tier | Machine, the default each project's Operator starts on unless its project sets one |
+| `effort.operator`, how hard its session thinks, `harness default` naming none | Machine, the default in the same way |
 | `features.onYourWordsCanAct` | Machine |
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.
