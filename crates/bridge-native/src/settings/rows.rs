@@ -38,6 +38,7 @@ pub fn purpose_of(entry: &Entry) -> &'static str {
         "fleet:features" => "Switches for what Armada does, and the folders Jobs reach.",
         "bridge:spacing" => "How much room Bridge leaves around things.",
         "bridge:time" => "How every stamp Bridge draws is written.",
+        "bridge:motion" => "How fast Bridge moves.",
         "bridge:editor" => "Where code opens.",
         "bridge:terminal" => "Which terminal opens.",
         "bridge:links" => "Where pull requests open.",

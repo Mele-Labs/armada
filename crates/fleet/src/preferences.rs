@@ -21,6 +21,8 @@ const UNACCEPTABLE_LAYOUT: &str = "fleet.unacceptable_layout";
 const UNACCEPTABLE_KEY_BINDINGS: &str = "fleet.unacceptable_key_bindings";
 /// A `save_preferences` for `time_format` carrying text that is not the three switches. A 422.
 const UNACCEPTABLE_TIME_FORMAT: &str = "fleet.unacceptable_time_format";
+/// A `save_preferences` for `motion` carrying text that is not a whole `ringSeconds` from 2 to 20. A 422.
+const UNACCEPTABLE_MOTION: &str = "fleet.unacceptable_motion";
 
 /// A `save_preferences` for a closed set carrying a word that is not in it. A 422.
 const UNACCEPTABLE_CHOICE: &str = "fleet.unacceptable_choice";
@@ -36,6 +38,7 @@ pub(crate) fn preferences_of(settings: &Resolved) -> Preferences {
         layout_choices: text(settings.get(keys::LAYOUT)),
         key_bindings: text(settings.get(keys::KEY_BINDINGS)),
         time_format: text(settings.get(keys::TIME_FORMAT)),
+        motion: text(settings.get(keys::MOTION)),
         // A word the file holds that the set lacks reads as the default: the file is checked on save, not on read.
         take_in: TakeIn::from_word(&settings.get(keys::TAKE_IN)).unwrap_or_default(),
         answer_with: AnswerWith::from_word(&settings.get(keys::ANSWER_WITH)).unwrap_or_default(),
@@ -129,6 +132,12 @@ where
                     ));
                 }
                 (keys::TIME_FORMAT.name(), json_change(text))
+            }
+            "motion" => {
+                if let Some(first) = ipc::motion::problems(text).first().filter(|_| !text.is_empty()) {
+                    return Err(unacceptable(UNACCEPTABLE_MOTION, format!("the motion could not be read: {first}")));
+                }
+                (keys::MOTION.name(), json_change(text))
             }
             "take_in" => (keys::TAKE_IN.name(), Some(self.word_of("take_in", text, TakeIn::from_word)?)),
             "answer_with" => (keys::ANSWER_WITH.name(), Some(self.word_of("answer_with", text, AnswerWith::from_word)?)),

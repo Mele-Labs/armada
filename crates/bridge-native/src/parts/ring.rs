@@ -1,6 +1,7 @@
 //! The busy ring: while something loads, its border carries a bright arc with a fading tail that
 //! circles the rounded edge, in place of a spinner glyph. One colour, the tail fading to clear over
-//! [`TAIL_DEGREES`], the head the brightest and nearest white. A turn takes the spin duration.
+//! [`TAIL_DEGREES`], the head the brightest and nearest white. A turn takes the seconds he set in
+//! Settings, Motion (six where he has set none), read from `settings::motion`.
 //!
 //! Place [`ring_overlay`] inside a relatively positioned element; it paints nothing else and takes
 //! no press. The geometry is pure ([`arc_segments`], [`perimeter_point`]) so it is tested without a window.
@@ -116,15 +117,20 @@ fn sweep(phase: f32, radius: Pixels, width: Pixels, reach: Pixels, ink: Hsla) ->
     .size_full()
 }
 
-/// The ring over an element's border: absolutely placed, its own size, turning once per three spins.
+/// The ring over an element's border: absolutely placed, its own size, turning once per the seconds he set.
 /// `radius` is the element's corner radius; `ink` is the arc's colour.
 pub fn ring_overlay(look: &Look, id: impl Into<ElementId>, radius: Pixels, ink: Hsla) -> impl IntoElement {
+    ring_overlay_in(look, id, radius, ink, crate::settings::motion::ring_seconds())
+}
+
+/// The same ring turning once per `seconds`: Settings, Motion draws its preview at the speed on the stepper,
+/// before it is saved.
+pub fn ring_overlay_in(look: &Look, id: impl Into<ElementId>, radius: Pixels, ink: Hsla, seconds: u32) -> impl IntoElement {
     let edge = look.length(token::BORDER_WIDTH);
     let (width, reach) = (edge * 2., edge * 0.5);
     div().absolute().inset_0().with_animation(
         id,
-        // Three spins of the glyph spinner: a border is a long path, so the same pace reads as a blur.
-        Animation::new(look.duration(token::DURATION_SPIN) * 3).repeat(),
+        Animation::new(std::time::Duration::from_secs(u64::from(seconds))).repeat(),
         move |layer, phase| layer.child(sweep(phase, radius, width, reach, ink)),
     )
 }

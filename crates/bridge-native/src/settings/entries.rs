@@ -59,6 +59,8 @@ pub enum Body {
     Layout,
     /// How a stamp is written: three switches and a sample (`TimeSettings`, `time_format`).
     Time,
+    /// How fast Bridge moves: the seconds a busy ring's turn takes, with the ring beside it (`motion`).
+    Motion,
     /// How he takes a Job's work in and how he answers it: two rows of cards, each way's options under its row (`ways.rs`).
     Ways,
     /// Whether a project's Jobs reach his other Macs, and where a copy's file is kept (`project.rs`).
@@ -147,6 +149,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
     Section { id: "layout", label: "Layout", palette: "Layout", words: &["Layout", "tabs", "panels", "rail", "hide", "order", "reset"] },
     Section { id: "time", label: "Time", palette: "Time", words: &["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"] },
+    Section { id: "motion", label: "Motion", palette: "Motion", words: &["Motion", "animation", "busy", "ring", "speed", "seconds", "turn", "spin", "slow", "fast", "loading"] },
     Section {
         id: "ways",
         label: "Ways of working",
@@ -191,6 +194,7 @@ pub const ENTRIES: &[Entry] = &[
     page("bridge:spacing", "Spacing", Group::Bridge, Body::Schema(&["spacing"]), "rows-3", REVIEW),
     page("bridge:keyboard", "Keyboard shortcuts", Group::Bridge, Body::Keyboard, "terminal", SUCCESS),
     page("bridge:time", "Time", Group::Bridge, Body::Time, "clock", FAILED),
+    page("bridge:motion", "Motion", Group::Bridge, Body::Motion, "timer", REVIEW),
     page("bridge:editor", "Editor", Group::Bridge, Body::Schema(&["editor"]), "file-pen-line", SUCCESS),
     page("bridge:terminal", "Terminal", Group::Bridge, Body::Schema(&["terminal"]), "square-terminal", FAILED),
     page("bridge:links", "Links", Group::Bridge, Body::Schema(&["links"]), "external-link", RUNNING),
@@ -262,6 +266,7 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Store => &["claims-store"],
         Body::Layout => &["layout"],
         Body::Time => &["time"],
+        Body::Motion => &["motion"],
         Body::Ways => &["ways"],
         Body::Judges => &["judges"],
         Body::Values(page) => &[page.section()],

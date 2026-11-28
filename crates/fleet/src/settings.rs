@@ -187,6 +187,11 @@ pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Res
             return Err(refused(keys::TIME_FORMAT.name(), format!("could not be read: {first}")));
         }
     }
+    if let Some(motion) = saved.get(keys::MOTION.name()).filter(|value| **value != SettingValue::Null) {
+        if let Some(first) = ipc::motion::problems(&motion.to_json_text()).first() {
+            return Err(refused(keys::MOTION.name(), format!("could not be read: {first}")));
+        }
+    }
     if let Some(home) = saved.get(keys::HOME_LAYOUT.name()).filter(|value| **value != SettingValue::Null) {
         if let Some(first) = ipc::home_layout::problems(&home.to_json_text()).first() {
             return Err(refused(keys::HOME_LAYOUT.name(), format!("could not be read: {first}")));
