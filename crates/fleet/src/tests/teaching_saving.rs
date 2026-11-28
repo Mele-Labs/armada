@@ -33,6 +33,7 @@ fn saving(proposal: TeachingProposal, rig: Option<&Rig>) -> SaveTeaching {
         proposal,
         reach: if rig.is_some() { TeachingReach::Repository } else { TeachingReach::Everywhere },
         repository: rig.map(|rig| rig.root.clone()),
+        project: None,
         session_id: None,
         cite: None,
         source: None,

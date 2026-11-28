@@ -197,6 +197,7 @@ Fleet checks every part and refuses with `fleet.conflict_refused` or `fleet.held
 
 **Both arrive in the Operator's session.**
 It may answer in the Job's thread, or put up a card.
+A conflict that names files is also Fleet's own question to him, which lands first, on the sending Job's Needs you whether the Operator is on or off ([Fleet](fleet.md), *Claims a Job holds*).
 
 ## How it acts
 

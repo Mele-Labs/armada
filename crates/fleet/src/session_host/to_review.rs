@@ -37,7 +37,7 @@ fn kind_of(source: WaitingSource, section: Section) -> Kind {
         WaitingSource::Document => Kind::Document,
         WaitingSource::Draft => Kind::Draft,
         WaitingSource::ReadyToTry => Kind::ReadyToTry,
-        WaitingSource::JobConflict => Kind::Clash,
+        WaitingSource::JobConflict | WaitingSource::ClashOrder => Kind::Clash,
         WaitingSource::GoalMet => Kind::GoalMet,
         WaitingSource::Agent
         | WaitingSource::AskCard
@@ -107,6 +107,7 @@ fn answer_of(item: &WaitingItem, row: &NeedsYouRow, job: &str, cards: &[ToReview
         | WaitingSource::BrowserAsk
         | WaitingSource::Gate
         | WaitingSource::JobConflict
+        | WaitingSource::ClashOrder
         | WaitingSource::JobHeld
         | WaitingSource::GoalMet => Answer::AnswerWaiting,
     }
