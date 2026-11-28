@@ -156,6 +156,7 @@ mod job_browser;
 mod loadout_tab;
 mod feature_tab;
 mod tokens_tab;
+mod graph_card;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
@@ -1466,6 +1467,7 @@ impl Render for JobView {
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
         self.sync_tokens_link(&id, window, cx);
+        self.sync_graphs(&id, graph_card::Place::Thread, cx);
         self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
