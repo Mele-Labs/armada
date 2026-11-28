@@ -1,4 +1,5 @@
-//! A feature renamed or merged into another. `docs/concepts/feature-catalog.md`, *Confirming and merging*.
+//! A feature renamed or merged into another, and an area made, renamed, split or merged. `docs/concepts/feature-catalog.md`,
+//! *Confirming and merging* and *Areas*.
 //!
 //! **Each is one transaction.** The old slug stays as an alias of the feature it became, so a trailer already in git, or an act
 //! that still names it, files under the right feature. An ask filed under the old slug is filed under the new.
@@ -28,7 +29,71 @@ fn aliased(tx: &Transaction<'_>, project: &str, from: &str, to: &str) -> rusqlit
     Ok(())
 }
 
+/// Keep the area `slug` of `project` right after `after`, or after every area where `after` is `None`, and number every
+/// area's place again so none share one.
+fn area_placed(tx: &Transaction<'_>, project: &str, slug: &str, title: &str, after: Option<&str>) -> rusqlite::Result<()> {
+    let mut order: Vec<String> = {
+        let mut statement = tx.prepare("SELECT slug FROM feature_areas WHERE project = ?1 ORDER BY position, slug")?;
+        let rows = statement.query_map([project], |row| row.get(0))?;
+        rows.collect::<rusqlite::Result<_>>()?
+    };
+    let at = after.and_then(|after| order.iter().position(|one| one == after)).map_or(order.len(), |found| found + 1);
+    order.insert(at, slug.to_string());
+    tx.execute("INSERT INTO feature_areas (project, slug, title, position) VALUES (?1, ?2, ?3, ?4)", params![project, slug, title, at as u32])?;
+    for (place, one) in order.iter().enumerate() {
+        tx.execute("UPDATE feature_areas SET position = ?3 WHERE project = ?1 AND slug = ?2", params![project, one, place as u32])?;
+    }
+    Ok(())
+}
+
 impl Store {
+    /// Keep a new area of `project` after every area it keeps. **The caller checks the slug is free.**
+    pub fn make_feature_area(&mut self, project: &str, slug: &str, title: &str) -> Result<(), WriteError> {
+        let doing = "making a feature area";
+        let tx = self.conn.transaction().map_err(failed(doing))?;
+        area_placed(&tx, project, slug, title, None).map_err(failed(doing))?;
+        tx.commit().map_err(failed(doing))
+    }
+
+    /// Give the area `from` of `project` the slug `to`, and a new title where one is given; its features go with it. **The
+    /// caller checks `to` is free.**
+    pub fn rename_feature_area(&mut self, project: &str, from: &str, to: &str, title: Option<&str>) -> Result<(), WriteError> {
+        let doing = "renaming a feature area";
+        let tx = self.conn.transaction().map_err(failed(doing))?;
+        tx.execute("UPDATE feature_areas SET slug = ?3, title = COALESCE(?4, title) WHERE project = ?1 AND slug = ?2", params![project, from, to, title])
+            .map_err(failed(doing))?;
+        if from != to {
+            tx.execute("UPDATE features SET area = ?3 WHERE project = ?1 AND area = ?2", params![project, from, to]).map_err(failed(doing))?;
+        }
+        tx.commit().map_err(failed(doing))
+    }
+
+    /// Keep the area `slug` right after `from`, and move the features `features` of `project` into it. **The caller checks
+    /// the slug is free and each feature is in `from`.**
+    pub fn split_feature_area(&mut self, project: &str, from: &str, slug: &str, title: &str, features: &[String]) -> Result<(), WriteError> {
+        let doing = "splitting a feature area";
+        let tx = self.conn.transaction().map_err(failed(doing))?;
+        area_placed(&tx, project, slug, title, Some(from)).map_err(failed(doing))?;
+        for feature in features {
+            tx.execute("UPDATE features SET area = ?3 WHERE project = ?1 AND slug = ?2", params![project, feature, slug]).map_err(failed(doing))?;
+        }
+        tx.commit().map_err(failed(doing))
+    }
+
+    /// Move every feature of the area `from` of `project` into `into`, after those `into` holds, and take `from` out. **The
+    /// caller checks both are kept and differ.**
+    pub fn merge_feature_area(&mut self, project: &str, from: &str, into: &str) -> Result<(), WriteError> {
+        let doing = "merging a feature area";
+        let tx = self.conn.transaction().map_err(failed(doing))?;
+        let after: i64 = tx
+            .query_row("SELECT COALESCE(MAX(position) + 1, 0) FROM features WHERE project = ?1 AND area = ?2", params![project, into], |row| row.get(0))
+            .map_err(failed(doing))?;
+        tx.execute("UPDATE features SET area = ?3, position = position + ?4 WHERE project = ?1 AND area = ?2", params![project, from, into, after])
+            .map_err(failed(doing))?;
+        tx.execute("DELETE FROM feature_areas WHERE project = ?1 AND slug = ?2", params![project, from]).map_err(failed(doing))?;
+        tx.commit().map_err(failed(doing))
+    }
+
     /// Give the feature `from` of `project` the slug `to`, and a new title where one is given. **The caller checks `to` is
     /// free.** A `to` equal to `from` changes the title only.
     pub fn rename_feature(&mut self, project: &str, from: &str, to: &str, title: Option<&str>) -> Result<(), WriteError> {
@@ -79,7 +144,9 @@ impl Store {
         )?;
         step("UPDATE OR IGNORE feature_links SET feature_id = ?1 WHERE feature_id = ?2", &[&kept, &gone])?;
         step("UPDATE OR IGNORE feature_job_files SET feature_id = ?1 WHERE feature_id = ?2", &[&kept, &gone])?;
-        for table in ["feature_links", "feature_job_files", "feature_sections", "feature_paths"] {
+        step("UPDATE OR IGNORE feature_job_named SET feature_id = ?1 WHERE feature_id = ?2", &[&kept, &gone])?;
+        step("UPDATE OR IGNORE feature_doc_checks SET feature_id = ?1 WHERE feature_id = ?2", &[&kept, &gone])?;
+        for table in ["feature_links", "feature_job_files", "feature_job_named", "feature_doc_checks", "feature_sections", "feature_paths"] {
             step(&format!("DELETE FROM {table} WHERE feature_id = ?1"), &[&gone])?;
         }
         step("DELETE FROM features WHERE id = ?1", &[&gone])?;
