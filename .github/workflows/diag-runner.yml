@@ -1,4 +1,4 @@
-# Throwaway: finds what ends the hosted runner partway through a test shard.
+# Throwaway: what fills a hosted runner's memory while CI compiles the test code.
 # Runs on pushes to this one branch only, and is deleted before the branch lands.
 name: diag-runner
 on:
@@ -10,18 +10,17 @@ concurrency:
   group: diag-runner
   cancel-in-progress: true
 jobs:
-  test:
-    name: diag test ${{ matrix.shard }}/4
+  compile:
+    name: diag compile ${{ matrix.variant }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        variant: [threads4, threads1, threads4-jobs2]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/rust-setup
@@ -29,41 +28,22 @@ jobs:
           key: test
           shared: test-test
           nextest: "true"
-      - name: Tracers
+      - name: Compile, sampled
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
-          sudo apt-get install -y -qq bpftrace >/dev/null 2>&1 || echo "DIAG no bpftrace"
-          echo "DIAG whoami=$(whoami) uid=$(id -u)"
-          ps -eo pid,ppid,pgid,sid,user,comm | grep -E "Runner|provjob|hosted|runsvc" || true
-          # Every TERM, KILL, INT, HUP or QUIT the kernel queues, with who sent it.
-          sudo nohup bpftrace -e 'tracepoint:signal:signal_generate /args->sig == 15 || args->sig == 9 || args->sig == 2 || args->sig == 1 || args->sig == 3/ { printf("SIG %d to %d(%s) from %d(%s) parent %d(%s) group=%d result=%d\n", args->sig, args->pid, args->comm, pid, comm, curtask->real_parent->tgid, curtask->real_parent->comm, args->group, args->result); }' > "$RUNNER_TEMP/signals.log" 2>&1 &
-          sudo nohup dmesg -w > "$RUNNER_TEMP/dmesg.log" 2>&1 &
-          sleep 5
-          head -3 "$RUNNER_TEMP/signals.log" || true
-      - name: Tests, streamed
-        run: |
+          case "$VARIANT" in
+            threads4) export RUSTC_WORKSPACE_WRAPPER="$PWD/.github/ci/rustc-threads.sh" ;;
+            threads4-jobs2) export RUSTC_WORKSPACE_WRAPPER="$PWD/.github/ci/rustc-threads.sh" CARGO_BUILD_JOBS=2 ;;
+          esac
           (
             while true; do
-              echo "DIAG $(date -u +%T) $(free -m | awk '/Mem:/{print "used="$3"M avail="$7"M"}') swap=$(free -m | awk '/Swap:/{print $3"M"}') root=$(df -h / | awk 'NR==2{print $4" free"}') tmp=$(du -sh /tmp 2>/dev/null | cut -f1) target=$(du -sh target 2>/dev/null | cut -f1) load=$(cut -d' ' -f1-3 /proc/loadavg) listener=$(pgrep -f Runner.Listener | tr '\n' ,) worker=$(pgrep -f Runner.Worker | tr '\n' ,)"
-              grep -v -E "to [0-9]+\((rustc|cc|ld|cargo|sh|sleep|git)" "$RUNNER_TEMP/signals.log" 2>/dev/null | tail -n +"${seen:-1}" | sed 's/^/DIAG /'
-              seen=$(( $(grep -v -E "to [0-9]+\((rustc|cc|ld|cargo|sh|sleep|git)" "$RUNNER_TEMP/signals.log" 2>/dev/null | wc -l) + 1 ))
-              grep -i -E "oom|killed process|out of memory" "$RUNNER_TEMP/dmesg.log" 2>/dev/null | tail -3 | sed 's/^/DIAG dmesg /'
-              sleep 10
+              echo "MEM $(date -u +%T) $(free -m | awk '/Mem:/{print "used="$3"M avail="$7"M"}') swap=$(free -m | awk '/Swap:/{print $3"M"}')"
+              ps -eo rss=,comm=,args= --sort=-rss | head -6 | sed -E 's/^ *([0-9]+) +([^ ]+) .*--crate-name ([^ ]+)(.*--test)?.*$/TOP \1K \2 \3 \4/; s/^ *([0-9]+) +([^ ]+) .*$/TOP \1K \2/'
+              sleep 5
             done
           ) &
-          cargo nextest run --workspace --exclude acceptance --test-threads 4 --partition slice:${{ matrix.shard }}/4 --no-fail-fast --no-tests=pass --status-level all 2>&1 | tee "$RUNNER_TEMP/nextest.log"
-          echo "DIAG nextest exit=${PIPESTATUS[0]}"
-      - name: Keep the traces
-        if: always()
-        run: |
-          cp "$RUNNER_TEMP"/*.log . || true
-          grep -c . signals.log || true
-          grep -E "to [0-9]+\((Runner|node|bash|tee|provjob|hosted)" signals.log | head -50 || true
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: diag-${{ matrix.shard }}
-          path: |
-            signals.log
-            dmesg.log
-            nextest.log
-          retention-days: 3
+          start=$(date +%s)
+          cargo nextest run --workspace --exclude acceptance --no-run 2>&1 | grep -v -E "^\s+(Compiling|Checking|Fresh)" | tail -20
+          echo "RESULT variant=$VARIANT seconds=$(( $(date +%s) - start ))"
+          kill %1 2>/dev/null || true
