@@ -23,6 +23,7 @@ export type * from "./lifecycles";
 export type * from "./loadout";
 export type * from "./margin";
 export type * from "./needs-you";
+export type * from "./operator-settings";
 export type * from "./plan-usage";
 export type * from "./preview";
 export type * from "./pull-requests";
