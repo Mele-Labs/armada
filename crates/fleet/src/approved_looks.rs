@@ -21,7 +21,7 @@ use crate::daemon::Fleet;
 /// Under Fleet's support folder: `<job>/<walk>`, one folder a kept look.
 pub(crate) const DIR: &str = "approved-looks";
 
-/// How long the walk holds each step before its picture is taken, in milliseconds: none, since 141 walks played twice drew the same pictures at no hold (28 Nov 2026). The same on approval and replay.
+/// How long the walk holds each step before its picture is taken, in milliseconds: none, since every walk that plays drew the same pictures twice and six replayed with no hold matched their held pictures (28 Nov 2026). The same on approval and replay.
 pub(crate) const HOLD_MS: &str = "0";
 
 /// What playing a walk headless may take, picture by picture.
