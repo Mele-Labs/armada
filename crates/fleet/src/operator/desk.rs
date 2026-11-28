@@ -72,6 +72,7 @@ where
         if on {
             self.operator_started_fresh().await;
         }
+        self.operator_seat().wake.notify_one();
         self.operator_board_changed();
     }
 

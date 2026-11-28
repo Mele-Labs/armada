@@ -1,4 +1,4 @@
-//! The box at the foot of the Operator panel on a real Fleet: what it refuses with no session to hear it, and
+//! The box at the foot of the Operator panel on a real Fleet: what it refuses with the Operator off, and
 //! the holds Fleet goes by once he has confirmed them.
 
 use ipc::operator_talk::{OperatorHoldUntil, OperatorOrderForm};
@@ -16,12 +16,11 @@ async fn seated(rig: &Rig) {
 }
 
 #[tokio::test]
-async fn his_words_are_refused_while_the_operators_session_is_not_running_and_nothing_is_kept() {
+async fn his_words_are_refused_while_the_operator_is_off_and_nothing_is_kept() {
     let rig = rig_placing(None);
     assert!(code(rig.fleet.operator_talked(super::operator_cards::said("hello", None)).await.expect_err("off")).contains("fleet.operator_session_not_running"));
-    operator_on(&rig).await;
-    assert!(code(rig.fleet.operator_talked(super::operator_cards::said("hello", None)).await.expect_err("no session")).contains("fleet.operator_session_not_running"));
     assert!(rig.fleet.operator_talk_wire().await.expect("read").lines.is_empty());
+    assert!(rig.fleet.store().lock().await.operator_held_sends().expect("read").is_empty());
 }
 
 #[tokio::test]
