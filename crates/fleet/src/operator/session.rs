@@ -23,10 +23,10 @@ use crate::session_host::Marked;
 /// What the Operator's session is called where a title is drawn.
 pub(crate) const TITLE: &str = "Operator";
 
-/// Its first turn. The rules are in its system prompt, so this only wakes it.
-const BEGIN: &str = "You are up. Read what Fleet holds across every project and begin your watch: the live Jobs, \
-what has stopped, what waits on him, and main in each repository. Put a card in front of him only where something \
-needs his decision.";
+/// Its first turn. The rules are in its system prompt, so this only wakes it. **It watches from now**: what waited on him
+/// before it came on stays on each Job's own Needs you, so a fresh session does not card the backlog.
+const BEGIN: &str = "You are up. Your watch starts now: what already waits on him stays on each Job's own Needs you, \
+so put no card up for it. Put a card in front of him only for something that arrives from here on and needs his decision.";
 
 /// The refusal for an act only the Operator's session may make.
 pub(crate) const NOT_THE_OPERATOR: &str = "fleet.not_the_operator";
@@ -105,13 +105,17 @@ where
     async fn operator_session_started(self: &Arc<Self>) -> Result<String, Refusal> {
         let dir = self.operator_dir();
         std::fs::create_dir_all(&dir).map_err(|why| self.hosted_refusal("fleet.operator_session_folder", &format!("the Operator's folder could not be made: {why}")))?;
-        let model: String = self.machine_settings().now().get(keys::MODELS_OPERATOR);
+        let (model, effort): (String, String) = {
+            let now = self.machine_settings().now();
+            (now.get(keys::MODELS_OPERATOR), now.get(keys::EFFORT_OPERATOR))
+        };
         let start = StartSession {
             project: None,
             manifest_id: ManifestId::carried(""),
             title: Some(TITLE.to_string()),
             model: Some(model).filter(|model| !model.trim().is_empty()),
-            effort: None,
+            // "harness default" is no effort named: the harness picks.
+            effort: Some(effort).filter(|effort| crate::tuning::effort_of(effort).is_some()),
             mode: None,
             root: None,
             fork: None,
@@ -188,7 +192,7 @@ pub(crate) enum Handed {
 }
 
 /// What `keep_linked_told` files an arrival told to the Operator's session under.
-const TOLD: &str = "told";
+pub(super) const TOLD: &str = "told";
 
 /// The Operator's session is not running.
 pub(crate) const NOT_RUNNING: &str = "fleet.operator_session_not_running";

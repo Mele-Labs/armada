@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, SessionTodo, SessionTodoState, SubagentActivity};
+use ipc::{ReportedTask, ReportedTaskStatus, SessionActivity, SessionGate, SessionTodo, SessionTodoState, SubagentActivity, TaskTail};
 
 use crate::build_keeping::build_heard;
 use crate::build_record::Observed;
@@ -39,6 +39,8 @@ pub(crate) struct Activity {
     todos: Vec<SessionTodo>,
     /// What each subagent at work is doing, in the order they were first heard.
     subagents: Vec<SubagentActivity>,
+    /// The newest lines of each background command running, by its call. Kept across turns.
+    tails: Vec<TaskTail>,
     /// When the row last went out, or was scheduled to by this.
     sent_at: Option<Instant>,
     /// A change not yet on a published row.
@@ -144,6 +146,28 @@ impl Activity {
         self.changed(every)
     }
 
+    /// A background command wrote: its newest lines go on the row, at most once in `every`.
+    pub(crate) fn tail_set(&mut self, call: &str, lines: Vec<String>, every: Duration) -> Publish {
+        match self.tails.iter_mut().find(|one| one.call == call) {
+            Some(held) if held.lines == lines => return Publish::Not,
+            Some(held) => held.lines = lines,
+            None => self.tails.push(TaskTail { call: call.to_string(), lines }),
+        }
+        self.changed(every)
+    }
+
+    /// A background command ended: its lines go. Whether it had any.
+    pub(crate) fn tail_gone(&mut self, call: &str) -> bool {
+        let held = self.tails.len();
+        self.tails.retain(|one| one.call != call);
+        self.tails.len() != held
+    }
+
+    /// Every background command is over, as a replaced process leaves it.
+    pub(crate) fn tails_all_gone(&mut self) {
+        self.tails.clear();
+    }
+
     /// A subagent ended: its line goes. Whether it had one.
     pub(crate) fn subagent_ended(&mut self, agent: &str) -> bool {
         let held = self.subagents.len();
@@ -211,6 +235,7 @@ impl Activity {
             subagents: self.subagents.clone(),
             account: self.writing.account(),
             live: self.writing.live(),
+            tails: self.tails.clone(),
         };
         (held != SessionActivity::default()).then_some(held)
     }
@@ -470,6 +495,8 @@ where
 
     /// The session ended.
     pub(crate) fn activity_ended(&self, id: &str) {
-        self.hosts().of(id).state().activity.ended();
+        let runtime = self.hosts().of(id);
+        runtime.state().activity.ended();
+        runtime.state().tailing = Default::default();
     }
 }

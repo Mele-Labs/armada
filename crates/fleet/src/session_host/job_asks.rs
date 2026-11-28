@@ -113,6 +113,7 @@ fn job_ask_item(ask: &KeptJobAsk) -> Option<WaitingItem> {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     })
 }
 

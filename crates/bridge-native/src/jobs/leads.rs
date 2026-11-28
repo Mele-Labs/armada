@@ -152,7 +152,7 @@ impl JobsList {
         let projects = if self.wants_features() { self.lead_projects() } else { Vec::new() };
         self.leads_at = Some(std::time::Instant::now());
         let subs = crate::settings::wire::request::<ipc::SubProjects>(port, crate::settings::wire::Ask::Get("/sub_projects".into()), "SubProjects", cx);
-        let reads: Vec<_> = projects.iter().map(|project| crate::features::wire::library(port, project, cx)).collect();
+        let reads: Vec<_> = projects.iter().map(|project| (project.clone(), crate::features::wire::library(port, project, cx))).collect();
         let read_any = !reads.is_empty();
         self.leads_read = Some(cx.spawn(async move |this, cx| {
             let subs = match subs.await {
@@ -163,7 +163,7 @@ impl JobsList {
                 }
             };
             let mut libraries = Vec::new();
-            for read in reads {
+            for (_, read) in reads {
                 match read.await {
                     Ok(library) => libraries.push(library),
                     Err(why) => Note::warn("a project's features were not read").field("why", why.said).emit(),
@@ -175,7 +175,7 @@ impl JobsList {
                     this.hold_subs(subs, cx);
                 }
                 if read_any {
-                    this.hold_libraries(libraries, cx);
+                    this.hold_read(libraries, cx);
                 }
             });
         }));
@@ -187,6 +187,16 @@ impl JobsList {
             self.leads.subs = subs;
             self.relist(cx);
         }
+    }
+
+    /// What a read brought: a project not answered keeps the library held for it.
+    pub(crate) fn hold_read(&mut self, mut libraries: Vec<ipc::FeatureLibrary>, cx: &mut Context<Self>) {
+        // A project not answered keeps the library held for it: its read failed, or it has no live Job left to read for,
+        // and a board open on one of its features still draws it. Headings come from the listed Jobs, so a kept library
+        // of a project with none draws nothing.
+        let kept: Vec<_> = self.leads.libraries.iter().filter(|held| libraries.iter().all(|library| library.project != held.project)).cloned().collect();
+        libraries.extend(kept);
+        self.hold_libraries(libraries, cx);
     }
 
     /// The libraries Fleet answered: the list draws from them, where they changed.
@@ -280,7 +290,8 @@ impl JobsList {
     /// What Start it sends: the project of the first Job, the name, and the Jobs in his order.
     pub(super) fn sub_project_body(&self, ids: &[SharedString], name: &str) -> ipc::StartSubProject {
         let project = ids.iter().filter_map(|id| self.record(id)).find_map(|job| self.names.project_of(job)).unwrap_or_default().to_string();
-        ipc::StartSubProject { project, name: name.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
+        // The sheet asks no goal yet, so the name stands for it.
+        ipc::StartSubProject { project, name: name.trim().to_string(), goal: name.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
     }
 
     /// Start a sub project of these Jobs. A live Fleet keeps it and the heading stands on its answer; a refusal comes back in
@@ -293,9 +304,12 @@ impl JobsList {
                 id: format!("mock-sub-{}", self.leads.subs.len() + 1),
                 project: body.project,
                 name: body.name,
+                goal: body.goal,
                 jobs: body.jobs,
                 features,
+                orchestrator: None,
                 started_at: ipc::Instant::carried(chrono::Utc::now().to_rfc3339()),
+                ended_at: None,
             };
             self.hold_sub(sub, cx);
             self.clear_selection(cx);
@@ -370,7 +384,11 @@ impl JobsList {
         self.focused = lead.stop();
         self.card = None;
         let me = cx.entity();
-        let board = cx.new(|cx| board::LeadBoard::new(&me, lead, cx));
+        let title = self.lines.iter().find_map(|line| match line {
+            Line::Group(head) if head.lead.as_ref() == Some(&lead) => Some(head.name.clone()),
+            _ => None,
+        });
+        let board = cx.new(|cx| board::LeadBoard::new(&me, lead, title.unwrap_or_default(), cx));
         let keys = board.read(cx).focus().clone();
         self.board = Some((board, self.picks));
         window.focus(&keys, cx);

@@ -189,8 +189,8 @@ async fn a_set_that_compiles_makes_every_offer_ready_writes_the_file_and_tells_e
     );
     let refresh = read.refresh.expect("a Refresh row: nothing runs the preview");
     assert_eq!(refresh.branches, ["armada/one", "armada/two"]);
-    assert_eq!(rig.thread_of(&one).await, [format!("armada/one is on the preview list at {}.", &tip_one[..7])]);
-    assert_eq!(rig.thread_of(&two).await, [format!("armada/two is on the preview list at {}.", &tip_two[..7])]);
+    assert_eq!(rig.thread_of(&one).await, [format!("armada/one is on the preview list at {}. {}", &tip_one[..7], crate::previewing::CARD_ASKS)]);
+    assert_eq!(rig.thread_of(&two).await, [format!("armada/two is on the preview list at {}. {}", &tip_two[..7], crate::previewing::CARD_ASKS)]);
 
     rig.fleet.previews_watched().await;
     checked(&rig).await;

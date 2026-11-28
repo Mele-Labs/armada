@@ -334,6 +334,12 @@ fn is_pick(part: &ArtifactPart) -> bool {
 }
 
 /// Whether two or more votes of an artifact still ask, so their picks are sent together.
+/// Whether a prototype part draws its scene where it stands: in the review sheet, or in the thread's first card while the sheet
+/// is shut; never in an artifact's tab, where the Prototype tab beside it already draws it.
+fn scene_shown(sheet: bool, tab: bool, review_open: bool) -> bool {
+    sheet || (!tab && !review_open)
+}
+
 fn several_picks(parts: &[ArtifactPart]) -> bool {
     parts.iter().filter(|part| is_pick(part)).count() > 1
 }
@@ -1291,7 +1297,19 @@ impl JobView {
                     )),
                     Role::Button,
                     "Ask for changes",
-                )),
+                ))
+                // In the thread a prototype is drawn at the card's width; the sheet draws it larger, which the card did not say
+                // by itself (his note of 26 Nov).
+                .when(matches!(part.content, PartContent::Prototype(_)) && !c.sheet && !c.tab, |row| {
+                    let artifact = c.id.to_string();
+                    row.child(labelled(
+                        super::first_card::glyph_button(look, format!("larger:{key}"), "See it larger", "maximize-2", Kind::Secondary, true)
+                            .tooltip(tip("Open the prototype in the review sheet"))
+                            .on_click(cx.listener(move |this, _, window, cx| this.open_review_at(Some(&artifact), window, cx))),
+                        Role::Button,
+                        "See it larger",
+                    ))
+                }),
             self.off_shown_to(ANSWER_PART, cx),
         )
         .into_any_element()
@@ -1893,11 +1911,12 @@ impl JobView {
 
     /// A page: in the review panel the live page itself, the detail's width and as tall as a picture stands there, which scrolls
     /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
-    /// A prototype: in the review sheet the scene itself, drawn as the Job's Prototype tab draws it, with its states, Open tab and Pop out;
-    /// elsewhere its scene's file name.
+    /// A prototype: in the review sheet, and in the thread's first card while the sheet is shut, the scene itself, drawn as the
+    /// Job's Prototype tab draws it, with its states, Open tab and Pop out; in an artifact's tab its scene's file name. The one
+    /// scene stands in one place at a time, so the first card gives it up while the sheet holds it.
     fn prototype_line(&self, c: &Ctx, key: &str, prototype: &ipc::PrototypePart) -> AnyElement {
         let look = c.look;
-        let scene = c.sheet.then(|| self.row_tabs.get(&c.job).and_then(|tabs| tabs.sheets.get(c.id))).flatten();
+        let scene = scene_shown(c.sheet, c.tab, self.review_open()).then(|| self.row_tabs.get(&c.job).and_then(|tabs| tabs.sheets.get(c.id))).flatten();
         if let Some((view, _)) = scene {
             // The scene draws its own frame.
             return div().id(SharedString::from(format!("prototype:{key}"))).w_full().h(self.tall_most(c)).child(view.clone()).into_any_element();
@@ -1955,12 +1974,14 @@ impl JobView {
         held.parts.iter().find(|part| is_pick(&effective(part, &part_key(artifact, &part.id), &page.cards.parts))).map(|part| part_key(artifact, &part.id))
     }
 
-    /// What an artifact ask reads as on the sheet: a vote where any part is takes, else a drawing, a page or words.
+    /// What an artifact ask reads as on the sheet: a vote where any part is takes, else a prototype, a drawing, a page or words.
     pub(super) fn artifact_ask(&self, item: &Item) -> Ask {
         let Some(held) = artifact_in(item).and_then(|artifact| self.artifact_of(&item.job, artifact)) else { return Ask::Draft };
         let any = |is: fn(&PartContent) -> bool| held.parts.iter().any(|part| is(&part.content));
         if any(|content| matches!(content, PartContent::Takes { .. })) {
             Ask::Takes
+        } else if any(|content| matches!(content, PartContent::Prototype(_))) {
+            Ask::Prototype
         } else if any(|content| matches!(content, PartContent::Drawing { .. })) {
             Ask::Drawing
         } else if any(|content| matches!(content, PartContent::Page { .. })) {
@@ -2242,6 +2263,14 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_prototype_draws_its_scene_in_the_sheet_and_in_the_first_card_while_the_sheet_is_shut() {
+        assert!(super::scene_shown(true, false, true), "the sheet draws it");
+        assert!(super::scene_shown(false, false, false), "the first card draws it while the sheet is shut");
+        assert!(!super::scene_shown(false, false, true), "and gives it up while the sheet holds it");
+        assert!(!super::scene_shown(false, true, false), "an artifact's tab names it, beside the Prototype tab");
+    }
 
     fn part(id: &str, content: PartContent, asks: bool, state: PartState) -> ArtifactPart {
         ArtifactPart { id: id.into(), content, asks, state, revision: 1, drawn: format!("{id}-1"), added: ipc::Instant::carried("2026-11-14T10:00:00Z"), answer: None, question: None }

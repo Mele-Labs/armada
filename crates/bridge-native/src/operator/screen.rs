@@ -106,15 +106,15 @@ fn with_places(mut face: Face, here: Front, cockpit: bool, reviews: bool, kit: b
             face.places.push(Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true });
         }
     }
+    // Project is the second place, straight after the Cockpit.
+    if features && !face.places.iter().any(|place| place.id == "project") {
+        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
+    }
     if reviews && !face.places.iter().any(|place| place.id == "reviews") {
         face.places.push(Place { id: "reviews", label: "Reviews", glyph: "git-pull-request", shown: true, hideable: true });
     }
     if kit && !face.places.iter().any(|place| place.id == "kit") {
         face.places.push(Place { id: "kit", label: "Kit", glyph: "briefcase", shown: true, hideable: true });
-    }
-    // Issues has no native screen yet, so Project follows the last place there is.
-    if features && !face.places.iter().any(|place| place.id == "project") {
-        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
     }
     // Settings > Layout's choice for a place that has a row there, read each time the places are drawn. Project's row is still
     // kept under `features`, the id the saved layout has always used for it.
@@ -907,11 +907,11 @@ mod tests {
     }
 
     #[test]
-    fn project_is_a_place_of_its_own_after_the_last_one_and_may_be_hidden() {
+    fn project_is_a_place_of_its_own_after_operator_and_jobs_and_may_be_hidden() {
         let face = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["operator", "jobs", "reviews", "kit", "project"], "no place before it moves a digit");
-        let place = face.places.last().expect("a place");
+        assert_eq!(ids, ["operator", "jobs", "project", "reviews", "kit"], "Project is the third place here, after Operator and Jobs");
+        let place = face.places.iter().find(|place| place.id == "project").expect("a place");
         assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Project", "layout-dashboard", true, true));
         assert!(face.may_hide("project"));
         assert_eq!(with_places(Face::bare(), Front::Jobs, false, true, true, false).places.len(), 4, "a screen without the Project place draws no place for it");
@@ -926,9 +926,9 @@ mod tests {
         // Places already in the bar are read again, so a layout saved after they were first drawn takes hold.
         crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["kit"]}}"#);
         let swapped = with_places(hidden, Front::Jobs, false, true, true, true);
-        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "project"], "Project is back and Kit is gone");
+        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "project", "reviews"], "Project is back and Kit is gone");
         crate::settings::layout::hold("");
-        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "reviews", "kit", "project"]);
+        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]
@@ -970,19 +970,19 @@ mod tests {
     }
 
     #[gpui::test]
-    fn command_5_is_project_with_operator_jobs_reviews_and_kit_before_it(cx: &mut TestAppContext) {
+    fn command_3_is_project_with_operator_and_jobs_before_it_and_reviews_and_kit_after(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
             OperatorScreen::mock_reviews(jobs, window, cx)
         });
         redraw(cx);
-        cx.simulate_keystrokes("cmd-5");
+        cx.simulate_keystrokes("cmd-3");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Features);
-        cx.simulate_keystrokes("cmd-4");
+        cx.simulate_keystrokes("cmd-5");
         redraw(cx);
-        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the digits before it keep their places");
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Kit, "the places after it moved one digit down");
         assert!(!entered(&screen, cx));
     }
 
@@ -1285,16 +1285,16 @@ mod tests {
     }
 
     #[test]
-    fn the_cockpit_strip_is_cockpit_reviews_kit_and_project_with_no_operator_or_jobs_place() {
+    fn the_cockpit_strip_is_cockpit_project_reviews_and_kit_with_no_operator_or_jobs_place() {
         let held = Face::bare();
         let face = with_places(held, Front::Cockpit, true, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(ids, ["cockpit", "project", "reviews", "kit"]);
         assert_eq!((face.places[0].label, face.here), ("Cockpit", Some("cockpit")));
         // A bar that already holds Operator and Jobs, as the walk's mock bar does, loses them.
         let before = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let after = with_places(before, Front::Cockpit, true, true, true, true);
-        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "reviews", "kit", "project"]);
+        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "project", "reviews", "kit"]);
     }
 
     #[gpui::test]

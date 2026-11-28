@@ -660,6 +660,7 @@ if $dry_run; then
     echo "would keep the native Bridge as $kept_current/Armada.app — its binary named Armada, an Info.plist, the brand icon, signed by scripts/signing-identity"
     echo "would write $native_plist: [$kept_current/bridge-launch, $kept_current/Armada.app/Contents/MacOS/Armada] in $kept_current, reopened by launchd when it stops without a quit"
     echo "would open the native Bridge too if its job is not loaded or is loaded from anywhere but $kept_current, or the kept app differs from the build before's; its job is booted out and in, never kickstarted"
+    echo "would keep $HOME/Applications/Armada.app, the opener Raycast and Finder list, with $kept_current/Armada.app's icon (scripts/app-entry)"
     dry_bridge "native Bridge" "$(launchctl print "$native_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)" "$kept_current" \
       native --support "$support" --service "$native_service"
   else
@@ -1055,6 +1056,10 @@ PY
     native_reopened=true
   fi
 fi
+
+# **`~/Applications/Armada.app` is kept on every restart**, so Raycast and Finder list Armada: an opener
+# with the kept build's icon that brings the running Bridge forward or has launchd start it (`scripts/app-entry`).
+"$root/scripts/app-entry" || echo "restart: warning: ~/Applications/Armada.app could not be written — run scripts/app-entry to see why" >&2
 
 # **The tree this run built from is recorded when it is not this one**, and the next plain run
 # removes the record, so a machine that never uses `--from` never has one. Fleet's panel and a

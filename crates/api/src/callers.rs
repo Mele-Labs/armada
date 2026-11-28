@@ -103,6 +103,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("draft_module_features", "keeps the feature catalog"),
     ("start_sub_project", "groups his Jobs"),
     ("ungroup_sub_project", "groups his Jobs"),
+    ("turn_into_orchestrator", "groups his Jobs"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),

@@ -26,6 +26,7 @@ use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::refusal::Failed;
+use crate::settings::catalogue::{self, Applied, Item, Kind as SettingKind};
 
 // ---- what the palette holds ------------------------------------------------------------------
 
@@ -118,6 +119,8 @@ pub struct Entry {
     pub meta: Option<Meta>,
     /// Found only while something is typed: the opening list leaves it out. An ended or quiet Job.
     pub typed_only: bool,
+    /// What a setting holds now, said at the right of its title.
+    pub value: Option<String>,
     /// Ranks after every row that is not ended, among rows of the same block.
     pub ended: bool,
 }
@@ -155,6 +158,7 @@ fn act_entry(row: &Registered, section: Section) -> Entry {
         aliases: Vec::new(),
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     }
 }
@@ -185,6 +189,7 @@ fn kit_entries() -> Vec<Entry> {
             aliases: Vec::new(),
             meta: None,
             typed_only: false,
+            value: None,
             ended: false,
         })
         .collect()
@@ -201,6 +206,7 @@ fn usage_entry(cx: &App) -> Option<Entry> {
         aliases: ["tokens", "burn", "spend", "plan usage"].map(String::from).to_vec(),
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     })
 }
@@ -216,6 +222,7 @@ fn place_entries() -> Vec<Entry> {
         aliases: Vec::new(),
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     };
     vec![
@@ -225,6 +232,27 @@ fn place_entries() -> Vec<Entry> {
         place("nav:place:project", "Project", "layout-dashboard", None),
         place("nav:settings", "Settings", "settings", Some("⌘,")),
     ]
+}
+
+/// What Settings holds, one row each, found while something is typed: each page, and each switch, choice and
+/// value on it. A page that only opens is left out where a row of the same name changes what it holds.
+pub fn setting_entries(items: &[Item]) -> Vec<Entry> {
+    items
+        .iter()
+        .filter(|item| !matches!(item.kind, SettingKind::Open) || !items.iter().any(|other| !matches!(other.kind, SettingKind::Open) && other.label == item.label))
+        .map(|item| Entry {
+            id: format!("set:{}", item.id),
+            section: Section::Settings,
+            label: item.label.clone(),
+            icon: Some("settings"),
+            shortcut: None,
+            aliases: item.keywords.iter().cloned().chain([item.category.to_string()]).collect(),
+            meta: None,
+            typed_only: true,
+            value: item.said(),
+            ended: false,
+        })
+        .collect()
 }
 
 /// Go to, in the title bar's order: Kit is its own act, and Usage is offered only where the app holds it.
@@ -246,6 +274,7 @@ fn fold_commands(list: &JobsList) -> Vec<Entry> {
         aliases: Vec::new(),
         meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)), when: None, why: None, last: None }),
         typed_only: false,
+        value: None,
         ended: false,
     };
     vec![
@@ -269,6 +298,7 @@ fn move_command(list: &JobsList, cx: &App) -> Option<Entry> {
         aliases: Vec::new(),
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     })
 }
@@ -288,6 +318,7 @@ fn move_project_command(list: &JobsList, cx: &App) -> Option<Entry> {
         aliases: Vec::new(),
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     })
 }
@@ -304,6 +335,7 @@ fn judge_command(list: &JobsList) -> Option<Entry> {
         aliases: vec!["verify".into(), "review".into()],
         meta: None,
         typed_only: false,
+        value: None,
         ended: false,
     })
 }
@@ -378,6 +410,7 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
         aliases: std::iter::once(job.id.as_str().to_string()).chain(held_pull(job).iter().map(|(_, number, _)| format!("#{number}"))).collect(),
         meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state), when, why, last: Some(last) }),
         typed_only: ended || quiet,
+        value: None,
         ended,
     })
 }
@@ -536,10 +569,12 @@ pub struct RowAct {
     pub takes: Option<Takes>,
     /// Why it cannot run now, said in its tooltip: the Job runs on another Mac. The act is listed, off.
     pub off: Option<String>,
+    /// The word a choice saves: the panel lists a setting's choices as acts.
+    pub word: Option<String>,
 }
 
 fn act(id: &'static str, label: &str, icon: Option<&'static str>, chord: Option<&'static str>) -> RowAct {
-    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None, off: None }
+    RowAct { id, label: label.into(), icon, chord, apart: false, stays: false, destructive: false, takes: None, off: None, word: None }
 }
 
 /// What a Job row's panel offers (`ownActs`). `without` is the acts nothing answers for this Job, by act id.
@@ -579,6 +614,19 @@ pub fn memory_acts(has_alias: bool, has_hotkey: bool, destructive: bool, pinned:
         }
     }
     acts
+}
+
+/// What a setting's row does: Return changes it there, a switch flipped, a choice picked from a list or a value
+/// typed, and ⌘, opens Settings on its page. A page that only opens opens on Return. A setting row keeps no pin
+/// and no hotkey, which the opening list and a key pressed anywhere would never reach; an alias finds it.
+pub fn setting_acts(kind: &SettingKind) -> Vec<RowAct> {
+    let first = match kind {
+        SettingKind::Toggle(on) => RowAct { stays: true, ..act("flip", if *on { "Switch off" } else { "Switch on" }, None, Some("\u{21b5}")) },
+        SettingKind::Pick { .. } => act("choose", "Choose", None, Some("\u{21b5}")),
+        SettingKind::Input(_) => RowAct { takes: Some(Takes::Word), ..act("set-value", "Change value", None, Some("\u{21b5}")) },
+        SettingKind::Open => return vec![act("in-settings", "Open in Settings", Some("settings"), Some("\u{21b5}"))],
+    };
+    vec![first, act("in-settings", "Open in Settings", Some("settings"), Some("\u{2318},"))]
 }
 
 /// Whether a keystroke is the chord, spelled as the registry spells one.
@@ -703,6 +751,8 @@ struct Panel {
     /// An act that went to Fleet and has not come back.
     going: Option<&'static str>,
     refused: Option<SharedString>,
+    /// It lists a setting's choices in place of the row's acts.
+    choosing: bool,
 }
 
 /// A Stop waiting on the person's say.
@@ -724,6 +774,13 @@ struct Open {
     on: Option<String>,
     /// The cursor is on the row that starts what was typed, at the foot of the matches.
     sends: bool,
+    /// What Settings holds, behind the Settings rows, and the hearing that keeps them as Settings has them.
+    items: Vec<Item>,
+    _settings: Option<Subscription>,
+    /// The setting a save was sent for, until Settings answers it.
+    sent: Option<String>,
+    /// What Settings said when it refused a save, by the row it is said on.
+    refused: Option<(String, String)>,
 }
 
 /// What an act sends to Fleet.
@@ -819,7 +876,15 @@ impl Palette {
             return;
         }
         let back_to = window.focused(cx);
-        let (entries, on) = self.entries_now(cx);
+        let (mut entries, on) = self.entries_now(cx);
+        // Settings is read again, as it is when it opens, and its rows follow what it holds while the palette is up.
+        let settings = catalogue::reach(cx);
+        if let Some(settings) = &settings {
+            settings.update(cx, |settings, cx| settings.read_for_offer(window, cx));
+        }
+        let items = settings.as_ref().map(|settings| settings.read(cx).catalogue(cx)).unwrap_or_default();
+        entries.extend(setting_entries(&items));
+        let heard = settings.map(|settings| cx.observe(&settings, |this, _, cx| this.restock(cx)));
         let query = cx.new(|cx| InputState::new(window, cx).placeholder("Search actions, jobs and settings"));
         let typed = cx.subscribe_in(&query, window, |this, query, event: &InputEvent, _, cx| {
             if matches!(event, InputEvent::Change) {
@@ -830,7 +895,7 @@ impl Palette {
         let lines = lines_of(&entries, "", on.as_deref(), self.memory.opens, &self.memory);
         let state = ListState::new(lines.len(), ListAlignment::Top, px(200.));
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
-        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false });
+        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false, items, _settings: heard, sent: None, refused: None });
         query.update(cx, |query, cx| query.focus(window, cx));
         cx.set_global(Up(cx.entity().downgrade()));
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
@@ -864,6 +929,62 @@ impl Palette {
         open.cursor = open.lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
         open.sends = !text.trim().is_empty() && !open.lines.iter().any(|line| matches!(line, Line::Row(_)));
         open.panel = None;
+        cx.notify();
+    }
+
+    /// Settings changed under the palette: its rows say what it holds now, the cursor and a panel stay on the row
+    /// they were on, and a save it answered with a refusal is said on the row it was sent from.
+    fn restock(&mut self, cx: &mut Context<Self>) {
+        let Some(settings) = catalogue::reach(cx) else { return };
+        let Some(open) = self.open.as_ref() else { return };
+        let (items, answered) = {
+            let settings = settings.read(cx);
+            let answered = open.sent.as_ref().filter(|_| settings.saving.is_none()).map(|key| (key.clone(), settings.refused.get(key).cloned()));
+            (settings.catalogue(cx), answered)
+        };
+        let rows = setting_entries(&items);
+        let had: Vec<&Entry> = open.entries.iter().filter(|entry| entry.section == Section::Settings).collect();
+        if answered.is_none() && had.len() == rows.len() && had.iter().zip(&rows).all(|(was, now)| *was == now) {
+            return;
+        }
+        let text = open.query.read(cx).value().to_string();
+        let opens = self.memory.opens;
+        let under = self.under_cursor().map(|(_, entry)| entry.id);
+        let panel_on = open.panel.as_ref().and_then(|panel| open.entries.get(panel.entry)).map(|entry| entry.id.clone());
+        let Some(open) = self.open.as_mut() else { return };
+        open.entries.retain(|entry| entry.section != Section::Settings);
+        open.entries.extend(rows);
+        open.items = items;
+        if let Some((key, said)) = answered {
+            open.sent = None;
+            open.refused = said.map(|said| (format!("set:setting:{key}"), said));
+        }
+        let lines = lines_of(&open.entries, &text, open.on.as_deref(), opens, &self.memory);
+        if lines != open.lines {
+            open.lines = lines;
+            open.state.reset(open.lines.len());
+        }
+        let at = |id: &str| open.entries.iter().position(|entry| entry.id == id);
+        if let Some(cursor) = under.as_deref().and_then(|id| open.lines.iter().position(|line| matches!(line, Line::Row(row) if open.entries[*row].id == id))) {
+            open.cursor = cursor;
+        }
+        match panel_on.as_deref().and_then(at) {
+            Some(entry) => {
+                if let Some(panel) = open.panel.as_mut() {
+                    panel.entry = entry;
+                    panel.refused = open.refused.as_ref().filter(|(id, _)| Some(id) == panel_on.as_ref()).map(|(_, said)| said.clone().into());
+                }
+            }
+            None => open.panel = None,
+        }
+        // A switch flipped from the panel reads its new word there too.
+        let redo = self.open.as_ref().and_then(|open| open.panel.as_ref()).filter(|panel| !panel.choosing && panel.taking.is_none()).and_then(|panel| self.entry_at(panel.entry));
+        if let Some(entry) = redo {
+            let acts = self.acts_of(&entry, cx);
+            if let Some(panel) = self.open.as_mut().and_then(|open| open.panel.as_mut()) {
+                panel.acts = acts;
+            }
+        }
         cx.notify();
     }
 
@@ -931,6 +1052,11 @@ impl Palette {
         let alias = self.memory.aliases.contains_key(&entry.id);
         let hotkey = self.memory.hotkeys.contains_key(&entry.id);
         let pinned = self.memory.pinned.contains(&entry.id);
+        if let Some(item) = self.item_of(entry) {
+            let mut acts = setting_acts(&item.kind);
+            acts.extend(memory_acts(alias, false, true, None));
+            return acts;
+        }
         match entry.id.strip_prefix("session:") {
             Some(id) => {
                 let list = self.list.read(cx);
@@ -971,6 +1097,66 @@ impl Palette {
         }
     }
 
+    /// What Settings holds behind a Settings row.
+    fn item_of(&self, entry: &Entry) -> Option<Item> {
+        let id = entry.id.strip_prefix("set:")?;
+        self.open.as_ref()?.items.iter().find(|item| item.id == id).cloned()
+    }
+
+    /// A change taken through Settings' own save. One refused is said on the row; one Settings cannot send
+    /// while it has no Fleet is said there at once.
+    fn apply_setting(&mut self, item: &Item, applied: Applied, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(settings) = catalogue::reach(cx) else { return };
+        let row = format!("set:{}", item.id);
+        if !settings.read(cx).live {
+            let said = "Fleet is not reachable, so nothing was saved";
+            if let Some(open) = self.open.as_mut() {
+                open.refused = Some((row, said.into()));
+            }
+            self.refused(said.into(), cx);
+            return;
+        }
+        if let Some(open) = self.open.as_mut() {
+            open.sent = item.key().map(String::from);
+            open.refused = None;
+        }
+        let id = item.id.clone();
+        settings.update(cx, |settings, cx| settings.apply(&id, applied, window, cx));
+    }
+
+    /// Settings on the page that holds a row, with the palette shut.
+    fn in_settings(&mut self, item: &Item, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(settings) = catalogue::reach(cx) else { return };
+        let page = format!("entry:{}", item.entry);
+        self.close(window, cx);
+        cx.defer_in(window, move |_, window, cx| settings.update(cx, |settings, cx| settings.apply(&page, Applied::Open, window, cx)));
+    }
+
+    /// A choice's list, in the panel over its row, on the choice in force; the field narrows it.
+    fn show_choices(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.open.as_ref().is_some_and(|open| open.panel.is_none()) {
+            self.toggle_panel(window, cx);
+        }
+        let Some(entry) = self.open.as_ref().and_then(|open| open.panel.as_ref()).and_then(|panel| self.entry_at(panel.entry)) else { return };
+        let Some(SettingKind::Pick { choices, now }) = self.item_of(&entry).map(|item| item.kind) else { return };
+        let acts: Vec<RowAct> = choices
+            .iter()
+            .map(|one| RowAct { word: Some(one.word.clone()), ..act("pick", &one.title, (one.word == now).then_some("check"), None) })
+            .collect();
+        let Some(panel) = self.open.as_mut().and_then(|open| open.panel.as_mut()) else { return };
+        panel.cursor = choices.iter().position(|one| one.word == now).unwrap_or(0);
+        panel.acts = acts;
+        panel.choosing = true;
+        panel.refused = None;
+        let field = panel.field.clone();
+        field.update(cx, |field, cx| {
+            field.set_value("", window, cx);
+            field.set_placeholder("Search choices", window, cx);
+            field.focus(window, cx);
+        });
+        cx.notify();
+    }
+
     /// ⌘K on a row: its panel opens, or shuts.
     fn toggle_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.open.as_ref().is_some_and(|open| open.panel.is_some()) {
@@ -990,7 +1176,7 @@ impl Palette {
             }
         });
         if let Some(open) = self.open.as_mut() {
-            open.panel = Some(Panel { entry: at, acts, cursor: 0, field: field.clone(), _typed: typed, taking: None, going: None, refused: None });
+            open.panel = Some(Panel { entry: at, acts, cursor: 0, field: field.clone(), _typed: typed, taking: None, going: None, refused: None, choosing: false });
         }
         field.update(cx, |field, cx| field.focus(window, cx));
         cx.notify();
@@ -1052,7 +1238,10 @@ impl Palette {
         }
         let Some((_, entry)) = self.under_cursor() else { return };
         let default = if entry.id.starts_with("session:") { "open" } else { "run" };
-        if let Some(act) = self.acts_of(&entry, cx).into_iter().find(|one| one.id == default) {
+        // A setting's first act is what Return does to it.
+        let acts = self.acts_of(&entry, cx);
+        let found = if entry.id.starts_with("set:") { acts.into_iter().next() } else { acts.into_iter().find(|one| one.id == default) };
+        if let Some(act) = found {
             self.run_for(&entry, act, window, cx);
         }
     }
@@ -1080,7 +1269,16 @@ impl Palette {
         }
         // An act that asks for a word or a chord turns the panel's field into that ask first.
         if let Some(takes) = act.takes {
-            let placeholder = if takes == Takes::Word { "Type a word" } else { "Press a chord" };
+            // A setting's value starts from what it holds, to be changed rather than typed whole.
+            let held = match self.item_of(entry).map(|item| item.kind) {
+                Some(SettingKind::Input(text)) if act.id == "set-value" => Some(text),
+                _ => None,
+            };
+            let placeholder = match (takes, &held) {
+                (_, Some(_)) => "Type a value",
+                (Takes::Word, None) => "Type a word",
+                (Takes::Chord, None) => "Press a chord",
+            };
             if self.open.as_ref().is_some_and(|open| open.panel.is_none()) {
                 self.toggle_panel(window, cx);
             }
@@ -1089,12 +1287,26 @@ impl Palette {
                 panel.refused = None;
                 let field = panel.field.clone();
                 field.update(cx, |field, cx| {
-                    field.set_value("", window, cx);
+                    field.set_value(held.unwrap_or_default(), window, cx);
                     field.set_placeholder(placeholder, window, cx);
                     field.focus(window, cx);
                 });
             }
             cx.notify();
+            return;
+        }
+        // A setting's own acts; its alias acts are every row's, below.
+        if let Some(item) = self.item_of(entry).filter(|_| !matches!(act.id, "set-alias" | "remove-alias")) {
+            match (act.id, &item.kind, act.word) {
+                ("flip", SettingKind::Toggle(on), _) => self.apply_setting(&item, Applied::Toggle(!on), window, cx),
+                ("choose", _, _) => self.show_choices(window, cx),
+                ("pick", _, Some(word)) => {
+                    self.apply_setting(&item, Applied::Pick(word), window, cx);
+                    self.shut_panel(window, cx);
+                }
+                ("in-settings", _, _) => self.in_settings(&item, window, cx),
+                _ => {}
+            }
             return;
         }
         let job = entry.id.strip_prefix("session:").map(str::to_string);
@@ -1272,6 +1484,10 @@ impl Palette {
         let Some(panel) = self.open.as_ref().and_then(|open| open.panel.as_ref()) else { return };
         let word = panel.field.read(cx).value().trim().replace(['\t', '\n'], " ");
         let Some(entry) = self.entry_at(panel.entry) else { return };
+        if act.id == "set-value" {
+            self.take_value(&entry, window, cx);
+            return;
+        }
         if act.id != "set-alias" || word.is_empty() {
             return;
         }
@@ -1283,6 +1499,22 @@ impl Palette {
         }
         self.memory.aliases.insert(entry.id.clone(), word);
         self.finish_taking(window, cx);
+    }
+
+    /// The value typed for a setting: sent as the page's own field sends it, or refused in the panel where it is
+    /// not one the setting takes. The panel shuts once it is sent, and the row says what Settings answered.
+    fn take_value(&mut self, entry: &Entry, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.open.as_ref().and_then(|open| open.panel.as_ref()) else { return };
+        let text = panel.field.read(cx).value().to_string();
+        let Some(item) = self.item_of(entry) else { return };
+        let Some(key) = item.key() else { return };
+        let takes = catalogue::reach(cx).and_then(|settings| settings.read(cx).setting(key).map(|one| crate::settings::overlay::typed_value(&one.kind, &text).is_some()));
+        if takes != Some(true) {
+            self.refused("Not a value this setting takes".into(), cx);
+            return;
+        }
+        self.apply_setting(&item, Applied::Input(text), window, cx);
+        self.shut_panel(window, cx);
     }
 
     /// The chord pressed for a hotkey.
@@ -1533,11 +1765,13 @@ impl Palette {
 // ---- drawing ---------------------------------------------------------------------------------
 
 /// The palette's foot (`ResultKeys`, `DispatchKeys`): each key after its word. With words typed, ⌘↵ starts them.
-fn foot_keys(offered: bool, sends: bool) -> Vec<(&'static str, &'static str)> {
+/// On a setting Return changes it, and the foot says so.
+fn foot_keys(offered: bool, sends: bool, changes: bool) -> Vec<(&'static str, &'static str)> {
+    let open = if changes { "Change" } else { "Open" };
     if !offered {
-        return vec![("Open", "\u{21b5}"), ("Actions", "\u{2318}K")];
+        return vec![(open, "\u{21b5}"), ("Actions", "\u{2318}K")];
     }
-    let mut keys = vec![(if sends { "Dispatch" } else { "Open" }, "\u{21b5}"), ("Dispatch", "\u{2318}\u{21b5}")];
+    let mut keys = vec![(if sends { "Dispatch" } else { open }, "\u{21b5}"), ("Dispatch", "\u{2318}\u{21b5}")];
     if !sends {
         keys.push(("Actions", "\u{2318}K"));
     }
@@ -1668,6 +1902,30 @@ impl Palette {
         .children(entry.meta.as_ref().and_then(|meta| meta.why.clone()).map(|why| {
             div().flex_none().max_w(look.length(token::SPACE_12) * 5.).truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(why))
         }))
+        .children(match open.refused.as_ref().filter(|(id, _)| id == &entry.id) {
+            Some((_, said)) => Some(
+                div()
+                    .id(SharedString::from(format!("palette-refused:{}", entry.id)))
+                    .flex_none()
+                    .max_w(look.length(token::SPACE_12) * 5.)
+                    .truncate()
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::STATUS_ESCALATED))
+                    .tooltip(tip(said.clone()))
+                    .child(SharedString::from(said.clone())),
+            ),
+            None => entry.value.clone().map(|value| {
+                div()
+                    .id(SharedString::from(format!("palette-value:{}", entry.id)))
+                    .flex_none()
+                    .max_w(look.length(token::SPACE_12) * 4.)
+                    .truncate()
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .child(SharedString::from(value))
+            }),
+        })
         .children(entry.meta.as_ref().and_then(|meta| meta.when.clone()).map(|(time, said)| {
             div()
                 .id(SharedString::from(format!("palette-when:{}", entry.id)))
@@ -1988,6 +2246,7 @@ impl Render for Palette {
         let panel = open.panel.as_ref().and_then(|panel| self.entry_at(panel.entry).map(|entry| self.render_panel(panel, &entry, look, cx)));
         let confirm = open.confirm.as_ref().map(|confirm| self.render_confirm(confirm, look, cx));
         let query = open.query.clone();
+        let changes = self.under_cursor().and_then(|(_, entry)| self.item_of(&entry)).is_some_and(|item| !matches!(item.kind, SettingKind::Open));
         let wide = (look.length(token::PALETTE_WIDTH) * 1.2).min(viewport.width - look.length(token::SPACE_6));
         let boxed = labelled(
             div()
@@ -2052,7 +2311,7 @@ impl Render for Palette {
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .children(foot_keys(!query.read(cx).value().trim().is_empty() && open.panel.is_none(), open.sends).into_iter().map(|(said, key)| {
+                        .children(foot_keys(!query.read(cx).value().trim().is_empty() && open.panel.is_none(), open.sends, changes).into_iter().map(|(said, key)| {
                             div().flex().items_center().gap(look.length(token::SPACE_1)).child(said).child(kbd(look, key))
                         })),
                 )
@@ -2419,5 +2678,114 @@ mod tests {
         let entries = list.read_with(cx, |list, _| fold_commands(list));
         let rows = |query: &str| lines_of(&entries, query, None, Opens::Everything, &Memory::default()).iter().filter(|line| matches!(line, Line::Row(_))).count();
         assert_eq!((rows(""), rows("fold") > 0, rows("root")), (0, true, 1));
+    }
+
+    /// The palette over the mock Fleet's Settings, opened, with what Settings read in.
+    fn over_settings(cx: &mut gpui::TestAppContext) -> (Entity<Palette>, Entity<crate::settings::overlay::SettingsOverlay>, &mut gpui::VisualTestContext) {
+        use crate::settings::{mock::MockFleet, wire::Wire};
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (settings, cx) = cx.add_window_view(|window, cx| crate::settings::overlay::SettingsOverlay::new(Wire::Mock(Box::new(MockFleet::new())), window, cx));
+        cx.update(|_, cx| cx.set_global(catalogue::Here(settings.downgrade())));
+        let palette = cx.update(|_, cx| {
+            let list = cx.new(|cx| JobsList::mock(&jobs(), cx));
+            cx.new(|cx| Palette::new(list, cx))
+        });
+        cx.update(|window, cx| palette.update(cx, |palette, cx| palette.open(window, cx)));
+        cx.run_until_parked();
+        (palette, settings, cx)
+    }
+
+    /// What is typed, with the cursor put on the row of `id`.
+    fn find(palette: &Entity<Palette>, typed: &str, id: &str, cx: &mut gpui::VisualTestContext) -> Entry {
+        let query = palette.read_with(cx, |palette, _| palette.open.as_ref().expect("open").query.clone());
+        cx.update(|window, cx| query.update(cx, |query, cx| query.set_value(typed, window, cx)));
+        palette.update(cx, |palette, cx| {
+            palette.relist(typed, cx);
+            let open = palette.open.as_mut().expect("open");
+            let at = open.lines.iter().position(|line| matches!(line, Line::Row(row) if open.entries[*row].id == id)).unwrap_or_else(|| panic!("{typed:?} finds {id}"));
+            open.cursor = at;
+            open.entries.iter().find(|entry| entry.id == id).cloned().expect("the row")
+        })
+    }
+
+    fn enter(palette: &Entity<Palette>, cx: &mut gpui::VisualTestContext) {
+        cx.update(|window, cx| palette.update(cx, |palette, cx| palette.enter(window, cx)));
+        cx.run_until_parked();
+    }
+
+    fn last_save(settings: &Entity<crate::settings::overlay::SettingsOverlay>, cx: &mut gpui::VisualTestContext) -> Option<std::collections::BTreeMap<String, Option<ipc::SettingValue>>> {
+        settings.read_with(cx, |settings, _| match &settings.wire {
+            crate::settings::wire::Wire::Mock(mock) => mock.saves.last().cloned(),
+            _ => None,
+        })
+    }
+
+    #[gpui::test]
+    fn a_setting_is_found_by_name_and_changed_where_it_stands(cx: &mut gpui::TestAppContext) {
+        use ipc::SettingValue;
+        let (palette, settings, cx) = over_settings(cx);
+        let one = |key: &str, value: SettingValue| Some([(key.to_string(), Some(value))].into_iter().collect());
+
+        // Found by its title and by a word of its page, saying what it holds; the list he opens on keeps out of it.
+        let sounds = find(&palette, "interface sounds", "set:setting:features.uiSounds", cx);
+        assert_eq!((sounds.kind(), sounds.value.as_deref()), ("Setting", Some("On")));
+        find(&palette, "features sounds", "set:setting:features.uiSounds", cx);
+        palette.read_with(cx, |palette, _| {
+            let open = palette.open.as_ref().expect("open");
+            assert!(lines_of(&open.entries, "", None, Opens::Pinned, &Memory::default()).iter().all(|line| !matches!(line, Line::Row(row) if open.entries[*row].section == Section::Settings)));
+        });
+
+        // A switch flips on Return, through Settings' save, and the palette stays up on it saying Off.
+        enter(&palette, cx);
+        assert_eq!(last_save(&settings, cx), one("features.uiSounds", SettingValue::Bool(false)));
+        palette.read_with(cx, |palette, _| {
+            let open = palette.open.as_ref().expect("still up");
+            assert_eq!(open.entries.iter().find(|entry| entry.id == "set:setting:features.uiSounds").and_then(|entry| entry.value.as_deref()), Some("Off"));
+            assert!(matches!(open.lines.get(open.cursor), Some(Line::Row(row)) if open.entries[*row].id == "set:setting:features.uiSounds"));
+        });
+
+        // A choice opens its list in the panel, on the one in force; Return there saves the one under the cursor.
+        find(&palette, "large context", "set:setting:plan.contextHandoff", cx);
+        enter(&palette, cx);
+        palette.read_with(cx, |palette, _| {
+            let panel = palette.open.as_ref().and_then(|open| open.panel.as_ref()).expect("the choices");
+            assert!(panel.choosing);
+            assert_eq!(panel.acts.iter().map(|act| act.label.as_str()).collect::<Vec<_>>(), ["ask", "carry on automatically", "never"]);
+            assert_eq!(panel.cursor, 0);
+        });
+        palette.update(cx, |palette, cx| palette.step(1, cx));
+        enter(&palette, cx);
+        assert_eq!(last_save(&settings, cx), one("plan.contextHandoff", SettingValue::Text("carry on automatically".into())));
+        palette.read_with(cx, |palette, _| assert!(palette.open.as_ref().is_some_and(|open| open.panel.is_none())));
+
+        // A value is typed in the panel's field, which starts from what it holds; one it does not take is refused there.
+        find(&palette, "keep run logs", "set:setting:retention.runLogDays", cx);
+        enter(&palette, cx);
+        let field = palette.read_with(cx, |palette, cx| {
+            let panel = palette.open.as_ref().and_then(|open| open.panel.as_ref()).expect("the field");
+            assert_eq!(panel.field.read(cx).value().to_string(), "30");
+            panel.field.clone()
+        });
+        cx.update(|window, cx| field.update(cx, |field, cx| field.set_value("a lot", window, cx)));
+        enter(&palette, cx);
+        palette.read_with(cx, |palette, _| assert!(palette.open.as_ref().and_then(|open| open.panel.as_ref()).is_some_and(|panel| panel.refused.is_some())));
+        cx.update(|window, cx| field.update(cx, |field, cx| field.set_value("45", window, cx)));
+        enter(&palette, cx);
+        assert_eq!(last_save(&settings, cx), one("retention.runLogDays", SettingValue::Integer(45)));
+    }
+
+    #[test]
+    fn a_setting_row_changes_on_return_and_opens_settings_on_its_own_key() {
+        let toggle = setting_acts(&SettingKind::Toggle(true));
+        assert_eq!((toggle[0].id, toggle[0].label.as_str(), toggle[0].stays), ("flip", "Switch off", true));
+        assert_eq!(ids(setting_acts(&SettingKind::Pick { choices: Vec::new(), now: String::new() })), ["choose", "in-settings"]);
+        assert_eq!(setting_acts(&SettingKind::Input(String::new()))[0].takes, Some(Takes::Word));
+        // ⌘↵ is Dispatch while words are typed, so Settings is ⌘, here as it is everywhere.
+        assert_eq!(setting_acts(&SettingKind::Input(String::new()))[1].chord, Some("\u{2318},"));
+        assert_eq!(ids(setting_acts(&SettingKind::Open)), ["in-settings"]);
     }
 }

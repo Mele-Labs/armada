@@ -32,6 +32,7 @@ pub const CONTEXT_HANDOFFS: &[&str] = &[HANDOFF_ASK, HANDOFF_AUTOMATICALLY, HAND
 pub const EFFORT_DEFAULT: Words = Words("effort.default");
 pub const EFFORT_JUDGE: Words = Words("effort.judge");
 pub const EFFORT_PROPOSER: Words = Words("effort.proposer");
+pub const EFFORT_OPERATOR: Words = Words("effort.operator");
 
 /// Passing no effort at all, which is the harness picking — every call before
 /// these settings existed.
@@ -249,6 +250,18 @@ pub(super) const EFFORT: &[Entry] = &[
         section: Section::Effort,
         title: "Job proposer effort",
         description: "How hard the Job proposer thinks reading a request.",
+        kind: Kind::Choice(Options::Fixed(EFFORTS)),
+        shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
+        applies: Applies::Live,
+        row: None,
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: EFFORT_OPERATOR.0,
+        section: Section::Effort,
+        title: "Operator effort",
+        description: "How hard the Operator thinks, from the next time its session starts.",
         kind: Kind::Choice(Options::Fixed(EFFORTS)),
         shipped: Shipped::Text(HARNESS_DEFAULT_EFFORT),
         applies: Applies::Live,
