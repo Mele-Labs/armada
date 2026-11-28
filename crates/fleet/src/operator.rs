@@ -23,12 +23,16 @@ mod dispatching;
 mod elsewhere;
 mod erroring;
 mod feed;
+mod fleet_cards;
+mod gating;
 mod hearing;
+mod holding;
 mod journal;
 mod orders;
 mod paging;
 mod placing;
 mod raising;
+mod reaching;
 mod reviewing;
 mod seat;
 mod session;
@@ -38,6 +42,10 @@ mod sourcing;
 mod telling;
 mod turning;
 pub(crate) use turning::utc_millis;
+#[cfg(test)]
+pub(crate) use cards::CHAT_MODE;
+#[cfg(test)]
+pub(crate) use fleet_cards::FLEET_CARD;
 
 use std::sync::{Mutex, MutexGuard, PoisonError};
 

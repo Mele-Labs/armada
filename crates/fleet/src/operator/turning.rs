@@ -114,6 +114,10 @@ where
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
+        // A card Fleet raised itself is answered by Fleet.
+        if id.starts_with(super::fleet_cards::FLEET_CARD) {
+            return self.fleet_card_pressed(id, doing.pick).await.map(|()| Done::default());
+        }
         if let Some((manifest, number)) = super::reviewing::parts_of(id) {
             return match doing.pick {
                 super::reviewing::RUN => self.review_run_pressed(manifest, number).await.map(|()| Done::default()).map_err(Fault::NotDone),

@@ -279,3 +279,59 @@ fn every_act_the_rules_name_is_offered_with_no_manifest() {
         assert!(offered.contains(&operation), "`{word}` is named in the rules and is not offered with no armada.yml");
     }
 }
+
+/// **A tool the Operator's project switched off is left out of what it is offered, and a call to it is refused by the
+/// switch's name**, not as a tool that does not exist. The same call goes through where the switch is on.
+#[tokio::test]
+async fn an_act_its_project_switched_off_is_unlisted_and_refused_by_the_switchs_name() {
+    let (daemon, app) = hosting_a_session();
+    *daemon.session_is_the_operator.lock().expect("not poisoned") = true;
+    let on = posted(&app, SESSION, LISTING).await;
+    for tool in ["close_session", "start_another_job", "merge_pull_request_by_number", "show_sketch"] {
+        assert!(on.contains(&named(tool)), "`{tool}` is offered while its switch is on: {on}");
+    }
+
+    *daemon.operator_switched_off.lock().expect("not poisoned") = vec!["close_session", "start_another_session", "merge_pull_request_by_number"];
+    let off = posted(&app, SESSION, LISTING).await;
+    for tool in ["close_session", "start_another_job", "merge_pull_request_by_number"] {
+        assert!(!off.contains(&named(tool)), "`{tool}` is left out while its switch is off: {off}");
+    }
+    assert!(off.contains(&named("show_sketch")), "{off}");
+    let refused = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
+    assert!(refused.contains("\"isError\":true"), "{refused}");
+    assert!(refused.contains("`close_session` is off for this project's Operator: Settings, Operator, Tools"), "{refused}");
+    assert!(!refused.contains("not a tool this Fleet offers"), "{refused}");
+
+    daemon.operator_switched_off.lock().expect("not poisoned").clear();
+    let allowed = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
+    assert!(!allowed.contains("is off for this project's Operator"), "{allowed}");
+}
+
+/// **An act held until he has said so stays listed**, since a tool list an agent read at its start cannot follow a say that opens
+/// later, and a call to it is refused at the call.
+#[tokio::test]
+async fn an_act_held_until_he_has_said_so_stays_listed_and_its_call_is_refused() {
+    let (daemon, app) = hosting_a_session();
+    *daemon.session_is_the_operator.lock().expect("not poisoned") = true;
+    *daemon.operator_unsaid.lock().expect("not poisoned") = vec!["close_session"];
+
+    let listed = posted(&app, SESSION, LISTING).await;
+    assert!(listed.contains(&named("close_session")), "{listed}");
+    let refused = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
+    assert!(refused.contains("waits for him: on a card or in the talk"), "{refused}");
+
+    daemon.operator_unsaid.lock().expect("not poisoned").clear();
+    let allowed = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
+    assert!(!allowed.contains("waits for him"), "{allowed}");
+}
+
+/// The reach's own words: a withheld act names its switch whether or not the reach ever listed it.
+#[test]
+fn a_withheld_act_is_refused_by_name_and_the_rest_keep_the_generic_refusal() {
+    let reach = crate::WordsReach::of_a_hosted_session().the_operator().without(&["close_session"], "is off: Settings").until_said(&["start_another_session"], "waits for him");
+    assert!(!reach.may("close_session") && !reach.listed("close_session"));
+    assert_eq!(reach.refusing("close_session"), "`close_session` is off: Settings");
+    assert!(reach.listed("start_another_session") && !reach.may("start_another_session"));
+    assert_eq!(reach.refusing("start_another_session"), "`start_another_session` waits for him");
+    assert!(reach.refusing("all_done").starts_with("`all_done` is not the Operator's to call"));
+}

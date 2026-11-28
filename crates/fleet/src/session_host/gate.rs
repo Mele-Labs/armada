@@ -105,6 +105,12 @@ where
         if let Some(answer) = own_worktree(&gate) {
             return answer;
         }
+        // What the Operator's project switched off or holds, and another project's checkout, are refused before any lease.
+        if let (true, Some(project)) = (hosting.operator, hosting.project.as_deref()) {
+            if let Some(answer) = self.operator_gated(&gate, &id, project).await {
+                return answer;
+            }
+        }
         // A tool the hook only reaches Fleet on so it can be noted holds nothing, so it does not
         // read the pool or the Manifest.
         if !can_write(&gate.tool_name) {

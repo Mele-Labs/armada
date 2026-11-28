@@ -30,6 +30,8 @@ pub(crate) const SETTLED: &str = "settled:";
 
 const CARD_REFUSED: &str = "fleet.card_refused";
 const CARD_UNKNOWN: &str = "fleet.card_unknown";
+/// The refusal of `raise_card` for a project whose decisions are asked in the talk.
+pub(crate) const CHAT_MODE: &str = "fleet.operator_chat_mode";
 
 /// The most lines of the earlier conversation the page reads.
 const TALK_SHOWN: u32 = 20;
@@ -78,7 +80,7 @@ where
     }
 
     /// The repository named, as its manifest's id: its folder's name, or the id itself.
-    fn repository_id_of(&self, name: &str) -> Option<String> {
+    pub(super) fn repository_id_of(&self, name: &str) -> Option<String> {
         self.repositories().hosted().into_iter().find_map(|one| {
             let id = one.manifest().id().as_str().to_string();
             let folder = std::path::Path::new(one.root()).file_name().map(|folder| folder.to_string_lossy().to_string());
@@ -113,6 +115,11 @@ where
     pub(crate) async fn card_raised(self: &Arc<Self>, caller: Option<api::Caller>, card: RaiseCard) -> Result<CardRaised, Refusal> {
         let raiser = self.operator_called(caller)?;
         let project = self.operator_project_of(&raiser).await;
+        if let Some(project) = project.as_deref() {
+            if self.operator_settings_of(project).await.decisions == ipc::OperatorDecisions::Chat {
+                return Err(self.hosted_refusal(CHAT_MODE, "this project asks its decisions in the talk, not on cards. Ask each one in the talk as one question with two to four numbered options, your pick first, a cost on each"));
+            }
+        }
         let (title, read) = (card.title.trim(), card.read.trim());
         if title.is_empty() || read.is_empty() {
             return Err(self.card_refused("a card has a title and a read, and one of them is empty"));
@@ -240,6 +247,8 @@ where
             return Err(self.hosted_refusal("fleet.operator_answer_not_offered", "this card is picked already and the Operator is working on it"));
         }
         self.operator_page_changed();
+        // His press is a say for this Operator: what its level holds is open for a while.
+        self.operator_said(&project);
         let text = format!(
             "He chose \"{label}\" on card turn:{} \"{}\". Do it now. Report each real step with report_card, settle the card when it is done, \
              and report failed with the reason the moment it cannot be done. It comes back to his front if nothing settles it in 15 min.",
@@ -352,6 +361,8 @@ where
     /// His words told to `project`'s running session: about the card he named, where Fleet holds it, else as he wrote them.
     pub(crate) async fn talk_delivered(self: &Arc<Self>, project: &str, talk: TalkToOperator) -> Result<(), Refusal> {
         let TalkToOperator { words, about, attachments, mentions, project: _ } = talk;
+        // His words are a say for this Operator.
+        self.operator_said(project);
         let card = match about.as_deref() {
             Some(id) => self.card_known(id).await.is_ok().then_some(id),
             None => None,

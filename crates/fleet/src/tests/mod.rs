@@ -397,6 +397,7 @@ mod operator_errors;
 mod operator_order;
 mod operator_projects;
 mod operator_projects_rig;
+mod operator_reach;
 mod operator_session;
 mod operator_sources;
 mod operator_talk;

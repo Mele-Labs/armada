@@ -909,7 +909,7 @@ fn a_launch_without_connectors_tells_the_cli_not_to_fetch_them() {
 /// output style is the one he picked.
 #[test]
 fn the_operator_prompt_is_his_words_then_the_role_then_the_rules_then_his_addition() {
-    let prompt = OperatorPrompt { words: "WORDS: watch the billing repository.".into(), role: ipc::OperatorRole::Reviewer, extra: "EXTRA: never mention weather.".into(), style: "terse".into() };
+    let prompt = OperatorPrompt { words: "WORDS: watch the billing repository.".into(), role: ipc::OperatorRole::Reviewer, extra: "EXTRA: never mention weather.".into(), style: "terse".into(), decisions: Default::default() };
     let rendered = rendered(&launching(false, SessionMode::Auto).as_operator(prompt));
     let told = appended(&rendered);
     let at = |needle: &str| told.find(needle).unwrap_or_else(|| panic!("{needle} is told: {told}"));
@@ -918,4 +918,20 @@ fn the_operator_prompt_is_his_words_then_the_role_then_the_rules_then_his_additi
     assert!(!told.contains("Your role is copilot"), "{told}");
     let settings = value_after(&rendered, "--settings").expect("settings");
     assert!(settings.contains("\"outputStyle\":\"terse\""), "{settings}");
+}
+
+/// **A project that asks its decisions in the talk gets a paragraph after the rules, before his addition**, that says to ask each as one
+/// question with numbered options and never to raise a card. A project that asks on cards is told none of it.
+#[test]
+fn a_chat_projects_prompt_gains_the_paragraph_for_decisions_in_the_talk_after_the_rules() {
+    let told_with = |decisions| {
+        let prompt = OperatorPrompt { extra: "EXTRA: never mention weather.".into(), decisions, ..OperatorPrompt::default() };
+        appended(&rendered(&launching(false, SessionMode::Auto).as_operator(prompt)))
+    };
+    let chat = told_with(ipc::OperatorDecisions::Chat);
+    let at = |needle: &str| chat.find(needle).unwrap_or_else(|| panic!("{needle} is told: {chat}"));
+    let (rules, paragraph, extra) = (at("You are the Operator of one project"), at("Decisions in the talk."), at("EXTRA:"));
+    assert!(rules < paragraph && paragraph < extra, "order {rules} {paragraph} {extra}");
+    assert!(chat.contains("two to four numbered options, your pick first, a cost on each") && chat.contains("never call it"), "{chat}");
+    assert!(!told_with(ipc::OperatorDecisions::Cards).contains("Decisions in the talk."), "cards say nothing of it");
 }

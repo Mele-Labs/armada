@@ -137,7 +137,7 @@ where
     /// What `project`'s Operator is started with beyond the model: his words, its role, his addition and its style.
     pub(crate) async fn operator_prompt_of(&self, project: &str) -> adapters::OperatorPrompt {
         let settings = self.operator_settings_of(project).await;
-        adapters::OperatorPrompt { words: settings.words, role: settings.role, extra: settings.prompt, style: settings.output_style }
+        adapters::OperatorPrompt { words: settings.words, role: settings.role, extra: settings.prompt, style: settings.output_style, decisions: settings.decisions }
     }
 
     /// The start of `project`'s Operator, on the model and effort its settings give. **The one start both a first
