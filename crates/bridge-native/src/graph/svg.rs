@@ -534,9 +534,9 @@ mod tests {
     }
 
     const LINES: &str = r#"{"data":{"values":[{"at":"2026-11-10T14:00:00Z","p50":40,"p99":200},{"at":"2026-11-10T14:01:00Z","p50":44,"p99":230},{"at":"2026-11-10T14:02:00Z","p50":42,"p99":260}]},
-        "encoding":{"x":{"field":"at","type":"temporal"}},"layer":[
-        {"mark":"line","encoding":{"y":{"field":"p50","type":"quantitative","title":"p50 (ms)"}}},
-        {"mark":"line","encoding":{"y":{"field":"p99","type":"quantitative","title":"p99 (ms)"}}},
+        "layer":[
+        {"mark":"line","encoding":{"x":{"field":"at","type":"temporal"},"y":{"field":"p50","type":"quantitative","title":"p50 (ms)"}}},
+        {"mark":"line","encoding":{"x":{"field":"at","type":"temporal"},"y":{"field":"p99","type":"quantitative","title":"p99 (ms)"}}},
         {"mark":{"type":"rule","strokeDash":[4,4]},"encoding":{"y":{"datum":250}}}]}"#;
 
     #[test]
