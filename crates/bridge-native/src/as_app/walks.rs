@@ -1,10 +1,7 @@
-//! Walks played as the app plays them, headless (`--walk <name> --check`). gpui's Mac platform must be
-//! made on the process's main thread, which a test thread is not, so each walk runs as its own process.
-
-use std::process::Command;
+//! Walks played as the app plays them, headless (`--walk <name> --check`), each as its own process.
 
 fn plays(walk: &str) {
-    let out = Command::new(env!("CARGO_BIN_EXE_bridge-native")).args(["--walk", walk, "--check"]).output().expect("the app runs");
+    let out = super::app().args(["--walk", walk, "--check"]).output().expect("the app runs");
     assert!(out.status.success(), "the {walk} walk did not play: {}", String::from_utf8_lossy(&out.stderr).lines().last().unwrap_or_default());
 }
 

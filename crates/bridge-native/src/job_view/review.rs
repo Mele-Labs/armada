@@ -62,6 +62,7 @@ pub(super) enum Ask {
     Takes,
     Plan,
     Drawing,
+    Prototype,
     Page,
     Draft,
     Question,
@@ -75,6 +76,7 @@ impl Ask {
             Ask::Takes => ("scale", "Takes", token::KIND_STEP),
             Ask::Plan => ("list-todo", "Plan", token::KIND_DELIVERY),
             Ask::Drawing => ("shapes", "Drawing", token::ACCENT),
+            Ask::Prototype => ("app-window", "Prototype", token::ACCENT),
             Ask::Page => ("scroll-text", "Page", token::KIND_GATE),
             Ask::Draft => ("file-text", "Draft", token::KIND_SETUP),
             Ask::Question => ("message-circle-question-mark", "Question", token::STATUS_REJECTED),
@@ -88,7 +90,7 @@ impl Ask {
             Ask::Takes => "Pick one",
             Ask::Question => "Answer",
             Ask::Build => "Try it",
-            Ask::Plan | Ask::Drawing | Ask::Page | Ask::Draft => "Approve",
+            Ask::Plan | Ask::Drawing | Ask::Prototype | Ask::Page | Ask::Draft => "Approve",
         }
     }
 
@@ -618,9 +620,12 @@ impl JobView {
                 items.push(item);
             }
         }
+        // Fleet took his Ask for changes and puts the ask to him still, as a plan the Job kept: Fleet's list wins over the
+        // answer held here (his note of 27 Nov: the plan lost its card and its row in Needs you).
+        let asks_still = |item: &Item| record.answers.iter().any(|one| one.how == ipc::AnswerHow::AskedForChanges && one.item == item.id && instant(one.at.as_str()) >= instant(&item.since));
         // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
         if let Some(dock) = self.dock_of(id) {
-            items.retain(|item| !dock.hidden.contains(&item.id));
+            items.retain(|item| asks_still(item) || !dock.hidden.contains(&item.id));
         }
         // So does one answered on its thread card, in the frame the card takes the answer.
         if let Some(page) = self.pages.get(id).filter(|page| page.cards.answers.values().any(settles)) {
@@ -628,7 +633,7 @@ impl JobView {
             let drawn_since = |key: &str| {
                 page.cards.answered_on.get(key).is_some_and(|on| super::sketch_read::card_of(&held.head, &held.items, key.strip_prefix("pin:").unwrap_or(key)).map(super::cards::newest_of).is_some_and(|now| now != *on))
             };
-            items.retain(|item| !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
+            items.retain(|item| asks_still(item) || !super::ask_line::card_keys(&item.id, &held.head, &held.items).iter().any(|key| page.cards.answers.get(key).is_some_and(settles) && !drawn_since(key)));
         }
         items.sort_by_key(|item| instant(&item.since));
         items
@@ -2346,7 +2351,8 @@ impl JobView {
                         if plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty()) {
                             div().w_full().child(self.plan_body(SHEET, &card.id, plan, false, &pinned, page, look, cx)).into_any_element()
                         } else {
-                            self.review_plan(&card.id, plan, &pinned, page, look, cx)
+                            // Its own key, so its sketches' width is not the thread's drawing of the same plan (it flickered).
+                            self.review_plan(&format!("{}@sheet", card.id), plan, &pinned, page, look, cx)
                         }
                     }
                     None => self.review_skeleton(look),

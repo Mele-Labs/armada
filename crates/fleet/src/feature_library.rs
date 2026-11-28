@@ -38,7 +38,7 @@ mod retiring;
 mod seeding;
 mod serving;
 mod starting;
-mod sub_projects;
+pub(crate) mod sub_projects;
 pub(crate) mod staleness;
 pub(crate) mod upkeep;
 mod writing;

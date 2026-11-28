@@ -420,7 +420,12 @@ where
                 self.turn_ended(id, runtime, cost_micros).await;
             }
             // The harness's words for it were shown as a row; this signs the Fleet out.
-            DroneEvent::SignedOut => self.signed_out_heard(runtime),
+            // The process keeps the sign-in it started on, renewed or not, so it is let go when the
+            // turn is over and the next one, a wake or his word, starts on the sign-in as it is then.
+            DroneEvent::SignedOut => {
+                self.signed_out_heard(runtime);
+                self.restarts_on_what_it_names(id);
+            }
             _ => {}
         }
     }

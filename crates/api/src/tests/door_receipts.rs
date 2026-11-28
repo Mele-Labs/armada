@@ -46,6 +46,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

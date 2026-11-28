@@ -308,7 +308,15 @@ impl JobView {
     pub(super) fn ready_pinned(&self, ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         let held = self.thread(self.shown.as_ref()?, cx)?;
         let all = super::ready_compact::builds(&held.items, &page.cards.answers);
-        all.iter().any(|build| build.standing.asks()).then(|| self.ready_compact(&all, ix, page, look, now, cx))
+        all.iter().any(|build| build.standing.asks()).then(|| self.ready_compact(&all, ix, page, look, now, true, cx))
+    }
+
+    /// The builds to try as the first card's body, at its list place `ix`: the Refresh keys and a row for each. None where he has
+    /// answered every build before Fleet has said so.
+    pub(super) fn ready_inside(&self, ix: usize, page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let held = self.thread(self.shown.as_ref()?, cx)?;
+        let all = super::ready_compact::builds(&held.items, &page.cards.answers);
+        all.iter().any(|build| build.standing.asks()).then(|| self.ready_compact(&all, ix, page, look, Local::now(), false, cx))
     }
 
     /// What each press on a build's answers does. Looks good answers, Needs rework opens its box and Send sends it, Show me how
@@ -465,10 +473,12 @@ impl JobView {
 
     /// The strip under a head band while a build is not in the preview: the title bar's Refresh keys, and under them what Refresh
     /// builds. Off, with why, while no build here is ready for it, so a press never rebuilds without the branch.
-    fn refresh_strip(&self, key: &str, keys: RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn refresh_strip(&self, key: &str, keys: RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
         let offers = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().offers.as_ref());
         let macs = crate::pairing::macs(cx);
         let started = self.preview_refreshing(cx).and_then(|now| now.started_said(macs));
+        // The line says it in a few words; hover names every Job Refresh brings in.
+        let whole: Option<SharedString> = (started.is_none() && keys.ready).then(|| crate::titlebar::refresh_whole(offers, macs).into());
         let line: SharedString = match started {
             Some(started) => started.into(),
             None if keys.ready => crate::titlebar::refresh_said(offers, macs).into(),
@@ -490,6 +500,7 @@ impl JobView {
                     .text_size(look.length(token::TEXT_XS))
                     .line_height(look.length(token::LEADING_XS))
                     .text_color(look.color(token::FG_MUTED))
+                    .when_some(whole, |shown, whole| shown.tooltip(tip(whole)))
                     .child(line.clone()),
                 Role::Status,
                 line,
@@ -826,6 +837,8 @@ impl JobView {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
+            // Room under the last step before the foot's hairline (his note of 27 Nov).
+            .pb(look.length(token::SPACE_4))
             .child(head)
             .children(look_line)
             .children((!steps.is_empty()).then(|| labelled(div().id(SharedString::from(format!("ready-steps:{}", card.id))).flex().flex_col().gap(look.length(token::SPACE_2)).children(steps), Role::List, "Steps")))

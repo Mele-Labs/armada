@@ -360,6 +360,8 @@ impl JobView {
                     let (seconds, open) = super::lines::reasoning_reading(&held.items, ix);
                     Some(self.reasoning(ix, id, text, seconds, open, page, look, cx))
                 }
+                // The live run stands under the card that waits on him (`Extra::Live`); its own place stays, drawing nothing.
+                ThreadItem::Calls { .. } if last && page.extras.contains(&Extra::Live) => None,
                 _ => self.item(ix, item, last && working && !asking, after, page, look, now, window, cx),
             }
         } else {
@@ -798,6 +800,11 @@ impl JobView {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
+            // The thread's last run, drawn as it is in place, with its keys and ids, so its folds and animations carry over.
+            Extra::Live => match items.last()? {
+                ThreadItem::Calls { id, rows, .. } if !rows.is_empty() => return Some(self.calls(page.items + at, id, rows, true, None, page, look, cx)),
+                _ => return None,
+            },
             Extra::Answer(key) => {
                 let job = self.shown.as_ref()?;
                 let answer = self.record(job, cx)?.answers.iter().find(|one| super::ask_line::answer_key(one) == *key)?;

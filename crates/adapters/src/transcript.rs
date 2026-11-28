@@ -66,6 +66,13 @@ const NO_MODEL: &str = "<synthetic>";
 /// would not renew: [`DroneEvent::SignedOut`].
 const SIGNED_OUT: &str = "authentication_failed";
 
+/// The `error` Claude Code 2.1.325 gives the same line, which names many refusals besides, so it is a
+/// sign-out only where the harness's own sentence opens with [`LOGIN_EXPIRED`].
+const REFUSED: &str = "invalid_request";
+
+/// How the harness's sentence opens on a line under [`REFUSED`] whose sign-in ran out.
+const LOGIN_EXPIRED: &str = "Login expired";
+
 /// Read one line.
 ///
 /// Never empty, and never a `Result` — see this module's note.
@@ -92,13 +99,20 @@ pub fn read(line: &str) -> Vec<DroneEvent> {
         Line::System(system) => vec![system_event(system)],
         // **The one place the speaker is known**, and it is the line's own
         // tag and model rather than anything the text says. See `Speaker`.
-        Line::Assistant(message) => {
+        Line::Assistant(mut message) => {
             let by = match message.message.model.as_deref() {
                 Some(NO_MODEL) => Speaker::Harness,
                 _ => Speaker::Drone,
             };
-            let signed_out = message.error.as_deref() == Some(SIGNED_OUT);
+            let error = message.error.take();
             let mut events = blocks(message, by);
+            let signed_out = match error.as_deref() {
+                Some(SIGNED_OUT) => true,
+                Some(REFUSED) => events.iter().any(|event| {
+                    matches!(event, DroneEvent::Said { text, by: Speaker::Harness } if text.starts_with(LOGIN_EXPIRED))
+                }),
+                _ => false,
+            };
             if signed_out {
                 events.push(DroneEvent::SignedOut);
             }
@@ -251,6 +265,8 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
     };
 
     let mut reasoned = false;
+    let located = blocks.iter().filter_map(output_located);
+    let located: Vec<DroneEvent> = located.collect();
     let mut events: Vec<DroneEvent> = blocks
         .into_iter()
         .filter_map(|block| match block {
@@ -264,6 +280,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
             Block::ToolResult {
                 tool_use_id,
                 is_error,
+                ..
             } => Some(DroneEvent::Answered {
                 call: tool_use_id,
                 failed: is_error,
@@ -295,6 +312,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
             }),
         })
         .collect();
+    events.extend(located);
 
     if events.is_empty() {
         events.push(DroneEvent::Unrecognised {
@@ -603,7 +621,7 @@ type Counted = serde::de::IgnoredAny;
 struct MessageLine {
     message: Message,
     /// Set by the harness on a line it wrote in place of a turn it could not take. Read only for
-    /// [`SIGNED_OUT`].
+    /// [`SIGNED_OUT`] and [`REFUSED`].
     #[serde(default)]
     error: Option<String>,
 }
@@ -615,6 +633,39 @@ struct Message {
     /// Read only to tell the harness's own lines apart: [`NO_MODEL`].
     #[serde(default)]
     model: Option<String>,
+}
+
+/// A tool result's content: one string, or a list of parts of which only the text is read.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ResultContent {
+    Prose(String),
+    Parts(Vec<ResultPart>),
+}
+
+#[derive(Deserialize)]
+struct ResultPart {
+    #[serde(default)]
+    text: Option<String>,
+}
+
+/// What the harness says to a call it moved to the background, up to the path.
+const OUTPUT_AT: &str = "Output is being written to: ";
+
+/// Where a backgrounded command's output goes, from the call's result: `Command running in
+/// background with ID: <task>. Output is being written to: <path>. You will be notified ...`.
+/// **Read out of prose, as the exit code is**: a result that does not say so has no path, and a
+/// miss is an absent line and never a wrong one.
+fn output_located(block: &Block) -> Option<DroneEvent> {
+    let Block::ToolResult { tool_use_id, content: Some(content), .. } = block else { return None };
+    let text = match content {
+        ResultContent::Prose(text) => text.as_str(),
+        ResultContent::Parts(parts) => parts.iter().find_map(|part| part.text.as_deref().filter(|text| text.contains(OUTPUT_AT)))?,
+    };
+    let after = &text[text.find(OUTPUT_AT)? + OUTPUT_AT.len()..];
+    let line = after.lines().next()?;
+    let file = line.split(". You will be notified").next()?.trim().trim_end_matches('.');
+    file.starts_with('/').then(|| DroneEvent::OutputAt { call: tool_use_id.clone(), file: file.to_string() })
 }
 
 #[derive(Deserialize)]
@@ -647,6 +698,9 @@ enum Block {
         tool_use_id: String,
         #[serde(default)]
         is_error: bool,
+        /// Read only for where a backgrounded command writes its output.
+        #[serde(default)]
+        content: Option<ResultContent>,
     },
     #[serde(rename = "text")]
     Text { text: String },

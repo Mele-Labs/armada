@@ -115,10 +115,19 @@ fn dot_of(standing: Standing) -> &'static str {
     }
 }
 
+/// Whether `extra` is the card the builds to try stand in: their own compact card, or the first card while a build is the first ask.
+pub(super) fn holds_builds(extra: &super::Extra) -> bool {
+    match extra {
+        super::Extra::Ready => true,
+        super::Extra::First(key) => key.starts_with(super::first_card::FIRST_BUILD),
+        _ => false,
+    }
+}
+
 impl Page {
     /// The element the compact card is drawn at, after the thread's items, while a build is open or put off.
     pub(super) fn ready_at(&self) -> Option<usize> {
-        self.extras.iter().position(|extra| matches!(extra, super::Extra::Ready)).map(|at| self.items + at)
+        self.extras.iter().position(holds_builds).map(|at| self.items + at)
     }
 }
 
@@ -130,8 +139,8 @@ impl JobView {
     }
 
     /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened unfolds whole under
-    /// its own row.
-    pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    /// its own row. Not `framed`, it is the first card's body: the Refresh keys and the rows, with no frame or band of its own.
+    pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, framed: bool, cx: &Context<Self>) -> AnyElement {
         let listed: Vec<&Build> = all.iter().filter(|build| build.standing.asks()).collect();
         let standing = if listed.iter().any(|build| build.standing == Standing::Open) { Standing::Open } else { Standing::Later };
         let newest = listed.iter().max_by_key(|build| build.at).map(|build| build.card);
@@ -154,7 +163,10 @@ impl JobView {
         let pending_tip = nearest.filter(|_| waits).map(Preview::tip);
         // The Refresh keys stand while any listed build is outside the preview, and take a press only once one is ready for it.
         let refresh = previews.iter().filter(|preview| **preview != Preview::In).min_by_key(near).map(|preview| RefreshKeys { ready: preview.refreshes(), why: preview.tip() });
-        let head = newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, pending_tip, refresh, now, look, cx));
+        let head = match framed {
+            true => newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, pending_tip, refresh, now, look, cx)),
+            false => refresh.map(|keys| self.refresh_strip("thread", keys, look, cx)),
+        };
         let picked = page.cards.ready_pick.as_deref();
         let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
         let rows: Vec<AnyElement> = listed
@@ -247,6 +259,10 @@ impl JobView {
                 div().flex().flex_col().child(labelled(row, Role::Button, said)).children(detail).into_any_element()
             })
             .collect();
+        if !framed {
+            return labelled(div().id("ready-compact").flex().flex_col().children(head).child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows)), Role::Group, "Ready to try")
+                .into_any_element();
+        }
         let ink = look.color(standing.ink());
         // While the preview rebuilds, from a Refresh preview pressed anywhere, the whole card breathes in the running hue.
         let refreshing = self.preview_refreshing(cx).is_some();
@@ -627,7 +643,7 @@ mod tests {
             let held = view.thread("tool-edit", cx).expect("a thread");
             let first_build = held.items.iter().position(|item| matches!(item, ThreadItem::ReadyToTry(_))).expect("builds");
             assert!(page.items - first_build >= 10, "the Job went on talking after its builds: {} items after the first", page.items - first_build);
-            let ready = page.extras.iter().position(|extra| *extra == crate::job_view::Extra::Ready).expect("the card is an extra");
+            let ready = page.extras.iter().position(super::holds_builds).expect("the card is an extra");
             assert!(
                 page.extras[ready + 1..].iter().all(|extra| matches!(extra, crate::job_view::Extra::Working | crate::job_view::Extra::Subagents | crate::job_view::Extra::Pending(_) | crate::job_view::Extra::Refreshing)),
                 "only what the Job does now stands after it: {:?}",
@@ -707,6 +723,20 @@ mod tests {
         let chosen = panel_of(&view, cx).map(|(id, _)| id).expect("the panel stays up");
         assert_ne!(chosen, bare, "the next open build is chosen");
         assert!([id_of(&view, FULL, cx), id_of(&view, SHOT, cx)].contains(&chosen));
+    }
+
+    #[gpui::test]
+    fn a_build_that_is_the_first_ask_stands_in_the_first_card_and_nowhere_else(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        let first = view.read_with(cx, |view, cx| view.first_ask("tool-edit", cx)).expect("a build is open");
+        assert_eq!(first.kind, super::super::review::Kind::Build, "the Job's first ask is a build");
+        let extras = view.read_with(cx, |view, _| view.pages.get("tool-edit").expect("a page").extras.clone());
+        assert!(!extras.contains(&crate::job_view::Extra::Ready), "no card of the builds' own stands beside the first: {extras:?}");
+        assert!(view.read_with(cx, |view, _| view.pages.get("tool-edit").expect("a page").ready_at().is_some()), "the first card is where the builds are");
+        let mut groups = drawn_like(cx, Role::Group, "Ready to try");
+        groups.dedup();
+        assert_eq!(groups, ["Ready to try"], "the builds stand once, in the first card");
+        assert!(drawn(cx, Role::ListItem, "Now: Try the build"), "under the step bar");
     }
 
     #[gpui::test]
@@ -930,7 +960,7 @@ mod tests {
         let inside = id_of(&view, FULL, cx);
         view.update(cx, |view, cx| view.ready_open("tool-edit", &inside, cx));
         redraw(cx);
-        assert!(drawn(cx, Role::Status, "Ready to try"), "the card's chip is the plain one");
+        assert!(drawn(cx, Role::Button, &format!("{FULL}, Ready")), "its row is the plain one");
         assert_eq!(super::super::ready_card::built_label(&Preview::In).0, "Built \u{b7} in the preview");
         for name in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
             assert!(drawn(cx, Role::Button, name), "{name} is on a build the preview holds");
@@ -1002,7 +1032,7 @@ mod tests {
         offers_held(&fleet, offers_of(SHOT, "ready", None), cx);
         assert!(drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "ready and not built reads as before");
         assert!(refresh_in(cx, "Ready to try"), "Refresh brings it in");
-        assert!(drawn(cx, Role::Status, "Restarts Fleet on latest main with Tool edit."), "the title bar's sentence names what it builds");
+        assert!(drawn(cx, Role::Status, "Restarts Fleet on latest main with the offered branches."), "the line under Refresh says what it builds");
         assert!(!drawn(cx, Role::Status, CHECKING_TIP), "nothing holds it off");
     }
 

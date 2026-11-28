@@ -110,6 +110,7 @@ pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, d
         operator_read: None,
         artifact: Some(id.clone()),
         id,
+        goal_met: None,
     })
 }
 
