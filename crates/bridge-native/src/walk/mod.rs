@@ -3392,7 +3392,7 @@ pub static WALKS: &[Walk] = &[
             press_on("+ offers Walks", "button", "Add tab: Done", "menuitem", "Walks"),
             press_on("The Walks tab lists each walk with where its build stands", "menuitem", "Walks", "img", "Fleet is building this walk from the Job's branch"),
             step("A walk Fleet is still building says Building with a turning mark, and its tooltip says why", Verb::Hover, "img", "Fleet is building this walk from the Job's branch"),
-            step("A press on it does nothing", Verb::Press, "row", "Walk bar buttons, Building"),
+            step("A press on it brings the walk's tab forward, and Fleet is asked to open nothing", Verb::Look, "button", "Walk bar buttons, Building"),
             step("A walk whose build failed says Not ready, muted: the Job was told, and he was not", Verb::Hover, "img", "The build failed and the Job was told"),
             step("A walk that built is the row it always was: it waits on him, and one press opens it", Verb::Look, "button", "Strip marks, waits on you"),
             step("The walk's own bar holds Ship it, first, which lands the change without previewing it in the app", Verb::Hover, "button", "Ship it"),
