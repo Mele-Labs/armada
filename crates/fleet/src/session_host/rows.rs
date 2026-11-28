@@ -126,7 +126,7 @@ where
 pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<String> {
     let named: Vec<String> = tags
         .iter()
-        .filter(|(tag, _)| !matches!(tag.kind, TagKind::Tool | TagKind::Request))
+        .filter(|(tag, _)| !matches!(tag.kind, TagKind::Tool | TagKind::Request | TagKind::Feature))
         .map(|(tag, address)| match tag.kind {
             TagKind::Session => match address {
                 Some(address) => format!(
@@ -157,7 +157,7 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 "terminal {} \"{}\" (pass {} as `terminal` to type_in_terminal or read_terminal)",
                 tag.id, tag.title, tag.id
             ),
-            TagKind::Tool | TagKind::Request => unreachable!("tools and requests are said on lines of their own"),
+            TagKind::Tool | TagKind::Request | TagKind::Feature => unreachable!("tools, requests and features are said on lines of their own"),
         })
         .collect();
     let mut lines: Vec<String> = Vec::new();

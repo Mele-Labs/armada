@@ -145,6 +145,9 @@ pub enum TagKind {
     /// name. New: `id` is `new`, which has no slash and so is never a saved one, `title` `New request`.
     /// An `id` with a slash that leaves either half empty adds nothing to the line.
     Request,
+    /// A feature of a project's catalog. `id` is `<project id>/<slug>`, as `get_feature_brief` takes the two,
+    /// `title` its title. An `id` with a slash that leaves either half empty adds nothing to the line.
+    Feature,
 }
 
 /// Something a message names: another session, a pull request, an issue, a reported bug, a
