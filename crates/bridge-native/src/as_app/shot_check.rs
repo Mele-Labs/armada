@@ -1,8 +1,6 @@
-//! `--shot-check` run as the app runs it, headless. gpui's Mac platform must be made on the process's main
-//! thread, which a test thread is not, so each check is its own process, as `walks.rs` plays a walk.
+//! `--shot-check` run as the app runs it, headless, each check as its own process.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures")
@@ -20,7 +18,7 @@ fn scene_in(name: &str, edit: impl Fn(&str) -> String) -> PathBuf {
 
 fn check(dir: &Path, extra: &[&str]) -> (bool, serde_json::Value) {
     let out = dir.join("out");
-    let run = Command::new(env!("CARGO_BIN_EXE_bridge-native"))
+    let run = super::app()
         .args(["--shot-check".as_ref(), dir.join("scene.html").as_os_str(), "--out".as_ref(), out.as_os_str()])
         .args(extra)
         .output()

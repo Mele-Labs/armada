@@ -134,14 +134,21 @@ pub trait Features: Send + Sync + 'static {
     /// where no module is found (`fleet.no_module`).
     fn draft_module_features(&self, caller: Option<crate::Caller>, draft: ipc::DraftModules) -> impl Future<Output = Result<ipc::ModulesDrafted, Refusal>> + Send;
 
-    /// `start_sub_project` — the Jobs the owner picked, kept under a name with the features whose live Jobs hold one of
-    /// them now. [`Refusal::Unacceptable`] for an empty name (`fleet.sub_project_no_name`) or no Jobs
-    /// (`fleet.sub_project_no_jobs`), [`Refusal::NotFound`] for a Job Fleet does not hold (`fleet.no_such_session`),
-    /// [`Refusal::IllegalMove`] for a Job not filed in the project (`fleet.sub_project_across_projects`).
-    fn start_sub_project(&self, start: ipc::StartSubProject) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
+    /// `start_sub_project` — the Jobs the owner picked, kept under a name and his goal with the features whose live Jobs
+    /// hold one of them now, and an orchestrator Job started for it. [`Refusal::Unacceptable`] for an empty name
+    /// (`fleet.sub_project_no_name`), goal (`fleet.sub_project_no_goal`) or no Jobs (`fleet.sub_project_no_jobs`),
+    /// [`Refusal::NotFound`] for a Job Fleet does not hold (`fleet.no_such_session`), [`Refusal::IllegalMove`] for a Job
+    /// not filed in the project (`fleet.sub_project_across_projects`).
+    fn start_sub_project(self: std::sync::Arc<Self>, start: ipc::StartSubProject) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
 
-    /// `list_sub_projects` — the sub projects of `project`, or of every project where it is `None`, oldest first.
-    fn list_sub_projects(&self, project: Option<String>) -> impl Future<Output = Result<ipc::SubProjects, Refusal>> + Send;
+    /// `list_sub_projects` — the open sub projects of `project`, or of every project where it is `None`, oldest first, or
+    /// the ones folded away where `ended`. An open one kept without an orchestrator has one started, once.
+    fn list_sub_projects(self: std::sync::Arc<Self>, project: Option<String>, ended: bool) -> impl Future<Output = Result<ipc::SubProjects, Refusal>> + Send;
+
+    /// `turn_into_orchestrator` — a running Job made the orchestrator of a new sub project, its own work moved to a new
+    /// first child Job. Refused as `start_sub_project` is, and [`Refusal::IllegalMove`] for a Job that has ended or
+    /// orchestrates already (`fleet.sub_project_not_turnable`).
+    fn turn_into_orchestrator(self: std::sync::Arc<Self>, turn: ipc::TurnIntoOrchestrator) -> impl Future<Output = Result<ipc::SubProject, Refusal>> + Send;
 
     /// `ungroup_sub_project` — the sub project dropped, its Jobs untouched. [`Refusal::NotFound`] for an unknown id
     /// (`fleet.no_such_sub_project`).

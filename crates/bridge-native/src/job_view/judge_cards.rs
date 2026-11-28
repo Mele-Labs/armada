@@ -68,7 +68,7 @@ fn card_place(items: &[ThreadItem], extras: &[Extra], artifact: &JudgeArtifact) 
         _ => false,
     });
     // An open build is drawn in the pinned card at the thread's end, not where it was offered.
-    let pinned = (artifact.kind == JudgeKind::Branch).then(|| extras.iter().position(|extra| matches!(extra, Extra::Ready)).map(|at| items.len() + at)).flatten();
+    let pinned = (artifact.kind == JudgeKind::Branch).then(|| extras.iter().position(super::ready_compact::holds_builds).map(|at| items.len() + at)).flatten();
     pinned.or(item)
 }
 

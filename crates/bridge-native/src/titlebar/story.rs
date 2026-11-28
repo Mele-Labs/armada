@@ -85,10 +85,42 @@ fn and_list(names: &[String]) -> String {
     }
 }
 
-/// What Refresh builds: latest main with every ready offer and each pick not yet built, each Job named once, keeping
+/// The line under Refresh: which Macs restart, and onto what, in a few words, then why Fleet left anything out, in its own
+/// sentence. Every Job it names is in `refresh_whole`, the line's tooltip (26 Nov: the whole list ran to six lines).
+pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
+    let (across, names, kept) = refresh_names(offers, macs);
+    let on = if across { "Restarts both Macs" } else { "Restarts Fleet" };
+    let with = match (names.is_empty(), kept.is_empty()) {
+        (true, true) => "",
+        (false, _) => " with the offered branches",
+        (true, false) => " with the branches it runs",
+    };
+    let mut said = format!("{on} on latest main{with}.");
+    for out in offers.map_or(&[][..], |offers| offers.left_out.as_slice()) {
+        said.push(' ');
+        said.push_str(&out.why);
+    }
+    said
+}
+
+/// What Refresh builds, whole: latest main with every ready offer and each pick not yet built, each Job named once, keeping
 /// what the running build holds. Where offers come from more than one Mac each is named with its Mac, and what Fleet
 /// left out says why, in Fleet's own sentence.
-pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
+pub fn refresh_whole(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
+    let (across, names, kept) = refresh_names(offers, macs);
+    let on = if across { "Restarts both Macs" } else { "Restarts Fleet" };
+    let with = if names.is_empty() { String::new() } else { format!(" with {}", and_list(&names)) };
+    let keeping = if kept.is_empty() { String::new() } else { format!(", keeping {}", and_list(&kept)) };
+    let mut said = format!("{on} on latest main{with}{keeping}.");
+    for out in offers.map_or(&[][..], |offers| offers.left_out.as_slice()) {
+        said.push(' ');
+        said.push_str(&out.why);
+    }
+    said
+}
+
+/// Whether the offers come from more than one Mac, the Jobs Refresh brings in, and those it keeps from the running build.
+fn refresh_names(offers: Option<&PreviewOffers>, macs: &[Mac]) -> (bool, Vec<String>, Vec<String>) {
     let ready: Vec<&ipc::PreviewOfferRow> = offers.map_or(&[][..], |offers| offers.offers.as_slice()).iter().filter(|offer| offer.state == PreviewState::Ready).collect();
     let this = macs.iter().find(|mac| mac.this_mac);
     let from_other = |offer: &ipc::PreviewOfferRow| offer.mac.as_deref().is_some_and(|id| this.is_none_or(|this| this.id != id));
@@ -118,15 +150,7 @@ pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
             kept.push(one.title.clone());
         }
     }
-    let on = if across { "Restarts both Macs" } else { "Restarts Fleet" };
-    let with = if names.is_empty() { String::new() } else { format!(" with {}", and_list(&names)) };
-    let keeping = if kept.is_empty() { String::new() } else { format!(", keeping {}", and_list(&kept)) };
-    let mut said = format!("{on} on latest main{with}{keeping}.");
-    for out in offers.map_or(&[][..], |offers| offers.left_out.as_slice()) {
-        said.push(' ');
-        said.push_str(&out.why);
-    }
-    said
+    (across, names, kept)
 }
 
 /// What Update to main builds.
@@ -221,8 +245,8 @@ mod tests {
     #[test]
     fn refresh_says_what_it_builds_naming_each_ready_job_once() {
         let (_, his_offers) = his();
-        assert_eq!(refresh_said(Some(&his_offers), &[]), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
-        assert_eq!(refresh_said(None, &[]), "Restarts Fleet on latest main.");
+        assert_eq!(refresh_whole(Some(&his_offers), &[]), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
+        assert_eq!(refresh_whole(None, &[]), "Restarts Fleet on latest main.");
         let three = offers(&format!(
             r#"{{"offers":[{},{},{},{}]}}"#,
             offer("a", "A", "ready", false),
@@ -230,7 +254,7 @@ mod tests {
             offer("c", "C", "ready", false),
             offer("d", "", "ready", false),
         ));
-        assert_eq!(refresh_said(Some(&three), &[]), "Restarts Fleet on latest main with A, C and d.");
+        assert_eq!(refresh_whole(Some(&three), &[]), "Restarts Fleet on latest main with A, C and d.");
     }
 
     fn offer_on(branch: &str, title: &str, mac: Option<&str>) -> String {
@@ -246,18 +270,42 @@ mod tests {
             r#"{{"offers":[{}],"refresh":{{"id":"r1","branches":["a","native/picked"],"keeps":[{{"branch":"c","title":"C"}},{{"branch":"d","title":"d"}}]}}}}"#,
             offer_on("a", "A", None)
         );
-        assert_eq!(refresh_said(Some(&offers(&json)), &[]), "Restarts Fleet on latest main with A and native/picked, keeping C and d.");
+        assert_eq!(refresh_whole(Some(&offers(&json)), &[]), "Restarts Fleet on latest main with A and native/picked, keeping C and d.");
         let only_kept = offers(r#"{"offers":[],"refresh":{"id":"r1","branches":[],"keeps":[{"branch":"c","title":"C"}]}}"#);
-        assert_eq!(refresh_said(Some(&only_kept), &[]), "Restarts Fleet on latest main, keeping C.");
+        assert_eq!(refresh_whole(Some(&only_kept), &[]), "Restarts Fleet on latest main, keeping C.");
+    }
+
+    #[test]
+    fn the_line_under_refresh_is_short_and_its_tooltip_names_every_job() {
+        let json = format!(
+            r#"{{"offers":[{},{},{}],"refresh":{{"id":"r1","branches":[],"keeps":[{{"branch":"c","title":"C"}}]}}}}"#,
+            offer_on("a", "Planning on a document with the agent", None),
+            offer_on("b", "Librarian on the dashboard", None),
+            offer_on("e", "Fill In The Blank Dispatch", None)
+        );
+        let three = offers(&json);
+        assert_eq!(refresh_said(Some(&three), &[]), "Restarts Fleet on latest main with the offered branches.", "the line names no Job");
+        assert_eq!(
+            refresh_whole(Some(&three), &[]),
+            "Restarts Fleet on latest main with Planning on a document with the agent, Librarian on the dashboard and Fill In The Blank Dispatch, keeping C.",
+            "its tooltip names each"
+        );
+        let only_kept = offers(r#"{"offers":[],"refresh":{"id":"r1","branches":[],"keeps":[{"branch":"c","title":"C"}]}}"#);
+        assert_eq!(refresh_said(Some(&only_kept), &[]), "Restarts Fleet on latest main with the branches it runs.");
+        assert_eq!(refresh_said(None, &[]), "Restarts Fleet on latest main.");
+        let macs = crate::pairing::mock_macs(true);
+        let other = macs.iter().find(|mac| !mac.this_mac).map(|mac| mac.id.clone()).expect("a second Mac");
+        let both = offers(&format!(r#"{{"offers":[{}]}}"#, offer_on("a", "A", Some(&other))));
+        assert_eq!(refresh_said(Some(&both), &macs), "Restarts both Macs on latest main with the offered branches.");
     }
 
     #[test]
     fn refresh_names_each_offers_mac_where_offers_come_from_more_than_one() {
         let macs = crate::pairing::mock_macs(true);
         let both = offers(&format!(r#"{{"offers":[{},{}]}}"#, offer_on("a", "A", None), offer_on("b", "B", Some("air"))));
-        assert_eq!(refresh_said(Some(&both), &macs), "Restarts both Macs on latest main with A (Studio) and B (Air).");
+        assert_eq!(refresh_whole(Some(&both), &macs), "Restarts both Macs on latest main with A (Studio) and B (Air).");
         let here = offers(&format!(r#"{{"offers":[{},{}]}}"#, offer_on("a", "A", None), offer_on("b", "B", Some("studio"))));
-        assert_eq!(refresh_said(Some(&here), &macs), "Restarts Fleet on latest main with A and B.", "every offer this Mac's, so the wording is as before");
+        assert_eq!(refresh_whole(Some(&here), &macs), "Restarts Fleet on latest main with A and B.", "every offer this Mac's, so the wording is as before");
     }
 
     #[test]
@@ -267,9 +315,9 @@ mod tests {
             r#"{{"offers":[{}],"left_out":[{{"mac":"air","name":"Air","why":"Air is asleep, so its offers are left out."}}]}}"#,
             offer_on("a", "A", None)
         ));
-        assert_eq!(refresh_said(Some(&left), &macs), "Restarts Fleet on latest main with A. Air is asleep, so its offers are left out.");
+        assert_eq!(refresh_whole(Some(&left), &macs), "Restarts Fleet on latest main with A. Air is asleep, so its offers are left out.");
         let none = offers(r#"{"offers":[],"left_out":[{"mac":"air","name":"Air","why":"Air runs another build, so its offers are left out."}]}"#);
-        assert_eq!(refresh_said(Some(&none), &macs), "Restarts Fleet on latest main. Air runs another build, so its offers are left out.");
+        assert_eq!(refresh_whole(Some(&none), &macs), "Restarts Fleet on latest main. Air runs another build, so its offers are left out.");
     }
 
     #[test]

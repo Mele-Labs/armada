@@ -120,6 +120,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: None,
+                    goal_met: None,
                 })
             })
             .collect()

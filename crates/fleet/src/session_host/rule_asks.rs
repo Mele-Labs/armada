@@ -53,6 +53,7 @@ fn rule_act_item(act: &KeptRuleAct) -> Option<WaitingItem> {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     })
 }
 

@@ -630,13 +630,20 @@ impl JobView {
         )
     }
 
-    /// The Operator's model, picked in its box: the setting Settings shows, and the session running now, both on the model named.
+    /// The Operator's model and effort, picked in its box: the settings Settings shows, and the session running now, both on what was picked.
     pub(super) fn tune_operator(&mut self, id: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let (_, model, _) = self.tuning(&id, cx);
+        let (_, model, effort) = self.tuning(&id, cx);
         // Fleet's restart reads an empty model as a Job's, not the Operator's: the model goes named.
         let Some(model) = model.or_else(|| self.composer.catalog.models.as_ref().map(|models| models.session.clone())) else { return };
         self.composer.box_of(&id).model = Some(Some(model.clone()));
-        let changes = [("models.operator".to_string(), Some(ipc::SettingValue::Text(model)))].into_iter().collect();
+        // No effort picked is the harness's own, which is the setting's first word.
+        let effort = effort.unwrap_or_else(|| "harness default".to_string());
+        let changes = [
+            ("models.operator".to_string(), Some(ipc::SettingValue::Text(model))),
+            ("effort.operator".to_string(), Some(ipc::SettingValue::Text(effort))),
+        ]
+        .into_iter()
+        .collect();
         let job = id.clone();
         let saved: super::wire::Done = Box::new(move |this, answer, _, cx| {
             if let (Err(why), Some(page)) = (answer, this.pages.get_mut(&job)) {

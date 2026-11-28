@@ -62,6 +62,7 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

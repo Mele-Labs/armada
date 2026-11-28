@@ -126,7 +126,7 @@ pub static STORY: [Step; 22] = [
     step("Typing narrows the list by title or area", Verb::Typed("Sta"), "option", "Start a Job, Running a Job"),
     step("Enter takes the row and goes on to the next blank", Verb::Key("enter"), "textbox", "what happens"),
     step("The last blank is filled the same way", Verb::Typed("the draft is lost"), "status", "Starts: bug workflow · Start a Job page"),
-    step("The line under the sentence says what it starts, with the feature's page and the tools its kind asks for as chips", Verb::Look, "button", "Remove Terminal"),
+    step("The line under the sentence says what it starts, with the feature's page and no tool chips", Verb::Look, "status", "Starts: bug workflow · Start a Job page"),
     step("Esc turns the whole sentence into plain words", Verb::Key("escape"), "textbox", "Request"),
     step("⌘Z after Esc brings the sentence back, with the keys in the blank they were in", Verb::Key("cmd-z"), "textbox", "what happens"),
     step("More letters go into the blank", Verb::Typed(" twice"), "textbox", "what happens"),

@@ -228,6 +228,9 @@ pub(crate) enum Extra {
     Judging(String),
     Plan(PlanCardState),
     Sketch(String),
+    /// The run being done now, when a card that waits on him stands over the thread: it is drawn here, under that card,
+    /// where its item draws nothing (`extras_of`).
+    Live,
     Pending(usize),
     Working,
     /// The card of the subagents and background tasks running now.
@@ -397,6 +400,11 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
     }
     if let Some(sketch) = &head.sketch {
         extras.push(Extra::Sketch(sketch.title.clone()));
+    }
+    // Work being done stands under what waits on him, so a card that asks him is not pushed up by it.
+    let waits_on_him = extras.iter().any(|extra| matches!(extra, Extra::Plan(PlanCardState::Waiting) | Extra::Sketch(_)));
+    if waits_on_him && working && head.asked.is_none() && matches!(items.last(), Some(ThreadItem::Calls { .. })) {
+        extras.push(Extra::Live);
     }
     extras.extend((0..pending.len()).map(Extra::Pending));
     if refreshing {
@@ -1151,7 +1159,7 @@ impl JobView {
             .chain(self.record(id, cx).into_iter().flat_map(|record| record.answers.iter().map(ask_line::answer_key)))
             .collect();
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
-        if ready_compact::asks(&held.items) {
+        if ready_compact::asks(&held.items) && !first.as_ref().is_some_and(|first| first.kind == review::Kind::Build) {
             cards.push(Extra::Ready);
         }
         // Words the Judge is reading stand at the thread's end as the card their reading will be, ahead of the builds.
@@ -1161,11 +1169,11 @@ impl JobView {
         if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
             extras.push(Extra::Subagents);
         }
-        let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+        let stands = extras.iter().position(|extra| matches!(extra, Extra::Live | Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
         // The cards the Operator raised in the talk stand after his words and before what it is doing now.
         if let Some(beside) = self.beside.as_ref().filter(|beside| beside.id == *id) {
-            let working = extras.iter().position(|extra| matches!(extra, Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
+            let working = extras.iter().position(|extra| matches!(extra, Extra::Live | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
             extras.splice(working..working, beside.raised.iter().cloned().map(Extra::Raised));
         }
         // The pin is keyed by the sketch's ledger id, which a revision drawn against an earlier title keeps while its title changes.
@@ -1602,6 +1610,25 @@ mod tests {
         let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false, about: None }];
         let extras = extras_of(&head, &items, &pending, true, false, false);
         assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Pending(0), Extra::Working]);
+    }
+
+    #[test]
+    fn a_live_run_stands_under_a_card_that_waits_on_him_and_in_place_otherwise() {
+        let calls = r#"{"kind":"calls","id":"t1","names":["Bash"],"rows":[{"kind":"tool","id":"t1","at":"2026-11-09T10:00:00Z","text":"Bash ls"}]}"#;
+        let waiting = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
+        let (head, items) = thread(calls, &waiting);
+        let extras = extras_of(&head, &items, &[], true, false, false);
+        assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Live]);
+        // His unsent words are newer than the run, so they stand after it.
+        let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false, about: None }];
+        assert_eq!(extras_of(&head, &items, &pending, true, false, false), [Extra::Plan(PlanCardState::Waiting), Extra::Live, Extra::Pending(0)]);
+        // A run that is over, a plan put aside and a thread ending on his words keep the run where it was.
+        assert_eq!(extras_of(&head, &items, &[], false, false, false), [Extra::Plan(PlanCardState::Waiting)]);
+        let aside = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"set_aside"}}}}"#);
+        let (head, items) = thread(calls, &aside);
+        assert_eq!(extras_of(&head, &items, &[], true, false, false), [Extra::Plan(PlanCardState::SetAside)]);
+        let (head, items) = thread(&you("a", "hi"), &waiting);
+        assert_eq!(extras_of(&head, &items, &[], true, false, false), [Extra::Plan(PlanCardState::Waiting), Extra::Working]);
     }
 
     #[test]
