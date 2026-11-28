@@ -188,7 +188,7 @@ pub(crate) async fn refuse_a_job<D: Admitting>(
     let (Some((operation, does)), Some(peer)) = (persons, peer) else {
         return next.run(request).await;
     };
-    if !served.daemon().job_at(Caller::at(peer)) {
+    if !served.daemon().job_at(Caller::at(peer)).await {
         return next.run(request).await;
     }
     problem(

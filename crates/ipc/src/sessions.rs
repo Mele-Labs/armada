@@ -1608,7 +1608,7 @@ pub struct SessionRecord {
     /// runs nothing until the person writes. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub side_job: bool,
-    /// The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+    /// The Operator's own session: one for each project, hosted with no repository, no slot and no Manifest, which
     /// Bridge keeps out of the Jobs list. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub operator: bool,

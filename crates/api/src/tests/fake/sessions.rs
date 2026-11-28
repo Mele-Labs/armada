@@ -810,6 +810,14 @@ impl Sessions for FakeDaemon {
         Ok(ipc::OperatorActsList::default())
     }
 
+    async fn list_operator_settings(&self) -> Result<ipc::OperatorSettingsList, Refusal> {
+        Ok(ipc::OperatorSettingsList::default())
+    }
+
+    async fn set_operator_settings(self: std::sync::Arc<Self>, _set: ipc::SetOperatorSettings) -> Result<ipc::OperatorSettingsList, Refusal> {
+        Ok(ipc::OperatorSettingsList::default())
+    }
+
     async fn ask_held(
         self: std::sync::Arc<Self>,
         _caller: Option<crate::Caller>,

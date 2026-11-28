@@ -852,7 +852,7 @@ export type SessionRecord = {
    */
   side_job?: boolean;
   /**
-   * The Operator's own session: one per Mac, hosted with no repository, no slot and no Manifest, which
+   * The Operator's own session: one for each project, hosted with no repository, no slot and no Manifest, which
    * Bridge keeps out of the Jobs list. Absent on every other session.
    */
   operator?: boolean;

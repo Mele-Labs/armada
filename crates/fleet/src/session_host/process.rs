@@ -67,8 +67,8 @@ pub struct Start {
     /// Whether the process is asked for its thinking summaries: `harness.thinkingSummaries` as it
     /// stood when the process started.
     pub thinking_summaries: bool,
-    /// The Operator's own session, told the Operator's rules in place of a Job's.
-    pub operator: bool,
+    /// The Operator's own session, told its project's Operator prompt in place of a Job's rules.
+    pub operator: Option<adapters::OperatorPrompt>,
 }
 
 /// What a process says, in the order it said it.
@@ -282,8 +282,8 @@ impl Processes for ProcessHost {
         .and_then(|env| env.and(crate::scratch::SCRATCH_ENV, &scratch.to_string_lossy()))
         // The mod's hooks read it, so the Operator is never held to a Job's `waiting_for`.
         .and_then(|env| match start.operator {
-            true => env.and(OPERATOR_ENV, "1"),
-            false => Ok(env),
+            Some(_) => env.and(OPERATOR_ENV, "1"),
+            None => Ok(env),
         })
         .map_err(|why| why.said())?;
         // A conversation resumed from another directory (a Session moving into
@@ -330,9 +330,9 @@ impl Processes for ProcessHost {
             Some(note) => hosted.noting(note),
             None => hosted,
         };
-        let hosted = match start.operator {
-            true => hosted.as_operator(),
-            false => hosted,
+        let hosted = match &start.operator {
+            Some(prompt) => hosted.as_operator(prompt.clone()),
+            None => hosted,
         };
         let hosted = match start.connectors {
             true => hosted,

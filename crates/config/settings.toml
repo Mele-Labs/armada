@@ -1071,7 +1071,7 @@ read_by = "adapters, fleet"
 notes = """
 DECIDED 4 Nov 2026 (owner), with the design page *Helm becomes the Operator*: sonnet, its own row so no other setting moves it, and it never follows the proposer's cheap tier. The replay of 4 Nov ran 120 of a week's arrivals through the call on both tiers: Fleet's rules would have refused 4 of this tier's rulings against 14 of the cheap tier's, at about 17 times the cheap tier's price a call. `docs/spikes/operator-replay.md`.
 
-The model of the Operator's own agent session, read when the session starts. The adapter states the default and a test holds it to the roster and above the Judge's. The one-shot calls this row once priced went with the Policy.
+The default model of each project's Operator session, read when a session starts. A project that sets its own model in its Operator settings starts on that instead, and a change there hands its live session on at once. The adapter states the default and a test holds it to the roster and above the Judge's. The one-shot calls this row once priced went with the Policy.
 
 **The value lives in settings.json under `models.operator`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
@@ -1088,9 +1088,11 @@ read_by = "fleet"
 notes = """
 DECIDED 4 Nov 2026 (owner): the whole Operator can be turned off, and it ships Off, "off until I turn it on". It is the design page's Evaluate row, the one switch for the whole thing.
 
-**Off is main before the Operator.** No session is started, and a running one ends; nothing is told to it; and every dispatch starts as asked, with no Job acted on or told of another.
+**Off is main before the Operator.** No project's session is started, and a running one ends; nothing is told to it; and every dispatch starts as asked, with no Job acted on or told of another.
 
-Live: read at every arrival and every act, and the session follows it on the notice loop's next tick.
+**It is the machine's master switch.** Each project's Operator has its own switch, on by default, and runs only while this one and its own are on. This one off ends every project's session.
+
+Live: read at every arrival and every act, and each project's session follows it on the notice loop's next tick.
 """
 
 [settings.plan-downshift-line]

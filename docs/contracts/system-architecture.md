@@ -75,7 +75,7 @@ in Armada Decisions.
 | Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
-| Operator | One agent session with Fleet's tools, hosted by Fleet | One per machine, for as long as its context lasts | Fleet, while `features.operator` is on |
+| Operator | One agent session with Fleet's tools, hosted by Fleet | One per project, for as long as its context lasts | Fleet, while `features.operator` is on |
 | SQLite | File, WAL mode | Persistent | Fleet, via the `store` crate |
 | `armada doctor --json` | Rust, same binary as Fleet | ~253 ms warm. One scan, then it exits | Bridge, on demand |
 
@@ -703,7 +703,7 @@ placement.
 | Machine | Entity | How this installation behaves. One tier, no Manifest counterpart, no merge |
 | Workflow | Entity | As WorkflowDef. Authored, versioned, interpreted uniformly by Fleet |
 | Drone | **Agent + Entity** | Splits. The agent, and the Drone Run record carried on a Job |
-| Operator | **Agent + Surface** | Splits. The session Fleet hosts, one per machine, and the page inside Bridge |
+| Operator | **Agent + Surface** | Splits. The session Fleet hosts, one per project, and the page inside Bridge |
 | Fleet | Process | The only one. No engineer-facing surface beyond its Doctor module |
 | Bridge | Surface | Surface group, six surfaces inside it |
 | Doctor | Surface | Owns no probe logic and no state |

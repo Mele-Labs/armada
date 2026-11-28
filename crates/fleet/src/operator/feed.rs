@@ -71,6 +71,7 @@ pub(super) fn feed_read(store: &store::Store, since: &str) -> Vec<OperatorFeedEn
                 session_id: line.session_id.as_deref().map(SessionId::carried),
                 number: None,
                 said: line.said,
+                operator: line.project.as_deref().map(|project| super::settings::operator_tag_in(store, project)),
             })
         })
         .collect();
@@ -81,11 +82,12 @@ pub(super) fn feed_read(store: &store::Store, since: &str) -> Vec<OperatorFeedEn
         session_id: Some(SessionId::carried(&one.session_id)),
         number: Some(one.number),
         said: None,
+        operator: None,
     }));
     for session in store.sessions_ended_since(since, 60).unwrap_or_default() {
         let Some(at) = session.ended_at.as_deref() else { continue };
         let said = store.done_summary(&session.id).ok().flatten();
-        lines.push(OperatorFeedEntry { at: Instant::carried(at), kind: OperatorFeedKind::Ended, title: session.title.unwrap_or_else(|| session.id.clone()), session_id: Some(SessionId::carried(&session.id)), number: None, said });
+        lines.push(OperatorFeedEntry { at: Instant::carried(at), kind: OperatorFeedKind::Ended, title: session.title.unwrap_or_else(|| session.id.clone()), session_id: Some(SessionId::carried(&session.id)), number: None, said, operator: None });
     }
     lines.sort_by(|a, b| b.at.as_str().cmp(a.at.as_str()));
     lines
@@ -101,9 +103,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Keep one line of the feed and tell the page. A line that cannot be kept is only a line the feed lacks.
-    pub(crate) async fn feed_kept(&self, kind: OperatorFeedKind, title: &str, session: Option<&str>, said: Option<&str>) {
-        let line = KeptFeed { at: self.now().as_str().to_string(), kind: word(kind).to_string(), title: title.to_string(), session_id: session.map(str::to_string), said: said.map(str::to_string) };
+    /// Keep one line of `project`'s Operator's feed and tell the page. A line that cannot be kept is only a line the feed lacks.
+    pub(crate) async fn feed_kept(&self, project: Option<&str>, kind: OperatorFeedKind, title: &str, session: Option<&str>, said: Option<&str>) {
+        let line = KeptFeed { at: self.now().as_str().to_string(), kind: word(kind).to_string(), title: title.to_string(), session_id: session.map(str::to_string), said: said.map(str::to_string), project: project.map(str::to_string) };
         let _ = self.store().lock().await.put_operator_feed(&line);
         self.operator_page_changed();
     }

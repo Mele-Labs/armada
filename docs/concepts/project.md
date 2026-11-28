@@ -187,7 +187,7 @@ The merge ends with one project on each Mac: the kept one, its own on one Mac an
 > Why: on 19 Nov a merge deleted the other Mac's project while that Mac had no copy of the kept one, so the project vanished there and its Jobs stopped being shared.
 
 Sync never ticks a task: a copy is only what the holding Mac says, and a tick crosses only as his own.
-The Operator's call is handed the open tasks of every project, the copies' among them, and only reads them.
+Each project's Operator reads that project's open tasks, the copies' among them, and only reads them.
 The phone passes the same filter: it sees a Job in a shared project, or one held from another Mac, and nothing of any other (`docs/concepts/pocket.md`, *What the phone sees*).
 
 ## What a project sets

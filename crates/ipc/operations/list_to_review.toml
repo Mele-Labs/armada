@@ -17,4 +17,6 @@ notes = """
 **`answer`** is the existing operation that settles it, tagged by `op`: `answer_items` (Approve or send back, for a plan, sketch, page, draft, walk, or a Job's item raised with `approves`), `answer_waiting` (a choice or words; the row's act carries the choices; a `clash` and a `goal_met` among them), `answer_ready_to_try { cards[] }` (each open card `{ branch, tip, about }`), `done_waiting`, `begin_session { session_id }` (Press Start, on the Job or on one it started), `dismiss_waiting` (the Job's done) or `press` (nothing to answer: the row's act is the press, a command, a restart or a pull request to open).
 
 `agent_access` is `No`: the list is the person's.
+
+Since 28 Nov 2026 each item carries `operator`, `{ project, name, accent }`, beside `project`: the name and accent that project's Operator is set to. It is absent where the Job is in no project.
 """

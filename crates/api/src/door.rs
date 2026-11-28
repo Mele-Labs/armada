@@ -389,7 +389,7 @@ async fn called<D: Queries + Admitting>(
         .ok()
         .and_then(|Query(scope)| scope.manifest());
     let caller = crate::mcp::who_called(&parts);
-    let placed = Placed::of(doorway.served.daemon(), caller);
+    let placed = Placed::of(doorway.served.daemon(), caller).await;
     let body = match axum::body::to_bytes(body, MOST_A_CALL_MAY_BE).await {
         Ok(body) => body,
         // Answered as unreadable bytes.
@@ -439,9 +439,12 @@ async fn called<D: Queries + Admitting>(
                 why: placed.refusing(call.operation),
             },
             Ok(scope) => match within_scope(&call, &scope) {
-                Ok(call) => Answered::Served {
-                    id,
-                    answer: doorway.through(&call, &placed, Some(&scope), caller).await,
+                Ok(call) => match operator_held(&doorway, &placed, &call, caller).await {
+                    Some(why) => Answered::Refused { id, why },
+                    None => Answered::Served {
+                        id,
+                        answer: doorway.through(&call, &placed, Some(&scope), caller).await,
+                    },
                 },
                 Err(why) => Answered::Refused { id, why },
             },
@@ -482,7 +485,7 @@ async fn without_a_manifest<D: Queries + Admitting>(
     Some(match door::read(body, &shapes) {
         Asked::Nothing => return None,
         Asked::Ping { id } => Answered::Ping { id },
-        Asked::Tools { id } => Answered::Tools { id, shapes, always_loads: doorway.served.daemon().always_loads() },
+        Asked::Tools { id } => Answered::Tools { id, shapes: shapes.into_iter().filter(|shape| !placed.is_withheld(shape.operation)).collect(), always_loads: doorway.served.daemon().always_loads() },
         Asked::NoSuchMethod { id, named } => Answered::NoSuchMethod { id, named },
         Asked::Unreadable { why } => Answered::Unreadable { why },
         Asked::Handshake { id, revision } if session => {
@@ -504,11 +507,33 @@ async fn without_a_manifest<D: Queries + Admitting>(
             id,
             why: String::from(NO_SESSION_HERE),
         },
-        Asked::Call { id, call } => Answered::Served {
-            id,
-            answer: doorway.through(&call, placed, None, caller).await,
+        // **The Operator's reach is read here too**, against every row it could be offered, so an act its project
+        // switched off is refused by the switch's name and not as a tool that does not exist.
+        Asked::Call { id, call } => match operator_held(doorway, placed, &call, caller).await {
+            Some(why) => Answered::Refused { id, why },
+            None => Answered::Served {
+                id,
+                answer: doorway.through(&call, placed, None, caller).await,
+            },
         },
     })
+}
+
+/// Why the Operator's call is refused before the surface sees it: its project switched the act off, it is open only
+/// while he has said so lately, or it names something outside its project. `None` for any other caller.
+async fn operator_held<D: Queries + Admitting>(
+    doorway: &Doorway<D>,
+    placed: &Placed,
+    call: &door::Call,
+    caller: crate::mcp::Caller,
+) -> Option<String> {
+    if !placed.is_the_operator() {
+        return None;
+    }
+    if let Some(why) = placed.held_back(call.operation) {
+        return Some(why);
+    }
+    doorway.served.daemon().call_held(caller, call).await
 }
 
 const NO_SESSION_HERE: &str = "this directory has no armada.yml, and this connection is not a \
@@ -533,7 +558,7 @@ fn answering(answered: Answered) -> Response {
 fn within(shapes: Vec<Shape>, placed: &Placed) -> Vec<Shape> {
     shapes
         .into_iter()
-        .filter(|shape| placed.may(shape.operation))
+        .filter(|shape| placed.listed(shape.operation))
         .collect()
 }
 

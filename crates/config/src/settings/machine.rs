@@ -206,7 +206,7 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR.0,
         section: Section::Features,
         title: "Operator",
-        description: "The Operator rules on the work that arrives and keeps a Log of it. Off, nothing is handed to it, it makes no calls, and every start, plan and quiet Job goes on as it did before the Operator.",
+        description: "Each project has its own Operator, which rules on the work that arrives and keeps a Log of it. A project can turn its own off. Off here, no Operator runs: nothing is handed to one, none makes calls, and every start, plan and quiet Job goes on as it did before the Operator.",
         kind: Kind::Boolean,
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,

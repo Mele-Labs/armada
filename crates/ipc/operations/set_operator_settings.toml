@@ -1,0 +1,9 @@
+[operations.set_operator_settings]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Set what one project's Operator is: switch, model, effort, role, words, prompt, output style, tools, where it asks decisions, name or accent. Give project, set and unset"
+notes = """
+Since 28 Nov 2026. `POST /operator/settings`, body `SetOperatorSettings`: `project`, the project's id; `set`, an `OperatorSettingsSet` whose present values are kept; `unset`, field names to return to their default (`on`, `model`, `effort`, `role`, `words`, `prompt`, `output_style`, `decisions`, `name`, `accent`, `acts`, `tools` for all four, or `tools.start_jobs`, `tools.merge`, `tools.end_jobs`, `tools.file_issues`). An empty `model`, `effort`, `words`, `prompt`, `output_style` or `name` is the same as unsetting it. Answered with `OperatorSettingsList`. 404 `fleet.no_such_project` for a project he has none of; 422 `fleet.operator_setting_invalid` for an `accent` that is not `#rrggbb` or a name in `unset` that is none of the above. **A change to `model`, `effort`, `role`, `words`, `prompt` or `output_style` of a project whose Operator runs hands the session on to a fresh copy at once**; a change to `decisions` tells the live session in one line; everything else applies on its next call.
+"""
