@@ -45,10 +45,8 @@ pub struct ToReviewSubProject {
     pub id: String,
     /// What he named it.
     pub name: String,
-    /// What it is for, where the sub project says. Absent until Fleet keeps a sub project's goal, and the group is
-    /// headed by `name`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub goal: Option<String>,
+    /// His words for what it is for, which head its group. A sub project kept before goals has its name.
+    pub goal: String,
 }
 
 /// One thing waiting on him.
@@ -101,6 +99,8 @@ pub enum ToReviewKind {
     ReadyToTry,
     /// Two Jobs write the same files and have not agreed which lands first.
     Clash,
+    /// A sub project's orchestrator says its goal is met, and asks him to agree.
+    GoalMet,
     /// Anything else with choices or an answer, the Job's own or Fleet's.
     Question,
     /// Something the Job asked him to do, then mark done.

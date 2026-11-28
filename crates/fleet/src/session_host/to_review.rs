@@ -38,6 +38,7 @@ fn kind_of(source: WaitingSource, section: Section) -> Kind {
         WaitingSource::Draft => Kind::Draft,
         WaitingSource::ReadyToTry => Kind::ReadyToTry,
         WaitingSource::JobConflict => Kind::Clash,
+        WaitingSource::GoalMet => Kind::GoalMet,
         WaitingSource::Agent
         | WaitingSource::AskCard
         | WaitingSource::Walk
@@ -106,7 +107,8 @@ fn answer_of(item: &WaitingItem, row: &NeedsYouRow, job: &str, cards: &[ToReview
         | WaitingSource::BrowserAsk
         | WaitingSource::Gate
         | WaitingSource::JobConflict
-        | WaitingSource::JobHeld => Answer::AnswerWaiting,
+        | WaitingSource::JobHeld
+        | WaitingSource::GoalMet => Answer::AnswerWaiting,
     }
 }
 
@@ -122,17 +124,18 @@ fn feature_place(feature: &SessionFeature) -> Place {
     Place::Feature(feature.project.clone(), feature.area_place, feature.area.clone(), feature.place, feature.slug.clone())
 }
 
-/// The sub project a Job is one of: the first he picked it for, else the first with a feature it writes to now, as the
-/// Jobs list joins it.
+/// The sub project a Job is one of: the first it orchestrates or he picked it for, else the first with a feature it writes
+/// to now, as the Jobs list joins it. An orchestrator's Goal met? is so under its own sub project.
 fn sub_project_of(subs: &[KeptSubProject], job: &JobWaiting) -> Option<usize> {
-    subs.iter().position(|sub| sub.jobs.iter().any(|one| one == job.id.as_str())).or_else(|| {
+    let id = job.id.as_str();
+    subs.iter().position(|sub| sub.orchestrator.as_deref() == Some(id) || sub.jobs.iter().any(|one| one == id)).or_else(|| {
         subs.iter().position(|sub| job.features.iter().any(|feature| feature.project == sub.project && sub.features.contains(&feature.slug)))
     })
 }
 
-/// A sub project as an item names it. `goal` waits on Fleet keeping one.
+/// A sub project as an item names it.
 fn sub_project_wire(sub: &KeptSubProject) -> ToReviewSubProject {
-    ToReviewSubProject { id: sub.id.clone(), name: sub.name.clone(), goal: None }
+    ToReviewSubProject { id: sub.id.clone(), name: sub.name.clone(), goal: sub.goal.clone() }
 }
 
 /// The list from each Job's `waiting_for`. **Every item of every Job is one item of exactly one group.**
@@ -223,7 +226,7 @@ where
             };
             jobs.push(JobWaiting { id: record.id, title: record.title, features: record.features, waiting: record.waiting_for, projects, cards });
         }
-        let subs = self.store().lock().await.sub_projects(project.as_deref()).map_err(|why| self.ledger_fault(why))?;
+        let subs = self.store().lock().await.sub_projects(project.as_deref(), false).map_err(|why| self.ledger_fault(why))?;
         Ok(to_review_of(project, jobs, &subs))
     }
 

@@ -34,6 +34,7 @@ fn item(id: &str, source: Source, act: Option<(Act, &str)>, choices: &[&str], or
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -58,9 +59,13 @@ fn sub(id: &str, jobs: &[&str], features: &[&str]) -> KeptSubProject {
         id: id.into(),
         project: "shop".into(),
         name: format!("Sub {id}"),
+        goal: format!("Goal of {id}"),
         jobs: jobs.iter().map(|one| one.to_string()).collect(),
         features: features.iter().map(|one| one.to_string()).collect(),
+        orchestrator: None,
         started_at: "2026-11-01T00:00:00Z".into(),
+        not_yet_at: None,
+        ended_at: None,
     }
 }
 
@@ -156,8 +161,12 @@ fn groups_stand_sub_project_then_feature_then_neither_and_items_by_the_jobs_orde
         job("bee", vec![feature("b", 0, 1)], vec![ask("b1", 1, "2026-11-20T10:00:00Z")]),
         job("loose", Vec::new(), vec![ask("l1", 1, "2026-11-20T10:00:00Z")]),
         job("idle", Vec::new(), Vec::new()),
+        // The second sub project's orchestrator, which none picked, asks whether its goal is met.
+        job("orchestrates", Vec::new(), vec![item("goal_met:s2", Source::GoalMet, Some((Act::Answer, "goal_met:s2")), &["Agree", "Not yet"], 1, "2026-11-20T11:00:00Z")]),
     ];
-    let subs = [sub("s1", &["partner", "picked"], &[]), sub("s2", &[], &["c"])];
+    let mut second = sub("s2", &[], &["c"]);
+    second.orchestrator = Some("orchestrates".into());
+    let subs = [sub("s1", &["partner", "picked"], &[]), second];
     let list = to_review_of(None, jobs, &subs);
 
     let at = |head: &str, job: &str, id: &str| (head.to_string(), job.to_string(), id.to_string());
@@ -168,6 +177,7 @@ fn groups_stand_sub_project_then_feature_then_neither_and_items_by_the_jobs_orde
             at("sub:s1", "picked", "p1"),
             at("sub:s1", "picked", "p2"),
             at("sub:s2", "joined", "j1"),
+            at("sub:s2", "orchestrates", "goal_met:s2"),
             at("feature:a", "two", "t1"),
             at("feature:b", "bee", "b1"),
             at("neither", "loose", "l1"),
@@ -175,7 +185,13 @@ fn groups_stand_sub_project_then_feature_then_neither_and_items_by_the_jobs_orde
     );
     let picked = &list.groups[0].items[1];
     let named = picked.sub_project.as_ref().expect("its sub project");
-    assert_eq!((named.id.as_str(), named.name.as_str(), named.goal.as_deref()), ("s1", "Sub s1", None));
+    assert_eq!((named.id.as_str(), named.name.as_str(), named.goal.as_str()), ("s1", "Sub s1", "Goal of s1"));
+    match &list.groups[1].head {
+        Head::SubProject(head) => assert_eq!(head.goal, "Goal of s2", "the group is headed by its goal"),
+        other => panic!("headed by {other:?}"),
+    }
+    let met = &list.groups[1].items[1];
+    assert_eq!((met.kind, &met.answer), (Kind::GoalMet, &Answer::AnswerWaiting), "Agree or Not yet, answered in place");
     assert_eq!(picked.features, [feature("b", 0, 1)], "the Job's features ride on its item");
     assert!(list.groups.iter().all(|group| !group.items.is_empty()), "no group is empty");
 }
@@ -196,9 +212,8 @@ async fn a_projects_live_jobs_are_listed_by_sub_project_and_feature_and_another_
     let grouped = an_agent_for(&rig, &shop).await;
     let garden = a_project(&rig).await;
     let elsewhere = an_agent_for(&rig, &garden).await;
-    let sub = rig
-        .fleet
-        .start_sub_project(StartSubProject { project: shop.clone(), name: "Rank votes".into(), jobs: vec![grouped.clone()] })
+    let sub = std::sync::Arc::clone(&rig.fleet)
+        .start_sub_project(StartSubProject { project: shop.clone(), name: "Rank votes".into(), goal: "Votes rank takes".into(), jobs: vec![grouped.clone()] })
         .await
         .expect("started");
     for (job, id) in [(&voting, "voting"), (&grouped, "grouped"), (&elsewhere, "elsewhere")] {
@@ -207,9 +222,15 @@ async fn a_projects_live_jobs_are_listed_by_sub_project_and_feature_and_another_
 
     let list = rig.fleet.list_to_review(Some(shop.clone())).await.expect("listed");
     assert_eq!(list.project.as_deref(), Some(shop.as_str()));
-    let heads: Vec<String> = read(&list).into_iter().map(|(head, _, id)| format!("{head} {id}")).collect();
+    // The orchestrator start_sub_project started may wait on him too, under the same sub project.
+    let mine = [voting.as_str(), grouped.as_str(), elsewhere.as_str()];
+    let heads: Vec<String> = read(&list).into_iter().filter(|(_, job, _)| mine.contains(&job.as_str())).map(|(head, _, id)| format!("{head} {id}")).collect();
     assert_eq!(heads, [format!("sub:{} grouped", sub.id), format!("feature:{VOTING} voting")], "Garden's Job is not Shop's");
-    let item = &list.groups[1].items[0];
+    match &list.groups[0].head {
+        Head::SubProject(head) => assert_eq!((head.id.as_str(), head.goal.as_str()), (sub.id.as_str(), "Votes rank takes")),
+        other => panic!("headed by {other:?}"),
+    }
+    let item = list.groups.iter().flat_map(|group| &group.items).find(|item| item.job.id == voting).expect("the voting Job's item");
     assert_eq!((item.job.id.clone(), item.kind, &item.answer), (voting.clone(), Kind::ToDo, &Answer::DoneWaiting));
     assert_eq!(item.features.iter().map(|one| one.slug.as_str()).collect::<Vec<_>>(), [VOTING]);
     let band = rig.fleet.get_needs_you(None, Some(voting.clone())).await.expect("read");

@@ -403,6 +403,7 @@ The item adds what tells one Job's from another's: the Job's id and title, its p
 | `answer_items`: Approve, or send back with notes | `plan`, `sketch`, `document`, `draft` | the page's own source |
 | `answer_ready_to_try` on each open card, by branch and tip | `ready_to_try` | `ready_to_try` |
 | `answer_waiting` with a choice | `clash` | `job_conflict` |
+| `answer_waiting`: Agree or Not yet | `goal_met` | `goal_met`, on the orchestrator's list |
 | `answer_waiting`; `answer_items` for an item raised with `approves`; `begin_session` for a first message or a held child | `question` | any other item with choices or an answer, the Job's or Fleet's |
 | `done_waiting` | `to_do` | an agent's item with nothing to press |
 | `answer_items` | `walk` | `walk` |
@@ -410,10 +411,10 @@ The item adds what tells one Job's from another's: the Job's id and title, its p
 | `dismiss_waiting` | `done` | `done` |
 
 **Grouped by sub project first, then feature, then neither.**
-A Job's sub project is the first he picked it for, else the first with a feature it writes to now, as the Jobs list joins it ([Feature catalog](../feature-catalog.md), *Sub projects*).
+A Job's sub project is the first it orchestrates or he picked it for, else the first with a feature it writes to now, as the Jobs list joins it ([Feature catalog](../feature-catalog.md), *Sub projects*).
 A Job in no sub project goes under its first feature in the library's order, and one that writes to none goes last.
 Within a group the items stand in the order each Job set with `order_waiting`, as above, then oldest first.
-A sub project's group is headed by its name until Fleet keeps a goal for it.
+A sub project's group is headed by its goal and holds its orchestrator's items with its Jobs', the Goal met? card among them.
 Fleet raises a clash as `job_conflict` today; a source that settles which of two Jobs lands first takes its place in the same kind.
 
 ## Follow-ups kept for Later
