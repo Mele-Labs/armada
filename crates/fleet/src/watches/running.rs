@@ -12,6 +12,8 @@
 //! `crate::orphans` ends what a crash left. A recipe's Requests environment adds its variables,
 //! secrets included, and every secret's value is taken back out of what is kept of the reading.
 //!
+//! **A Job's graph recipes are read on the same timer** (`crate::graphs`), each pass in a task of its own.
+//!
 //! **A terminal watch runs nothing**: its listening (`super::listening`) is started here, and
 //! takes no place among the commands `limits.watchesAtOnce` bounds.
 
@@ -100,6 +102,9 @@ where
             ticker.tick().await;
             fleet.watches_run_when_due().await;
             fleet.watches_told_when_due().await;
+            // A graph's recipe runs on this timer too, off the loop: a slow call holds no watch back (`crate::graphs`).
+            let graphs = Arc::clone(&fleet);
+            tokio::spawn(async move { graphs.graphs_read_when_due().await });
         }
     })
 }

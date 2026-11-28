@@ -98,6 +98,23 @@ pub trait Features: Send + Sync + 'static {
         write: ipc::WriteFeatureSections,
     ) -> impl Future<Output = Result<ipc::FeatureSectionsWritten, Refusal>> + Send;
 
+    /// `add_feature_picture` — the calling Job keeps a picture of a screen under a feature. [`Refusal::Unacceptable`] for a call
+    /// that places no hosted session, an ended one, an unknown slug (`fleet.feature_unknown`), no `url` and no `screen`
+    /// (`fleet.picture_source`) or a file that is no readable PNG (`fleet.picture_unreadable`).
+    fn add_feature_picture(
+        &self,
+        caller: Option<crate::Caller>,
+        add: ipc::AddFeaturePicture,
+    ) -> impl Future<Output = Result<ipc::FeaturePictureAdded, Refusal>> + Send;
+
+    /// `remove_feature_picture` — his Not this feature on a picture. Refused as `answer_retire` is to any session but the
+    /// Operator's (`fleet.not_the_operator`); [`Refusal::NotFound`] for an id Fleet does not hold (`fleet.picture_unknown`).
+    fn remove_feature_picture(&self, caller: Option<crate::Caller>, remove: ipc::RemoveFeaturePicture) -> impl Future<Output = Result<ipc::FeaturePictureRemoved, Refusal>> + Send;
+
+    /// `get_feature_picture` — one picture's PNG bytes. [`Refusal::NotFound`] (`fleet.picture_unknown`) for an id Fleet does not
+    /// hold or whose file is gone.
+    fn get_feature_picture(&self, id: String) -> impl Future<Output = Result<Vec<u8>, Refusal>> + Send;
+
     /// `upsert_features` — areas and features kept by slug, for the Operator's seeding and for the owner's confirming and
     /// splitting from Bridge. [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's
     /// (`fleet.not_the_operator`), a feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a
@@ -193,6 +210,23 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
     fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;
+
+    /// `change_area` — the Operator or the owner makes, renames, splits or merges an area, his reason kept as a rule.
+    /// [`Refusal::Unacceptable`] (`fleet.not_the_operator`, `fleet.area_change`, `fleet.feature_slug`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`), [`Refusal::IllegalMove`] (`fleet.area_slug_taken`).
+    fn change_area(&self, caller: Option<crate::Caller>, change: ipc::ChangeArea) -> impl Future<Output = Result<ipc::AreaChanged, Refusal>> + Send;
+
+    /// `reject_in_catalog` — his Not this feature or Doesn't go together, kept as a rule and nothing else. [`Refusal::Unacceptable`]
+    /// (`fleet.not_the_operator`, `fleet.feature_project`, `fleet.catalog_reject`, `fleet.feature_area_unknown`),
+    /// [`Refusal::NotFound`] (`fleet.feature_unknown`).
+    fn reject_in_catalog(&self, caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> impl Future<Output = Result<ipc::CatalogRuleKept, Refusal>> + Send;
+
+    /// `list_catalog_rules` — the project's catalog rules, newest first. [`Refusal::Unacceptable`] (`fleet.feature_project`).
+    fn list_catalog_rules(&self, project: Option<String>) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
+
+    /// `drop_catalog_rule` — one rule taken out. Refused as `reject_in_catalog` is, and [`Refusal::NotFound`]
+    /// (`fleet.catalog_rule_unknown`).
+    fn drop_catalog_rule(&self, caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> impl Future<Output = Result<ipc::CatalogRules, Refusal>> + Send;
 
     /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
     /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.

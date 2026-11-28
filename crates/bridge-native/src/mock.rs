@@ -1175,6 +1175,10 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
     if page == "feature-guide" && revision == 1 {
         return Ok(include_str!("../fixtures/feature-guide.html").to_string());
     }
+    // The live-graphs walk's page: a live graph of the Job's, one with its rows inline, and one that does not read.
+    if page == "checkout-graphs" && revision == 1 {
+        return Ok(include_str!("../fixtures/live-graphs-page.html").to_string());
+    }
     if page != "design" || !(1..=2).contains(&revision) {
         return Err(format!("revision {revision} of `{page}` is not kept"));
     }

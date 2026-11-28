@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use ipc::{
-    Attachment, CardSettled, ChangedValue, Instant, RawScene, SketchHow, ThreadDocument, ThreadItem, ThreadSketch,
+    Attachment, CardSettled, ChangedValue, Instant, RawScene, SketchHow, ThreadDocument, ThreadGraph, ThreadItem, ThreadSketch,
     TimelineEvent, TimelineKind, TimelineSubject,
 };
 
@@ -56,6 +56,23 @@ pub(super) fn file_card_of(id: &str, at: &Instant, text: &str, ledger: &[Attachm
         path: held.target.clone(),
         name: title_of(held),
     })
+}
+
+/// The item a `show_graph` call is: the graph it names stands here. **Read off the row alone**, as Bridge draws the
+/// card from the graphs Fleet holds and the call's line where it holds none.
+pub(super) fn graph_card_of(id: &str, at: &Instant, text: &str) -> Option<ThreadItem> {
+    let graph = ipc::graph_call_of(text)?;
+    Some(ThreadItem::Graph(ThreadGraph { id: id.to_string(), at: at.clone(), graph, again: false }))
+}
+
+/// A graph shown again by its id is replaced in place: its card stays at the first call, and a later call is `again`.
+pub(super) fn with_graph_repeats(items: &mut [ThreadItem]) {
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for item in items.iter_mut() {
+        if let ThreadItem::Graph(card) = item {
+            card.again = !seen.insert(card.graph.clone());
+        }
+    }
 }
 
 pub(super) fn title_of(one: &Attachment) -> String {

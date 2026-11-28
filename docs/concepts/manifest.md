@@ -484,7 +484,8 @@ Rules that follow:
 
 ### Builds take turns on a loaded machine
 
-**While the fifteen-minute load is 24 or more, or memory is short, one Job's builds run and every other Job's wait stopped, in turns.**
+**While the machine is short, one Job's builds run and every other Job's wait stopped, in turns.**
+Short is the rule the machine's Check slots keep (next section but one): memory at `limits.memoryPressureLevel`, or the load over `limits.loadLimit` where one is set.
 The owner's ask of 20 Nov 2026: that one Job keeps going rather than every Job standing still.
 That afternoon three code-editor background checks, two native-app builds an agent ran itself and a Check's test build ran at once on 12 cores, outside both the pool and the Check slots; the load stayed over 28 for an hour, one build ran for 1h39m, and a Check spent its fifteen minutes compiling three times over.
 
@@ -501,7 +502,7 @@ Rules:
 - **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each.
   A Job whose builds have ended gives its turn up at once to the next after it.
   One Job at a time is prioritised, from its row's menu in Bridge (`prioritise_session`), and a second press clears it.
-- **Memory is short at a `kern.memorystatus_vm_pressure_level` of 2 (warn) or more**, and stays short for five minutes after it eases, so the builds a hold let swap out do not all start again at once.
+- **Memory is short at a `kern.memorystatus_vm_pressure_level` of `limits.memoryPressureLevel` or more**, shipped 2 (warn), and stays short for five minutes after it eases, so the builds a hold let swap out do not all start again at once.
   Measured 20 Nov 2026 on a 32 GB Mac: each compile of the Fleet crate took 3 to 4 GB, swap stayed near full long after the pressure went, and `memory_pressure` said 30% free while the Mac thrashed.
 - **Fleet looks every five seconds**, so a compiler a held build starts is held within that.
 - **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops.
@@ -512,7 +513,7 @@ Rules:
 What it costs:
 
 - **A held build keeps the pool tokens it holds**, so the Job whose turn it is may get fewer than the whole pool until the turn comes round.
-- **The fifteen-minute average lags**: builds go on taking turns for up to that long after the machine is quiet again, and a hold does not start until it has been loaded that long.
+- **Short memory holds for five minutes after it eases**, so builds go on taking turns that long after the machine recovers.
 - **An agent's own foreground command keeps its own timeout**: a build held past it is ended by the agent, losing only what it was compiling at the time.
 
 ### How many Checks run at once
@@ -532,12 +533,19 @@ Rules that follow:
   It jumps the wait and never a holder: a running Check keeps its slots.
   Decided 2 Oct 2026, because a turn holds every branch queued behind it.
   Priority on the CPU is the next section's.
-- **A loaded machine runs one Check at a time.**
-  While the fifteen-minute load is 24 or more, an ask takes slots only where no other Check holds one, and says why on stderr: `waiting for a Check slot: the fifteen-minute load is 31, at or over 24, so Checks run one at a time`.
-  The first Check always starts, since load from outside Checks would otherwise hold every one back, and the merge line's ask is never held.
-  The load is read off `sysctl -n vm.loadavg` at most every ten seconds; a machine that will not say it gates nothing.
-  Decided 14 Nov 2026, after every Job's brief carried a hand-written wait on the load: the owner's ruling was that Fleet deals with load and no agent does.
+- **A machine short of memory runs one Check at a time.**
+  While the kernel's memory pressure level is `limits.memoryPressureLevel` or more, shipped 2 (warn), an ask takes slots only while fewer than `limits.checksWhileShort` are in use, shipped 1, and says why on stderr: `waiting for a Check slot: memory is short, at the kernel's pressure level 2, at or over 2, so Checks run one at a time`.
+  The first Check always starts, since work from outside Checks would otherwise hold every one back, and the merge line's ask is never held.
+  The machine and the limits are read at most every ten seconds, so a save reaches a waiting Check; a machine that will not say gates nothing.
+  Decided 14 Nov 2026 on the load, after every Job's brief carried a hand-written wait on it: the owner's ruling was that Fleet deals with load and no agent does.
   Every Check already runs at utility priority (next section), so an agent needs no `taskpolicy` of its own.
+- **Checks start one at a time.** Beside a running Check, at most one starts in `limits.checkStartSpacingSeconds`, shipped 60, machine-wide: the `started` file in the slot directory holds when the last one started, and its lock is held while one starts.
+  A spaced ask says `waiting for a Check slot: a Check started in the last 60 seconds, and one starts at a time so each shows before the next`.
+  The merge line is never spaced, and its start counts.
+- **Load holds Checks only where its limit is set.** `limits.loadLimit` ships 0, which reads no load; set, the machine is short at or over it in the `limits.loadWindow`-minute average, 1, 5 or 15, shipped 1.
+  Decided 28 Nov 2026, after Checks stalled for an hour: the fifteen-minute load at 24 held them one at a time, and the moment it dipped under, seven started in one look into a Mac with 23 GB compressed and swap at 6.9 of 8 GB.
+  The load went from 17 to 49 while the cores busy fell from 9.7 to 7 of 18, and on that M5 Pro the load read 2 to 3 times the cores busy, so 24 held Checks at about half the CPU.
+  The owner chose memory to decide, as `limits.memorySparePercent` already does for Drones, since the operating system schedules CPU.
 - **One Check per checkout at a time.** An `armada check` takes its checkout's lock, `checkout-<path>` in the same directory, before the machine's slots, and a second one in that checkout says `waiting for the Check already running in this checkout` and waits holding no slot.
   Decided 21 Nov 2026: two Checks in one checkout share its build directory, so the second only queued on cargo's lock while it held a slot; 386 agent runs of 14 to 21 Nov, 26.3 h, were a second run of the same Check in the same slot.
   A Check inside a Check skips it, as it skips the slots.
@@ -883,6 +891,48 @@ when_base_moves:
 - **Read when Fleet starts**, as `commands` is.
   A save that changes it is reported as frozen, waiting for a restart.
 - **A Fleet starting runs it once**, at the first tip it reads, so a move made while it was down is not missed.
+
+## Walks
+
+**`walks:` names how a repository's own app is built, listed, opened and pictured as a walk on mock data.**
+It is what lets Fleet do for any repository what it does for the native Bridge: build a Job's walk from its commit, say Building then Ready, open it on a press, keep the look the person approved and compare it on the pull request.
+`../contracts/configuration.md`, *How a repository's walks are made*. `session/showing-a-window.md`, *A native walk*.
+
+```yaml
+walks:
+  build: cargo build --release
+  binary: target/release/app
+  list: ${binary} --list-walks
+  open: ${binary} --walk ${walk} --job ${job} --url ${url} --fleet-port ${fleet_port}
+  take: --take ${name}=${walk}
+  shots: ${binary} --walk ${walk} --check --shots ${shots} --hold 0
+  against: ${binary} --walk ${walk} --check --shots ${shots} --against ${against} --out ${out} --hold 0
+  seed: target
+```
+
+- **Each command is written as a `run` is**: split into words, quotes grouping a word, no shell.
+  Fleet substitutes `${name}` into each word after the split, so a path with a space in it stays one argument.
+- **`build`** runs in a tree of the Job's commit, and `binary` is the one file it leaves there.
+  Fleet keeps that file by commit, three to a repository, and every other command is given its path as `${binary}`.
+  They run in the folder it is kept in.
+- **`list`** prints the walks the program plays, one a line.
+  A walk the Job showed that it does not name is a Failed build, told to the Job.
+- **`open`** starts one walk on the person's screen and stays up until it is closed.
+  It is given `${walk}`, `${job}`, `${url}` (the address the Job showed) and `${fleet_port}`.
+- **`take`** is added to `open` once for each variation the Job showed, given `${name}` and `${walk}`.
+  A repository without it has walks with no takes, and a Job that shows one with variations is refused.
+- **`shots`** plays a walk with no window and writes a picture a step into `${shots}`.
+- **`against`** does the same and compares with the pictures in `${against}`, writing `report.json` (`ipc::LookReport`) into `${out}`.
+  Exit 0 is the same, 1 is a drift, and any other code is a walk that could not be compared.
+- **`seed`** is optional: a folder under the tree that a first build starts from, cloned from the same folder of the repository's preview checkout.
+- **A command that names a `${...}` it is not given, or leaves out one it needs, is refused at load**, naming the key.
+  Every key but `take` and `seed` is required, and an unknown key is refused as anywhere else.
+- **No `walks:` is a repository that cannot show a native walk**, except that a repository holding `crates/bridge-native/Cargo.toml` is read as declaring the native Bridge's own walks until its `armada.yml` says so.
+  `show_window` on `armada://walk/<name>` is refused, naming `walks:` in the repository's `armada.yml`.
+- **The root's to say.** A workspace's file that names `walks` is refused, because the tree Fleet builds is the repository's.
+- **Read when Fleet starts**, as `commands` is.
+  A save that changes it is reported as frozen, waiting for a restart, and a Job's own branch changing it does not change how its walk is built.
+- **A web page walk is not this.** `walk:` names the server a person walks a Job's work on, and a page is shown with `show_window` on its address.
 
 ## Still open
 

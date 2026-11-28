@@ -271,5 +271,5 @@ async fn the_step_appears_only_where_gists_is_on_after_every_other_part_and_says
     let every = LibrarianPart::ALL.iter().rev().map(|part| SettingValue::Text(part.name().into())).collect();
     set(&rig, "features.librarianParts", SettingValue::List(every)).await;
     let ids: Vec<String> = steps_listed(&rig, &project).await.into_iter().map(|(id, _, _)| id).collect();
-    assert_eq!(ids, ["read_merges", "check_upkeep", "check_drift", "since_you_looked", "write_gists", "read_through"]);
+    assert_eq!(ids, ["read_merges", "check_upkeep", "check_drift", "since_you_looked", "take_pictures", "write_gists", "read_through"]);
 }

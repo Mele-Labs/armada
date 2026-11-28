@@ -184,6 +184,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "add_part",
     "show_prototype",
     "show_sketch",
+    "show_graph",
+    "graph_points",
+    "withdraw_graph",
     "show_file",
     "record_plan",
     "ask_in_window",
@@ -211,6 +214,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "get_feature_brief",
     "get_glossary",
     "write_feature_sections",
+    "add_feature_picture",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
     // The Jobs it started are read and commanded the same way.
@@ -292,6 +296,7 @@ pub(crate) const JOB_ONLY: &[&str] = &[
     "withdraw_held",
     "settle_clash",
     "write_feature_sections",
+    "add_feature_picture",
 ];
 
 /// The routes that read `?manifest_id=` and, absent it, answer about every

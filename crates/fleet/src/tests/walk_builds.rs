@@ -25,9 +25,14 @@ fn repository(at: &Path) -> String {
     git(at, &["rev-parse", "HEAD"])
 }
 
+/// The `walks:` a repository declares as this one does.
+fn walks() -> config::Walks {
+    super::native_walk::declared("/nowhere").walks().cloned().expect("declared")
+}
+
 fn ask(session: &str, url: &str, commit: &str) -> Ask {
-    let place = Place { key: "armada".into(), slot: PathBuf::from("/nowhere"), preview: PathBuf::from("/nowhere") };
-    Ask { session: session.into(), url: url.into(), commit: commit.into(), place }
+    let place = Place { key: "armada".into(), slot: PathBuf::from("/nowhere"), preview: PathBuf::from("/nowhere"), walks: walks() };
+    Ask { session: session.into(), url: url.into(), commit: commit.into(), place, answer: None }
 }
 
 #[test]
@@ -38,7 +43,7 @@ fn a_new_tree_is_a_worktree_at_the_commit_with_its_target_cloned_from_the_previe
     let preview = scratch.path().join("preview");
     std::fs::create_dir_all(preview.join("crates/bridge-native/target/release")).expect("a target");
     std::fs::write(preview.join("crates/bridge-native/target/release/seed"), "built").expect("a seed");
-    let place = Place { key: "armada".into(), slot: slot.clone(), preview };
+    let place = Place { key: "armada".into(), slot: slot.clone(), preview, walks: walks() };
     let root = scratch.path().join("walk-builds/armada");
 
     let tree = tree_at_for_test(&root, &place, &first).expect("made");
@@ -62,7 +67,7 @@ fn a_repository_with_no_preview_to_seed_from_builds_from_a_cold_target() {
     let scratch = crate::tests::tmp::TempDir::new();
     let slot = scratch.path().join("slot");
     let first = repository(&slot);
-    let place = Place { key: "armada".into(), slot, preview: scratch.path().join("no-preview") };
+    let place = Place { key: "armada".into(), slot, preview: scratch.path().join("no-preview"), walks: walks() };
 
     let tree = tree_at_for_test(&scratch.path().join("walk-builds/armada"), &place, &first).expect("made");
 

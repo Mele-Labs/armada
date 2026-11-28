@@ -1,0 +1,14 @@
+[operations."graphs.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One Job's graphs, whole, and the rows its feeds took since the last, after a graph is shown, replaced or withdrawn, or rows arrive"
+notes = """
+Carries `GraphsChanged` `{ session_id, graphs[], feeds[] }`: every `GraphShown` of the Job, whole, and only the feeds that took rows, each a `GraphFeed` whose `rows` are **the rows added since the last event**, oldest first, and whose `added` is the feed's count after them.
+
+**Appended, not whole.** A feed keeps 2000 rows and a recipe runs every 10 seconds at most, so sending each feed whole would put up to 2000 rows a feed on the socket a tick; appended, a tick sends the few rows it read. The cards go whole, as they are few and small, and a headline's change moves with every row. **A client knows when it missed one**: it holds a feed's `added`, and an event whose `added - rows.len()` is not that count means rows went by unseen, so it reads `list_graphs` again rather than drawing a feed with a hole. A client keeps at most `ipc::GRAPH_FEED_KEPT` rows a feed, as Fleet does.
+
+**One event a Job a tick.** The recipes due in one pass of the watch loop run together, and each Job whose graphs read is sent one event when they have all finished. A `graph_points` call is one event; a show, a replace or a withdraw is one, with no rows.
+
+This adds to the stream that `docs/practices/protocol/the-unmeasured-risk-the-websocket-sink-has-no-back-pressure.md` names, and it does not bound it: at 24 graphs a Job, each recipe at its fastest, a busy Fleet sends a few small events a Job every 10 seconds. Appending keeps each one small, and `added` is the "you missed rows, read again" a reconnecting Bridge needs, for this event only.
+"""

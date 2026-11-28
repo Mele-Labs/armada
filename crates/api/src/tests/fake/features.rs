@@ -23,6 +23,7 @@ fn row(slug: &str) -> FeatureRow {
         health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
         retire: None,
         planned: false,
+        cover: None,
     }
 }
 
@@ -49,6 +50,7 @@ impl Features for FakeDaemon {
             docs: Vec::new(),
             tickets: Vec::new(),
             floor_plan: None,
+            pictures: Vec::new(),
         })
     }
 
@@ -84,6 +86,30 @@ impl Features for FakeDaemon {
 
     async fn write_feature_sections(&self, _caller: Option<crate::Caller>, write: WriteFeatureSections) -> Result<FeatureSectionsWritten, Refusal> {
         Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], glossary: Vec::new(), gists: 0, owed: Vec::new() })
+    }
+
+    async fn add_feature_picture(&self, _caller: Option<crate::Caller>, add: ipc::AddFeaturePicture) -> Result<ipc::FeaturePictureAdded, Refusal> {
+        let picture = ipc::FeaturePicture {
+            id: String::from("pic-1"),
+            url: add.url,
+            screen: add.screen,
+            commit: None,
+            taken_at: ipc::Instant::carried("2026-11-28T09:00:00.000Z"),
+            width: 1,
+            height: 1,
+            bytes: 1,
+            by: ipc::PictureBy::Job,
+            job: None,
+        };
+        Ok(ipc::FeaturePictureAdded { feature: add.feature, picture })
+    }
+
+    async fn remove_feature_picture(&self, _caller: Option<crate::Caller>, remove: ipc::RemoveFeaturePicture) -> Result<ipc::FeaturePictureRemoved, Refusal> {
+        Ok(ipc::FeaturePictureRemoved { feature: String::from("voting-on-takes"), picture: remove.picture, cover: None, rule: None })
+    }
+
+    async fn get_feature_picture(&self, id: String) -> Result<Vec<u8>, Refusal> {
+        Ok(id.into_bytes())
     }
 
     async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
@@ -188,7 +214,32 @@ impl Features for FakeDaemon {
     }
 
     async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
-        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
+        Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into, rule: None })
+    }
+
+    async fn change_area(&self, _caller: Option<crate::Caller>, change: ipc::ChangeArea) -> Result<ipc::AreaChanged, Refusal> {
+        Ok(ipc::AreaChanged { project: change.project, area: change.area, rule: None })
+    }
+
+    async fn reject_in_catalog(&self, _caller: Option<crate::Caller>, reject: ipc::RejectInCatalog) -> Result<ipc::CatalogRuleKept, Refusal> {
+        let rule = ipc::CatalogRule {
+            id: String::from("r-1"),
+            text: reject.why.unwrap_or_default(),
+            act: ipc::CatalogRuleAct::NotTogether,
+            features: reject.features,
+            areas: reject.areas,
+            paths: reject.paths,
+            at: ipc::Instant::carried("2026-11-28T12:00:00Z"),
+        };
+        Ok(ipc::CatalogRuleKept { project: reject.project, rule })
+    }
+
+    async fn list_catalog_rules(&self, project: Option<String>) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: project.unwrap_or_default(), rules: Vec::new() })
+    }
+
+    async fn drop_catalog_rule(&self, _caller: Option<crate::Caller>, drop: ipc::DropCatalogRule) -> Result<ipc::CatalogRules, Refusal> {
+        Ok(ipc::CatalogRules { project: drop.project, rules: Vec::new() })
     }
 
     async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {

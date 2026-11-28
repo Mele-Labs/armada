@@ -1,8 +1,9 @@
 //! A native walk: a screen of the native Bridge a Job shows with `show_window` on
 //! `armada://walk/<name>`, opened by the person's press.
 //!
-//! **Only `open_native_walk` starts the app**, and only Bridge calls it, on a press. The binary is
-//! the native Bridge Fleet built from the Job's own commit (`crate::walk_builds`), so a Job's new
+//! **Only `open_native_walk` starts the app**, and only Bridge calls it, on a press, **as the
+//! repository's `walks.open` says** (`config::Walks`). The binary is the app Fleet built from the
+//! Job's own commit (`crate::walk_builds`), so a Job's new
 //! screen needs no preview refresh first; `show_window` accepts it and the row says Building until
 //! that build opens. A row written before walks were built from a Job's branch has no build, and
 //! runs from the kept build his preview restart left. **Fleet owns the process**:
@@ -16,9 +17,11 @@ use std::sync::Mutex;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
+use config::Walks;
 use ipc::{NativeWalkOpened, OpenNativeWalk, SessionRow};
 
 use crate::daemon::Fleet;
+use crate::walk_builds::words_of;
 
 /// What a native walk's address begins with.
 pub(crate) const PREFIX: &str = "armada://walk/";
@@ -39,22 +42,24 @@ pub(crate) fn running_build(home: &str) -> PathBuf {
     crate::runtime::support_dir(home).join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)
 }
 
-/// The walks the native Bridge at `app` plays (`--list-walks`), or why it cannot say.
-pub(crate) async fn walks_of(app: &Path) -> Result<Vec<String>, String> {
-    if !app.is_file() {
-        return Err(format!("there is no native Bridge at {}", app.display()));
+/// The walks the program at `binary` plays, as `walks.list` asks it, or why it cannot say.
+pub(crate) async fn walks_listed(walks: &Walks, binary: &Path) -> Result<Vec<String>, String> {
+    if !binary.is_file() {
+        return Err(format!("there is no program at {}", binary.display()));
     }
-    let listed = tokio::process::Command::new(app)
-        .arg("--list-walks")
+    let words = words_of(walks.list(), &[("binary", &binary.display().to_string())])?;
+    let listed = tokio::process::Command::new(&words[0])
+        .args(&words[1..])
+        .current_dir(binary.parent().unwrap_or(Path::new("/")))
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .output();
     match tokio::time::timeout(std::time::Duration::from_secs(10), listed).await {
         Ok(Ok(out)) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout).lines().map(str::trim).filter(|name| !name.is_empty()).map(str::to_string).collect()),
-        Ok(Ok(_)) => Err("the native Bridge built cannot name its walks: it is older than walks".to_string()),
-        Ok(Err(why)) => Err(format!("the native Bridge built could not be asked for its walks: {why}")),
-        Err(_) => Err("the native Bridge built did not name its walks within 10 seconds".to_string()),
+        Ok(Ok(_)) => Err("the app built cannot name its walks: `walks.list` did not exit zero, so it is older than walks".to_string()),
+        Ok(Err(why)) => Err(format!("the app built could not be asked for its walks: {why}")),
+        Err(_) => Err("the app built did not name its walks within 10 seconds".to_string()),
     }
 }
 
@@ -239,12 +244,11 @@ where
         }) else {
             return Err(self.hosted_refusal(NOT_OPEN, &format!("this job has no open walk on {url}. Show it with show_window first")));
         };
-        // Each take as `--take <name>=<walk>`, for the bar's takes dropdown.
-        let takes: Vec<String> = variations
-            .iter()
-            .filter_map(|take| walk_name(&take.url).map(|walk| format!("{}={walk}", take.name)))
-            .flat_map(|take| ["--take".to_string(), take])
-            .collect();
+        let (_, hosting) = self.session_and_hosting(&id).await?;
+        let Some(walks) = self.walks_declared(&hosting.manifest_id) else {
+            return Err(self.hosted_refusal(NOT_BUILT, crate::walk_builds::NO_WALKS));
+        };
+        let takes: Vec<(&str, &str)> = variations.iter().filter_map(|take| walk_name(&take.url).map(|walk| (take.name.as_str(), walk))).collect();
         let home = self.host().home.clone();
         let kept = running_build(&home);
         // The Job's own build where the row has one, and only once it is Ready: his one press opens it.
@@ -266,9 +270,8 @@ where
                     return Err(self.hosted_refusal(NOT_BUILT, &format!("{url} did not build from commit {}: {why}", short(&build.commit))));
                 }
                 ipc::WalkBuildState::Ready => {
-                    let (_, hosting) = self.session_and_hosting(&id).await?;
                     let key = crate::walk_builds::key_of(&hosting.manifest_id);
-                    let binary = crate::walk_builds::binary_of(&home, &key, &build.commit);
+                    let binary = crate::walk_builds::binary_of(&home, &key, &build.commit, &walks);
                     if !binary.is_file() {
                         // Kept no longer: it is built again, and the press waits for that.
                         self.walk_rebuild_asked(&id, &url).await;
@@ -285,10 +288,16 @@ where
             .started_once(&id, &url, &made, || {
                 // Wrapped only when it starts: a press that finds it running must not relink the
                 // executable a walk still starting is reading.
-                let program = wrapped(&crate::runtime::support_dir(&home), &kept, &binary);
-                tokio::process::Command::new(&program)
-                    .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
-                    .args(&takes)
+                let program = wrapped(&crate::runtime::support_dir(&home), &kept, &binary).display().to_string();
+                let mut words = words_of(walks.open(), &[("binary", &program), ("walk", name), ("job", &id), ("url", &url), ("fleet_port", &port)])
+                    .map_err(std::io::Error::other)?;
+                // Each take as the repository's `walks.take` says, for the bar's takes dropdown.
+                for &(take, walk) in &takes {
+                    let Some(template) = walks.take() else { break };
+                    words.extend(words_of(template, &[("name", take), ("walk", walk)]).map_err(std::io::Error::other)?);
+                }
+                tokio::process::Command::new(&words[0])
+                    .args(&words[1..])
                     .current_dir(&directory)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())

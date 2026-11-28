@@ -158,6 +158,7 @@ mod kit_open;
 mod leasing;
 /// Requests: an HTTP request filled from a repository's environments, and its collections.
 pub mod requesting;
+pub mod picture_capture;
 /// The Drones-at-once bound, memory share and disk floor a person saves, and
 /// how a save reaches admission without a restart.
 pub mod limits;
@@ -306,6 +307,8 @@ mod project_board;
 mod system_map;
 /// A project's live metrics, read with no model while its dashboard is open.
 mod project_metrics;
+/// A Job's live graphs, kept in the store, their recipes run on the watches' loop. `docs/practices/protocol/a-job-shows-a-live-graph.md`.
+pub(crate) mod graphs;
 mod project_copies;
 /// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
 mod project_copy_reads;
@@ -337,6 +340,9 @@ mod review_walks;
 /// A native Bridge screen a Job shows, run from its own slot while the walk is open.
 mod native_walks;
 mod walk_builds;
+/// The look he approved on a native walk, kept as pictures and checked before the change lands.
+mod approved_looks;
+mod approved_looks_checking;
 /// Where a pull request's change runs, and the places Fleet remembers.
 mod walk_places;
 mod pull_request_notes;

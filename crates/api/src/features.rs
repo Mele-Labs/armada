@@ -158,6 +158,44 @@ pub(crate) async fn write_feature_sections<D: Features>(State(served): State<Ser
     }
 }
 
+/// A Job keeps a picture of a screen under a feature. **The session is placed by the connection**, as `all_done`'s is.
+pub(crate) async fn add_feature_picture<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let add: ipc::AddFeaturePicture = match ipc::decode_body("a picture of a feature", &body) {
+        Ok(add) => add,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().add_feature_picture(crate::acting::asking(), add).await {
+        Ok(added) => answer(StatusCode::OK, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's Not this feature on a picture, or the Operator's. **Placed as `answer_retire` is.**
+pub(crate) async fn remove_feature_picture<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let remove: ipc::RemoveFeaturePicture = match ipc::decode_body("a picture to take off its feature", &body) {
+        Ok(remove) => remove,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().remove_feature_picture(crate::acting::asking(), remove).await {
+        Ok(removed) => answer(StatusCode::OK, &removed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?id=` on `get_feature_picture`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfPicture {
+    id: String,
+}
+
+/// One picture's bytes, as a PNG.
+pub(crate) async fn get_feature_picture<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfPicture>) -> Response {
+    match served.daemon().get_feature_picture(asked.id).await {
+        Ok(bytes) => crate::answers::file("picture.png", bytes),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator or the owner keeps areas and features. **Placed as `change_feature` is.**
 pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let upsert: ipc::UpsertFeatures = match ipc::decode_body("areas and features to keep", &body) {
@@ -396,6 +434,49 @@ pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>,
     };
     match served.daemon().change_feature(crate::acting::asking(), change).await {
         Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The Operator or the owner makes, renames, splits or merges an area. **Placed as `change_feature` is.**
+pub(crate) async fn change_area<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let change: ipc::ChangeArea = match ipc::decode_body("a change to an area", &body) {
+        Ok(change) => change,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().change_area(crate::acting::asking(), change).await {
+        Ok(changed) => answer(StatusCode::OK, &changed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// His Not this feature or Doesn't go together. **Placed as `change_feature` is.**
+pub(crate) async fn reject_in_catalog<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let reject: ipc::RejectInCatalog = match ipc::decode_body("a reject in the catalog", &body) {
+        Ok(reject) => reject,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().reject_in_catalog(crate::acting::asking(), reject).await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_catalog_rules<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().list_catalog_rules(asked.project).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One catalog rule taken out. **Placed as `change_feature` is.**
+pub(crate) async fn drop_catalog_rule<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let drop: ipc::DropCatalogRule = match ipc::decode_body("a catalog rule to drop", &body) {
+        Ok(drop) => drop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().drop_catalog_rule(crate::acting::asking(), drop).await {
+        Ok(rules) => answer(StatusCode::OK, &rules, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

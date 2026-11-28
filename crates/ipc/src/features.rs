@@ -151,6 +151,9 @@ pub struct FeatureRow {
     /// Its paths match no file at `HEAD` and never did: the code is not written yet. It is a normal feature from its first file.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub planned: bool,
+    /// Its newest standing picture, by id: what the gallery shows it by. Absent where it has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
 }
 
 /// An area and its features, in their order.
@@ -312,6 +315,9 @@ pub struct FeaturePage {
     /// The code map with this feature's rooms lit. Absent on a page read by `section`, and where no repository could be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floor_plan: Option<FloorPlan>,
+    /// Its standing pictures, newest first: the first is `feature.cover`. With `section`, none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pictures: Vec<crate::FeaturePicture>,
 }
 
 /// One thing the owner settled in a Job: his answer to a question, his pick on takes, his Approve or Ask for changes on a
@@ -542,6 +548,9 @@ pub struct ChangeFeature {
     /// The slug of an area the project keeps: it moves there.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<String>,
+    /// His words for why. Kept as a rule of the project's catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// What `change_feature` did.
@@ -552,6 +561,9 @@ pub struct FeatureChanged {
     /// Where it was merged, where it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_into: Option<String>,
+    /// The rule his reason became, where he gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<String>,
 }
 
 /// How a path came to belong to a feature.

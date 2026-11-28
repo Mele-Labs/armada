@@ -67,32 +67,32 @@ const BELOW: f32 = 22.;
 const ABOVE: f32 = 8.;
 const RIGHT: f32 = 8.;
 /// The space between the y labels and the plot.
-const GUTTER_GAP: f32 = 10.;
+pub(super) const GUTTER_GAP: f32 = 10.;
 /// The thickest a bar is drawn, and the gap left between two stacked segments or two bars.
 const BAR_MOST: f32 = 24.;
-const GAP: f32 = 2.;
+pub(super) const GAP: f32 = 2.;
 /// A dot's diameter, and the ring of surface around it.
-const DOT: f32 = 8.;
+pub(super) const DOT: f32 = 8.;
 /// The pointer is on a scatter's dot within this many points of it.
-const REACH: f32 = 24.;
+pub(super) const REACH: f32 = 24.;
 
 #[derive(IntoPlot)]
 pub struct GraphPlot {
     id: ElementId,
-    chart: Rc<Chart>,
+    pub(super) chart: Rc<Chart>,
     inks: Inks,
     /// The y labels' widest, measured as the plot is laid out.
     gutter: f32,
 }
 
 /// Where the plot's area stands inside its bounds, and the sums that place a value in it.
-struct Frame {
-    left: f32,
-    top: f32,
-    right: f32,
-    bottom: f32,
+pub(super) struct Frame {
+    pub(super) left: f32,
+    pub(super) top: f32,
+    pub(super) right: f32,
+    pub(super) bottom: f32,
     /// How far inside each end the first and last x stand: half a bar's step where there are bars.
-    inset: f32,
+    pub(super) inset: f32,
 }
 
 impl GraphPlot {
@@ -100,11 +100,17 @@ impl GraphPlot {
         GraphPlot { id: id.into(), chart, inks, gutter: 0. }
     }
 
-    fn has_bars(&self) -> bool {
+    /// The plot laid out with its y labels' widest given rather than measured, as a drawing with no window is (`svg.rs`).
+    pub(super) fn with_gutter(mut self, gutter: f32) -> Self {
+        self.gutter = gutter;
+        self
+    }
+
+    pub(super) fn has_bars(&self) -> bool {
         self.chart.layers.iter().any(|layer| matches!(layer, Layer::Bars { .. }))
     }
 
-    fn frame(&self, bounds: Bounds<Pixels>) -> Frame {
+    pub(super) fn frame(&self, bounds: Bounds<Pixels>) -> Frame {
         let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let left = if self.chart.y.shown { self.gutter + GUTTER_GAP } else { 0. };
         let font = f32::from(self.inks.font);
@@ -146,7 +152,7 @@ impl GraphPlot {
     }
 
     /// Where an x stands across the plot, as a point's middle.
-    fn x_px(&self, frame: &Frame, x: f64) -> f32 {
+    pub(super) fn x_px(&self, frame: &Frame, x: f64) -> f32 {
         match self.chart.x.kind {
             XKind::Band => {
                 let bands = self.bands(frame);
@@ -160,11 +166,11 @@ impl GraphPlot {
         ScaleLinear::new([self.chart.y.low, self.chart.y.high], [frame.bottom, frame.top])
     }
 
-    fn y_px(&self, frame: &Frame, y: f64) -> f32 {
+    pub(super) fn y_px(&self, frame: &Frame, y: f64) -> f32 {
         self.y_scale(frame).tick(&y).unwrap_or(frame.bottom)
     }
 
-    fn bar_width(&self, frame: &Frame) -> f32 {
+    pub(super) fn bar_width(&self, frame: &Frame) -> f32 {
         match self.chart.x.kind {
             XKind::Band => self.bands(frame).band_width().min(BAR_MOST),
             _ => {
@@ -175,7 +181,7 @@ impl GraphPlot {
         }
     }
 
-    fn y_label(&self, value: f64) -> String {
+    pub(super) fn y_label(&self, value: f64) -> String {
         let y = &self.chart.y;
         if y.percent {
             let shown = if y.high <= 1.0001 { value * 100. } else { value };
@@ -184,7 +190,7 @@ impl GraphPlot {
         ticks::axis_number(value, y.high.abs().max(y.low.abs()))
     }
 
-    fn x_label(&self, x: f64) -> String {
+    pub(super) fn x_label(&self, x: f64) -> String {
         match self.chart.x.kind {
             XKind::Time => ticks::clock(x),
             XKind::Number => ticks::axis_number(x, self.chart.x.high.abs()),
@@ -194,7 +200,7 @@ impl GraphPlot {
 
     /// The words over the y labels: the unit where the title carries one, the whole title on a scatter,
     /// where both axes are measures and neither reads without its name.
-    fn y_caption(&self) -> Option<String> {
+    pub(super) fn y_caption(&self) -> Option<String> {
         let y = &self.chart.y;
         if !y.shown {
             return None;
@@ -208,7 +214,7 @@ impl GraphPlot {
     }
 
     /// The words under a number x axis, its title and unit. A time axis needs none.
-    fn x_caption(&self) -> Option<String> {
+    pub(super) fn x_caption(&self) -> Option<String> {
         let x = &self.chart.x;
         if !x.shown || x.kind != XKind::Number {
             return None;
@@ -221,7 +227,7 @@ impl GraphPlot {
     }
 
     /// Whether a line or area passes through the box from `(x0, y0)` to `(x1, y1)`, in the plot's points.
-    fn crosses(&self, frame: &Frame, (x0, y0): (f32, f32), (x1, y1): (f32, f32)) -> bool {
+    pub(super) fn crosses(&self, frame: &Frame, (x0, y0): (f32, f32), (x1, y1): (f32, f32)) -> bool {
         let inside = |x: f64, y: f64| {
             let (x, y) = (self.x_px(frame, x), self.y_px(frame, y));
             x >= x0 && x <= x1 && y >= y0 - 4. && y <= y1 + 4.
@@ -459,7 +465,7 @@ impl GraphPlot {
     }
 
     /// The readout's rows at one x: each series with a value there, in its colour order.
-    fn rows_at(&self, x: f64) -> Vec<(Hsla, Key, String, String)> {
+    pub(super) fn rows_at(&self, x: f64) -> Vec<(Hsla, Key, String, String)> {
         let chart = &self.chart;
         chart
             .series
@@ -691,7 +697,7 @@ impl Plot for GraphPlot {
 
 impl GraphPlot {
     /// The hue of the `at`-th hover dot: the lines and areas in the order `tooltip_state` met them.
-    fn dot_ink(&self, at: usize) -> Hsla {
+    pub(super) fn dot_ink(&self, at: usize) -> Hsla {
         self.chart
             .layers
             .iter()

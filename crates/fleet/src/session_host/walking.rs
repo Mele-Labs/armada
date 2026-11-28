@@ -57,6 +57,18 @@ pub(crate) fn walk_pressed(text: &str) -> Option<(Pressed, &str)> {
     })
 }
 
+/// The take a walk press names, as its letter and the name the bar gave it: `Approved B, Needs you first: <address>`
+/// gives `('B', "Needs you first")`. `None` for a walk with no takes.
+pub(crate) fn take_pressed(text: &str) -> Option<(char, &str)> {
+    let line = text.trim().lines().next()?;
+    let rest = [APPROVED, SHIPPED].into_iter().find_map(|word| line.strip_prefix(word))?;
+    let take = rest.strip_prefix(' ')?;
+    let mut letters = take.chars();
+    let letter = letters.next().filter(char::is_ascii_uppercase)?;
+    let named = letters.as_str().strip_prefix(", ")?;
+    named.rsplit_once(": ").map(|(name, _)| (letter, name))
+}
+
 /// The address an Approve or a Ship it answers: either closes the walk.
 pub(crate) fn approved_address(text: &str) -> Option<&str> {
     walk_pressed(text).map(|(_, address)| address)

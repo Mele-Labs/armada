@@ -155,6 +155,7 @@ where
             | Event::ReviewListsChanged(_)
             | Event::ReviewWalkChanged { .. }
             | Event::WatchesChanged(_)
+            | Event::GraphsChanged(_)
             | Event::JobLifecyclesChanged(_)
             | Event::KeepDraftsChanged(_)
             | Event::TimelineAppended(_)

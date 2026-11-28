@@ -604,6 +604,7 @@ where
         let id = sent.session_id.as_str().to_string();
         let pressed = super::super::walking::walk_pressed(&sent.text).map(|(pressed, address)| (pressed, address.to_string()));
         let approved = pressed.as_ref().map(|(_, address)| address.clone());
+        let press_text = approved.as_ref().map(|_| sent.text.clone());
         // What his press means for the Job's next step goes beside his words, which the thread keeps as they are.
         let instead = match pressed.as_ref().and_then(|(pressed, address)| super::super::walking::pressed_told(*pressed, address)) {
             Some(line) => Some(format!("{}\n{line}", instead.unwrap_or_else(|| sent.text.clone()))),
@@ -641,6 +642,8 @@ where
             Arc::clone(&self).send_hosted_written(sent, written, ahead, instead, false).await?
         };
         if let Some(url) = approved {
+            // Before the row ends: the pictures are of the build the row carries, and they are taken off this send.
+            self.look_kept(&id, press_text.as_deref().unwrap_or_default()).await;
             self.walk_ended(&id, &url).await;
         }
         // Ship it is his Approve of the plan's walk gate too: it closes the Job's first open `you_approved` gate.

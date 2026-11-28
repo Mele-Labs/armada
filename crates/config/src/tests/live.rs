@@ -531,6 +531,24 @@ fn a_changed_when_base_moves_list_is_reported_and_not_adopted() {
     assert_eq!(adopted.at_restart(), [Frozen::WhenBaseMoves]);
 }
 
+/// Fleet builds a walk by the commands it read when it started, so a save that changes them waits
+/// for a restart.
+#[test]
+fn a_changed_walks_declaration_is_reported_and_not_adopted() {
+    let walks = "walks:\n  build: make app\n  binary: out/app\n  list: ${binary} --list\n  \
+                 open: ${binary} ${walk} ${job} ${url} ${fleet_port}\n  \
+                 shots: ${binary} ${walk} ${shots}\n  \
+                 against: ${binary} ${walk} ${shots} ${against} ${out}\n";
+    let repository = Repository::holding(PATIENT);
+    let (manifest, reloads) = reloadable(&repository.manifest());
+
+    repository.save(&format!("{PATIENT}{walks}"));
+    let adopted = reloads.reread().expect("it reads");
+
+    assert!(manifest.walks().is_none());
+    assert_eq!(adopted.at_restart(), [Frozen::Walks]);
+}
+
 /// An edit sent as a pull request is not in the file yet, so the text it holds
 /// is read in place of the file until it is cleared, and the file after that.
 #[test]
