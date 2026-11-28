@@ -268,6 +268,28 @@ async fn a_repository_declaring_its_own_walk_is_built_readied_and_opened_through
 }
 
 #[tokio::test]
+async fn a_repository_with_no_walks_that_holds_the_native_bridge_builds_through_the_built_in_declaration() {
+    let (rig, id) = in_its_slot_fitted(&Placing::nothing(), |fittings| {
+        // A `cargo` that writes the native Bridge's stand-in where the real one leaves it.
+        let bin = Path::new(&fittings.host.home).join("bin");
+        std::fs::create_dir_all(&bin).expect("a folder");
+        std::fs::write(bin.join("cargo"), format!("#!/bin/sh\n{}\n", script(&["sidebar", "footer"]))).expect("a cargo");
+        std::fs::set_permissions(bin.join("cargo"), std::fs::Permissions::from_mode(0o755)).expect("executable");
+        fittings.host.path = format!("{}:/usr/bin:/bin", bin.display());
+    })
+    .await;
+    std::fs::create_dir_all(Path::new(&rig.root).join("crates/bridge-native")).expect("the crate");
+    std::fs::write(Path::new(&rig.root).join("crates/bridge-native/Cargo.toml"), "[package]\n").expect("its manifest");
+    leased(&rig, &id).await;
+
+    shown_ready(&rig, &id, URL).await;
+
+    opened(&rig, &id, URL, 1).await;
+    let started = starts(&rig).remove(0);
+    assert!(started.ends_with(&format!("--walk sidebar --job {} --url {URL} --fleet-port 12345", id.as_str())), "{started}");
+}
+
+#[tokio::test]
 async fn a_repository_whose_manifest_declares_no_walks_refuses_a_native_walk_and_names_the_field() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     leased(&rig, &id).await;

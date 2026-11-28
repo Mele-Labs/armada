@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use api::{HostedSessions, Sessions};
+use api::Sessions;
 use ipc::{CheckBeforePr, PrePrChecked, SessionId};
 
 use super::native_walk::{build_of, builds_with, built_all, commit, kept_at, leased, shown, shown_ready, until, walking_slot, OTHER, URL};

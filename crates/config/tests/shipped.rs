@@ -238,12 +238,15 @@ fn this_repositorys_own_manifest_loads_and_states_its_patience() {
     assert_eq!(manifest.poke_limit(), None);
 }
 
-/// **This repository declares its native Bridge's walks**, so Fleet builds, lists, opens and pictures
-/// them from the Manifest and no constant of its own. The flags are the ones `bridge-native` reads.
+/// **This repository is read as declaring its native Bridge's walks**, until its `armada.yml` says so
+/// itself, so Fleet builds, lists, opens and pictures them with no constant of its own. The flags are the
+/// ones `bridge-native` reads.
 #[test]
-fn this_repositorys_own_manifest_declares_how_the_native_bridges_walks_are_made() {
+fn this_repositorys_own_manifest_is_read_as_declaring_how_the_native_bridges_walks_are_made() {
     let manifest = config::Manifest::load(&root().join("armada.yml")).expect("it loads");
-    let walks = manifest.walks().expect("walks are declared");
+    assert!(manifest.walks().is_none(), "armada.yml declares none yet: the built-in declaration stands in");
+    assert!(root().join("crates/bridge-native/Cargo.toml").is_file(), "it holds the native Bridge, which is what selects it");
+    let walks = config::Walks::native_bridge();
     assert_eq!(walks.binary(), "crates/bridge-native/target/release/bridge-native");
     assert!(walks.build().contains("--manifest-path crates/bridge-native/Cargo.toml"), "{}", walks.build());
     assert_eq!(walks.list(), "${binary} --list-walks");

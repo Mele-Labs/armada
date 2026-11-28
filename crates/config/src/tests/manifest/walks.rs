@@ -111,3 +111,13 @@ fn the_walks_are_the_roots_to_say_and_a_workspace_that_declares_them_is_refused(
     ));
     assert_eq!(fault_at(&refused, "walks"), &Fault::RootOnly);
 }
+
+#[test]
+fn the_built_in_declaration_is_one_the_parser_reads_as_written() {
+    let w = crate::Walks::native_bridge();
+    let text = format!(
+        "{HEAD}walks:\n  build: {}\n  binary: {}\n  list: {}\n  open: {}\n  take: {}\n  shots: {}\n  against: {}\n  seed: {}\n",
+        w.build(), w.binary(), w.list(), w.open(), w.take().expect("takes"), w.shots(), w.against(), w.seed().expect("seeded")
+    );
+    assert_eq!(parse(&text).expect("it loads").walks(), Some(&w));
+}

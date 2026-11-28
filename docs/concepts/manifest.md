@@ -927,7 +927,7 @@ walks:
 - **`seed`** is optional: a folder under the tree that a first build starts from, cloned from the same folder of the repository's preview checkout.
 - **A command that names a `${...}` it is not given, or leaves out one it needs, is refused at load**, naming the key.
   Every key but `take` and `seed` is required, and an unknown key is refused as anywhere else.
-- **No `walks:` is a repository that cannot show a native walk.**
+- **No `walks:` is a repository that cannot show a native walk**, except that a repository holding `crates/bridge-native/Cargo.toml` is read as declaring the native Bridge's own walks until its `armada.yml` says so.
   `show_window` on `armada://walk/<name>` is refused, naming `walks:` in the repository's `armada.yml`.
 - **The root's to say.** A workspace's file that names `walks` is refused, because the tree Fleet builds is the repository's.
 - **Read when Fleet starts**, as `commands` is.

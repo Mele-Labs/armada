@@ -29,6 +29,7 @@ use ipc::{SessionRow, WalkBuild, WalkBuildState};
 
 use crate::approved_looks::tail_of;
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 
 /// Under Fleet's support folder: `<repository key>/tree` and `<repository key>/bins/<commit>`.
 pub(crate) const DIR: &str = "walk-builds";
@@ -45,6 +46,13 @@ const BUDGET: Duration = Duration::from_secs(90 * 60);
 /// Where one repository's walk builds are kept.
 fn root_of(home: &str, key: &str) -> PathBuf {
     crate::runtime::support_dir(home).join(DIR).join(key)
+}
+
+/// What a repository's `walks:` says, or the native Bridge's where it declares none and holds the native Bridge.
+/// Goes once armada.yml declares `walks:` itself.
+fn walks_of(served: &Served) -> Option<Walks> {
+    let holds = || Path::new(served.root()).join("crates/bridge-native/Cargo.toml").is_file();
+    served.manifest().walks().cloned().or_else(|| holds().then(Walks::native_bridge))
 }
 
 /// The file name a build's program is kept under: the one `walks.binary` ends in.
@@ -263,7 +271,7 @@ where
             .repositories()
             .serving(&hosting.manifest_id)
             .ok_or_else(|| "this Job's repository is not served, so there is nothing to build it from".to_string())?;
-        let walks = served.manifest().walks().cloned().ok_or_else(|| NO_WALKS.to_string())?;
+        let walks = walks_of(&served).ok_or_else(|| NO_WALKS.to_string())?;
         let slot = PathBuf::from(Self::directory_of(&served, &hosting));
         let commit = tokio::task::spawn_blocking({
             let slot = slot.clone();
@@ -277,7 +285,7 @@ where
 
     /// The `walks:` the repository a Job belongs to declares, or `None` where it is not served or declares none.
     pub(crate) fn walks_declared(&self, manifest_id: &str) -> Option<Walks> {
-        self.repositories().serving(manifest_id)?.manifest().walks().cloned()
+        walks_of(&self.repositories().serving(manifest_id)?)
     }
 
     /// Why a native walk cannot be shown for this Job's repository, or `None`: it is served and
@@ -285,7 +293,7 @@ where
     /// repository is not served is left to the build's own answer**, which says why on the row.
     pub(crate) async fn walks_refused(&self, session: &str, takes: bool) -> Option<&'static str> {
         let (_, hosting) = self.session_and_hosting(session).await.ok()?;
-        match self.repositories().serving(&hosting.manifest_id)?.manifest().walks() {
+        match walks_of(&self.repositories().serving(&hosting.manifest_id)?) {
             None => Some(NO_WALKS),
             Some(walks) if takes && walks.take().is_none() => Some("this repository's armada.yml declares no `walks.take`, so its native walks have no takes"),
             Some(_) => None,
