@@ -12,6 +12,8 @@ pub(super) const READ_MERGES: &str = "read_merges";
 pub(super) const CHECK_DRIFT: &str = "check_drift";
 /// The retire and links parts' one step, free: features and linked docs read against the code. Its id is neither part's name.
 pub(super) const CHECK_UPKEEP: &str = "check_upkeep";
+/// The pictures part's step, free: one picture a feature, on the app running now. Its id is not the part's name.
+pub(super) const TAKE_PICTURES: &str = "take_pictures";
 /// The gists part's step, which asks a model. Its id is not the part's name.
 pub(super) const WRITE_GISTS: &str = "write_gists";
 /// The last step: the catalog read through the newest merge, and the run's record kept.
@@ -39,6 +41,7 @@ fn title_of(part: LibrarianPart) -> Option<&'static str> {
         LibrarianPart::Drift => Some("Check docs against the code"),
         LibrarianPart::Retire | LibrarianPart::Links => Some("Check features and links against the code"),
         LibrarianPart::Gists => Some("Write missing gists"),
+        LibrarianPart::Pictures => Some("Take a picture of each feature"),
         _ => None,
     }
 }
@@ -57,6 +60,10 @@ pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: 
         }
         if part == LibrarianPart::Drift {
             steps.push(LibrarianStep { id: CHECK_DRIFT.to_string(), title: title.to_string(), detail: drift_detail(docs), model: false });
+            continue;
+        }
+        if part == LibrarianPart::Pictures {
+            steps.push(LibrarianStep { id: TAKE_PICTURES.to_string(), title: title.to_string(), detail: PICTURES_DETAIL.to_string(), model: false });
             continue;
         }
         if matches!(part, LibrarianPart::Retire | LibrarianPart::Links) {
@@ -146,6 +153,28 @@ pub(super) fn upkeep_said(counted: super::upkeep::Counted) -> String {
 
 /// What the upkeep step says where git could not read a repository of the project, so it marked nothing.
 pub(super) const UPKEEP_UNREAD: &str = "No repository could be read, so nothing was marked";
+
+/// What the pictures step reads.
+const PICTURES_DETAIL: &str = "The screen each feature is tied to, on the app running now";
+/// The pictures step where no feature is tied to a screen.
+pub(super) const PICTURES_UNTIED: &str = "No feature is tied to a screen yet";
+/// The pictures step where features are tied to screens and no app of the project is running.
+pub(super) const PICTURES_UNREACHED: &str = "No app of the project is running";
+
+/// What the pictures step did: `Took 3 pictures, 1 current, 1 failed: it ended with exit status: 1`.
+pub(super) fn pictures_said(took: usize, current: usize, failed: &[String]) -> String {
+    let mut said = match took {
+        1 => "Took 1 picture".to_string(),
+        n => format!("Took {n} pictures"),
+    };
+    if current > 0 {
+        said.push_str(&format!(", {current} current"));
+    }
+    if let Some(first) = failed.first() {
+        said.push_str(&format!(", {} failed: {first}", failed.len()));
+    }
+    said
+}
 
 fn merges_detail(state: &LibrarianState) -> String {
     match (state.merged_since.as_slice(), state.read_through) {

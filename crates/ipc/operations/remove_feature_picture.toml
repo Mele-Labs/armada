@@ -1,0 +1,14 @@
+[operations.remove_feature_picture]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Take a picture off its feature: his Not this feature. Give the picture's id and, where he said, `why`"
+notes = """
+`POST /features/pictures/remove`, body `RemoveFeaturePicture`: `picture` (a `FeaturePicture.id`) and an optional `why`. Answered with `FeaturePictureRemoved`: `feature` (the slug it was under), `picture`, and `cover`, the feature's cover now, absent where it has none left.
+
+**The row stays, marked removed with when and `why`**, and the file stays with it, so what he taught is kept: the page and the list no longer carry it, and the librarian never takes that `url` or `screen` again for that feature. `why` is kept as he gave it and read by nothing yet; it is the seam for the catalog's rules. A second removal of the same picture answers as the first did and changes nothing.
+
+404 `fleet.picture_unknown` for an id Fleet does not hold.
+
+**The person's**, as `answer_retire` is: the Operator through the door, Bridge on the port, and a 403 `api.the_persons_own` from inside a Job.
+"""

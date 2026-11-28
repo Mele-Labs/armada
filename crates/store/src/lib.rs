@@ -401,6 +401,8 @@ mod feature_upkeep;
 pub use feature_upkeep::{upkeep_kind, KeptUpkeep, UpkeepFound};
 mod feature_doc_checks;
 pub use feature_doc_checks::KeptDocCheck;
+mod feature_pictures;
+pub use feature_pictures::{picture_by, KeptPicture};
 pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.

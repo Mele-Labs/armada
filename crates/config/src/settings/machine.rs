@@ -60,7 +60,7 @@ pub const LIBRARIAN_RUN_MODES: &[&str] = &["on_press", "after_merges", "nightly"
 /// The librarian's parts, as `features.librarianParts` names them, all of them on as it ships.
 /// `fleet::feature_library::librarian::Part` is the same list in code, and a test holds the two together.
 pub const LIBRARIAN_PART_NAMES: &[&str] =
-    &["floor_plans", "links", "decisions", "health", "drift", "retire", "glossary", "since_you_looked", "gists"];
+    &["floor_plans", "links", "decisions", "health", "drift", "retire", "glossary", "since_you_looked", "gists", "pictures"];
 
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.

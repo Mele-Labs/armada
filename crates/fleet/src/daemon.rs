@@ -191,6 +191,8 @@ pub struct Fleet<H, V, W> {
     requests: crate::requesting::Requesting,
     /// The metric tokens this Mac's keychain holds, one per tool. Never written to a file, which a commit could carry.
     metric_tokens: Arc<dyn adapter_traits::RequestSecrets + Send + Sync>,
+    /// What the librarian takes a feature's picture with — `crate::picture_capture`.
+    capture: Arc<dyn crate::picture_capture::Capture>,
     /// What each project's metric recipes last read, in memory only — `crate::project_metrics`.
     metric_readings: crate::project_metrics::Readings,
     /// The watch commands running now. Every watch itself is in the store: `crate::watches`.

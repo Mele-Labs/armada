@@ -110,6 +110,18 @@ where
         self.feature_sections_written(caller, write).await
     }
 
+    async fn add_feature_picture(&self, caller: Option<api::Caller>, add: ipc::AddFeaturePicture) -> Result<ipc::FeaturePictureAdded, Refusal> {
+        self.feature_picture_added(caller, add).await
+    }
+
+    async fn remove_feature_picture(&self, caller: Option<api::Caller>, remove: ipc::RemoveFeaturePicture) -> Result<ipc::FeaturePictureRemoved, Refusal> {
+        self.feature_picture_removed(caller, remove).await
+    }
+
+    async fn get_feature_picture(&self, id: String) -> Result<Vec<u8>, Refusal> {
+        self.feature_picture_bytes(id).await
+    }
+
     async fn upsert_features(&self, caller: Option<api::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         self.owner_or_operator_called(caller)?;
         self.features_upserted(upsert).await

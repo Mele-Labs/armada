@@ -99,6 +99,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("answer_retire", "keeps the feature catalog"),
     ("check_docs", "keeps the feature catalog"),
     ("dismiss_doc_flag", "keeps the feature catalog"),
+    ("remove_feature_picture", "keeps the feature catalog"),
     ("start_doc_job", "keeps the feature catalog"),
     ("draft_module_features", "keeps the feature catalog"),
     ("start_sub_project", "groups his Jobs"),

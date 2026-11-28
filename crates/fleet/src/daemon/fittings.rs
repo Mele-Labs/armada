@@ -278,6 +278,9 @@ pub struct Fittings<H, V, W> {
     /// The keychain a project's metric tokens are kept in, one item per tool. **A seam so a test plants one in memory**
     /// and never touches the login keychain — [`crate::project_metrics`].
     pub metric_tokens: Arc<dyn adapter_traits::RequestSecrets + Send + Sync>,
+    /// What the librarian takes a feature's picture with, no window on his screen. **A seam so a test plants one** and
+    /// starts no browser — [`crate::picture_capture`].
+    pub capture: Arc<dyn crate::picture_capture::Capture>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -422,6 +425,7 @@ where
             peers: fittings.peers,
             requests: fittings.requests,
             metric_tokens: fittings.metric_tokens,
+            capture: fittings.capture,
             metric_readings: Default::default(),
             merge_end: Mutex::new(()),
             disk: Default::default(),
