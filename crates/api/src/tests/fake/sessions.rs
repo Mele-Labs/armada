@@ -928,6 +928,10 @@ impl Sessions for FakeDaemon {
         })
     }
 
+    async fn list_to_review(&self, project: Option<String>) -> Result<ipc::ToReview, Refusal> {
+        Ok(ipc::ToReview { project, groups: Vec::new() })
+    }
+
     async fn all_done(
         &self,
         _caller: Option<crate::Caller>,

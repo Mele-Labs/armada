@@ -534,6 +534,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::sessions::list_closed_waiting::<D>),
         )
         .route("/sessions/needs_you", get(crate::sessions::get_needs_you::<D>))
+        .route("/sessions/to_review", get(crate::sessions::list_to_review::<D>))
         .route(
             "/sessions/waiting/done",
             post(crate::hosted_sessions::done_waiting::<D>),
