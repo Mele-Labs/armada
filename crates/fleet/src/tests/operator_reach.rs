@@ -309,7 +309,7 @@ async fn a_job_of_another_project_is_held_and_so_is_a_file_under_its_repository_
     let two = two().await;
     let start = ipc::StartSession {
         project: Some(two.b.clone()),
-        manifest_id: two.rig.manifest.clone(),
+        manifest_id: two.second.clone(),
         title: Some("Beta's Job".into()),
         model: None,
         effort: None,

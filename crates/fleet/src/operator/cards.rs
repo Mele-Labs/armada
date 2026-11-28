@@ -318,7 +318,7 @@ where
     }
 
     /// Whose Operator hears `talk`: the project of the card `about` names, else the project the talk names, else the one
-    /// project whose Operator runs. `None` where those say none. **The seam the router takes over**, with no memory and no model.
+    /// project whose Operator runs, else the one whose Operator is wanted. `None` where those say none. **The seam the router takes over**, with no memory and no model.
     pub(crate) async fn talk_routed(&self, talk: &TalkToOperator) -> Option<String> {
         if let Some(row) = self.card_row_of(talk.about.as_deref()).await {
             return self.card_project(&row).await;
@@ -326,8 +326,12 @@ where
         if let Some(project) = talk.project.clone().filter(|project| !project.is_empty()) {
             return Some(project);
         }
-        match self.operator_sessions().await.as_slice() {
-            [(project, _)] => Some(project.clone()),
+        if let [(project, _)] = self.operator_sessions().await.as_slice() {
+            return Some(project.clone());
+        }
+        // None runs yet, so his words are kept for the one project whose Operator is wanted.
+        match self.operator_projects_wanted().await.as_slice() {
+            [project] => Some(project.clone()),
             _ => None,
         }
     }

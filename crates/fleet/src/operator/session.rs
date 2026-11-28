@@ -142,7 +142,7 @@ where
     }
 
     /// The projects whose Operator should run now: each of his own while the machine's switch is on and its own is.
-    async fn operator_projects_wanted(&self) -> Vec<String> {
+    pub(super) async fn operator_projects_wanted(&self) -> Vec<String> {
         if !self.operator_on() {
             return Vec::new();
         }

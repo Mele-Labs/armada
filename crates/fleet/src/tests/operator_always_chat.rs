@@ -37,6 +37,8 @@ async fn switching_on_starts_the_operators_session_with_no_tick() {
 #[tokio::test]
 async fn a_send_with_no_session_running_is_kept_starts_one_and_is_told_to_it() {
     let rig = rig();
+    // One project, so his words have an Operator to be kept for before any session is up.
+    super::operator_projects::project_named(&rig, "Shop", &rig.manifest).await;
     switched(&rig, true).await;
     assert!(live(&rig).await.is_none(), "no tick has run, so none is up");
     rig.fleet.operator_talked(said("Are you there?", None)).await.expect("kept, not refused");

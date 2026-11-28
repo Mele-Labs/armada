@@ -318,11 +318,11 @@ async fn an_act_held_until_he_has_said_so_stays_listed_and_its_call_is_refused()
     let listed = posted(&app, SESSION, LISTING).await;
     assert!(listed.contains(&named("close_session")), "{listed}");
     let refused = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
-    assert!(refused.contains("waits for him: on a card or in the talk"), "{refused}");
+    assert!(refused.contains("waits for him to say so: on a card or in the talk"), "{refused}");
 
     daemon.operator_unsaid.lock().expect("not poisoned").clear();
     let allowed = posted(&app, SESSION, &calling("close_session", r#"{"body":{"session_id":"s1"}}"#)).await;
-    assert!(!allowed.contains("waits for him"), "{allowed}");
+    assert!(!allowed.contains("waits for him to say so"), "{allowed}");
 }
 
 /// The reach's own words: a withheld act names its switch whether or not the reach ever listed it.
