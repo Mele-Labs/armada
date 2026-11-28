@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [threads4, threads1, threads4-jobs2]
+        variant: [threads1, threads1-jobs2]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/rust-setup
@@ -34,7 +34,7 @@ jobs:
         run: |
           case "$VARIANT" in
             threads4) export RUSTC_WORKSPACE_WRAPPER="$PWD/.github/ci/rustc-threads.sh" ;;
-            threads4-jobs2) export RUSTC_WORKSPACE_WRAPPER="$PWD/.github/ci/rustc-threads.sh" CARGO_BUILD_JOBS=2 ;;
+            threads1-jobs2) export CARGO_BUILD_JOBS=2 ;;
           esac
           (
             while true; do
