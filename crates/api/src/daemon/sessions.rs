@@ -712,6 +712,15 @@ pub trait Sessions: Send + Sync + 'static {
         withdrawn: ipc::WithdrawHeld,
     ) -> impl Future<Output = Result<ipc::HeldWithdrawn, Refusal>> + Send;
 
+    /// `settle_clash` — the agent records the order it and another Job agreed for files both write. `caller` places a
+    /// hosted session as `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session,
+    /// a `with` that is the sender, ended or no Job's address, no `files`, or an empty `why`.
+    fn settle_clash(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        settle: ipc::SettleClash,
+    ) -> impl Future<Output = Result<ipc::JobClash, Refusal>> + Send;
+
     /// `report_bug` — the agent says Armada itself got something wrong. `caller` places a session as
     /// `all_done`'s does, a terminal one included. [`Refusal::Unacceptable`] for a call that places none, or an
     /// empty `title` or `what`.

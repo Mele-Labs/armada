@@ -26,6 +26,7 @@ mod cut_off;
 pub(crate) mod disputing;
 pub(crate) mod bug_reports;
 pub(crate) mod job_asks;
+pub(crate) mod clash_order;
 pub(crate) mod document_answers;
 pub(crate) mod document_page;
 pub(crate) mod documents;

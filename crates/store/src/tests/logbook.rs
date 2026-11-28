@@ -94,3 +94,18 @@ fn a_logbook_entrys_title_comes_back_and_an_untitled_one_stays_untitled() {
     assert_eq!(store.logbook_entry(titled).expect("reads").expect("held").title.as_deref(), Some("No rustfmt"));
     assert_eq!(store.logbook_entry(bare).expect("reads").expect("held").title, None);
 }
+
+#[test]
+fn a_projects_entries_are_read_by_project_id_and_are_never_a_repositorys() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let project = |text: &str, id: &str| LogEntry { section: LogSection::Project, repository: id.to_string(), ..entry(text) };
+    store.save_logbook_entry(&project("Release after the smoke test.", "shop")).expect("kept");
+    store.save_logbook_entry(&project("Another project's.", "blog")).expect("kept");
+
+    let read = store.logbook_of_projects(&["shop".to_string()]).expect("reads");
+
+    assert_eq!(read.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Release after the smoke test."]);
+    assert!(store.logbook_of("shop").expect("reads").is_empty(), "a project's id is not a repository's key");
+    assert!(store.logbook_of_projects(&[]).expect("reads").is_empty());
+}

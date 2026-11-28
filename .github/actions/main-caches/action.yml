@@ -25,7 +25,6 @@ runs:
     - id: test
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       env:
-        RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
         CARGO_PROFILE_DEV_DEBUG: "0"
         CARGO_PROFILE_TEST_DEBUG: "0"
       with: { prefix-key: ci1, key: test-test, add-job-id-key: "false", lookup-only: "true", save-if: "false" }

@@ -5,6 +5,7 @@ import type { CallInFlight } from "./call";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { AnswerExtras, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { Instant, ManifestId } from "./ids";
+import type { JobClash } from "./job-asks";
 import type { CompactOffer } from "./job-compact";
 import type { JobLanesView } from "./job-lanes";
 import type { JobMark } from "./job-mark";
@@ -401,6 +402,17 @@ export type WaitingSource =
    * Listed only while the Job is live. Since 15 Nov 2026, one per Job since 16 Nov 2026.
    */
   | "ready_to_try"
+  /**
+   * Fleet: a Job sent a `raise_conflict` naming files, so the two Jobs did not agree which lands first. Derived on
+   * every read from the kept clash while it waits, never kept in the Job's list, and **raised whether the Operator
+   * is on or off**: id `clash:<a>:<b>`, the two addresses sorted, text `Which lands first, "<sender>" or
+   * "<other>"?`, an `answer` act whose `target` is the id, and exactly two options, the sender's title (choice 0)
+   * and the other's (choice 1), each with a description of who waits. **It stands in place of the conflict's
+   * `job_conflict` item**, before his choice and after it, so one ask is one item. His choice is kept as the clash's order,
+   * `ruled` on both Jobs' `clashes`, and both Jobs are told it. The Job that raised it holds the item. Dismissing
+   * it is refused. Listed only while the Job is live. Since 27 Nov 2026.
+   */
+  | "clash_order"
   /**
    * Fleet: the orchestrator of a sub project called `all_done`, or every Job of the sub project merged or ended. On the
    * orchestrator's list, derived on every read from the sub project, never kept in the Job's list: id
@@ -1011,6 +1023,12 @@ export type SessionRecord = {
    * waits on none. Since 14 Nov 2026. `docs/practices/protocol/a-jobs-wait-on-a-held-item.md`.
    */
   claim_waits?: ClaimWait[];
+  /**
+   * Each clash this Job is one of two in: files both write, raised with `raise_conflict` or settled with
+   * `settle_clash`, the same on the other Job's record. Empty where it has none. Since 27 Nov 2026.
+   * `docs/concepts/fleet.md`, *Claims a Job holds*.
+   */
+  clashes?: JobClash[];
   /**
    * Whether the Job holds claims its project's store has not taken yet, because the store did not
    * answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.

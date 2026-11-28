@@ -173,6 +173,8 @@ pub(crate) struct WaitingReads {
     rule_acts: Vec<store::KeptRuleAct>,
     /// The asks it made the Operator that stand on its Needs you, or in Your turn.
     job_asks: Vec<store::KeptJobAsk>,
+    /// The clashes it is one of two in, whether settled or waiting on him.
+    pub(crate) clashes: Vec<store::KeptClash>,
     /// The notes it offered, which its Ready to try cards are.
     ready: Vec<store::KeptBuildNote>,
     /// The branches it has on the preview list.
@@ -252,6 +254,7 @@ pub(crate) fn waiting_reads(
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
         job_asks: store.raised_job_asks_of(&session.id)?,
+        clashes: store.job_clashes_of(&session.id)?,
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
         order: store.waiting_order(&session.id)?,
@@ -500,7 +503,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered, order, goal } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, clashes, ready, offered, order, goal } = reads;
         let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -541,6 +544,7 @@ where
             .filter(|one| !super::walking::is_working(one) && !super::walking::is_changed(one))
             .filter(|one| super::walking::walk_approval(&rows, &one.target).is_none())
             .filter(|one| !super::walking::replaced(&rows, &one.target))
+            .filter(|one| super::walking::build_ready(&rows, &one.target))
             .map(|one| Window {
                 url: one.target.clone(),
                 title: one
@@ -745,7 +749,11 @@ where
             if !ended {
                 items.extend(super::rule_asks::rule_act_items(&rule_acts).into_iter().filter(|one| !dismissed.contains(&one.id)));
                 // What it asked the Operator, once it is on his Needs you or in Your turn.
-                items.extend(super::job_asks::job_ask_items(&job_asks));
+                // A conflict naming files is asked as the clash's order instead, so it is one item. The Operator still has it.
+                let shown: Vec<store::KeptJobAsk> = job_asks.iter().filter(|ask| !super::clash_order::ordered_instead(&clashes, ask)).cloned().collect();
+                items.extend(super::job_asks::job_ask_items(&shown));
+                // Which of two Jobs lands first, raised to him whether the Operator is on or off.
+                items.extend(super::clash_order::clash_items(&clashes, &session.id));
                 // Whether the goal of the sub project it orchestrates is met, once it said done or its Jobs are.
                 items.extend(goal.as_ref().and_then(|ask| crate::feature_library::sub_projects::goal_met_item(ask, done.as_deref())));
             }
@@ -1496,6 +1504,8 @@ where
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
             // Fleet's, so his press is the whole answer: the Jobs it names are told, and words alone are refused.
             WaitingSource::JobConflict | WaitingSource::JobHeld => self.job_ask_chosen(&id, &item.id, said.choice).await,
+            // Fleet's too: his choice is the pair's order, and both Jobs are told it.
+            WaitingSource::ClashOrder => self.clash_order_chosen(&id, &item.id, said.choice).await,
             // A suggestion the Operator kept before its session is no longer offered a press.
             WaitingSource::OperatorSuggestion => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "the Operator no longer keeps suggestions to press")),
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,

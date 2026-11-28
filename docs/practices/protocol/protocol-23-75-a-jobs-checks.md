@@ -6,7 +6,7 @@
 
 | Where | Carries | Notes |
 | --- | --- | --- |
-| `report_session_check` (`POST /sessions/checks`) | `SessionCheckCall`: `act` (`start` or `end`), `cwd`, `name`; on `end` also `run`, `outcome`, `took_ms`, `log`. Answers `SessionCheckAnswer`: `run?` | `armada check` is the caller. No `run` where no Job holds the slot |
+| `report_session_check` (`POST /sessions/checks`) | `SessionCheckCall`: `act` (`start` or `end`), `cwd`, `name`; on `end` also `run`, `outcome`, `took_ms`, `log`. Later, optional: `tree?` on `start`, the slot's git tree with uncommitted changes; `queue_wait_ms?` and `cpu_ms?` on `end`, kept on the run's row to match two runs of one tree. Answers `SessionCheckAnswer`: `run?` | `armada check` is the caller. No `run` where no Job holds the slot |
 | `get_session_check_output` (`GET /sessions/checks/:run/output`) | Answers `CheckOutput` | Keyed by run id, since a Session's run has no Job |
 | `Requester` kind `session` | `session_id`, `slot` | |
 | `SessionRow` kind `check` | `name`, `run`, `state`, `target?` | Replaced by id as the run ends. `target` is what the run was narrowed to, absent where it ran whole; optional on `SessionCheckCall` too, where a `--changed` run tells it on `end` |

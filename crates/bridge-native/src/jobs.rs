@@ -164,6 +164,7 @@ fn view_label(scope: Scope, group: Group) -> String {
 
 mod asleep_mac;
 mod board;
+mod board_clashes;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
@@ -1950,11 +1951,6 @@ impl JobsList {
         cx.emit(Left);
         cx.notify();
         true
-    }
-
-    /// The Operator's session is shut again: the Job that was open before it is open once more.
-    pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
-        self.open_quietly(was, cx);
     }
 
     /// A Job opens as no pick does: the Job's box does not take the keys. For a place over the Jobs screen that draws one of its Job's parts.
