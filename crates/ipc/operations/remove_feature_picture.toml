@@ -4,9 +4,9 @@ transport = "HTTP"
 agent_access = "Operator"
 description = "Take a picture off its feature: his Not this feature. Give the picture's id and, where he said, `why`"
 notes = """
-`POST /features/pictures/remove`, body `RemoveFeaturePicture`: `picture` (a `FeaturePicture.id`) and an optional `why`. Answered with `FeaturePictureRemoved`: `feature` (the slug it was under), `picture`, and `cover`, the feature's cover now, absent where it has none left.
+`POST /features/pictures/remove`, body `RemoveFeaturePicture`: `picture` (a `FeaturePicture.id`) and an optional `why`. Answered with `FeaturePictureRemoved`: `feature` (the slug it was under), `picture`, `cover`, the feature's cover now, absent where it has none left, and `rule`, the catalog rule his `why` became.
 
-**The row stays, marked removed with when and `why`**, and the file stays with it, so what he taught is kept: the page and the list no longer carry it, and the librarian never takes that `url` or `screen` again for that feature. `why` is kept as he gave it and read by nothing yet; it is the seam for the catalog's rules. A second removal of the same picture answers as the first did and changes nothing.
+**The row stays, marked removed with when and `why`**, and the file stays with it, so what he taught is kept: the page and the list no longer carry it, and the librarian never takes that `url` or `screen` again for that feature. **His `why` is also a rule of the catalog**, a Not this feature about the feature, as `reject_in_catalog` keeps one, so it reaches every catalog tell and the librarian's question; no words keep no rule. A second removal of the same picture answers as the first did, keeps no rule and changes nothing.
 
 404 `fleet.picture_unknown` for an id Fleet does not hold.
 

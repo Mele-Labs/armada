@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{AddFeaturePicture, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, Instant, PictureBy, RemoveFeaturePicture};
+use ipc::{AddFeaturePicture, CatalogRuleAct, FeaturePicture, FeaturePictureAdded, FeaturePictureRemoved, Instant, PictureBy, RemoveFeaturePicture};
 use store::{picture_by, KeptPicture, SessionState, Store, WriteError};
 
 use super::reading::Loaded;
@@ -163,7 +163,8 @@ where
         Ok(FeaturePictureAdded { feature: feature.slug, picture: on_the_wire(kept) })
     }
 
-    /// `remove_feature_picture`. **The row and its file stay**, marked removed with when and why.
+    /// `remove_feature_picture`. **The row and its file stay**, marked removed with when and why, and his words for why are
+    /// kept as a Not this feature rule of the catalog, about the feature, as `reject_in_catalog` keeps one.
     pub(super) async fn feature_picture_removed(&self, caller: Option<api::Caller>, remove: RemoveFeaturePicture) -> Result<FeaturePictureRemoved, Refusal> {
         self.owner_or_operator_called(caller)?;
         let id = remove.picture.trim();
@@ -171,10 +172,17 @@ where
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
         let picture = store.feature_picture(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.picture_unknown(id))?;
-        store.remove_feature_picture(id, &now, why).map_err(|why| self.ledger_fault(why))?;
-        let feature = store.features_in(&picture.project).map_err(|why| self.ledger_fault(why))?.into_iter().find(|one| one.id == picture.feature_id);
+        let removed = store.remove_feature_picture(id, &now, why).map_err(|why| self.ledger_fault(why))?;
+        let slug = store.features_in(&picture.project).map_err(|why| self.ledger_fault(why))?.into_iter().find(|one| one.id == picture.feature_id).map(|one| one.slug).unwrap_or_default();
+        let rule = match removed && !slug.is_empty() {
+            true => {
+                let about = super::catalog_rules::About { features: vec![slug.clone()], ..Default::default() };
+                self.rule_kept(&mut store, &picture.project, Some(why), CatalogRuleAct::NotThisFeature, about).map_err(|why| self.ledger_fault(why))?
+            }
+            false => None,
+        };
         let cover = standing(&store, &picture.feature_id).map_err(|why| self.ledger_fault(why))?.into_iter().next().map(|one| one.id);
-        Ok(FeaturePictureRemoved { feature: feature.map(|one| one.slug).unwrap_or_default(), picture: picture.id, cover })
+        Ok(FeaturePictureRemoved { feature: slug, picture: picture.id, cover, rule })
     }
 
     /// `get_feature_picture`.

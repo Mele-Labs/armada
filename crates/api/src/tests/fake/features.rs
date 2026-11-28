@@ -105,7 +105,7 @@ impl Features for FakeDaemon {
     }
 
     async fn remove_feature_picture(&self, _caller: Option<crate::Caller>, remove: ipc::RemoveFeaturePicture) -> Result<ipc::FeaturePictureRemoved, Refusal> {
-        Ok(ipc::FeaturePictureRemoved { feature: String::from("voting-on-takes"), picture: remove.picture, cover: None })
+        Ok(ipc::FeaturePictureRemoved { feature: String::from("voting-on-takes"), picture: remove.picture, cover: None, rule: None })
     }
 
     async fn get_feature_picture(&self, id: String) -> Result<Vec<u8>, Refusal> {

@@ -98,6 +98,8 @@ async fn not_this_feature_takes_a_picture_off_the_page_and_the_cover_keeps_why_a
 
     let removed = rig.fleet.remove_feature_picture(None, RemoveFeaturePicture { picture: second.id.clone(), why: Some(" The cart, not voting ".into()) }).await.expect("removed");
     assert_eq!((removed.feature.as_str(), removed.cover.as_deref()), (VOTING, Some(first.id.as_str())), "the cover moves to the next");
+    let rules = rig.fleet.list_catalog_rules(Some(project.clone())).await.expect("listed").rules;
+    assert_eq!(rules.iter().map(|one| (one.id.as_str(), one.text.as_str(), one.act, one.features.clone())).collect::<Vec<_>>(), [(removed.rule.as_deref().expect("a rule"), "The cart, not voting", ipc::CatalogRuleAct::NotThisFeature, vec![VOTING.to_string()])], "his why is a rule of the catalog");
     let voting = page(&rig, &project, VOTING).await;
     assert_eq!(voting.pictures.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [first.id.as_str()]);
     assert_eq!(row_of(&rig, &project, VOTING).await.cover.as_deref(), Some(first.id.as_str()));
@@ -106,12 +108,13 @@ async fn not_this_feature_takes_a_picture_off_the_page_and_the_cover_keeps_why_a
     assert_eq!((kept.removed_at.is_some(), kept.removed_why.as_str()), (true, "The cart, not voting"), "what he taught is kept");
     assert!(rig.fleet.get_feature_picture(second.id.clone()).await.is_ok(), "its file stays");
 
-    let again = rig.fleet.remove_feature_picture(None, RemoveFeaturePicture { picture: second.id.clone(), why: None }).await.expect("answered as before");
-    assert_eq!(again.cover.as_deref(), Some(first.id.as_str()));
+    let again = rig.fleet.remove_feature_picture(None, RemoveFeaturePicture { picture: second.id.clone(), why: Some("Again".into()) }).await.expect("answered as before");
+    assert_eq!((again.cover.as_deref(), again.rule.as_deref()), (Some(first.id.as_str()), None));
+    assert_eq!(rig.fleet.list_catalog_rules(Some(project.clone())).await.expect("listed").rules.len(), 1, "no second rule");
     assert_eq!(rig.fleet.store().lock().await.feature_picture(&second.id).expect("read").expect("held").removed_why, "The cart, not voting", "a second press changes nothing");
 
-    rig.fleet.remove_feature_picture(None, RemoveFeaturePicture { picture: first.id.clone(), why: None }).await.expect("removed");
-    assert_eq!(row_of(&rig, &project, VOTING).await.cover, None, "none left");
+    let unsaid = rig.fleet.remove_feature_picture(None, RemoveFeaturePicture { picture: first.id.clone(), why: None }).await.expect("removed");
+    assert_eq!((unsaid.cover, unsaid.rule), (None, None), "none left, and no words make no rule");
 }
 
 #[tokio::test]

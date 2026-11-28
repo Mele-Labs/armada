@@ -10,7 +10,7 @@ Only the native Bridge reads it, and it draws none of it yet; `classic-final:pac
 | Where | Side | Carries |
 | --- | --- | --- |
 | `add_feature_picture`, `POST /features/pictures/add` | A Job sends `AddFeaturePicture`, Fleet answers `FeaturePictureAdded` | `feature`, `path` (a PNG on this Mac), `url` or `screen`, and `project` and `session_id` as `write_feature_sections` has them. The answer: `feature` and `picture` |
-| `remove_feature_picture`, `POST /features/pictures/remove` | Bridge sends `RemoveFeaturePicture`, Fleet answers `FeaturePictureRemoved` | `picture` and an optional `why`. The answer: `feature`, `picture` and `cover`, absent where none is left |
+| `remove_feature_picture`, `POST /features/pictures/remove` | Bridge sends `RemoveFeaturePicture`, Fleet answers `FeaturePictureRemoved` | `picture` and an optional `why`. The answer: `feature`, `picture`, `cover`, absent where none is left, and `rule`, the catalog rule `why` became |
 | `get_feature_picture`, `GET /features/picture?id=` | Bridge asks, Fleet answers the bytes | `image/png`, with `nosniff`. A removed picture is served too |
 | `FeaturePage.pictures` (`get_feature_page`) | Fleet writes, Bridge reads | The standing pictures, newest first, each a `FeaturePicture`: `id`, `url` or `screen`, `commit`, `taken_at`, `width`, `height`, `bytes`, `by` (`job` or `librarian`) and `job`. Absent where none, and on a read by `section` |
 | `FeatureRow.cover` (`list_features`, and the page's `feature`) | Fleet writes, Bridge reads | The newest standing picture's id. Absent where none |
@@ -20,7 +20,7 @@ Only the native Bridge reads it, and it draws none of it yet; `classic-final:pac
 `remove_feature_picture` is the person's, as `answer_retire` is: the Operator through the door, Bridge on the port, and a 403 `api.the_persons_own` from inside a Job.
 Its refusals are 404 `fleet.picture_unknown`, and for the add 422 `fleet.feature_unknown`, `fleet.picture_source` and `fleet.picture_unreadable`.
 
-**`why` is a seam.** Fleet keeps it with the removal and reads nothing from it yet; the catalog's rules are where it is meant to be read.
+**`why` becomes a catalog rule**, a `not_this_feature` about the feature, as `reject_in_catalog` keeps one, and is kept on the removal too.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet's page has no `pictures` and its rows no `cover`, which a newer Bridge reads as a feature with no picture.

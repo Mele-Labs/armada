@@ -73,7 +73,7 @@ pub struct FeaturePictureAdded {
 pub struct RemoveFeaturePicture {
     /// A `FeaturePicture.id`.
     pub picture: String,
-    /// What he said is wrong with it, kept with the removal for the catalog's rules to read. Absent where he said nothing.
+    /// What he said is wrong with it, kept with the removal and as a rule of the catalog. Absent where he said nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub why: Option<String>,
 }
@@ -87,4 +87,7 @@ pub struct FeaturePictureRemoved {
     /// The feature's cover now. Absent where it has no picture left.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// The catalog rule his `why` became, by id. Absent where he gave none, or the picture was removed before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<String>,
 }

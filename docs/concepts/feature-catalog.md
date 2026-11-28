@@ -512,7 +512,8 @@ Fleet copies the file, so the Job's scratch folder may go, and keeps the commit 
 **Not this feature** is his press on a picture, `remove_feature_picture`, with `why` where he says what is wrong.
 The page and the list stop carrying it, and the cover moves to the next.
 The row and its file stay, marked removed with when and `why`, so what he taught is kept: the librarian never takes that page or screen again for that feature.
-`why` is read by nothing yet; it is where the catalog's rules will read his reasons.
+His `why` is also kept as a rule of the catalog, a Not this feature about the feature, as `reject_in_catalog` keeps one, so it reaches every catalog tell; see [His rules](#his-rules).
+A press with no words keeps no rule.
 
 > **Rule.** A removed picture is marked, never deleted.
 > Why: his "not this one" is the signal the gallery learns from, and a deleted row would lose it.
