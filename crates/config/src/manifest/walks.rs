@@ -92,23 +92,6 @@ impl Walks {
     }
 }
 
-impl Walks {
-    /// The native Bridge's own declaration, for a repository that holds it and declares none. Goes once armada.yml declares `walks:` itself.
-    pub fn native_bridge() -> Walks {
-        let said = |text: &str| text.to_string();
-        Walks {
-            build: said("env CARGO_PROFILE_RELEASE_INCREMENTAL=true cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target"),
-            binary: said("crates/bridge-native/target/release/bridge-native"),
-            list: said("${binary} --list-walks"),
-            open: said("${binary} --walk ${walk} --job ${job} --url ${url} --fleet-port ${fleet_port}"),
-            take: Some(said("--take ${name}=${walk}")),
-            shots: said("${binary} --walk ${walk} --check --shots ${shots} --hold 0"),
-            against: said("${binary} --walk ${walk} --check --shots ${shots} --against ${against} --out ${out} --hold 0"),
-            seed: Some(said("crates/bridge-native/target")),
-        }
-    }
-}
-
 /// The names written as `${name}` in `text`, in order, or the rest of the text from a `${` that is
 /// never closed.
 fn names_in(text: &str) -> Result<Vec<&str>, &str> {
