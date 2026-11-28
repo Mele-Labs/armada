@@ -342,6 +342,7 @@ mod turn_usage;
 mod session_notes;
 mod terminal_session;
 mod native_walk;
+mod walk_builds;
 mod thread_keeping;
 mod thread_fold;
 mod thread_view;

@@ -93,6 +93,7 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
                 ipc::ReadyAnswer::LooksGood => "Looks good".into(),
                 ipc::ReadyAnswer::NeedsRework { .. } => "Needs rework".into(),
                 ipc::ReadyAnswer::Remind { .. } => "Remind me".into(),
+                ipc::ReadyAnswer::Skip => "Skip".into(),
             }),
         ),
         JobAct::ArtifactPartAnswer(body) => {

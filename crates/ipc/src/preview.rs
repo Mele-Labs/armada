@@ -285,6 +285,10 @@ pub struct ThreadReadyToTry {
     /// What he said, on an `answered` card. The build note's verdict, so a mark from the notes answers it too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verdict: Option<NoteVerdict>,
+    /// He pressed Skip: approved on the walk, landed untried. The verdict is still `good`; this is what
+    /// a card read again says he did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub skipped: bool,
     /// When it comes back, on a `later` card.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub later_until: Option<Instant>,
@@ -339,6 +343,9 @@ pub enum ReadyAnswer {
     NeedsRework { words: String },
     /// Remind me: the card comes back at `until`, which the client works out from the Later choice he pressed.
     Remind { until: Instant },
+    /// Skip: he approved the look on the walk and lands it untried. Closes the step as Looks good does,
+    /// and the Job is told to land.
+    Skip,
 }
 
 /// `skip_preview_refresh`'s body: the owner skips the Refresh row with this id.

@@ -50,6 +50,11 @@ export type ThreadReadyToTry = {
   state: ReadyState;
   /** What he said, on an `answered` card. The build note's verdict, so a mark from the notes answers it too. */
   verdict?: NoteVerdict;
+  /**
+   * He pressed Skip: approved on the walk, landed untried. The verdict is still `good`; this is what
+   * a card read again says he did.
+   */
+  skipped?: boolean;
   /** When it comes back, on a `later` card. */
   later_until?: Instant;
 };
@@ -104,4 +109,11 @@ export type ReadyAnswer =
   | {
       kind: "remind";
       until: Instant;
+    }
+  /**
+   * Skip: he approved the look on the walk and lands it untried. Closes the step as Looks good does,
+   * and the Job is told to land.
+   */
+  | {
+      kind: "skip";
     };

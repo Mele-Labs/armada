@@ -42,6 +42,8 @@ pub(super) enum Answer {
     Handoff(ipc::HandoffPick),
     /// A Ready to try card put off: the time it comes back at, as it was sent.
     Later(String),
+    /// A Ready to try card landed without trying it.
+    Skipped,
 }
 
 impl CardState {
