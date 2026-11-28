@@ -180,7 +180,10 @@ fn cards() -> Vec<Rc<Card>> {
 /// Put the walk's graphs in place for `scenario`, or take any away for another.
 pub fn begin(scenario: &str, cx: &mut App) {
     if scenario != SCENARIO {
-        cx.remove_global::<Graphs>();
+        // `remove_global` panics on a global that was never set: every other walk starts here.
+        if cx.has_global::<Graphs>() {
+            cx.remove_global::<Graphs>();
+        }
         return;
     }
     let book = cx.new(|_| FeedBook::new(feeds()));
