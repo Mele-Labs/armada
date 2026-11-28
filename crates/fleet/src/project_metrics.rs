@@ -202,7 +202,7 @@ where
     }
 
     /// `credential`'s token from this Mac's keychain, or why it could not be read. **A why never holds a value.**
-    async fn metric_token(&self, credential: &MetricCredential) -> Result<Option<Secret<String>>, String> {
+    pub(crate) async fn metric_token(&self, credential: &MetricCredential) -> Result<Option<Secret<String>>, String> {
         let tokens = Arc::clone(self.metric_tokens());
         let variable = SecretVariable { repository: String::new(), environment: String::new(), name: credential.name.clone() };
         match tokio::task::spawn_blocking(move || tokens.read(&variable)).await {

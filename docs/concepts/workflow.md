@@ -41,7 +41,7 @@ Fleet reads the Job's current step off what it observed, and a step with `judge_
 
 ### `feature` and `bug`
 
-The order is the owner's, and the branch is offered for his preview before any test is written (20 Nov 2026, in place of a walk).
+The order is the owner's: what he would see is shown as a native walk before any test is written, and the branch is offered for his preview after his Approve on it (27 Nov 2026, in place of the preview alone of 20 Nov).
 The last column is what the Workflows page draws under each step (`rail_ends.rs`).
 
 **`feature`**
@@ -49,7 +49,7 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 | Step | The agent | Ends when |
 |---|---|---|
 | `propose` | Asks what is unclear, then puts its proposal to him: a plan, with a sketch inside where it helps, or a sketch, draft, document or rough walk alone | you approve the plan, or any one of those |
-| `try` | Builds the part he would see on the branch and offers it with `offer_preview`; writes no test | you say Looks good on its Ready to try card |
+| `try` | Builds the part he would see on the branch and shows it as a native walk; on his Approve, offers it with `offer_preview`; writes no test | you Ship it on the walk, or say Looks good or Skip on its Ready to try card |
 | `refine` | Wires it for real and writes the tests | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 

@@ -502,6 +502,26 @@ const ROUTES: &[Route] = &[
         path: "/sessions/sketch",
     },
     Route {
+        operation: "show_graph",
+        method: "POST",
+        path: "/sessions/graph",
+    },
+    Route {
+        operation: "graph_points",
+        method: "POST",
+        path: "/sessions/graph/points",
+    },
+    Route {
+        operation: "withdraw_graph",
+        method: "POST",
+        path: "/sessions/graph/withdraw",
+    },
+    Route {
+        operation: "list_graphs",
+        method: "GET",
+        path: "/sessions/graphs",
+    },
+    Route {
         operation: "get_style_sources",
         method: "GET",
         path: "/sessions/style_sources",

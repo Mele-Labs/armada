@@ -179,7 +179,7 @@ fn a_previewing_step_is_entered_when_the_plan_is_approved_or_when_the_job_offers
     let early = Facts { plan_recorded: true, offered: true, ..Facts::default() };
     assert_eq!(at(&steps, early), Some(1), "a branch offered enters it before the plan is approved");
     assert_eq!(rail_ends::ends_of(&steps, 1), vec![rail_ends::End::LooksGood]);
-    assert_eq!(rail_ends::ends_when(&steps, 1).as_deref(), Some("you say Looks good on the branch offered"));
+    assert_eq!(rail_ends::ends_when(&steps, 1).as_deref(), Some("you Ship it on its walk, or say Looks good on the branch offered"));
 }
 
 /// **A push is how a preview is made**, so it never passes the step, and the work-ahead rule skips it.

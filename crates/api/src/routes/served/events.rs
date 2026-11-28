@@ -166,6 +166,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A Job's graphs, whole, and the rows its feeds took since the last.
+    Route {
+        operation: "graphs.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The bug reports agents made of Armada, whole, after one was made, kept or dropped.
     Route {
         operation: "bug_reports.changed",

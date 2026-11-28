@@ -306,6 +306,8 @@ mod project_board;
 mod system_map;
 /// A project's live metrics, read with no model while its dashboard is open.
 mod project_metrics;
+/// A Job's live graphs, kept in the store, their recipes run on the watches' loop. `docs/practices/protocol/a-job-shows-a-live-graph.md`.
+pub(crate) mod graphs;
 mod project_copies;
 /// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
 mod project_copy_reads;

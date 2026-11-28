@@ -102,6 +102,7 @@ pub(super) fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
             ThreadItem::Judged { .. } => "judged",
             ThreadItem::ReadyToTry(_) => "ready_to_try",
             ThreadItem::Margin(_) => "margin",
+            ThreadItem::Graph(_) => "graph",
         })
         .collect()
 }
@@ -303,6 +304,25 @@ fn a_show_file_the_ledger_holds_is_a_file_opened_by_the_ledgers_own_path() {
     assert_eq!(kinds(&found), ["file", "calls"]);
     let ThreadItem::File { id, path, name, .. } = &found[0] else { panic!("a file") };
     assert_eq!((id.as_str(), path.as_str(), name.as_str()), ("f1", "/work/docs/a.md", "a.md"));
+}
+
+#[test]
+fn a_show_graph_call_is_where_its_graph_stands_and_a_later_one_of_its_id_is_again() {
+    let found = items(vec![
+        tool("g1", 1, "mcp__armada-fleet__show_graph p99"),
+        agent("m1", 2, "p99 is up since the deploy."),
+        tool("g2", 3, "mcp__armada-fleet__show_graph p99"),
+        tool("g3", 4, "show_graph errors"),
+    ]);
+    assert_eq!(kinds(&found), ["graph", "row", "graph", "graph"]);
+    let graphs: Vec<(&str, &str, bool)> = found
+        .iter()
+        .filter_map(|item| match item {
+            ThreadItem::Graph(card) => Some((card.id.as_str(), card.graph.as_str(), card.again)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(graphs, [("g1", "p99", false), ("g2", "p99", true), ("g3", "errors", false)]);
 }
 
 #[test]

@@ -149,6 +149,8 @@ mod watching_run;
 mod watching_session_run;
 /// A command Fleet runs on a cadence for one Job: started, weighed, stopped and listed.
 mod watches;
+/// A Job's live graphs: shown, fed, withdrawn and listed.
+mod graphs;
 /// His margin threads on a Job's page, and the agent's answers and suggested edits.
 mod margins;
 /// A repository's app run from Bridge: several servers held as one run.
@@ -163,7 +165,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, MAC, MA
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Asides, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Margins, Teaching, Mods, Clashing, OtherMacs,
-    Features, Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
+    Features, Graphs, Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
     SealedPage, ShownFile, StoredFile, Story, Studios, Watches, ActAnswered, ActBegun, ActTurn, TerminalShared, CONVERSATION_PIECE,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};

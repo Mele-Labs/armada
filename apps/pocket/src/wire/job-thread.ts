@@ -170,6 +170,10 @@ export type ThreadItem =
   | {
       kind: "sketch";
     } & ThreadSketch
+  /** A `show_graph` call: the graph it showed stands here. Since 27 Nov 2026. */
+  | {
+      kind: "graph";
+    } & ThreadGraph
   /** A `show_file` call whose file the ledger holds, opened by the ledger's own path. */
   | {
       kind: "file";
@@ -260,6 +264,20 @@ export type ThreadSketch = {
   revisions?: RawScene[];
   /** What the sketch as it stands is for, on the latest card only. */
   for_line?: ArtifactFor;
+};
+
+/**
+ * Where a `show_graph` call stands in the thread. **Bridge draws the graph `graph` names** from what
+ * `list_graphs` and `graphs.changed` carry, and the call's line where it holds no such graph, as for a
+ * call Fleet refused.
+ */
+export type ThreadGraph = {
+  id: string;
+  at: Instant;
+  /** The graph's id, as the call gave it. */
+  graph: string;
+  /** An earlier call in the thread showed the same id, and the card stands there: this call replaced it in place. */
+  again?: boolean;
 };
 
 /** A document card: one per page, its newest revision. The page's earlier revisions are its own. */

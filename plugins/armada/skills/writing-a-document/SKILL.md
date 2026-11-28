@@ -258,10 +258,42 @@ with `settings`. `get_style_sources` lists the stylesheets closest to your work,
 named in the same notice as a bad scene. A mock is a still picture, so what the
 person must press and move through is a walk.
 
+## Graphs
+
+`<armada-graph>` draws a chart from a Vega-Lite spec, in the same look as the
+graphs in a Job's thread: its axes, grid, legend and a readout under the
+pointer. Put the spec in a `<script type="application/json">` child, with its
+rows in `data.values`:
+
+```html
+<armada-graph title="Errors by hour"><script type="application/json">
+{"data":{"values":[
+  {"hour":"13:00","day":"Monday","errors":14},{"hour":"14:00","day":"Monday","errors":13},
+  {"hour":"13:00","day":"Tuesday","errors":15},{"hour":"14:00","day":"Tuesday","errors":38}
+]},
+ "mark":{"type":"line","point":true},
+ "encoding":{"x":{"field":"hour","type":"ordinal"},
+             "y":{"field":"errors","type":"quantitative","title":"Errors"},
+             "color":{"field":"day","type":"nominal"}}}
+</script></armada-graph>
+```
+
+`<armada-graph graph="<id>">` draws one of the Job's live graphs, by the id it
+has in the thread. Bridge draws it again each time Fleet reads new rows.
+
+The spec is the subset the thread's graphs read: marks `line`, `area`, `bar`,
+`point`, `rule`, `text` and `arc`, with `layer`; channels `x`, `y`, `color`,
+`theta`, `text`, `strokeDash` and `tooltip`. Put a unit in a title's last
+brackets, `"p99 (ms)"`, and the axis and readout carry it. The `title` attribute
+names the graph, else the spec's `title` does. A spec that does not read draws
+a muted line saying why in place of the graph, so read your page once it is
+kept. The JSON must not contain the text `</script>`.
+
 ## Figures and charts
 
-There is no chart element. A chart is an inline `<svg>` in a `<figure>`, drawn
-from shapes and text. Bridge drops `img`, so a chart is never a picture file.
+Draw a chart with `<armada-graph>` where the subset holds it. Anything else is
+an inline `<svg>` in a `<figure>`, drawn from shapes and text. Bridge drops
+`img`, so a chart is never a picture file.
 
 - Give the `<svg>` a `viewBox` and no fixed width, so it scales to the column.
   The kit sets its text colour, type and size.

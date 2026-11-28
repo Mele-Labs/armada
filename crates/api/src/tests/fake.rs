@@ -37,6 +37,7 @@ mod sessions;
 mod studios;
 mod teaching;
 mod watches;
+mod graphs;
 
 pub use accounts::profile;
 pub use app_runs::THE_RUN;
