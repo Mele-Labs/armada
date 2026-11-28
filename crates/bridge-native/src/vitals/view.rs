@@ -15,7 +15,7 @@ use crate::graph::plot::{GraphPlot, Inks};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::reviews::{card_inner_radius, panel};
-use crate::settings::rows::{default_words, segment, segment_track, Pick};
+use crate::settings::rows::{segment, segment_track, Pick};
 use crate::settings::view::{bone, ghost, refusal, ring_colour, ringed, tip};
 use crate::titlebar::parts::{glyph, mono, sans};
 
@@ -35,11 +35,11 @@ fn who_width(look: &Look) -> Pixels {
 }
 
 fn when_width(look: &Look) -> Pixels {
-    look.length(token::SPACE_12) * 1.75
+    look.length(token::SPACE_12) * 2.5
 }
 
 fn moved_width(look: &Look) -> Pixels {
-    look.length(token::SPACE_12) * 2.25
+    look.length(token::SPACE_12) * 2.75
 }
 
 fn undo_width(look: &Look) -> Pixels {
@@ -79,7 +79,7 @@ fn said_value(value: &SettingValue, kind: &ipc::SettingKind) -> String {
         other => return crate::settings::overlay::held_text(other),
     };
     match kind {
-        ipc::SettingKind::Seconds { .. } => format!("{n} s"),
+        ipc::SettingKind::Seconds { .. } => crate::settings::view::in_words(n),
         ipc::SettingKind::Integer { unit: Some(unit), .. } => {
             let unit = crate::settings::limits::unit_shown(unit);
             if unit.is_empty() || unit.chars().next().is_some_and(char::is_uppercase) {
@@ -200,7 +200,7 @@ impl VitalsScreen {
                     Role::Label,
                     format!("{} now: {}", tile.title(), face.big),
                 ))
-                .child(div().max_w(look.length(token::SPACE_12) * 6.).truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(face.sub.clone())))
+                .child(div().max_w(look.length(token::SPACE_12) * 8.).truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(face.sub.clone())))
         });
         div()
             .flex_none()
@@ -318,7 +318,7 @@ impl VitalsScreen {
             .items_center()
             .justify_end()
             .gap(look.length(token::SPACE_2))
-            .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(format!("Ships {}", default_words(&one)))))
+            .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(format!("Ships {}", said_value(&one.default, &one.kind)))))
             .children(reset);
         let now = crate::settings::limits::current(&one).clone();
         let off_note = match (key, &now) {
@@ -418,7 +418,7 @@ impl VitalsScreen {
                     .line_height(look.length(token::LEADING_XS))
                     .child(div().flex_none().w(who_width(look)).truncate().text_color(look.color(if job { token::FG_DEFAULT } else { token::FG_MUTED })).child(SharedString::from(change.who.clone())))
                     .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one.title.clone())))
-                    .child(div().flex_none().w(when_width(look)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(when(change.at, last))))
+                    .child(div().flex_none().w(when_width(look)).truncate().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(when(change.at, last))))
                     .child(div().flex_none().w(moved_width(look)).truncate().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(moved.clone())))
                     .child(div().flex_none().w(undo_width(look)).flex().justify_end().child(undo));
                 Some(labelled(line, Role::Row, format!("{}, {}, {}", change.who, one.title, moved)).into_any_element())

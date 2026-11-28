@@ -388,13 +388,13 @@ pub fn figure(value: f64) -> String {
 }
 
 /// A series layer: a line, or an area where `fill`; a step where the figure counts things.
-fn series_layer(fill: bool, step: bool, sort: &[&str]) -> Value {
+fn series_layer(fill: bool, step: bool, sort: &[&str], measure: &str) -> Value {
     let interpolate = if step { "step-after" } else { "monotone" };
     json!({
         "mark": {"type": if fill { "area" } else { "line" }, "interpolate": interpolate},
         "encoding": {
             "x": {"field": "at", "type": "temporal"},
-            "y": {"field": "v", "type": "quantitative"},
+            "y": {"field": "v", "type": "quantitative", "title": measure},
             "color": {"field": "s", "type": "nominal", "sort": sort}
         }
     })
@@ -416,9 +416,9 @@ fn rows_of(samples: &[&Sample], series: &[(&str, fn(&Sample) -> f64)]) -> Vec<Ro
 
 /// A graph of `series`, with a dashed rule at each limit given, and its keys.
 #[allow(clippy::too_many_arguments)]
-fn graph(id: &'static str, name: &str, samples: &[&Sample], series: &[(&str, fn(&Sample) -> f64)], fill: bool, step: bool, rules: &[(String, Limit)], tall: f32, note: Option<(usize, &'static str)>) -> Option<Graph> {
+fn graph(id: &'static str, name: &str, measure: &str, samples: &[&Sample], series: &[(&str, fn(&Sample) -> f64)], fill: bool, step: bool, rules: &[(String, Limit)], tall: f32, note: Option<(usize, &'static str)>) -> Option<Graph> {
     let names: Vec<&str> = series.iter().map(|(name, _)| *name).collect();
-    let mut layers = vec![series_layer(fill, step, &names)];
+    let mut layers = vec![series_layer(fill, step, &names, measure)];
     layers.extend(rules.iter().map(|(_, limit)| rule_layer(limit.at)));
     let chart = chart_of(layers, &rows_of(samples, series))?;
     let mut legend: Vec<Mark> = chart
@@ -440,6 +440,9 @@ fn load5(one: &Sample) -> f64 {
 }
 fn load15(one: &Sample) -> f64 {
     one.load15
+}
+fn busy(one: &Sample) -> f64 {
+    one.busy
 }
 fn used(one: &Sample) -> f64 {
     one.used
@@ -503,7 +506,8 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
             series.push(("15 min", load15));
             let read_at = series.iter().position(|(name, _)| *name == format!("{window} min"));
             let rules = if most.at > 0. { vec![(format!("Limit {}", figure(most.at)), most)] } else { Vec::new() };
-            let graphs = graph("load", "Load", shown, &series, false, false, &rules, 3.5, read_at.map(|at| (at, "Gate reads"))).into_iter().collect();
+            let busy = graph("busy", "Busy cores", "Cores", shown, &[("Busy cores", busy as fn(&Sample) -> f64)], true, false, &[], 2., None);
+            let graphs = graph("load", "Load", "Load", shown, &series, false, false, &rules, 3.5, read_at.map(|at| (at, "Gate reads"))).into_iter().chain(busy).collect();
             Face {
                 tile,
                 state: (most.at > 0.).then(|| State::of(read, most.at)),
@@ -526,14 +530,14 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
                 State::Under
             };
             let series: [(&str, fn(&Sample) -> f64); 2] = [("In use", used), ("Swap", swap)];
-            let used = graph("memory", "Memory in use and swap", shown, &series, false, false, &[(format!("In use limit {} GB", figure(most.at)), most)], 3.5, None);
+            let used = graph("memory", "Memory in use and swap", "GB", shown, &series, false, false, &[(format!("In use limit {} GB", figure(most.at)), most)], 3.5, None);
             let pressure_rules = if level.at > 0. { vec![(format!("Level {}", figure(level.at)), level)] } else { Vec::new() };
-            let pressure = graph("pressure", "Memory pressure", shown, &[("Pressure", pressure as fn(&Sample) -> f64)], false, true, &pressure_rules, 1.5, None);
+            let pressure = graph("pressure", "Memory pressure", "Level", shown, &[("Pressure", pressure as fn(&Sample) -> f64)], false, true, &pressure_rules, 2., None);
             Face {
                 tile,
                 state: Some(state),
                 big: format!("Pressure {}", figure(last.pressure)),
-                sub: format!("{} of {} GB in use, {} GB compressed, swap {} of {} GB", figure(last.used), figure(reading.memory_gb), figure(last.compressed), figure(last.swap), figure(reading.swap_gb)),
+                sub: format!("{} of {} GB, {} GB compressed, swap {} of {} GB", figure(last.used), figure(reading.memory_gb), figure(last.compressed), figure(last.swap), figure(reading.swap_gb)),
                 graphs: used.into_iter().chain(pressure).collect(),
             }
         }
@@ -550,7 +554,7 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
                 State::Under
             };
             let sub = if last.waiting > 0. { format!("{} waiting, longest {} min", figure(last.waiting), last.longest.round() as i64) } else { "None waiting".into() };
-            Face { tile, state: Some(state), big: format!("{} running", figure(last.running)), sub, graphs: graph("checks", "Checks running and waiting", shown, &series, false, true, &rules, 3.5, None).into_iter().collect() }
+            Face { tile, state: Some(state), big: format!("{} running", figure(last.running)), sub, graphs: graph("checks", "Checks running and waiting", "Checks", shown, &series, false, true, &rules, 3.5, None).into_iter().collect() }
         }
         Tile::Compiler => {
             let kept = limit(limits, "limits.compilerCoresKeptBack");
@@ -561,7 +565,7 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
                 state: Some(State::of(last.tokens, pool.at)),
                 big: format!("{} of {}", figure(last.tokens), figure(pool.at)),
                 sub: format!("Pool: {} cores less {} kept back", figure(cores), figure(kept.at)),
-                graphs: graph("compiler", "Compiler tokens in use", shown, &series, true, true, &[(format!("Pool {}", figure(pool.at)), pool)], 3.5, None).into_iter().collect(),
+                graphs: graph("compiler", "Compiler tokens in use", "Tokens", shown, &series, true, true, &[(format!("Pool {}", figure(pool.at)), pool)], 3.5, None).into_iter().collect(),
             }
         }
         Tile::Drones => {
@@ -579,7 +583,7 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
                 state: Some(state),
                 big: format!("{} of {}", figure(last.drones), figure(most.at)),
                 sub: "Drones running".into(),
-                graphs: graph("drones", "Drones running", shown, &series, false, true, &[(format!("At once {}", figure(most.at)), most)], 3.5, None).into_iter().collect(),
+                graphs: graph("drones", "Drones running", "Drones", shown, &series, false, true, &[(format!("At once {}", figure(most.at)), most)], 3.5, None).into_iter().collect(),
             }
         }
         Tile::Disk => {
@@ -594,17 +598,17 @@ fn face(tile: Tile, reading: &Reading, shown: &[&Sample], last: &Sample, cores: 
             };
             let series: [(&str, fn(&Sample) -> f64); 1] = [("Free", disk)];
             let rules = [(format!("Keep free {} GiB", figure(floor.at)), floor), (format!("Reclaim under {} GiB", figure(reclaim.at)), reclaim)];
-            Face { tile, state: Some(state), big: format!("{} GiB", figure(last.disk)), sub: "Free on the slots' volume".into(), graphs: graph("disk", "Disk free", shown, &series, true, false, &rules, 3.5, None).into_iter().collect() }
+            Face { tile, state: Some(state), big: format!("{} GiB", figure(last.disk)), sub: "Free on the slots' volume".into(), graphs: graph("disk", "Disk free", "GiB", shown, &series, true, false, &rules, 3.5, None).into_iter().collect() }
         }
         Tile::FleetCpu => {
             let series: [(&str, fn(&Sample) -> f64); 1] = [("Fleet", fleet)];
-            Face { tile, state: None, big: format!("{}%", last.fleet.round() as i64), sub: "Fleet's own process".into(), graphs: graph("fleet-cpu", "Fleet CPU", shown, &series, true, false, &[], 3.5, None).into_iter().collect() }
+            Face { tile, state: None, big: format!("{}%", last.fleet.round() as i64), sub: "Fleet's own process".into(), graphs: graph("fleet-cpu", "Fleet CPU", "Percent of a core", shown, &series, true, false, &[], 3.5, None).into_iter().collect() }
         }
         Tile::CompileCpu => {
             let series: [(&str, fn(&Sample) -> f64); 4] = [(WHO[0], who0), (WHO[1], who1), (WHO[2], who2), (WHO[3], who3)];
             let total: f64 = last.by_who.iter().sum();
             let most = last.by_who.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map(|(at, cores)| format!("Most: {} {:.1}", WHO[at], cores)).unwrap_or_default();
-            Face { tile, state: None, big: format!("{total:.1} cores"), sub: most, graphs: graph("compile-cpu", "Compile CPU by who started it", shown, &series, true, false, &[], 3.5, None).into_iter().collect() }
+            Face { tile, state: None, big: format!("{total:.1} cores"), sub: most, graphs: graph("compile-cpu", "Compile CPU by who started it", "Cores", shown, &series, true, false, &[], 3.5, None).into_iter().collect() }
         }
         Tile::Changes | Tile::Unread => none(String::new(), String::new()),
     }
