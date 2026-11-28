@@ -211,7 +211,7 @@ The Operator brings him one card, with three options.
 | Option | What the Operator does |
 |---|---|
 | Confirm | `upsert_features` with state `confirmed`, an area, a title and a line. The feature keeps what was filed under it |
-| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections and asks move to the target, which keeps its id, its state and its `added_at` |
+| Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections, asks, the Jobs that named it and its docs' checks move to the target, which keeps its id, its state and its `added_at` |
 | Rename | `change_feature` with `slug` and `title` |
 
 With the Operator off, he does each of the three himself from the Features screen, and Bridge makes the same calls the Operator would.
@@ -418,15 +418,46 @@ A feature's `added_at` is the moment it was kept and is never rewritten, so the 
 An area that holds more than eight features is told to the Operator, who reads it with `list_features` and raises one card that proposes a split: the new areas and the features that go to each, with keeping the area as an option.
 Pending features are not counted.
 Nothing changes until he answers.
-After he picks, the Operator keeps each new area with `upsert_features` and moves each feature with `change_feature` and `area`, which must be an area the project keeps.
-With the Operator off, he splits the area from the Features screen, which makes the same two calls.
-A new area is kept by `upsert_features` with `features` empty.
+After he picks, the Operator splits each new area off with `change_area` and the act `split`, naming the features that go to it.
+With the Operator off, he splits the area from the Features screen.
 A move changes the feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
 
 > **Rule.** An area is told again only when it has grown by another eight.
 > Why: a card he answered by keeping the area would otherwise come back on every tick.
 
 The seed's largest area holds eight, so seeding raises none.
+
+## Areas
+
+He makes, renames, splits and merges areas from the Features screen, and the Operator does on his word, each with one `change_area` call.
+
+| Act | What changes |
+|---|---|
+| `make` | A new area, after every area the project keeps, holding no feature |
+| `rename` | Its slug, its title or both. Its features go with it |
+| `split` | A new area right after it, and the features he named move into the new one. Each must be in the area split |
+| `merge` | Every feature it holds moves into the other area, after the features that area holds, and the area goes |
+
+A moved feature keeps its slug, prefixes, asks and `added_at`.
+An area has no alias: a rename takes the old slug out, and `pending` is never an area's slug.
+`upsert_features` still keeps areas in bulk, as the seed and a confirm do.
+
+## His rules
+
+He can say why a change was right, or why the catalog got something wrong, in his own words, and Fleet keeps each reason as a rule of the project's catalog.
+`change_feature` and `change_area` take his words as `why`.
+`reject_in_catalog` is his Not this feature, for a feature or area that is not one or for paths that are not part of a feature, and his Doesn't go together, for two features, areas or paths or more that the catalog should keep apart.
+A reject keeps a rule and changes nothing else.
+
+A rule holds his words on one line, the act he gave them with, the features, areas and paths it was about as they were named then, and when.
+A reject he gave no words for is kept as what he rejected, from the titles, such as "Voting and Page actions do not go together.".
+`list_catalog_rules` reads a project's rules, newest first, and `drop_catalog_rule` takes one out.
+
+> **Rule.** Every model call and Operator tell that shapes the catalog carries the project's newest forty rules whole.
+> Why: a rule he gave once has to hold on the next proposal, and an agent that had to choose to read the rules would not always read them.
+
+The ask of the librarian puts them in its question, after his words and before the features, and the Operator's tells of a pending feature and of a crowded area end with them.
+A later rename of a feature or area does not rewrite a rule's slugs.
 
 ## Starting a library
 
@@ -739,7 +770,11 @@ A Job whose turns were read before searches were counted is in no week until its
 | `turn_into_orchestrator` | The owner turns a running Job into a new sub project's orchestrator, and its work moves to a new first child |
 | `ungroup_sub_project` | The owner's Ungroup drops a sub project and leaves its Jobs |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
-| `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
+| `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area, with his reason as a rule |
+| `change_area` | The Operator, or he from the Features screen, makes, renames, splits or merges an area, with his reason as a rule |
+| `reject_in_catalog` | His Not this feature or Doesn't go together, kept as a rule |
+| `list_catalog_rules` | A project's catalog rules, newest first |
+| `drop_catalog_rule` | Takes one catalog rule out |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
