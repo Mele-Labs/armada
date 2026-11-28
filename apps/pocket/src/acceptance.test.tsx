@@ -3386,6 +3386,14 @@ describe("To review", {
     await vi.waitFor(() => expect(items()).not.toContain("Does the Try step look right?"));
   });
 
+  it("says the Operator's read and pick on the item it read, and on no other", async () => {
+    await shown();
+    const read = item("Mark the tracker tasks done?")!.querySelector('[aria-label="Operator"]');
+    expect(read?.textContent).toContain("Every task in the tracker mod's plan is ticked");
+    expect(read?.textContent).toContain("Would pick: Mark done");
+    expect(item("Move ARM-41 to In progress")!.querySelector('[aria-label="Operator"]')).toBeNull();
+  });
+
   it("goes to the Jobs list and back with the switch", async () => {
     await shown();
     await press(button("Jobs"));

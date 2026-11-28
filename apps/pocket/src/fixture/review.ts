@@ -334,6 +334,11 @@ export function toReviewOf(mac: FixtureMac): ToReview {
             }
           : {}),
         answer: answerOf(one, act, thread, mac),
+        ...(one.operator_read === undefined
+          ? {}
+          : {
+              operator_read: one.operator_read,
+            }),
       };
       into(
         filed === "sub_project"
