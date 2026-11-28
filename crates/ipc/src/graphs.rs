@@ -123,7 +123,8 @@ pub struct GraphRecipe {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GraphPoints {
     pub feed: String,
-    pub rows: Vec<Row>,
+    /// Each an object of fields. Read as any value, so a refusal names the row that is not one.
+    pub rows: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
 }
@@ -439,7 +440,7 @@ impl ShowGraph {
 
 impl GraphPoints {
     /// The rows, or why none are taken.
-    pub fn checked(&self) -> Result<(), String> {
+    pub fn checked(&self) -> Result<Vec<Row>, String> {
         if !feed_name_ok(&self.feed) {
             return Err(format!("`feed` is letters, digits and `_ . / : -`, at most {MOST_FEED_CHARS}"));
         }
@@ -449,7 +450,14 @@ impl GraphPoints {
         if self.rows.len() > GRAPH_POINTS_AT_MOST {
             return Err(format!("`rows` holds at most {GRAPH_POINTS_AT_MOST} rows a call"));
         }
-        Ok(())
+        self.rows
+            .iter()
+            .enumerate()
+            .map(|(ix, row)| match row {
+                Value::Object(row) => Ok(row.clone()),
+                _ => Err(format!("rows[{ix}] is not an object of fields, such as {{\"at\": \"2026-11-27T14:06:00Z\", \"p99\": 231}}")),
+            })
+            .collect()
     }
 }
 

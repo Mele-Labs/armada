@@ -277,9 +277,9 @@ where
     }
 
     async fn graph_points(&self, caller: Option<api::Caller>, points: GraphPoints) -> Result<GraphPointsTaken, Refusal> {
-        points.checked().map_err(|why| self.graph_refusal(GRAPH_REFUSED, format!("no rows were added: {why}")))?;
+        let rows = points.checked().map_err(|why| self.graph_refusal(GRAPH_REFUSED, format!("no rows were added: {why}")))?;
         let job = self.graph_job(caller, points.session_id.as_ref()).await?;
-        let (added, kept) = self.graph_rows_added(&job, &points.feed, &points.rows).await?;
+        let (added, kept) = self.graph_rows_added(&job, &points.feed, &rows).await?;
         let new = added.rows.len();
         let total = added.added;
         if new > 0 {

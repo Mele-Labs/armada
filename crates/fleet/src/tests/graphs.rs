@@ -141,18 +141,23 @@ async fn graph_points_send_only_the_rows_that_were_new() {
     let mut watching = rig.fleet.events().subscribe();
     changed(&mut watching, &job).await;
 
-    let rows = |from: i64, to: i64| -> Vec<Row> { (from..to).map(|n| row(&format!(r#"{{"at":{},"ms":{}}}"#, n * 60_000, 200 + n))).collect() };
-    let points = |rows: Vec<Row>| GraphPoints { feed: "latency".into(), rows, session_id: Some(job.clone()) };
-    let first = rig.fleet.graph_points(None, points(rows(0, 3))).await.expect("taken");
+    let text = |n: i64| format!(r#"{{"at":{},"ms":{}}}"#, n * 60_000, 200 + n);
+    let rows = |from: i64, to: i64| -> Vec<Row> { (from..to).map(|n| row(&text(n))).collect() };
+    let points = |from: i64, to: i64| -> GraphPoints {
+        let rows: Vec<String> = (from..to).map(text).collect();
+        let body = format!(r#"{{"feed":"latency","rows":[{}],"session_id":"{}"}}"#, rows.join(","), job.as_str());
+        ipc::decode_body("rows for a feed", body.as_bytes()).expect("a body")
+    };
+    let first = rig.fleet.graph_points(None, points(0, 3)).await.expect("taken");
     assert_eq!((first.new, first.kept, first.added), (3, 3, 3));
-    let second = rig.fleet.graph_points(None, points(rows(2, 5))).await.expect("taken");
+    let second = rig.fleet.graph_points(None, points(2, 5)).await.expect("taken");
     assert_eq!((second.new, second.kept, second.added), (2, 5, 5));
     let sent = changed(&mut watching, &job).await;
     assert_eq!(sent.len(), 2, "one event a call: {sent:?}");
     assert_eq!(sent[1].feeds[0].rows, rows(3, 5));
     assert_eq!(sent[1].feeds[0].added, 5, "a client holding three rows has every one before these");
 
-    let repeat = rig.fleet.graph_points(None, points(rows(3, 5))).await.expect("taken");
+    let repeat = rig.fleet.graph_points(None, points(3, 5)).await.expect("taken");
     assert_eq!(repeat.new, 0);
     assert!(changed(&mut watching, &job).await.is_empty(), "no new rows, no event");
 }
@@ -162,8 +167,10 @@ async fn a_feed_keeps_its_newest_two_thousand_rows() {
     let rig = rig_fitted(|_| {});
     let job = rig.start().await;
     for batch in 0..3 {
-        let rows: Vec<Row> = (batch * 1000..(batch + 1) * 1000).map(|n| row(&format!(r#"{{"n":{n}}}"#))).collect();
-        rig.fleet.graph_points(None, GraphPoints { feed: "many".into(), rows, session_id: Some(job.clone()) }).await.expect("taken");
+        let rows: Vec<String> = (batch * 1000..(batch + 1) * 1000).map(|n| format!(r#"{{"n":{n}}}"#)).collect();
+        let body = format!(r#"{{"feed":"many","rows":[{}],"session_id":"{}"}}"#, rows.join(","), job.as_str());
+        let points: GraphPoints = ipc::decode_body("rows for a feed", body.as_bytes()).expect("a body");
+        rig.fleet.graph_points(None, points).await.expect("taken");
     }
     let list = rig.fleet.list_graphs(None, Some(job.clone())).await.unwrap();
     let feed = &list.feeds[0];

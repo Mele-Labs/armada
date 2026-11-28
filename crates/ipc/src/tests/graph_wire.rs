@@ -63,6 +63,8 @@ fn every_problem_with_a_graph_is_said_at_once() {
         .checked()
         .expect_err("refused");
     assert!(refused.contains("strip[0] needs a `label`") && refused.contains("strip[0] `feed` is letters") && refused.contains("not an RFC 3339 time"), "{refused}");
+    let points: crate::GraphPoints = crate::decode_body("rows for a feed", br#"{"feed":"p99","rows":[{"ms":1},2]}"#).expect("a body");
+    assert!(points.checked().expect_err("refused").starts_with("rows[1] is not an object"));
 }
 
 #[test]

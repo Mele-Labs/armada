@@ -17,8 +17,7 @@ impl Graphs for FakeDaemon {
     }
 
     async fn graph_points(&self, _caller: Option<Caller>, points: GraphPoints) -> Result<GraphPointsTaken, Refusal> {
-        points.checked().map_err(refused)?;
-        let n = points.rows.len();
+        let n = points.checked().map_err(refused)?.len();
         Ok(GraphPointsTaken {
             session_id: points.session_id.unwrap_or_else(|| SessionId::carried("session")),
             feed: points.feed,
