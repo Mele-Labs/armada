@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::extract::State;
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::StatusCode;
 use axum::middleware::{from_fn, from_fn_with_state, map_response};
 use axum::response::{IntoResponse, Response};
@@ -113,7 +113,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/preview_offers", get(mac_routes::read))
         .route("/api/mac/projects", get(mac_routes::read))
         .route("/api/mac/project_act", post(mac_routes::project_act))
-        .route("/api/mac/act", post(mac_routes::act))
+        // Past axum's 2 MB default, as far as the signing reads: an act carries a message's pictures.
+        .route("/api/mac/act", post(mac_routes::act).layer(DefaultBodyLimit::max(signing::BODY_LIMIT)))
         .route("/api/mac/update", post(mac_routes::update))
         .route("/api/mac/refresh_claim", post(mac_routes::refresh_claim))
         .route("/api/mac/kit", get(mac_routes::read_naming_mac))

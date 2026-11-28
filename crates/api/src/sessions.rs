@@ -635,6 +635,21 @@ pub(crate) async fn get_needs_you<D: Sessions>(
     }
 }
 
+/// `?project=`, left out for every project.
+#[derive(Deserialize)]
+pub(crate) struct ForToReview {
+    #[serde(default)]
+    project: Option<String>,
+}
+
+/// Everything waiting on the person across a project's Jobs, or every project's. 200.
+pub(crate) async fn list_to_review<D: Sessions>(State(served): State<Served<D>>, Query(asked): Query<ForToReview>) -> Response {
+    match served.daemon().list_to_review(asked.project).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The agent says it has nothing left to work on. 200 with the row, or a [`Receipt`] through the door; 422 for a call that places no
 /// session. **The session is placed by the connection**, as `waiting_for`'s is.
 pub(crate) async fn all_done<D: Sessions>(
