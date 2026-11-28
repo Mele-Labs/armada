@@ -190,6 +190,8 @@ pub mod time_format;
 pub mod graph;
 /// A Job's live graphs: the acts that show, feed and withdraw one, and `list_graphs` and `graphs.changed`.
 mod graphs;
+/// How fast Bridge moves: the seconds one turn of the busy ring takes. `crates/ipc/src/motion.rs`.
+pub mod motion;
 /// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
 pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.

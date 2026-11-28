@@ -136,6 +136,26 @@ async fn an_empty_time_format_takes_the_choice_back() {
     assert_eq!(fleet.get_preferences().await.expect("reads"), Preferences::default());
 }
 
+#[tokio::test]
+async fn the_owners_motion_survives_a_restart_and_a_value_outside_the_range_is_refused() {
+    const MINE: &str = r#"{"ringSeconds":9}"#;
+    let home = TempDir::new();
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let save = |text: &str| SavePreference { name: "motion".into(), value: false, text: Some(text.to_string()) };
+    assert_eq!(fleet.save_preferences(save(MINE)).await.expect("saved").motion, MINE);
+
+    for bad in ["x", r#"{"ringSeconds":1}"#, r#"{"ringSeconds":21}"#, r#"{"ringSeconds":4.5}"#, r#"{"ringSeconds":9,"spin":1}"#, "{}"] {
+        let refused = fleet.save_preferences(save(bad)).await.expect_err(bad);
+        assert_eq!((refused.status(), refused.error().code.clone()), (422, "fleet.unacceptable_motion".to_string()), "{bad}");
+        assert_eq!(fleet.get_preferences().await.expect("reads").motion, MINE, "nothing moved by {bad}");
+    }
+    drop(fleet);
+
+    let fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    assert_eq!(fleet.get_preferences().await.expect("reads").motion, MINE);
+    assert_eq!(fleet.save_preferences(save("")).await.expect("empty takes it back").motion, "");
+}
+
 fn saying(name: &str, text: &str) -> SavePreference {
     SavePreference { name: name.to_string(), value: false, text: Some(text.to_string()) }
 }

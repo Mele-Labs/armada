@@ -46,7 +46,7 @@ impl Prefs {
 
 impl SettingsOverlay {
     fn prefs_shown(&self, cx: &App) -> Option<Body> {
-        self.open.then(|| self.shown(cx).map(|one| one.body)).flatten().filter(|body| matches!(body, Body::Layout | Body::Time | Body::Ways))
+        self.open.then(|| self.shown(cx).map(|one| one.body)).flatten().filter(|body| matches!(body, Body::Layout | Body::Time | Body::Motion | Body::Ways))
     }
 
     /// Read once each time Settings opens on Layout or Time, and keep Time's sample moving while it is drawn.
@@ -90,6 +90,7 @@ impl SettingsOverlay {
         let mut names: Vec<String> = super::layout::REGIONS.iter().flat_map(|region| region.rows.iter().filter(|row| row.hideable).map(move |row| format!("layout:{}:{}", region.id, row.id))).collect();
         names.push("layout-reset".into());
         names.extend(super::time::SWITCHES.iter().map(|(name, _)| format!("time:{name}")));
+        names.extend(super::motion::STOPS.iter().map(|name| name.to_string()));
         names.extend(super::ways::key_names());
         for name in names {
             self.prefs.keys.entry(name).or_insert_with(|| cx.focus_handle().tab_stop(true));

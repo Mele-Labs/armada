@@ -41,6 +41,10 @@ pub struct Preferences {
     /// clock with seconds and no date.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub time_format: String,
+    /// How fast Bridge moves, as the JSON Settings, Motion wrote: `{"ringSeconds":6}`, the seconds one
+    /// turn of the busy ring takes, from 2 to 20. Left out while he has chosen none, which reads as 6.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub motion: String,
     /// What he takes a Job's work in: read it, look at it, or listen to it. Left out
     /// while it is `read`, and absent reads as that from a Fleet before it.
     #[serde(default, skip_serializing_if = "is_default")]
@@ -152,6 +156,7 @@ impl Default for Preferences {
             layout_choices: String::new(),
             key_bindings: String::new(),
             time_format: String::new(),
+            motion: String::new(),
             take_in: TakeIn::default(),
             answer_with: AnswerWith::default(),
             first_run_answered: false,
@@ -184,11 +189,11 @@ pub struct SavePreference {
     pub name: String,
     pub value: bool,
     /// The value of a preference that is text rather than a switch, which is
-    /// `theme`, `layout_choices`, `key_bindings`, `time_format`, `listen_voice` and the five closed sets
+    /// `theme`, `layout_choices`, `key_bindings`, `time_format`, `motion`, `listen_voice` and the five closed sets
     /// `take_in`, `answer_with`, `read_results`, `look_results` and `look_questions` (one word of
     /// the set, refused by name if it is not one). `value` is read for every other
     /// name and this is read for none of them. An empty `layout_choices`, `key_bindings`,
-    /// `time_format` or `listen_voice` takes the owner's choices back.
+    /// `time_format`, `motion` or `listen_voice` takes the owner's choices back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }
