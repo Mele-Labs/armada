@@ -99,6 +99,8 @@ The tool-gate hook is not carried, since no person makes it.
 It first reads the share filter: a Job not in a shared project, one it does not hold and one held from a third Mac are 404 `fleet.no_such_session`, a start into a project not shared, or into one without that repository, 404 `fleet.no_such_project`, and nothing is written, a stored answer included.
 A start that names `fork`, `root` or `after` is 422 `fleet.start_from_mac_reaches`; `on_your_words` is dropped.
 It runs each `(Mac, id)` once: the status and body of the first answer under 500 are kept in `other_mac_acts_run` for a week with the door and the act's kind, and a repeat is answered with them.
+An act may weigh 64 MB on its Gateway's `/api/mac/act` and on Fleet's `/other_mac/act`, as much as a message here, since it carries a message's or a note's pictures; both took axum's 2 MB default until 27 Nov.
+A 413 the holding Mac answers as bare text, its Gateway's or an older Fleet's, reaches Bridge as 413 `request.too_large` naming that Mac, the send's size and what helps.
 
 **The sending Mac keeps an act it cannot send.** A call that failed, a 401 and a 5xx are not answers; the act is kept in `other_mac_project_acts`, the queue the project edits use, with `kind` `job`, its `id` and `refused`, and answered 202 with the `Queued`.
 A Mac with acts waiting is never sent a newer act ahead of them.
