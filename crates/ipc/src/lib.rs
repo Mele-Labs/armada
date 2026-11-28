@@ -51,6 +51,8 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
+/// Areas made, renamed, split and merged, his rejects, and the rules his reasons became.
+mod catalog_rules;
 mod librarian;
 mod librarian_asking;
 mod doc_checks;
@@ -418,6 +420,7 @@ pub use features::{
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian_asking::{AskLibrarian, AskedBlockKind, AskedBoard, LibrarianAct, LibrarianAnswered, LibrarianAskUndone, RankWithLibrarian, RefileLibrarianAsk, UndoLibrarianAsk};
+pub use catalog_rules::{AreaChange, AreaChanged, CatalogReject, CatalogRule, CatalogRuleAct, CatalogRuleKept, CatalogRules, ChangeArea, DropCatalogRule, RejectInCatalog};
 pub use doc_checks::{CheckDocs, CheckedDoc, DocCheck, DocDisagreement, DocFlag, DocJobStarted, DocsChecked};
 pub use library_start::{DraftModules, LibraryStart, ModulesDrafted, StartModule};
 pub use sub_projects::{GoalMet, LandedPull, StartSubProject, SubProject, SubProjects, TurnIntoOrchestrator, UngroupSubProject};
@@ -1015,3 +1018,6 @@ pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKi
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
 pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};
+/// A native walk played against the pictures of the look he approved.
+mod look_checks;
+pub use look_checks::{LookReport, LookStep};

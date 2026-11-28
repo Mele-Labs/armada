@@ -118,7 +118,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `project` trimmed, or the refusal for one Fleet does not hold.
-    fn asked_project(&self, project: &str) -> Result<String, Refusal> {
+    pub(super) fn asked_project(&self, project: &str) -> Result<String, Refusal> {
         let project = project.trim();
         if self.seed_roots(project).is_none() {
             return Err(self.hosted_refusal(super::seeding::PROJECT, &format!("no project is named `{project}`")));
@@ -152,7 +152,10 @@ where
         let limit = self.librarian_set().ask_share;
         let night = self.librarian_night().await;
         self.ask_calls_left(&project, &night, limit).await?;
-        let loaded = Loaded::read(&*self.store().lock().await, &project).map_err(|why| self.ledger_fault(why))?;
+        let (loaded, rules) = {
+            let store = self.store().lock().await;
+            (Loaded::read(&store, &project).map_err(|why| self.ledger_fault(why))?, super::catalog_rules::rules_of(&store, &project))
+        };
         let features: Vec<Named> = loaded
             .map
             .features()
@@ -174,7 +177,7 @@ where
             }
             _ => Vec::new(),
         };
-        let question = asking_reply::question(&screen, &ask.words, &files, &docs, &features, board);
+        let question = asking_reply::question(&screen, &ask.words, &files, &docs, &features, &rules, board);
         self.ask_call_spent(&project, &night).await?;
         let reading = match self.story_asked(&question).await {
             Ok(reply) => asking_reply::read(&reply, &screen),

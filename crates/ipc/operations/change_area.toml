@@ -1,0 +1,17 @@
+[operations.change_area]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Make, rename, split or merge one of a project's feature areas. Give project, area (its slug, or the new area's for make), change with its act, and why, his words, where he gave a reason"
+notes = """
+`POST /features/areas/change`, body `ChangeArea` `{ project, area, change, why? }`. `change` is an `AreaChange`, tagged by `act`: `make` `{ title }`, `rename` `{ slug?, title? }`, `split` `{ slug, title, features }` or `merge` `{ into }`. Answers `AreaChanged` `{ project, area, rule? }`: the area as it is now, and the id of the rule `why` became.
+
+**`make` keeps a new area after every area the project keeps**, holding no feature. **`rename` gives it a new slug, a new title or both**, and its features go with it. **`split` keeps a new area right after it** and moves the `features` named, each a slug or one it was known by, into the new one; each must be in the area split. **`merge` moves every feature of the area into `into`**, after those `into` holds, and takes the area out. A move changes a feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
+
+**`why` is kept as a rule of the project's catalog**, with what it was about and when (`list_catalog_rules`). A blank `why` keeps none. The rule is kept with the change, and a refused call keeps neither.
+
+**The Operator's own session may call it, and so may Bridge** for the owner, as `change_feature` is. Any other session is refused 422 `fleet.not_the_operator`, and a call on the port from inside a Job is a 403 `api.the_persons_own`. 422 `fleet.feature_area_unknown` for an area the project does not keep, 422 `fleet.area_change` for a blank title, a rename that changes nothing, a split that names no feature or one from another area, and a merge into itself; 422 `fleet.feature_slug` for a slug a trailer cannot carry; 409 `fleet.area_slug_taken` for a new slug an area holds, or `pending`; 404 `fleet.feature_unknown` for a feature the project does not hold. Nothing is kept on a refusal.
+
+The library lives on this Mac. Sharing it with teammates is not built.
+"""

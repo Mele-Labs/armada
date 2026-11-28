@@ -542,6 +542,9 @@ pub struct ChangeFeature {
     /// The slug of an area the project keeps: it moves there.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<String>,
+    /// His words for why. Kept as a rule of the project's catalog.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// What `change_feature` did.
@@ -552,6 +555,9 @@ pub struct FeatureChanged {
     /// Where it was merged, where it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub merged_into: Option<String>,
+    /// The rule his reason became, where he gave one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rule: Option<String>,
 }
 
 /// How a path came to belong to a feature.
