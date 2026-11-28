@@ -194,6 +194,7 @@ async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_pag
 async fn a_native_walk_the_build_he_runs_lacks_reaches_him_at_once_marked_building_at_the_jobs_commit() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     let slot = leased(&rig, &id).await;
+    builds_with(&rig, script(&["sidebar"]));
     assert!(!build(&rig).join(APP).exists(), "he has no build that plays it");
 
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("accepted");
@@ -202,6 +203,7 @@ async fn a_native_walk_the_build_he_runs_lacks_reaches_him_at_once_marked_buildi
     assert_eq!((building.state, building.commit.as_str()), (WalkBuildState::Building, git(&slot, &["rev-parse", "HEAD"]).as_str()));
     assert!(waiting_ids(&rig, &id).await.contains(&format!("walk:{URL}")), "it reaches him while it builds, marked Building");
     let short = &building.commit[..7];
+    built_all(&rig).await;
     let sent = || rig.stand_in.process(1).sent.lock().unwrap().clone();
     until(|| async { sent().iter().any(|line| line.contains(&format!("{URL} is building from {short}")) && line.contains("Do not tell him it is open yet")) }).await;
 }

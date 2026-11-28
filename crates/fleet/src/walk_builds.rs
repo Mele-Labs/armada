@@ -96,7 +96,7 @@ struct Queue {
     waiting: Vec<Ask>,
     running: Option<Ask>,
     /// What a Job is owed telling, where it could not be told as it happened.
-    owed: Vec<(String, String)>,
+    owed: Vec<(String, String, ipc::Notice)>,
 }
 
 /// Every walk build Fleet owes and the one it is making. Never written down: **a Fleet that starts
@@ -152,11 +152,11 @@ impl WalkBuilds {
     }
 
     /// A Job to tell at the next look, for a failure found where Fleet holds no `Arc` of itself.
-    pub(crate) fn owed(&self, session: &str, text: String) {
-        self.queue.lock().expect("not poisoned").owed.push((session.to_string(), text));
+    pub(crate) fn owed(&self, session: &str, text: String, notice: ipc::Notice) {
+        self.queue.lock().expect("not poisoned").owed.push((session.to_string(), text, notice));
     }
 
-    fn owed_taken(&self) -> Vec<(String, String)> {
+    fn owed_taken(&self) -> Vec<(String, String, ipc::Notice)> {
         std::mem::take(&mut self.queue.lock().expect("not poisoned").owed)
     }
 
@@ -301,7 +301,7 @@ where
             }
             Err(why) => {
                 let text = format!("Your native walk {url} cannot be built: {why}. The person is not asked about it until it builds.");
-                self.walk_builds().owed(session, text);
+                self.walk_builds().owed(session, text, ipc::Notice::WalkFailed);
                 (WalkBuild { state: WalkBuildState::Failed, commit: String::new(), at: self.instant(), why: Some(why) }, None)
             }
         }
@@ -407,8 +407,8 @@ where
         if !self.walk_builds().resumed.swap(true, std::sync::atomic::Ordering::SeqCst) {
             Box::pin(self.walk_builds_resumed()).await;
         }
-        for (session, text) in self.walk_builds().owed_taken() {
-            let _ = self.told_by_fleet(&session, &text, ipc::Notice::WalkFailed).await;
+        for (session, text, notice) in self.walk_builds().owed_taken() {
+            let _ = self.told_by_fleet(&session, &text, notice).await;
         }
         let Some(ask) = self.walk_builds().next() else { return };
         let fleet = Arc::clone(self);

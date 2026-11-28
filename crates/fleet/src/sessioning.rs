@@ -804,9 +804,9 @@ where
             let short = ask.commit.get(..7).unwrap_or(&ask.commit).to_string();
             let walk = ask.url.clone();
             self.walk_builds().asked(ask);
-            // So the agent does not tell him it is open: it reaches him marked Building, and opens once built.
+            // Told on the notice loop's next look, so the agent does not tell him it is open: it reaches him marked Building, and opens once built.
             let told = format!("{walk} is building from {short}. It reaches him now, marked Building, and opens once the build is done. Do not tell him it is open yet; Fleet tells you if the build fails.");
-            let _ = self.told_by_fleet(&id, &told, ipc::Notice::WalkBuilding).await;
+            self.walk_builds().owed(&id, told, ipc::Notice::WalkBuilding);
         }
         // Read again past the row: a window it replaces stops waiting by it.
         let record = {
