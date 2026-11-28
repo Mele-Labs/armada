@@ -720,6 +720,45 @@ mod tests {
         assert_eq!(rows[0].name, "#3309");
     }
 
+    fn tracked(reference: &str, title: &str, updated: &str) -> ipc::TrackedIssue {
+        ipc::TrackedIssue {
+            reference: reference.into(),
+            title: title.into(),
+            url: format!("https://forge/{}", reference.trim_start_matches('#')),
+            labels: Vec::new(),
+            assignees: Vec::new(),
+            updated_at: ipc::Instant::carried(updated),
+            excerpt: String::new(),
+            linked_pull_request: false,
+            author: None,
+            state: ipc::IssueState::Open,
+            fields: Vec::new(),
+            holders: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn project_numbers_are_newest_first_at_most_six_and_name_their_project() {
+        let armada = [tracked("#1", "One", "2026-11-01T09:00:00Z"), tracked("#2", "Two", "2026-11-05T09:00:00Z"), tracked("#3", "Three", "2026-11-09T09:00:00Z")];
+        let pocket = [
+            tracked("#4", "Four", "2026-11-02T09:00:00Z"),
+            tracked("#5", "Five", "2026-11-06T09:00:00Z"),
+            tracked("#6", "Six", "2026-11-10T09:00:00Z"),
+            tracked("#7", "Seven", "2026-11-03T09:00:00Z"),
+            tracked("#8", "Eight", "2026-11-07T09:00:00Z"),
+        ];
+        let rows = project_numbers(&[("Armada", armada.as_slice()), ("Pocket", pocket.as_slice())], "");
+        let named: Vec<(&str, Option<&str>)> = rows.iter().map(|row| (row.name.as_str(), row.project.as_deref())).collect();
+        assert_eq!(
+            named,
+            [("#6", Some("Pocket")), ("#3", Some("Armada")), ("#8", Some("Pocket")), ("#5", Some("Pocket")), ("#2", Some("Armada")), ("#7", Some("Pocket"))],
+            "the six newest of both trackers, newest first, each naming where it is from"
+        );
+        assert!(matches!(&rows[0].pick, Pick::Tag { kind: TagKind::Issue, id, title, url } if id == "6" && title == "#6 Six" && url.as_deref() == Some("https://forge/6")));
+        let narrowed: Vec<_> = project_numbers(&[("Armada", armada.as_slice()), ("Pocket", pocket.as_slice())], "thr").into_iter().map(|row| row.name).collect();
+        assert_eq!(narrowed, ["#3"], "the query narrows by title");
+    }
+
     #[test]
     fn a_chip_keeps_its_kind_and_id_and_reads_back_as_the_mention() {
         let chip = chip_of(TagKind::Issue, "3290", "#3290 Merge line", Some("https://forge/3290"));

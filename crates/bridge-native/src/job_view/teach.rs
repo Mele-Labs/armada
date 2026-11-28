@@ -949,4 +949,82 @@ mod tests {
         assert_eq!(source_of(TeachingSourceKind::TitleBar, "  ", Vec::new()).text, "Title bar");
         assert_eq!(source_of(TeachingSourceKind::Words, &"a".repeat(300), Vec::new()).text.len(), MOST_TEXT);
     }
+
+    use gpui::{Entity, TestAppContext, VisualTestContext};
+
+    use super::super::operator_harness::{open, JOB, OPERATOR};
+
+    const PROJECTS: [(&str, &str, Option<&str>); 2] = [("storefront", "Storefront", None), ("pocket", "Pocket", None)];
+
+    fn words() -> Teach {
+        Teach { kind: "words", text: "run it twice".into(), at: None, ids: Vec::new() }
+    }
+
+    /// Teach pressed on words in the Operator's thread.
+    fn teach_from_the_operator(view: &Entity<JobView>, cx: &mut VisualTestContext) {
+        view.update_in(cx, |view, window, cx| {
+            view.on_beside(|this| this.teach_open(words(), window, cx)).expect("the Operator is beside");
+        });
+    }
+
+    /// Teach pressed on words in the Job's thread.
+    fn teach_from_the_job(view: &Entity<JobView>, cx: &mut VisualTestContext) {
+        view.update_in(cx, |view, window, cx| view.teach_open(words(), window, cx));
+    }
+
+    /// What the open panel would send to read and to save.
+    fn bodies(view: &Entity<JobView>, cx: &mut VisualTestContext) -> (ReadTeaching, SaveTeaching) {
+        view.read_with(cx, |view, _| {
+            let open = view.teach.as_ref().expect("the panel is open");
+            (read_body(open, "it applies"), save_body(open, &TeachingProposal::default()))
+        })
+    }
+
+    fn picked(view: &Entity<JobView>, cx: &mut VisualTestContext) -> (Option<String>, Vec<String>) {
+        view.read_with(cx, |view, _| {
+            let open = view.teach.as_ref().expect("the panel is open");
+            (open.project.clone(), open.projects.iter().map(|(id, _)| id.clone()).collect())
+        })
+    }
+
+    #[gpui::test]
+    fn teach_from_the_operator_reads_and_saves_for_a_project(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        teach_from_the_operator(&view, cx);
+        let (read, save) = bodies(&view, cx);
+        assert_eq!((read.reach, read.project.as_deref(), read.repository.as_deref(), read.session_id.as_deref()), (TeachingReach::Project, Some("storefront"), None, Some(OPERATOR)), "read_teaching");
+        assert_eq!((save.reach, save.project.as_deref(), save.repository.as_deref(), save.session_id.as_deref()), (TeachingReach::Project, Some("storefront"), None, Some(OPERATOR)), "save_teaching");
+    }
+
+    #[gpui::test]
+    fn a_jobs_teach_still_reads_and_saves_for_its_repository(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        let cwd = view.read_with(cx, |view, cx| view.record(JOB, cx).map(|record| record.cwd.clone())).expect("the Job's record");
+        teach_from_the_job(&view, cx);
+        let (read, save) = bodies(&view, cx);
+        assert_eq!((read.reach, read.project.as_deref(), read.repository.as_deref(), read.session_id.as_deref()), (TeachingReach::Repository, None, Some(cwd.as_str()), Some(JOB)), "read_teaching");
+        assert_eq!((save.reach, save.project.as_deref(), save.repository.as_deref(), save.session_id.as_deref()), (TeachingReach::Repository, None, Some(cwd.as_str()), Some(JOB)), "save_teaching");
+        assert_eq!(picked(&view, cx), (None, Vec::new()), "a Job's panel offers no projects");
+    }
+
+    #[gpui::test]
+    fn the_first_project_is_the_cockpits_where_listed(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &PROJECTS);
+        cx.update(|_, cx| crate::features::chosen::set("pocket", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx), (Some("pocket".to_string()), vec!["storefront".to_string(), "pocket".to_string()]), "the Cockpit's project, not the first");
+        assert_eq!(bodies(&view, cx).0.project.as_deref(), Some("pocket"));
+        view.update_in(cx, |view, window, cx| view.teach_close(window, cx));
+        cx.update(|_, cx| crate::features::chosen::set("gone", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx).0.as_deref(), Some("storefront"), "a project he chose that is not listed falls back to the first");
+    }
+
+    #[gpui::test]
+    fn a_project_copied_from_another_mac_is_not_offered_or_picked(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx, &[("copy", "Copy", Some("other-mac")), ("storefront", "Storefront", None)]);
+        cx.update(|_, cx| crate::features::chosen::set("copy", cx));
+        teach_from_the_operator(&view, cx);
+        assert_eq!(picked(&view, cx), (Some("storefront".to_string()), vec!["storefront".to_string()]), "the copy is the other Mac's to teach");
+    }
 }

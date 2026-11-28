@@ -106,6 +106,8 @@ mod lanes_copy;
 mod ledger;
 mod mods_made;
 mod mod_panel;
+#[cfg(test)]
+mod operator_harness;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
