@@ -1,9 +1,11 @@
 //! A native walk: a screen of the native Bridge a Job shows with `show_window` on
-//! `armada://walk/<name>`, opened by the person's press and run from the build he runs.
+//! `armada://walk/<name>`, opened by the person's press.
 //!
 //! **Only `open_native_walk` starts the app**, and only Bridge calls it, on a press. The binary is
-//! the native Bridge of the build his preview restart kept, never a Job's slot build: `show_window`
-//! refuses a walk that build does not play, so the one press opens it. **Fleet owns the process**:
+//! the native Bridge Fleet built from the Job's own commit (`crate::walk_builds`), so a Job's new
+//! screen needs no preview refresh first; `show_window` accepts it and the row says Building until
+//! that build opens. A row written before walks were built from a Job's branch has no build, and
+//! runs from the kept build his preview restart left. **Fleet owns the process**:
 //! it is stopped when the walk ends, when the Job ends and when Fleet stops. Never written
 //! down, for `crate::servers`' reason, but unlike a server it does not outlive Fleet: it is a
 //! window on this Fleet's port.
@@ -32,18 +34,15 @@ const BUNDLE: &str = "walk/Armada.app";
 /// The brand icon, in the kept app.
 const ICON: &str = "Armada.app/Contents/Resources/AppIcon.icns";
 
-/// What every refusal of a walk his build cannot play ends with: the way to one it can.
-const OFFER: &str = "offer_preview the branch that adds it, and show the walk once he has refreshed his preview";
-
 /// The kept build he runs: `Armada/builds/current`.
 pub(crate) fn running_build(home: &str) -> PathBuf {
     crate::runtime::support_dir(home).join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)
 }
 
 /// The walks the native Bridge at `app` plays (`--list-walks`), or why it cannot say.
-async fn walks_of(app: &Path) -> Result<Vec<String>, String> {
+pub(crate) async fn walks_of(app: &Path) -> Result<Vec<String>, String> {
     if !app.is_file() {
-        return Err(format!("the build he runs has no native Bridge at {}", app.display()));
+        return Err(format!("there is no native Bridge at {}", app.display()));
     }
     let listed = tokio::process::Command::new(app)
         .arg("--list-walks")
@@ -53,25 +52,10 @@ async fn walks_of(app: &Path) -> Result<Vec<String>, String> {
         .output();
     match tokio::time::timeout(std::time::Duration::from_secs(10), listed).await {
         Ok(Ok(out)) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout).lines().map(str::trim).filter(|name| !name.is_empty()).map(str::to_string).collect()),
-        Ok(Ok(_)) => Err("the native Bridge in the build he runs is older than walks from his preview, so it cannot name its walks".to_string()),
-        Ok(Err(why)) => Err(format!("the native Bridge in the build he runs could not be asked for its walks: {why}")),
-        Err(_) => Err("the native Bridge in the build he runs did not name its walks within 10 seconds".to_string()),
+        Ok(Ok(_)) => Err("the native Bridge built cannot name its walks: it is older than walks".to_string()),
+        Ok(Err(why)) => Err(format!("the native Bridge built could not be asked for its walks: {why}")),
+        Err(_) => Err("the native Bridge built did not name its walks within 10 seconds".to_string()),
     }
-}
-
-/// Why the build he runs cannot play `show`'s walk and its takes, or `None` where it can: the
-/// Job is told, so he is never handed a walk that does not open. `home` is Fleet's.
-pub(crate) async fn unplayable(home: &str, show: &ipc::ShowWindow) -> Option<String> {
-    let app = running_build(home).join(APP);
-    let known = match walks_of(&app).await {
-        Ok(known) => known,
-        Err(why) => return Some(format!("{why}: {OFFER}")),
-    };
-    std::iter::once(show.url.trim())
-        .chain(show.variations.iter().map(|take| take.url.trim()))
-        .filter_map(walk_name)
-        .find(|name| !known.iter().any(|one| one == name))
-        .map(|name| format!("the build he runs has no walk named {name}: {OFFER}"))
 }
 
 const INFO: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -106,6 +90,11 @@ fn wrapped(support: &Path, build: &Path, binary: &Path) -> PathBuf {
         std::fs::hard_link(binary, &executable)
     })();
     if made.is_ok() { executable } else { binary.to_path_buf() }
+}
+
+/// A commit as the Job and he read it.
+fn short(commit: &str) -> &str {
+    commit.get(..7).unwrap_or(commit)
 }
 
 const NOT_NATIVE: &str = "fleet.native_walk_not_native";
@@ -150,8 +139,8 @@ fn stop(mut one: Held) {
 struct Held {
     session: String,
     url: String,
-    /// When the build it was started from was made.
-    built: std::time::SystemTime,
+    /// The build it was started from: a kept build's time, or a commit Fleet built.
+    built: String,
     child: tokio::process::Child,
 }
 
@@ -163,27 +152,27 @@ pub(crate) struct NativeWalks {
 
 impl NativeWalks {
     /// Start the app `spawn` makes for this Job and address, **or leave the one already running**
-    /// from this build: `true` where this call started it. One running from an older build is
+    /// from this build: `true` where this call started it. One running from another build is
     /// stopped and started again, so a press opens the Job's latest walk without a quit first.
     /// One lock holds the look and the start, so two presses at once start one.
     fn started_once(
         &self,
         session: &str,
         url: &str,
-        built: std::time::SystemTime,
+        built: &str,
         spawn: impl FnOnce() -> std::io::Result<tokio::process::Child>,
     ) -> std::io::Result<bool> {
         let mut held = self.held.lock().expect("not poisoned");
         // One the person closed on its own has ended, and is started again by the next press.
         held.retain_mut(|one| one.child.try_wait().map(|ended| ended.is_none()).unwrap_or(false));
         if let Some(at) = held.iter().position(|one| one.session == session && one.url == url) {
-            if held[at].built >= built {
+            if held[at].built == built {
                 return Ok(false);
             }
             stop(held.remove(at));
         }
         let child = spawn()?;
-        held.push(Held { session: session.to_string(), url: url.to_string(), built, child });
+        held.push(Held { session: session.to_string(), url: url.to_string(), built: built.to_string(), child });
         Ok(true)
     }
 
@@ -243,9 +232,9 @@ where
             return Err(self.hosted_refusal(NOT_NATIVE, &format!("{url} is not a native walk: its address is armada://walk/<name>")));
         };
         let rows = self.rows_of(&id).await?;
-        // A walk is a tab of the Job, and a Job may hold several open: any of them on this address.
-        let Some(variations) = rows.iter().find_map(|row| match row {
-            SessionRow::Window { url: shown, ended_at: None, variations, .. } if *shown == url => Some(variations),
+        // A walk is a tab of the Job, and a Job may hold several open: the newest on this address.
+        let Some((variations, built)) = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Window { url: shown, ended_at: None, variations, build, .. } if *shown == url => Some((variations, build)),
             _ => None,
         }) else {
             return Err(self.hosted_refusal(NOT_OPEN, &format!("this job has no open walk on {url}. Show it with show_window first")));
@@ -257,20 +246,50 @@ where
             .flat_map(|take| ["--take".to_string(), take])
             .collect();
         let home = self.host().home.clone();
-        let build = running_build(&home);
-        let binary = build.join(APP);
-        let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| {
-            self.hosted_refusal(NOT_BUILT, &format!("the build he runs has no native Bridge at {}", binary.display()))
-        })?;
+        let kept = running_build(&home);
+        // The Job's own build where the row has one, and only once it is Ready: his one press opens it.
+        let (binary, directory, made) = match built {
+            None => {
+                let binary = kept.join(APP);
+                let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| {
+                    self.hosted_refusal(NOT_BUILT, &format!("the build he runs has no native Bridge at {}", binary.display()))
+                })?;
+                let nanos = made.duration_since(std::time::UNIX_EPOCH).map(|since| since.as_nanos()).unwrap_or(0);
+                (binary, kept.clone(), format!("kept:{nanos}"))
+            }
+            Some(build) => match build.state {
+                ipc::WalkBuildState::Building => {
+                    return Err(self.hosted_refusal(NOT_BUILT, &format!("{url} is still building from commit {}", short(&build.commit))));
+                }
+                ipc::WalkBuildState::Failed => {
+                    let why = build.why.as_deref().unwrap_or("it did not build");
+                    return Err(self.hosted_refusal(NOT_BUILT, &format!("{url} did not build from commit {}: {why}", short(&build.commit))));
+                }
+                ipc::WalkBuildState::Ready => {
+                    let (_, hosting) = self.session_and_hosting(&id).await?;
+                    let key = crate::walk_builds::key_of(&hosting.manifest_id);
+                    let binary = crate::walk_builds::binary_of(&home, &key, &build.commit);
+                    if !binary.is_file() {
+                        // Kept no longer: it is built again, and the press waits for that.
+                        self.walk_rebuild_asked(&id, &url).await;
+                        return Err(self.hosted_refusal(NOT_BUILT, &format!("the build of {} is no longer kept, so {url} is building again", short(&build.commit))));
+                    }
+                    let directory = binary.parent().expect("inside its folder").to_path_buf();
+                    (binary, directory, format!("commit:{}", build.commit))
+                }
+            },
+        };
         let port = self.host().port.to_string();
-        let program = wrapped(&crate::runtime::support_dir(&home), &build, &binary);
         let started = self
             .native_walks()
-            .started_once(&id, &url, made, || {
+            .started_once(&id, &url, &made, || {
+                // Wrapped only when it starts: a press that finds it running must not relink the
+                // executable a walk still starting is reading.
+                let program = wrapped(&crate::runtime::support_dir(&home), &kept, &binary);
                 tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
                     .args(&takes)
-                    .current_dir(&build)
+                    .current_dir(&directory)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
