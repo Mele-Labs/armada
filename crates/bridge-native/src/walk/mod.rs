@@ -3402,6 +3402,11 @@ pub static WALKS: &[Walk] = &[
             press_on("Skip answers the build, and the next open build comes up", "button", "Skip", "region", "Thread"),
             step("The build he skipped is one line at its own time, and reads Skipped where an answered one reads Looks good", Verb::WheelTo("region", "Thread", -300), "listitem", "Ready to try: Sketch boxes drawn as cards, Skipped"),
             step("Read a little up from it, and the whole line stands in view", Verb::Wheel("region", "Thread", -160), "listitem", "Ready to try: Sketch boxes drawn as cards, Skipped"),
+            step("The walk Fleet is still building is on Needs you already, reading Building", Verb::Open("button", "Needs you"), "button", "Open Walk the bar buttons, Building"),
+            step("A built walk's item reads as it always did", Verb::Look, "button", "Open Walk the strip marks"),
+            step("A press on the Building one brings its tab forward and starts nothing", Verb::Open("button", "Open Walk the bar buttons, Building"), "status", "Building"),
+            step("The tab's Open is greyed until the build is Ready", Verb::Look, "button", "Open, opens once built"),
+            step("Its tooltip says when it opens", Verb::Hover, "button", "Open, opens once built"),
         ],
     },
     Walk {

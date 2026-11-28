@@ -1290,12 +1290,24 @@ impl JobView {
                 .into_any_element(),
             None => div().flex_1().min_w_0().when(buttons.is_none(), |words| words.truncate()).child(SharedString::from(text)).into_any_element(),
         };
-        let mark = div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said.clone()));
+        // A walk Fleet is still building is owed him at once and reads Building until it is ready.
+        let building = row.and_then(|row| match &row.act {
+            NeedsYouAct::Walk { url } => Some(url),
+            _ => None,
+        });
+        let building = building.is_some_and(|url| self.walk_building(id, url, cx));
+        let (mark_glyph, said) = if building {
+            (super::walks_tab::spinning(glyph(look, "loader-circle", Size::Mark, look.color(token::STEP_RUNNING)), key, look), SharedString::from("Building"))
+        } else {
+            (glyph(look, icon, Size::Mark, look.color(token::FG_MUTED)).into_any_element(), said)
+        };
+        let mark = div().id(SharedString::from(format!("needs-mark:{key}"))).flex_none().child(mark_glyph).tooltip(tip(said.clone()));
         // A To do's words only select, so its mark is where a press opens the note box: named as its tooltip reads.
         let mark = if done.is_some() { labelled(mark, Role::Image, said).into_any_element() } else { mark.into_any_element() };
         let line = filled(look, div().id(SharedString::from(format!("needs-row:{key}"))))
             .child(mark)
             .child(words)
+            .children(building.then(|| div().id(SharedString::from(format!("needs-building:{key}"))).flex_none().text_color(look.color(token::STEP_RUNNING)).child("Building")))
             .children(thumbs)
             .children(done)
             .children(away)
@@ -1320,7 +1332,7 @@ impl JobView {
             }
             _ => line,
         };
-        let line = labelled(line, Role::Button, format!("Open {name}")).into_any_element();
+        let line = labelled(line, Role::Button, if building { format!("Open {name}, Building") } else { format!("Open {name}") }).into_any_element();
         // A run item's run, under its row while it is held (`HeldTerminal`).
         let ran = row
             .and_then(|row| match &row.act {
