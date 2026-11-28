@@ -191,6 +191,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "thread-subagents" => include_bytes!("../fixtures/jobs-thread-subagents.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" | "reader" | "reader-sketches" => include_bytes!("../fixtures/jobs-drafts.json"),
+        // One Job planning quiet hours with him on a page: talked in the page's margin, or beside its thread.
+        "planning-margin" | "planning-today" => include_bytes!("../fixtures/jobs-planning.json"),
         // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
         // one that was answered with a figure to be asked again at.
         "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
@@ -334,6 +336,15 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-04") {
             let item = ipc::decode::<ipc::WaitingItem>("walk item", br#"{"id":"walk:armada://walk/docsIndex","text":"Walk the new index","since":"2026-11-09T14:20:00Z","source":"walk","act":{"kind":"walk","target":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
             one.waiting_for.push(item);
+        }
+    }
+    // The page planned in its margin asks him to approve it, as Fleet lists a page put to him: `document:<page>`.
+    if scenario == "planning-margin" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "plan-job") {
+            let item = br#"{"id":"document:quiet","text":"Approve Quiet hours for notices","since":"2026-11-20T05:30:00Z","source":"document"}"#;
+            one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).map_err(|why| why.to_string())?);
+            // A page put to him holds the Job on him, ahead of its turn: Fleet marks it Waiting, and it needs him.
+            one.mark = Some(ipc::JobMark { state: ipc::JobState::Waiting, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
         }
     }
     // A Job holding builds to try waits on him with one item, as Fleet raises it: `Ready to try`, named by the Job's id.
@@ -824,6 +835,8 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
         "reader" => include_bytes!("../fixtures/reader-threads.json"),
+        "planning-margin" => include_bytes!("../fixtures/planning-margin-threads.json"),
+        "planning-today" => include_bytes!("../fixtures/planning-today-threads.json"),
         // One Job holding a page whose own drawing and whose vote's takes each hold a sketch.
         "reader-sketches" => include_bytes!("../fixtures/reader-sketches-threads.json"),
         "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),
@@ -1162,6 +1175,10 @@ const PAGE_AT: &str = "2026-11-14T09:00:00Z";
 /// `get_artifact_page` on the mock: the design page as Fleet serves it, its record holding the presses and the newest cast
 /// of each vote made on it, or Fleet's refusal of a revision it never kept.
 pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
+    // The quiet hours page a planning Job talks over with him in its margin.
+    if page == "quiet" && revision == 2 {
+        return Ok(include_str!("../fixtures/planning-quiet.html").to_string());
+    }
     if page == "marks" && revision == 1 {
         let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
         let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
@@ -1187,7 +1204,7 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
 
 /// The newest revision the Job wrote of a page the mock serves.
 fn page_newest(page: &str) -> u32 {
-    if page == "design" {
+    if page == "design" || page == "quiet" {
         2
     } else {
         1

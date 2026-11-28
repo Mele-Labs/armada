@@ -19,11 +19,30 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::web::reader as ask;
 
+/// The width beside the contents rail the page and its margin need for the margin to stand beside the page: the page
+/// keeps 440pt beside the 320pt margin. Under it, the margin folds below the page.
+pub(super) const MARGIN_BESIDE: f32 = 760.;
+
+/// Whether a page's margin stands beside it, by the width the reader has once the contents rail took its own.
+pub(super) fn margin_beside(held: &Reader, room: Room, look: &Look) -> bool {
+    let rail = if room.rail() { f32::from(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_4)) } else { 0. };
+    f32::from(held.width.get()) - rail >= MARGIN_BESIDE
+}
+
+/// A page and its margin: the margin at the page's right, or under it at the page's width, as tall as six of `--space-12`.
+pub(super) fn page_and_margin(view: impl IntoElement, margin: AnyElement, beside: bool, look: &Look) -> AnyElement {
+    if beside {
+        return div().flex_1().min_h_0().min_w_0().flex().child(view).child(margin).into_any_element();
+    }
+    div().flex_1().min_h_0().min_w_0().flex().flex_col().child(view).child(div().flex_none().max_h(look.length(token::SPACE_12) * 6.).flex().child(margin)).into_any_element()
+}
+
 impl JobView {
-    /// The page a reader shows.
+    /// The page a reader shows: its tab's, else the review sheet's where the sheet shows the page.
     pub(super) fn reader_page(&self, id: &str, name: &str) -> Option<Entity<PageTab>> {
         let held = self.reader_of(id, name)?;
-        self.row_tabs.get(id)?.pages.get(&held.key).map(|(tab, _)| tab.clone())
+        let tab = self.row_tabs.get(id).and_then(|tabs| tabs.pages.get(&held.key)).map(|(tab, _)| tab.clone());
+        tab.or_else(|| (held.kind == RowKind::Document).then(|| self.sheet_page(id, &held.key)).flatten())
     }
 
     /// The headings of what the reader shows, as `(place, level, words)`: a draft's by its blocks, a page's by what the page
@@ -43,6 +62,15 @@ impl JobView {
         let page = self.reader_page(id, name);
         let view = div().id(SharedString::from(format!("reader-page:{name}"))).flex_1().min_w_0().min_h_0().relative().children(page);
         let pins: Vec<AnyElement> = held.notes.iter().enumerate().map(|(place, note)| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx)).collect();
+        // A page's margin holds the talk about it; notes left on it before it had one stand at its foot.
+        if held.kind == RowKind::Document {
+            if !held.notes_on {
+                return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
+            }
+            let beside = margin_beside(held, room, look);
+            let margin = self.margin_column(id, name, held, pins, beside, look, cx);
+            return page_and_margin(view, margin, beside, look);
+        }
         let add = (!subject.closed).then(|| self.reader_add_button(id, name, look, cx));
         // Notes off: no margin and nothing under the page, so the page takes the width.
         if !held.notes_on {
@@ -117,13 +145,16 @@ impl JobView {
         let asked = tab.read(cx).ask(&ask::selection(), cx);
         let (job, reader) = (id.clone(), name.to_string());
         cx.spawn_in(window, async move |this, cx| {
-            let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or(ask::Picked { quote: String::new(), block: String::new() });
+            let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or_default();
             let _ = this.update_in(cx, |this, window, cx| {
-                // With nothing selected, N is the switch of the margin; the margin's own button always makes a note.
-                if toggle && picked.quote.trim().is_empty() {
+                // With nothing selected, N is the switch of the margin; its own button says what to select.
+                if !picked.quote.trim().is_empty() {
+                    this.margin_begin(&job, &reader, picked, window, cx);
+                } else if toggle {
                     this.reader_toggle_notes(&job, &reader, cx);
-                } else {
-                    this.reader_add_note(&job, &reader, picked.quote, picked.block, window, cx);
+                } else if let Some(held) = this.reader_mut(&job, &reader) {
+                    held.margin.said = Some("Select words in the page, then press N".into());
+                    cx.notify();
                 }
             });
         })

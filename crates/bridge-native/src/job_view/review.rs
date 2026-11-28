@@ -1622,6 +1622,10 @@ impl JobView {
             "tab" => self.review_tab(event.keystroke.modifiers.shift, window, cx),
             _ => {
                 let noting = self.review_noting(window, cx);
+                if !noting && self.margin_sheet_key(event, window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 if self.review_zoom_key(event, noting, window, cx) {
                     cx.stop_propagation();
                 }

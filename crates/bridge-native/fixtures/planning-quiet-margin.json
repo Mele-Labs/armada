@@ -1,0 +1,124 @@
+{
+ "session_id": "plan-job",
+ "document": "quiet",
+ "threads": [
+  {
+   "id": "m1",
+   "document": "quiet",
+   "anchor": {
+    "quote": "Notices that arrive wait until 9:00 and come in as one digest",
+    "block": "b16",
+    "section": "How it works"
+   },
+   "messages": [
+    {
+     "by": "you",
+     "text": "Why 9:00? I start at 8.",
+     "at": "2026-11-20T10:31:00Z"
+    },
+    {
+     "by": "agent",
+     "text": "9:00 is the work start in Settings. Quiet hours could end at your own work start instead, 8:00 for you.",
+     "at": "2026-11-20T10:31:40Z"
+    }
+   ],
+   "state": "answered"
+  },
+  {
+   "id": "m2",
+   "document": "quiet",
+   "anchor": {
+    "quote": "A failed check still interrupts.",
+    "block": "b17",
+    "section": "How it works"
+   },
+   "messages": [
+    {
+     "by": "you",
+     "text": "Only a failed check on main should wake me.",
+     "at": "2026-11-20T10:36:00Z"
+    },
+    {
+     "by": "agent",
+     "text": "A failed check on a branch stops nothing else, so it can wait for the digest.",
+     "at": "2026-11-20T10:36:30Z"
+    },
+    {
+     "by": "agent",
+     "text": "The edit is in the page for you to accept.",
+     "at": "2026-11-20T10:41:00Z"
+    }
+   ],
+   "state": "suggested",
+   "suggestion": {
+    "struck": "A failed check still interrupts.",
+    "added": "A failed check on main still interrupts; one on a branch waits for the digest.",
+    "at": "2026-11-20T10:41:00Z"
+   }
+  },
+  {
+   "id": "m3",
+   "document": "quiet",
+   "anchor": {
+    "quote": "The sound stays off until the first notice after 9:00.",
+    "block": "b18",
+    "section": "How it works"
+   },
+   "messages": [
+    {
+     "by": "you",
+     "text": "Could the sound come back at my work start too?",
+     "at": "2026-11-20T10:52:00Z",
+     "held": true
+    }
+   ],
+   "state": "held"
+  },
+  {
+   "id": "m5",
+   "document": "quiet",
+   "anchor": {
+    "quote": "A Job asking a question waits until the next workday.",
+    "block": "b17",
+    "section": "How it works"
+   },
+   "messages": [
+    {
+     "by": "you",
+     "text": "Does a public holiday count as a workday?",
+     "at": "2026-11-20T10:31:00Z"
+    },
+    {
+     "by": "agent",
+     "text": "Revision 2 dropped the workday rule: a question now waits an hour at most.",
+     "at": "2026-11-20T10:31:50Z"
+    }
+   ],
+   "state": "answered",
+   "gone": true
+  },
+  {
+   "id": "m4",
+   "document": "quiet",
+   "anchor": {
+    "quote": "Weekends are quiet all day",
+    "block": "b12",
+    "section": "Decisions"
+   },
+   "messages": [
+    {
+     "by": "you",
+     "text": "Weekends too?",
+     "at": "2026-11-20T10:22:00Z"
+    },
+    {
+     "by": "agent",
+     "text": "Yes: nothing that can wait interrupts on Saturday or Sunday.",
+     "at": "2026-11-20T10:22:30Z"
+    }
+   ],
+   "state": "settled",
+   "outcome": "Weekends are quiet all day"
+  }
+ ]
+}

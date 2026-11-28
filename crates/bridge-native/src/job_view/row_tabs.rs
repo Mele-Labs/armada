@@ -108,6 +108,8 @@ pub(super) struct RowTabs {
     pub(super) pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
     /// What the mock Fleet kept of the presses and votes on each page, for its record when the page is opened again.
     pub(super) mock_kept: HashMap<String, super::page_tab::Kept>,
+    /// The mock Fleet's margin threads, by page.
+    pub(super) mock_margin: HashMap<String, ipc::MarginThreads>,
     /// The reader of each open draft and page, by its name (`reader::reader_id`): its notes, its blocks and its Edit.
     pub(super) readers: HashMap<String, super::reader::Reader>,
     /// The drawn scene under each prototype tab, by its artifact: kept while the Job holds the artifact, so a press on a state stays.

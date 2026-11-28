@@ -2,7 +2,7 @@
 //!
 //! | Part | Draws |
 //! |---|---|
-//! | Header band | The kind's tile, the title at text-xl, the revision picker, where it stands, the Edit switch, the For line, and Dismiss, Ask for changes and Approve |
+//! | Header band | The kind's tile, the title at text-xl, the revision picker, where it stands, the Edit switch, the For line, and Dismiss, Ask for changes and Approve. A page is answered in the review sheet alone, its margin beside it there while it asks: its tab answers nothing |
 //! | Contents | The headings, on the left where there is room, else a menu above the words |
 //! | Words | A draft's blocks with a note's words marked in his colour, a moved block with a running edge |
 //! | Gutter | Each note pinned beside its block; a table takes the whole width and its notes stand under it; in a narrow reader every note stands under its paragraph |
@@ -83,6 +83,27 @@ pub(super) fn key_of(key: &str, asking: bool, editable: bool, page: bool) -> Opt
     })
 }
 
+/// A canvas over the whole of its parent that keeps the width it was laid out at in `width`, and draws once more where the
+/// width moved: the reader's room and the margin's place are read from it.
+pub(super) fn width_probe(width: std::rc::Rc<std::cell::Cell<gpui::Pixels>>, me: gpui::WeakEntity<JobView>) -> impl IntoElement {
+    gpui::canvas(
+        move |bounds, _, cx| {
+            if (f32::from(width.get()) - f32::from(bounds.size.width)).abs() > 1. {
+                width.set(bounds.size.width);
+                let me = me.clone();
+                cx.defer(move |cx| {
+                    me.update(cx, |_, cx| cx.notify()).ok();
+                });
+            }
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
+}
+
 impl JobView {
     /// The body of a draft's or a page's tab: the reader.
     pub(super) fn reader_body(&self, id: &SharedString, tab: &RowTab, look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -102,24 +123,11 @@ impl JobView {
         let strip = (!room.rail()).then(|| self.reader_strip(id, &name, held, look, cx)).flatten();
         let rail = room.rail().then(|| self.reader_rail(id, &name, held, look, cx));
         let words = self.reader_words(id, &name, held, &subject, room, look, cx);
-        let (me, width) = (cx.weak_entity(), held.width.clone());
-        let measure = gpui::canvas(
-            move |bounds, _, cx| {
-                if (f32::from(width.get()) - f32::from(bounds.size.width)).abs() > 1. {
-                    width.set(bounds.size.width);
-                    let me = me.clone();
-                    cx.defer(move |cx| {
-                        me.update(cx, |_, cx| cx.notify()).ok();
-                    });
-                }
-            },
-            |_, _, _, _| {},
-        )
-        .absolute()
-        .top_0()
-        .left_0()
-        .size_full();
-        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier && !in_sheet, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
+        let measure = width_probe(held.width.clone(), cx.weak_entity());
+        // A page in its Job's tab is answered in the review sheet alone, so A, C and D answer nothing here.
+        let in_tab = tab.kind == super::row_tabs::RowKind::Document;
+        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier && !in_sheet && !in_tab, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
+        let waits = in_tab && subject.asking;
         let (job_c, name_c) = (id.clone(), name.clone());
         let body = div()
             .id("reader-body")
@@ -130,7 +138,7 @@ impl JobView {
             .children(rail)
             .child(div().flex_1().min_w_0().flex().flex_col().children(strip).child(words))
             .child(measure);
-        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !in_sheet).map(|(_, _, note)| self.reader_ask_box(id, &name, held, note, look, cx));
+        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !in_sheet && !in_tab).map(|(_, _, note)| self.reader_ask_box(id, &name, held, note, look, cx));
         let said = held.said.clone().map(|why| div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)).child(super::acts::refusal(look, "reader", why)));
         labelled(
             div()
@@ -165,6 +173,9 @@ impl JobView {
                         return;
                     }
                     let Some(act) = key_of(event.keystroke.key.as_str(), asking, editable, page) else { return };
+                    if waits && act == RKey::Act(RAct::Archive) {
+                        return;
+                    }
                     cx.stop_propagation();
                     this.reader_key(&job, &key_name, act, window, cx);
                 }))
@@ -199,8 +210,10 @@ impl JobView {
         let picker = self.reader_picker(id, name, shown, look, cx);
         let switch = (!subject.closed && !earlier && matches!(subject.form, ArtifactForm::Draft | ArtifactForm::Page)).then(|| self.reader_switch(id, name, editing, look, cx));
         let (words, discard, save) = if editing { self.reader_edit_acts(id, name, held, look, cx) } else { (None, None, None) };
+        // A page is answered in the review sheet alone, where its margin stands beside it while it asks: its tab answers nothing.
+        let page_tab = held.kind == super::row_tabs::RowKind::Document;
         // While Ask for changes is open under the words, its box holds the answer and the header holds none.
-        let asking = subject.asking && !earlier && !editing && held.ask.is_none() && !in_sheet;
+        let asking = subject.asking && !earlier && !editing && held.ask.is_none() && !in_sheet && !page_tab;
         let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind| -> AnyElement {
             let (job, name_c) = (id.clone(), name.to_string());
             labelled(
@@ -241,7 +254,7 @@ impl JobView {
             .children((!editing).then(|| state_chip(look, format!("reader-state:{name}"), subject.stand, subject.words.as_deref(), None)))
             .children(answers_at_top);
         // What he can do besides answering: Edit, and putting it away.
-        let away = if subject.asking && in_sheet {
+        let away = if subject.asking && (in_sheet || page_tab) {
             None
         } else if subject.asking && !earlier && !editing {
             Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost))
@@ -343,13 +356,20 @@ impl JobView {
     /// The notes' margin on or off, as the registry gives a document's head: the glyph shows what a press does.
     fn reader_notes_button(&self, id: &SharedString, name: &str, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (job, name_c) = (id.clone(), name.to_string());
-        let said = if on { "Hide the notes margin" } else { "Show the notes margin" };
+        // A page's margin holds the talk about it; a draft's holds his notes.
+        let page = self.reader_of(id, name).is_some_and(|held| held.kind == super::row_tabs::RowKind::Document);
+        let said = match (page, on) {
+            (true, true) => "Hide the margin",
+            (true, false) => "Show the margin",
+            (false, true) => "Hide the notes margin",
+            (false, false) => "Show the notes margin",
+        };
         labelled(
             super::head::icon_button(look, "reader-notes", if on { "panel-right-close" } else { "panel-right-open" }, format!("{said}, N").into(), on, false)
                 .id(SharedString::from(format!("reader-notes:{name}")))
                 .on_click(cx.listener(move |this, _, _, cx| this.reader_toggle_notes(&job, &name_c, cx))),
             Role::Switch,
-            "Notes",
+            if page { "Margin" } else { "Notes" },
         )
         .into_any_element()
     }

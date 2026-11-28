@@ -64,9 +64,9 @@ pub(super) struct Artifacts {
     /// What the mock Fleet folded away or restored here, by Job and artifact, since it keeps nothing.
     folded_here: HashMap<(String, String), bool>,
     /// What the mock Fleet was told he opened and edited here, by Job and artifact, since it keeps nothing: the newest
-    /// revision he opened, and how many revisions of his own were kept.
+    /// revision he opened, and who wrote each revision kept here.
     seen_here: HashMap<(String, String), u32>,
-    edits_here: HashMap<(String, String), u32>,
+    edits_here: HashMap<(String, String), Vec<ArtifactBy>>,
     /// What the mock Fleet keeps of the artifact of parts, since it keeps nothing: the artifact as it stands once he has answered
     /// parts of it, and every `answer_part` it was sent, in order.
     mock_parts: Vec<JobArtifact>,
@@ -554,10 +554,10 @@ impl JobView {
                     None => {}
                 }
                 let key = (id.to_string(), one.id.clone());
-                for _ in 0..self.artifacts.edits_here.get(&key).copied().unwrap_or(0) {
+                for by in self.artifacts.edits_here.get(&key).cloned().unwrap_or_default() {
                     let number = one.revisions.last().map_or(1, |last| last.number) + 1;
                     let at = Instant::carried(Local::now().to_rfc3339());
-                    one.revisions.push(ipc::ArtifactRevision { number, at, by: ArtifactBy::Owner, form: one.form });
+                    one.revisions.push(ipc::ArtifactRevision { number, at, by, form: one.form });
                 }
                 one.seen = self.artifacts.seen_here.get(&key).copied().or(one.seen);
             }
@@ -630,11 +630,16 @@ impl JobView {
 
     /// He saved an edit, on mock data: one more revision, his.
     pub(super) fn edited_here(&mut self, job: &str, artifact: &str) {
-        *self.artifacts.edits_here.entry((job.to_string(), artifact.to_string())).or_default() += 1;
+        self.revised_here(job, artifact, ArtifactBy::Owner);
+    }
+
+    /// One more revision on mock data, written by `by`: an Accept in the margin writes one the wire does not call his.
+    pub(super) fn revised_here(&mut self, job: &str, artifact: &str, by: ArtifactBy) {
+        self.artifacts.edits_here.entry((job.to_string(), artifact.to_string())).or_default().push(by);
         // The list already read takes it at once, as a re-read would.
         if let Some(one) = self.artifacts.read.get_mut(job).and_then(|read| read.rows.as_mut()).and_then(|rows| rows.iter_mut().find(|one| one.id == artifact)) {
             let number = one.revisions.last().map_or(1, |last| last.number) + 1;
-            one.revisions.push(ipc::ArtifactRevision { number, at: Instant::carried(Local::now().to_rfc3339()), by: ArtifactBy::Owner, form: one.form });
+            one.revisions.push(ipc::ArtifactRevision { number, at: Instant::carried(Local::now().to_rfc3339()), by, form: one.form });
         }
     }
 

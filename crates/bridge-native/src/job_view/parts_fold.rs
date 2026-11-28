@@ -514,7 +514,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn open_reads_a_page_in_the_review_panel_a_draft_in_its_own_tab_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
+    fn open_reads_a_page_in_a_tab_of_its_job_a_draft_in_its_own_tab_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
@@ -535,10 +535,10 @@ mod tests {
             redraw(cx);
             if form == ArtifactForm::Page {
                 view.read_with(cx, |view, _| {
-                    assert!(view.review_open(), "a page opens the review panel");
-                    assert!(!view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Document), "and no tab of its own");
+                    // A page whose card stands in the thread reads in a tab beside the thread, with its margin.
+                    assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Document), "a page opens in a tab of its own");
+                    assert!(!view.review_open(), "and the review panel stays shut");
                 });
-                view.update_in(cx, |view, window, cx| view.close_review(window, cx));
             } else {
                 view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Draft), "a {form:?} opens in its own tab"));
             }

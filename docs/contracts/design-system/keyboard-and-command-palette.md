@@ -51,6 +51,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘R       reload the Job browser's page, in the native Bridge only, where a Job browser is in front
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
+⇧⌘↵      Send held: the comments held in a page's margin, in a Job's thread, in the native Bridge only
 ⌘N       dispatch, from every surface and from a field
 ⌥1–⌥9    choose a repository to dispatch to; in the native Bridge, a project and its repository
 ⌥A       dispatch after another Job: a Job with an @ typed in the request

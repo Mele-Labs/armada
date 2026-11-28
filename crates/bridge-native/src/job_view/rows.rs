@@ -752,6 +752,12 @@ impl JobView {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let next = after.and_then(began);
+        // A round of margin talk stands just after the message that sent it, and is drawn in that message's place.
+        if let (ThreadItem::Row { row }, Some(ThreadItem::Margin(card))) = (item, after) {
+            if card.replaces.as_deref() == Some(row.id()) {
+                return None;
+            }
+        }
         // The sketch, page and draft that joined an artifact of parts are its parts: its one card draws them.
         if let Some(job) = &self.shown {
             let joined = match item {
@@ -791,8 +797,7 @@ impl JobView {
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
-            // A round of margin talk is not drawn here yet.
-            ThreadItem::Margin(_) => return None,
+            ThreadItem::Margin(card) => self.margin_round(card, look, cx),
             ThreadItem::Graph(item) => return self.graph_item(item, look, cx),
         })
     }
