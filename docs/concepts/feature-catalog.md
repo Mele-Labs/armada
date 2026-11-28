@@ -518,7 +518,7 @@ A press with no words keeps no rule.
 > **Rule.** A removed picture is marked, never deleted.
 > Why: his "not this one" is the signal the gallery learns from, and a deleted row would lose it.
 
-**The librarian's `pictures` part takes one picture a feature** on a run, of the screen the feature is tied to.
+**The librarian's `pictures` part takes one picture a feature** on a run, once he turns it on (it ships off, since it starts a headless browser for each feature), of the screen the feature is tied to.
 A feature is tied to the screen its newest standing picture shows, a Job's or the librarian's.
 Where it has none, it is tied to the page its own files route to in a web app that routes by file: Next's `app/…/page.tsx` and `pages/…`, and SvelteKit's `routes/…/+page.svelte`, the shortest route first.
 A route with a segment filled in at request time, such as `[id]`, has no one address and ties nothing.
