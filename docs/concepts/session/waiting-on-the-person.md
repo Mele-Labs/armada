@@ -3,7 +3,7 @@
 **Part of:** [Job](../session.md).
 
 **A job says what it is waiting on the person for with `waiting_for`**, a tool on the agent's door that replaces the whole list each call (`items`: `id`, `text`, an optional `act` of `answer`, `approve_pr` or `run` with a `target`, optional `options`, optional `steps`, a list of short lines, and an optional `artifact`); an empty list clears it.
-Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)).
+Fleet keeps the agent's items in `session_waiting`, stamps `since` and keeps it for an unchanged `id`, and **adds its own on every read** into `SessionRecord.waiting_for`: `ask:<call>` for an open question, `perm:<call>` for an open permission, `walk:<url>` for a window the job showed that no `Approved: <url>` message (of any of its takes) has followed, `window_ask:<row>` for a question asked in the window and not yet answered (*Asking in the window*), `draft:<row>` for a draft proposed with `propose_draft` and not yet settled (*Proposing a draft*), `sketch:<title>` for a sketch shown with `show_sketch` and not yet answered (*Drawing a sketch*), `task_done:<project>` for tasks of a project the job held that it or a pull request has finished ([Project](../project.md)), `goal_met:<sub project>` on a sub project's orchestrator once it said done or every Job of it is done ([Feature catalog](../feature-catalog.md#goal-met)).
 **`task_done:<project>` is answered with Mark done or Keep open**, through `answer_waiting`, and the choice settles every task the job asked in that project without sending the agent a message.
 Where an agent item names the same act and target as one of Fleet's, Fleet's stands.
 **An item about one of the Job's artifacts names it** with `artifact`, the artifact's id or its title.
@@ -178,6 +178,7 @@ The rule per source, held to the code by a test (`crates/fleet/src/session_host/
 | `clash_order` | questions | none: Fleet refuses it |
 | `job_held` | questions | plain; the ask is settled with no answer and the Job that asked is sent `held? <pull or branch>: He dismissed it with no answer.` |
 | `ready_to_try` | to_review | plain; one row for the Job while any card is open, its cards answer it, and a dismissal covers only the cards open then |
+| `goal_met` | questions | none: Fleet refuses it |
 
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
@@ -310,6 +311,7 @@ Native draws them as their own Done group, last, behind a Done Jobs switch in th
 | `rule_act` | Needs you |
 | `operator_suggestion` | Needs you |
 | `operator_undone` | Needs you |
+| `goal_met` | Needs you |
 | `preview_offer` | Needs you: Fleet no longer raises it |
 | `done` | Neither |
 
@@ -382,7 +384,7 @@ The asks it leaves out follow in Fleet's order, and an id that is not an open as
 |---|---|---|
 | First | What the work waits on: a question, a vote, an approve of a sketch, plan or draft, a walk | The work waits on your answer |
 | Then | A page to read or approve | A page to read |
-| Then | A build to try | Try it once the asks above are answered |
+| Then | A build to try | The work is ready to try |
 | Last | The Job's done | The work is done |
 
 **A refresh comes before a prototype or a walk that needs it.**

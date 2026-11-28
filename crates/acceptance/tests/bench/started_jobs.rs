@@ -158,6 +158,7 @@ fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

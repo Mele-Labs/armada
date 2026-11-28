@@ -57,7 +57,7 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `handoff` | questions | plain: Stay |
 /// | `sketch`, `document`, `plan`, `ready_to_try` | to review | plain |
 /// | `done` | done | plain |
-/// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate` | questions | none: Fleet refuses it |
+/// | `slot_choice`, `delivery`, `task_done`, `held_child`, `gate`, `goal_met` | questions | none: Fleet refuses it |
 /// | `words_address`, `fleet_call`, `watch_not_ours`, `browser_ask` | questions | plain |
 /// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
@@ -97,6 +97,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::ClashOrder => rule(Questions, Dismiss::None),
         WaitingSource::JobHeld => rule(Questions, Dismiss::Plain),
         WaitingSource::ReadyToTry => rule(Review, Dismiss::Plain),
+        WaitingSource::GoalMet => rule(Questions, Dismiss::None),
     }
 }
 
@@ -107,6 +108,7 @@ pub(crate) fn refused_dismissal(source: WaitingSource) -> Option<&'static str> {
         WaitingSource::Delivery => Some("how the work is delivered is answered, not dismissed"),
         WaitingSource::SlotChoice => Some("whether a job waits for a slot or has one added is answered, not dismissed"),
         WaitingSource::TaskDone => Some("whether the tasks are done is answered, not dismissed"),
+        WaitingSource::GoalMet => Some("whether the goal is met is answered, not dismissed"),
         WaitingSource::HeldChild => Some(HELD_CHILD_SETTLED_BY),
         WaitingSource::Gate => Some("a gate is approved or its group skipped, not dismissed"),
         WaitingSource::JobConflict => Some("a conflict is answered by telling a Job to change or holding both, not dismissed"),

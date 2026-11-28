@@ -67,6 +67,16 @@ pub struct SessionLive {
     pub title: String,
 }
 
+/// The last lines a background command has written, by the call that started it. Read from the
+/// command's output file while it runs, **kept nowhere**: gone when the command ends.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskTail {
+    /// The id of the call that started the command.
+    pub call: String,
+    /// Its newest lines, oldest first, at most three, each cut short.
+    pub lines: Vec<String>,
+}
+
 /// What a hosted Session is doing. Absent from the row until its first tool call, and again once
 /// it ends. Memory only: a Fleet that restarts starts it empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,4 +103,8 @@ pub struct SessionActivity {
     /// The newest page the Session showed or served since the person's last message.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live: Option<SessionLive>,
+    /// The newest lines of each background command still running. An entry goes when its command
+    /// ends. Empty is none running, or none that has written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tails: Vec<TaskTail>,
 }

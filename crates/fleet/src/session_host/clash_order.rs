@@ -100,6 +100,7 @@ fn clash_item(clash: &KeptClash, session: &str) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 

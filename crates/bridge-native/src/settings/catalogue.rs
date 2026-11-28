@@ -4,7 +4,7 @@
 //! the overlay is held from the palette. Keyboard shortcuts and the folders a Job reaches only open their page: a
 //! key is bound by pressing it, and a folder list is edited row by row, neither of which one typed line can be.
 
-use gpui::{App, Context, Hsla, Window};
+use gpui::{App, Context, Entity, Hsla, WeakEntity, Window};
 use ipc::{ModKind, SettingKind, SettingValue};
 
 use super::entries::{self, Body, Entry};
@@ -58,6 +58,33 @@ pub enum Applied {
     Open,
 }
 
+impl Item {
+    /// What it holds now, in words, for a row that names it: a switch's On or Off, the title of the choice in
+    /// force, the first line typed. An entry, which only opens, says nothing.
+    pub fn said(&self) -> Option<String> {
+        match &self.kind {
+            Kind::Toggle(on) => Some(if *on { "On" } else { "Off" }.into()),
+            Kind::Pick { choices, now } => Some(choices.iter().find(|one| &one.word == now).map_or_else(|| now.clone(), |one| one.title.clone())).filter(|said| !said.is_empty()),
+            Kind::Input(text) => text.lines().next().map(str::trim).filter(|line| !line.is_empty()).map(String::from),
+            Kind::Open => None,
+        }
+    }
+
+    /// The settings.json key a save of it is held and refused against, where it is a schema setting.
+    pub fn key(&self) -> Option<&str> {
+        self.id.strip_prefix("setting:")
+    }
+}
+
+/// The Settings that items are offered from outside it: the app's own, or a walk's over the mock Fleet.
+pub struct Here(pub WeakEntity<SettingsOverlay>);
+
+impl gpui::Global for Here {}
+
+pub fn reach(cx: &App) -> Option<Entity<SettingsOverlay>> {
+    cx.try_global::<Here>().and_then(|here| here.0.upgrade())
+}
+
 fn item(entry: &'static Entry, id: String, label: String, keywords: Vec<String>, kind: Kind) -> Item {
     Item { id, label, entry: entry.id, category: entry.label, group: entry.group.label(), keywords, kind }
 }
@@ -77,6 +104,16 @@ fn setting_item(entry: &'static Entry, one: &ipc::Setting) -> Item {
 }
 
 impl SettingsOverlay {
+    /// Read settings.json and the models again for a list offered while the page is shut, as the page does when
+    /// it opens.
+    pub fn read_for_offer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.open {
+            return;
+        }
+        self.read(window, cx);
+        self.read_models(cx);
+    }
+
     /// Everything Settings holds now, entry by entry in the overlay's order: each entry opens, then its settings.
     /// Before Fleet has answered, the entries alone.
     pub fn catalogue(&self, cx: &App) -> Vec<Item> {

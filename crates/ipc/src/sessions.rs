@@ -946,6 +946,13 @@ pub enum WaitingSource {
     /// `ruled` on both Jobs' `clashes`, and both Jobs are told it. The Job that raised it holds the item. Dismissing
     /// it is refused. Listed only while the Job is live. Since 27 Nov 2026.
     ClashOrder,
+    /// Fleet: the orchestrator of a sub project called `all_done`, or every Job of the sub project merged or ended. On the
+    /// orchestrator's list, derived on every read from the sub project, never kept in the Job's list: id
+    /// `goal_met:<sub project id>`, text `Goal met?`, an `answer` act whose `target` is the id, `goal_met` carrying the
+    /// goal and the pull requests that landed, and exactly two options, `Agree` (choice 0), which folds the sub project
+    /// away, and `Not yet` (choice 1), which keeps it open until the orchestrator next calls `all_done`. **Neither sends
+    /// the agent a word.** Dismissing it is refused. Listed only while the Job is live. Since 27 Nov 2026.
+    GoalMet,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,
@@ -1090,6 +1097,9 @@ pub struct WaitingItem {
     /// from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact: Option<String>,
+    /// On a `goal_met` item only: the sub project's goal and what landed. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal_met: Option<crate::GoalMet>,
     /// Its place among the Job's open asks, 1 first: the Job's own order from `order_waiting`, else Fleet's
     /// fallback. 0 on a list that is not a Job's open asks, such as the closed ones. `docs/concepts/session/waiting-on-the-person.md`.
     #[serde(default, skip_serializing_if = "is_unplaced")]

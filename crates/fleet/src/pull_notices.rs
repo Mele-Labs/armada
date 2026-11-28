@@ -607,6 +607,8 @@ where
             .await;
             // The same merge asks whether the project tasks the Job held are done.
             self.tasks_asked_by_merge(served, one.pull.number).await;
+            // And may finish a sub project, whose orchestrator then asks Goal met?.
+            self.orchestrators_told_of_merge(served, one.pull.number).await;
             if elapsed(&at, &now) > MERGE_IS_NEWS {
                 continue;
             }

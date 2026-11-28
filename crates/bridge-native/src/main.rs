@@ -18,6 +18,8 @@
 //! second start brings the first forward. A walk, a mock and a check take no lock.
 
 mod annotate;
+#[cfg(test)]
+mod as_app;
 mod assets;
 mod banner;
 mod build_notes;
@@ -111,6 +113,7 @@ mod web;
 mod walk;
 mod ways;
 mod whisper;
+mod window_place;
 
 /// Written by `cargo xtask verify-vocabulary --write` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]
@@ -124,7 +127,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use gpui::{
-    div, point, prelude::*, px, size, App, Bounds, Context, Entity, TitlebarOptions, Window, WindowBounds,
+    div, point, prelude::*, px, App, Context, Entity, TitlebarOptions, Window,
     WindowOptions,
 };
 use gpui_platform::application;
@@ -401,9 +404,11 @@ fn main() -> ExitCode {
             }
         })
         .detach();
-        let bounds = Bounds::centered(None, size(px(1100.), px(760.)), cx);
+        // Only the live app opens where it was left; a walk, a mock and a test open centred.
+        let place = matches!(mode, Mode::Live).then(window_place::file).flatten();
+        let bounds = window_place::opening(place.as_deref(), cx);
         let options = |title: String| WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
+            window_bounds: Some(bounds),
             // Frameless, as Electron's `titleBarStyle: "hiddenInset"`: the app draws its own title row, and the
             // traffic lights sit where Electron puts them, 16 down a 44px row (`classic-final:apps/desktop/src/main/index.ts`).
             titlebar: Some(TitlebarOptions {
@@ -444,7 +449,12 @@ fn main() -> ExitCode {
                     let window_handle = window.window_handle();
                     let history = cx.new(|cx| history::Keeper::new(operator, settings.clone(), window_handle, cx));
                     let screen = cx.new(|cx| first_run::FirstRunScreen::new(screen.into(), settings, Some(&fleet), cx));
-                    cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier, history)) })
+                    cx.new(|cx| {
+                        if let Some(place) = place.clone() {
+                            window_place::follow(place, window, cx);
+                        }
+                        Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier, history)) }
+                    })
                 })
                 .map(|_| ()),
             Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {

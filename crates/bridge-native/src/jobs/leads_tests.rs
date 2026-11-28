@@ -108,9 +108,12 @@ fn sub(id: &str, name: &str, jobs: &[&str], features: &[&str]) -> ipc::SubProjec
         id: id.into(),
         project: crate::features::mock::PROJECT.into(),
         name: name.into(),
+        goal: name.into(),
         jobs: jobs.iter().map(|id| ipc::SessionId::carried(*id)).collect(),
         features: features.iter().map(|slug| slug.to_string()).collect(),
+        orchestrator: None,
         started_at: ipc::Instant::carried("2026-11-26T12:00:00Z"),
+        ended_at: None,
     }
 }
 

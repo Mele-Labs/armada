@@ -138,3 +138,29 @@ fn only_a_shell_command_and_a_watch_are_background_tasks_of_a_call() {
         assert_eq!(background_form(other), None, "{other}");
     }
 }
+
+/// The result of a call the harness ran in the background says where its output goes, and it is
+/// the only place that says so while the command runs. Recorded on claude 2.1.310, 1 Nov 2026.
+const BACKGROUND_RESULT: &str = r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_01X45gRBtaQteaFtEn4ZRf4d","type":"tool_result","content":"Command running in background with ID: bhjbj6awi. Output is being written to: /private/tmp/claude-501/-p/ba5512cc/tasks/bhjbj6awi.output. You will be notified when it completes. To check interim output, use Read on that file path.","is_error":false}]},"session_id":"ba5512cc"}"#;
+
+#[test]
+fn a_backgrounded_calls_result_names_the_file_its_output_goes_to() {
+    let events = read(BACKGROUND_RESULT);
+    assert!(events.contains(&DroneEvent::Answered { call: "toolu_01X45gRBtaQteaFtEn4ZRf4d".into(), failed: false }), "{events:?}");
+    assert!(
+        events.contains(&DroneEvent::OutputAt {
+            call: "toolu_01X45gRBtaQteaFtEn4ZRf4d".into(),
+            file: "/private/tmp/claude-501/-p/ba5512cc/tasks/bhjbj6awi.output".into(),
+        }),
+        "{events:?}"
+    );
+}
+
+#[test]
+fn a_result_that_names_no_output_file_adds_no_event_and_a_list_of_parts_is_read() {
+    let plain = r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"t1","type":"tool_result","content":"ok","is_error":false}]}}"#;
+    assert!(!read(plain).iter().any(|one| matches!(one, DroneEvent::OutputAt { .. })));
+
+    let parts = r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"t2","type":"tool_result","content":[{"type":"text","text":"Output is being written to: /tmp/x/tasks/a.output. You will be notified"}]}]}}"#;
+    assert!(read(parts).contains(&DroneEvent::OutputAt { call: "t2".into(), file: "/tmp/x/tasks/a.output".into() }));
+}

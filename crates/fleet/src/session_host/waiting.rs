@@ -180,6 +180,8 @@ pub(crate) struct WaitingReads {
     offered: Vec<String>,
     /// The order it set on its asks with `order_waiting`.
     order: Vec<store::KeptWaitingPlace>,
+    /// The open sub project it orchestrates, read for its Goal met? card.
+    goal: Option<crate::feature_library::sub_projects::GoalAsk>,
 }
 
 impl WaitingReads {
@@ -255,6 +257,7 @@ pub(crate) fn waiting_reads(
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
         order: store.waiting_order(&session.id)?,
+        goal: crate::feature_library::sub_projects::goal_ask(store, &session.id)?,
     })
 }
 
@@ -301,6 +304,7 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }
 }
 
@@ -386,6 +390,7 @@ pub(crate) fn merged(
         create_refused: None,
         operator_read: None,
         artifact: None,
+        goal_met: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -420,6 +425,7 @@ pub(crate) fn merged(
             create_refused: None,
             operator_read: None,
             artifact: Some(one.artifact).filter(|named| !named.is_empty()),
+            goal_met: None,
         })
         .collect();
     items.extend(
@@ -480,6 +486,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: Some(one.artifact).filter(|named| !named.is_empty()),
+                    goal_met: None,
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -493,7 +500,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, clashes, ready, offered, order } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, clashes, ready, offered, order, goal } = reads;
         let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -593,6 +600,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: None,
+                    goal_met: None,
                 });
             }
         }
@@ -609,6 +617,9 @@ where
         };
         let agent_listed = items.iter().any(|one| one.source == WaitingSource::Agent);
         let reads_replies = self.reads_replies_on();
+        // One row for the Job while any Ready to try card is open. The card asks him itself, so a line of the reply
+        // that only points at it asks nothing more.
+        let try_card = crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed);
         // Nothing until the model is loaded and has read the reply, which publishes the Session again.
         let refused = |said: &str| {
             let model = self.language_model().model()?;
@@ -623,7 +634,8 @@ where
             }
             let model = self.language_model().model()?;
             let read = self.extract_reads().read_of(super::extracting::read, model, &session.id, said)?;
-            Some(if windows.is_empty() { read } else { read.beside_a_walk() })
+            let read = if windows.is_empty() { read } else { read.beside_a_walk() };
+            Some(if try_card.is_none() { read } else { read.beside_a_card() })
         };
         let seen = super::standing::Seen {
             running,
@@ -644,6 +656,7 @@ where
                 let line = self.reply_reads().asking_line(super::asks_model::SHIPPED, self.language_model().model(), &session.id, said);
                 // A walk already waiting on him asked for his approval; a line that only says what follows it asks nothing more.
                 line.filter(|line| windows.is_empty() || !super::asks::only_approving(line))
+                    .filter(|line| try_card.is_none() || !super::asks::only_at_the_card(line))
             },
             extracted: super::extracting::IN_FORCE.then_some(&extracted),
             // Only the first reply after the tell is read for a refusal of it.
@@ -687,6 +700,7 @@ where
                     create_refused: None,
                     operator_read: None,
                     artifact: None,
+                    goal_met: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
@@ -723,9 +737,8 @@ where
             held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
-            // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
-            // cards open then, so one offered later raises it again.
-            items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
+            // Answered on its cards. His dismissal covers the cards open then, so one offered later raises it again.
+            items.extend(try_card.clone());
             // A watch that ended not ours, until he ignores it or asks for a fix.
             items.extend(not_ours.iter().filter_map(crate::watches::not_ours_item).filter(|one| !dismissed.contains(&one.id)));
             // An act a lifecycle rule planned that is his to say first, while the Job is live.
@@ -737,6 +750,8 @@ where
                 items.extend(super::job_asks::job_ask_items(&shown));
                 // Which of two Jobs lands first, raised to him whether the Operator is on or off.
                 items.extend(super::clash_order::clash_items(&clashes, &session.id));
+                // Whether the goal of the sub project it orchestrates is met, once it said done or its Jobs are.
+                items.extend(goal.as_ref().and_then(|ask| crate::feature_library::sub_projects::goal_met_item(ask, done.as_deref())));
             }
             items.extend(rows.into_iter().filter_map(|row| match row {
                 SessionRow::Delivery { at, choice: None, .. } => Some(super::delivering::delivery_item(at)),
@@ -772,6 +787,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: None,
+                        goal_met: None,
                     })
                 }
                 // A draft that joined an artifact is asked for by the artifact.
@@ -805,6 +821,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: Some(format!("{DRAFT_PREFIX}{title}")),
+                        goal_met: None,
                     })
                 }
                 // Fleet's handoff card, while the Job is live to hand on.
@@ -832,6 +849,7 @@ where
                         create_refused: None,
                         operator_read: None,
                         artifact: None,
+                        goal_met: None,
                     })
                 }
                 _ => None,
@@ -1481,6 +1499,8 @@ where
             // A suggestion the Operator kept before its session is no longer offered a press.
             WaitingSource::OperatorSuggestion => Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "the Operator no longer keeps suggestions to press")),
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
+            // Fleet's, so the agent is told nothing: Agree folds the sub project away, Not yet keeps it open.
+            WaitingSource::GoalMet => self.goal_met_chosen(&id, &item.id, said.choice).await,
             // The close tells the agent; words alone are a message to it, as for a done.
             WaitingSource::Gate => match said.choice {
                 Some(choice) => self.gate_chosen(&id, &item.id, choice).await,
