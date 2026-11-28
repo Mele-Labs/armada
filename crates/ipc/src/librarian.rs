@@ -20,10 +20,12 @@ pub enum LibrarianPart {
     Glossary,
     SinceYouLooked,
     Gists,
+    /// One picture a feature, of the screen it is tied to, on the app running now.
+    Pictures,
 }
 
 impl LibrarianPart {
-    pub const ALL: [LibrarianPart; 9] = [
+    pub const ALL: [LibrarianPart; 10] = [
         LibrarianPart::FloorPlans,
         LibrarianPart::Links,
         LibrarianPart::Decisions,
@@ -33,6 +35,7 @@ impl LibrarianPart {
         LibrarianPart::Glossary,
         LibrarianPart::SinceYouLooked,
         LibrarianPart::Gists,
+        LibrarianPart::Pictures,
     ];
 
     /// The name the setting and the run record spell it by.
@@ -47,6 +50,7 @@ impl LibrarianPart {
             LibrarianPart::Glossary => "glossary",
             LibrarianPart::SinceYouLooked => "since_you_looked",
             LibrarianPart::Gists => "gists",
+            LibrarianPart::Pictures => "pictures",
         }
     }
 

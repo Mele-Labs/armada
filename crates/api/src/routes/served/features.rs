@@ -53,6 +53,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/write_sections",
     },
     Route {
+        operation: "add_feature_picture",
+        method: "POST",
+        path: "/features/pictures/add",
+    },
+    Route {
+        operation: "remove_feature_picture",
+        method: "POST",
+        path: "/features/pictures/remove",
+    },
+    Route {
+        operation: "get_feature_picture",
+        method: "GET",
+        path: "/features/picture",
+    },
+    Route {
         operation: "upsert_features",
         method: "POST",
         path: "/features/upsert",

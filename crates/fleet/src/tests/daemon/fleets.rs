@@ -233,6 +233,7 @@ pub fn fitted_over<V>(
             secrets: Arc::new(crate::tests::requesting::Held::default()),
         },
         metric_tokens: Arc::new(crate::tests::requesting::Held::default()),
+        capture: Arc::new(crate::tests::feature_pictures::Unseen),
     }
 }
 
