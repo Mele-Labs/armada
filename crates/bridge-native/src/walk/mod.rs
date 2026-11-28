@@ -25,6 +25,7 @@ pub mod project_filter;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
+pub mod sub_project_goal;
 pub mod run_commands;
 pub mod terminal;
 pub mod title_bar;
@@ -2387,6 +2388,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "project-filter",
         steps: &project_filter::STEPS,
+    },
+    Walk {
+        name: "sub-project-goal",
+        title: "A sub project asks its goal, heads the list with its orchestrator, and asks Goal met? with what landed",
+        screen: Screen::Jobs,
+        scenario: "sub-project-goal",
+        steps: &sub_project_goal::STEPS,
     },
     Walk {
         name: "native-move-job-to-project",

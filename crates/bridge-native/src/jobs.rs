@@ -165,6 +165,7 @@ fn view_label(scope: Scope, group: Group) -> String {
 mod asleep_mac;
 mod board;
 mod board_clashes;
+pub(crate) mod goal_met;
 mod leads;
 #[cfg(test)]
 mod leads_tests;
@@ -264,6 +265,8 @@ struct Row {
     aside: Option<SharedString>,
     /// The Job is drawn above already, under another heading: the keys pass this row by.
     again: bool,
+    /// The first row under a sub project's heading: the Job that coordinates it, marked with `tower-control`.
+    orchestrator: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -1044,6 +1047,7 @@ fn lines_led(
         ending: None,
         aside: None,
         again: false,
+        orchestrator: false,
     };
     fn under<'a>(
         parent: &str,
@@ -1061,15 +1065,22 @@ fn lines_led(
             under(child.id.as_str(), depth + 1, &on, held, row_of, lines);
         }
     }
-    // Each sub project of the listed Jobs heads them on top, in every grouping: its Jobs nested under it, as sub-Jobs are, and
-    // each still in its own group below. One with no Job listed is not drawn.
+    // Each sub project of the listed Jobs heads them on top, in every grouping, under its goal: its orchestrator first, then
+    // its Jobs nested under it, as sub-Jobs are, and each still in its own group below. One with no Job listed is not drawn,
+    // nor one his Agree folded away.
     let mut lines = Vec::new();
-    for sub in &leads.subs {
+    for sub in leads.subs.iter().filter(|sub| sub.ended_at.is_none()) {
         let members = leads.members(sub, &shown);
-        if members.is_empty() {
+        let orchestrator = leads::orchestrator_of(sub, &shown);
+        if members.is_empty() && orchestrator.is_none() {
             continue;
         }
-        lines.push(Line::Group(Head { name: sub.name.clone().into(), count: members.len(), stand: None, lead: Some(leads::Lead::SubProject { id: sub.id.clone() }) }));
+        lines.push(Line::Group(Head { name: leads::heading_of(sub), count: members.len(), stand: None, lead: Some(leads::Lead::SubProject { id: sub.id.clone() }) }));
+        if let Some(job) = orchestrator {
+            let mut row = row_of(job, 1, &[], members.is_empty());
+            row.orchestrator = true;
+            lines.push(Line::Job(row));
+        }
         let held: Vec<&SessionRecord> = members.iter().map(|(job, _)| *job).collect();
         let roots: Vec<&SessionRecord> = held.iter().copied().filter(|job| !starter_of(job).is_some_and(|id| held.iter().any(|one| one.id.as_str() == id))).collect();
         let from = lines.len();
@@ -1129,6 +1140,7 @@ fn lines_led(
                 ending: None,
                 aside: None,
                 again: false,
+                orchestrator: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -1159,6 +1171,10 @@ fn lines_led(
 
 /// The key of the No feature heading, by feature and by area.
 const NO_FEATURE: &str = "no-feature";
+
+/// The registry's mark for a sub project's orchestrator, on its row and on its board, and what its tooltip says.
+pub(crate) const ORCHESTRATOR_GLYPH: &str = "tower-control";
+pub(crate) const ORCHESTRATOR_SAID: &str = "Orchestrator: it coordinates this sub project";
 
 /// `lines` with each parent's sub-Jobs folded away where `folds` shuts it, and its row told what stands under
 /// it: a folded parent keeps their glyphs, one that needs him first, so folding hides no need. A parent drawn only
@@ -1656,6 +1672,7 @@ impl JobsList {
             this._removed = this.fleet.clone().map(|fleet| cx.subscribe(&fleet, |this, _, crate::fleet::Removed(ids), cx| this.gone(ids, cx)));
         } else {
             cx.set_global(MockList(cx.weak_entity()));
+            this.leads.subs = crate::mock::sub_projects();
         }
         // A Mac that falls asleep takes its Jobs to the foot of the list, and one that wakes gives them back.
         crate::pairing::observe(cx, |this: &mut Self, cx| this.follow_macs(cx)).detach();
@@ -2518,6 +2535,15 @@ impl JobsList {
                 Some(id) => self.pick_project(&id, None, window, cx),
                 None => cx.propagate(),
             }
+        } else if act.is("turn_into_orchestrator") {
+            // `⇧O` on the running Job under the keys, as the menu's Turn into orchestrator.
+            match self.focused.clone().filter(|id| self.can_orchestrate(id)) {
+                Some(id) => {
+                    let at = self.row_under(&id);
+                    self.open_goal_sheet(id, at, window, cx);
+                }
+                None => cx.propagate(),
+            }
         } else if act.is("deck_select") {
             // Space or `x` selects the row under the keys, or takes it out of the selection.
             match (self.focused.clone().filter(|id| self.selectable(id)), self.focused_shelf()) {
@@ -2863,6 +2889,10 @@ impl JobsList {
         }
         // Start a sub project, after Move to project: it groups the whole selection where this row is in it.
         entries.insert(after, Entry::Item { id: "sub_project", label: "Start a sub project".into(), icon: Some("boxes"), danger: false, key: Some("\u{21e7}S".into()), off: None });
+        // Turn into orchestrator, after it: a running Job that coordinates no sub project yet.
+        if self.can_orchestrate(&id) {
+            entries.insert(after + 1, Entry::Item { id: "orchestrate", label: "Turn into orchestrator".into(), icon: Some(ORCHESTRATOR_GLYPH), danger: false, key: Some("\u{21e7}O".into()), off: off.clone() });
+        }
         // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         let (any_parents, _, all_folded) = self.fold_facts();
         let row_folded = row.kids.as_ref().map(|kids| kids.folded);
@@ -2900,6 +2930,10 @@ impl JobsList {
                         let ids = this.reached_by(&job);
                         this.open_name_sheet(ids, Some(at), window, cx);
                     });
+                }
+                "orchestrate" => {
+                    let job = job.clone();
+                    cx.defer_in(window, move |this, window, cx| this.open_goal_sheet(job, Some(at), window, cx));
                 }
                 "judge" => this.judge_job(&job, window, cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
@@ -3570,6 +3604,17 @@ impl JobsList {
                             .flex_none()
                             .child(svg().path(icon_path("link")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE)))
                             .tooltip(tip(said))
+                    }))
+                    .children(row.orchestrator.then(|| {
+                        labelled(
+                            div()
+                                .id(SharedString::from(format!("orchestrator-{}", row.id)))
+                                .flex_none()
+                                .child(svg().path(icon_path(ORCHESTRATOR_GLYPH)).size(mark_glyph).text_color(look.color(token::ACCENT)))
+                                .tooltip(tip(ORCHESTRATOR_SAID.into())),
+                            Role::Image,
+                            ORCHESTRATOR_SAID,
+                        )
                     }))
                     .child(
                         div()

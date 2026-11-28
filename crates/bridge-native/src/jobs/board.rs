@@ -1,6 +1,8 @@
 //! A feature's or a sub project's board, in the right column where a Job opens: its heading pressed, or Enter on it. Its title,
 //! what it is, the sub projects that hold a feature, and What holds what: a row for each Job in it saying what that Job waits on
-//! now, as its record says it, with Open. A sub project's board has Ungroup. ↑ and ↓ move between them, Enter presses, Esc leaves.
+//! now, as its record says it, with Open. A sub project's board is headed by its goal, its orchestrator's row first, and has
+//! Ungroup; while the orchestrator asks Goal met?, its card stands above the rows with what landed, Agree and Not yet. ↑ and ↓
+//! move between them, Enter presses, Esc leaves.
 
 use super::leads::Lead;
 use super::*;
@@ -16,6 +18,18 @@ struct Holding {
     holds: SharedString,
     /// The why of a clash this Job waits on, for its second line's tooltip.
     why: SharedString,
+    /// The sub project's orchestrator, its first row.
+    orchestrator: bool,
+}
+
+/// The Goal met? card the orchestrator's item stands for: whose item, the goal, and the pull requests that landed.
+struct GoalCard {
+    sub: String,
+    job: String,
+    item: String,
+    goal: SharedString,
+    landed: Vec<(u64, SharedString)>,
+    options: Vec<SharedString>,
 }
 
 /// What stands in the board's place of the Jobs: them, grey shapes while the feature's library is not held yet, or a line
@@ -34,6 +48,7 @@ struct Read {
     chips: Vec<SharedString>,
     rows: Vec<Holding>,
     ungroup: bool,
+    goal: Option<GoalCard>,
     /// A feature's clashes among its Jobs, under its rows.
     clashes: Vec<super::board_clashes::Clash>,
 }
@@ -93,6 +108,7 @@ impl LeadBoard {
                 state,
                 holds: holds.into(),
                 why: why.into(),
+                orchestrator: false,
             }
         };
         match &self.lead {
@@ -100,37 +116,74 @@ impl LeadBoard {
                 let held = list.leads.libraries.iter().any(|library| library.project == *project);
                 let Some((feature, area)) = list.leads.feature(project, slug) else {
                     let (stand, line) = if held { (Fill::Gone, format!("No feature {} in this project now", self.title)) } else { (Fill::Loading, String::new()) };
-                    return Some(Read { stand, title: self.title.clone(), line: line.into(), chips: Vec::new(), rows: Vec::new(), ungroup: false, clashes: Vec::new() });
+                    return Some(Read { stand, title: self.title.clone(), line: line.into(), chips: Vec::new(), rows: Vec::new(), ungroup: false, goal: None, clashes: Vec::new() });
                 };
-                let chips = list.leads.subs.iter().filter(|sub| sub.project == *project && sub.features.iter().any(|one| one == slug)).map(|sub| sub.name.clone().into()).collect();
+                let chips = list.leads.subs.iter().filter(|sub| sub.project == *project && sub.features.iter().any(|one| one == slug)).map(leads::heading_of).collect();
                 let jobs: Vec<&SessionRecord> = feature.jobs_now.iter().filter_map(|one| live.iter().find(|job| job.id == one.session_id).copied()).collect();
                 let clashes = super::board_clashes::clashes_of(&jobs);
                 let rows = jobs.iter().map(|job| holding(job, &clashes)).collect();
-                Some(Read { stand: Fill::Rows, title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false, clashes })
+                Some(Read { stand: Fill::Rows, title: feature.title.clone().into(), line: format!("Feature \u{b7} {area}").into(), chips, rows, ungroup: false, goal: None, clashes })
             }
             Lead::SubProject { id } => {
                 let sub = list.leads.subs.iter().find(|sub| sub.id == *id)?;
                 let titles = list.leads.feature_titles(sub, &list.jobs);
                 let line = if titles.is_empty() { "Sub project".to_string() } else { format!("Sub project \u{b7} {}", titles.join(", ")) };
-                let rows = list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job, &[])).collect();
-                Some(Read { stand: Fill::Rows, title: sub.name.clone().into(), line: line.into(), chips: Vec::new(), rows, ungroup: true, clashes: Vec::new() })
+                let lead = leads::orchestrator_of(sub, &live).map(|job| Holding { orchestrator: true, ..holding(job, &[]) });
+                let rows = lead.into_iter().chain(list.leads.members(sub, &live).into_iter().map(|(job, _)| holding(job, &[]))).collect();
+                let goal = leads::goal_met_of(sub, &list.jobs).map(|(job, item, met)| GoalCard {
+                    sub: sub.id.clone(),
+                    job: job.id.as_str().to_string(),
+                    item: item.id.clone(),
+                    goal: met.goal.clone().into(),
+                    landed: met.landed.iter().map(|pull| (pull.number, pull.title.clone().into())).collect(),
+                    options: item.options.iter().map(|option| option.label.clone().into()).collect(),
+                });
+                Some(Read { stand: Fill::Rows, title: leads::heading_of(sub), line: line.into(), chips: Vec::new(), rows, ungroup: true, goal, clashes: Vec::new() })
             }
             Lead::Area | Lead::NoFeature => None,
         }
     }
 
-    /// Press the stop at `at`: a row's Open opens its Job, the last stop on a sub project's board is Ungroup.
+    /// Press the stop at `at`: a row's Open opens its Job, then the Goal met? card's answers, and the last stop on a sub
+    /// project's board is Ungroup.
     fn press(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(read) = self.read(cx) else { return };
         let Some(list) = self.list.upgrade() else { return };
+        let answers = read.goal.as_ref().map_or(0, |goal| goal.options.len());
         match read.rows.get(at) {
             Some(row) => {
                 let id = row.id.clone();
                 list.update(cx, |list, cx| list.open(id, cx));
             }
+            None if at - read.rows.len() < answers => self.answer(at - read.rows.len(), window, cx),
             None if read.ungroup => self.ungroup(window, cx),
             None => {}
         }
+    }
+
+    /// Agree or Not yet on the Goal met? card: Agree folds the sub project away and the keys go back to the list; Not yet puts
+    /// the card away. A refusal is said on the board.
+    fn answer(&mut self, choice: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(goal) = self.read(cx).and_then(|read| read.goal) else { return };
+        let (Some(list), false) = (self.list.upgrade(), self.sending) else { return };
+        let Ok(choice) = u32::try_from(choice) else { return };
+        self.sending = true;
+        self.refused = None;
+        let sent = list.update(cx, |list, cx| list.answer_goal(&goal.sub, &goal.job, &goal.item, choice, cx));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = sent.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.sending = false;
+                match answer {
+                    Ok(()) if choice == 0 => list.update(cx, |list, cx| list.close_board(window, cx)),
+                    Ok(()) => {}
+                    Err(why) => this.refused = Some(why.into()),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
     }
 
     /// Ungroup: Fleet drops the sub project, its heading leaves and the keys go back to the list. A refusal is said on the board.
@@ -159,7 +212,7 @@ impl LeadBoard {
         if event.keystroke.modifiers.modified() {
             return;
         }
-        let (rows, stops) = self.read(cx).map_or((0, 0), |read| (read.rows.len(), read.rows.len() + usize::from(read.ungroup)));
+        let (rows, stops) = self.read(cx).map_or((0, 0), |read| (read.rows.len(), stops_of(&read)));
         match event.keystroke.key.as_str() {
             "down" | "j" => self.cursor = (self.cursor + 1).min(stops.saturating_sub(1)),
             "up" | "k" => self.cursor = self.cursor.saturating_sub(1),
@@ -186,8 +239,9 @@ impl Render for LeadBoard {
         let Some(read) = self.read(cx) else { return div().size_full().into_any_element() };
         let keyed = self.focus.is_focused(window);
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
-        let cursor = self.cursor.min((read.rows.len() + usize::from(read.ungroup)).saturating_sub(1));
+        let cursor = self.cursor.min(stops_of(&read).saturating_sub(1));
         let rows = read.rows.len();
+        let answers = read.goal.as_ref().map_or(0, |goal| goal.options.len());
         let chips = (!read.chips.is_empty()).then(|| {
             div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(read.chips.iter().enumerate().map(|(at, name)| {
                 labelled(crate::parts::chip::chip(look, ("board-sub", at), look.color(token::ACCENT), Some("boxes"), name.clone()), Role::Label, format!("In {name}"))
@@ -196,7 +250,7 @@ impl Render for LeadBoard {
         let ungroup = read.ungroup.then(|| {
             labelled(
                 button(look, "board-ungroup", Kind::Secondary, None, "Ungroup", self.sending)
-                    .when(keyed && cursor == rows, |button| button.border_color(ring))
+                    .when(keyed && cursor == rows + answers, |button| button.border_color(ring))
                     .when(!self.sending, |button| button.on_click(cx.listener(|this, _, window, cx| this.ungroup(window, cx)))),
                 Role::Button,
                 "Ungroup",
@@ -238,7 +292,25 @@ impl Render for LeadBoard {
                             .flex()
                             .flex_col()
                             .gap(look.length(token::SPACE_1))
-                            .child(div().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(row.title.clone()))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .flex()
+                                    .items_center()
+                                    .gap(look.length(token::SPACE_2))
+                                    .children(row.orchestrator.then(|| {
+                                        labelled(
+                                            div()
+                                                .id(("board-orchestrator", at))
+                                                .flex_none()
+                                                .child(svg().path(icon_path(super::ORCHESTRATOR_GLYPH)).size(look.length(token::SPACE_4)).text_color(look.color(token::ACCENT)))
+                                                .tooltip(|window, cx| gpui_component::tooltip::Tooltip::new(super::ORCHESTRATOR_SAID).build(window, cx)),
+                                            Role::Image,
+                                            super::ORCHESTRATOR_SAID,
+                                        )
+                                    }))
+                                    .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(row.title.clone())),
+                            )
                             .child(
                                 div()
                                     .id(("board-holds", at))
@@ -253,6 +325,18 @@ impl Render for LeadBoard {
                 Role::Row,
                 format!("{}, {}", row.title, row.holds),
             )
+        });
+        let goal_card = read.goal.as_ref().map(|goal| {
+            let answers = goal.options.iter().enumerate().map(|(at, label)| {
+                labelled(
+                    button(look, ("board-goal-answer", at), Kind::Secondary, None, label.clone(), self.sending)
+                        .when(keyed && cursor == rows + at, |button| button.border_color(ring))
+                        .when(!self.sending, |button| button.on_click(cx.listener(move |this, _, window, cx| this.answer(at, window, cx)))),
+                    Role::Button,
+                    label.clone(),
+                )
+            });
+            super::goal_met::card(look, "board-goal-met", &goal.goal, &goal.landed, div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(answers))
         });
         let (gone, loading) = (matches!(read.stand, Fill::Gone), matches!(read.stand, Fill::Loading));
         // Grey shapes where the rows will be, until the library is read: the width of a title and of what it waits on.
@@ -325,10 +409,16 @@ impl Render for LeadBoard {
                 )
                 .children(ungroup.map(|button| div().flex_none().flex().child(button)))
                 .children(refusal)
+                .children(goal_card)
                 .children(card),
             Role::Region,
             read.title,
         )
         .into_any_element()
     }
+}
+
+/// How many stops the keys move through: each row's Open, the Goal met? card's answers, then Ungroup.
+fn stops_of(read: &Read) -> usize {
+    read.rows.len() + read.goal.as_ref().map_or(0, |goal| goal.options.len()) + usize::from(read.ungroup)
 }

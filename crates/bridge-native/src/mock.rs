@@ -85,6 +85,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, Audit the docs index the orchestrator of a sub project of two of them, asking Goal met? (`sub_projects`).
+        SUB_PROJECT_GOAL => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, the first Job's two questions answered from the review sheet (`asks_answered`).
         "asks-answered" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
@@ -392,6 +394,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "review-asks" {
         review_asks_ages(&mut sessions);
     }
+    if scenario == SUB_PROJECT_GOAL {
+        orchestrated(&mut sessions)?;
+    }
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
@@ -415,6 +420,46 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         asks_answered(&mut sessions)?;
     }
     Ok(sessions)
+}
+
+/// The sub project walk's scenario.
+pub const SUB_PROJECT_GOAL: &str = "sub-project-goal";
+
+/// The walk's sub project: its id, its goal, its orchestrator and the two Jobs he picked.
+const SUB_ID: &str = "mock-sub-goal";
+pub const SUB_GOAL: &str = "Bridge draws its thread rows from Fleet";
+const SUB_ORCHESTRATOR: &str = "mock-04";
+const SUB_JOBS: [&str; 2] = ["mock-02", "mock-03"];
+
+/// The sub projects Fleet keeps, as `GET /sub_projects` answers: on the sub project walk one open, toward its goal, with
+/// Audit the docs index as its orchestrator. Every other scenario keeps none.
+pub fn sub_projects() -> Vec<ipc::SubProject> {
+    if !scenario_is(SUB_PROJECT_GOAL) {
+        return Vec::new();
+    }
+    vec![ipc::SubProject {
+        id: SUB_ID.into(),
+        project: String::new(),
+        name: SUB_GOAL.into(),
+        goal: SUB_GOAL.into(),
+        jobs: SUB_JOBS.iter().map(|id| ipc::SessionId::carried(*id)).collect(),
+        features: Vec::new(),
+        orchestrator: Some(ipc::SessionId::carried(SUB_ORCHESTRATOR)),
+        started_at: ipc::Instant::carried("2026-11-27T09:12:00.000Z"),
+        ended_at: None,
+    }]
+}
+
+/// The orchestrator titled with the goal, as Fleet titles it, and asking Goal met? with the two pull requests that landed.
+fn orchestrated(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == SUB_ORCHESTRATOR) else { return Ok(()) };
+    one.title = Some(SUB_GOAL.into());
+    let wire = format!(
+        r#"{{"id":"goal_met:{SUB_ID}","text":"Goal met?","since":"2026-11-27T16:40:00Z","source":"goal_met","act":{{"kind":"answer","target":"goal_met:{SUB_ID}"}},"options":[{{"label":"Agree"}},{{"label":"Not yet"}}],"goal_met":{{"sub_project":"{SUB_ID}","goal":"{SUB_GOAL}","landed":[{{"number":4102,"title":"Work out thread rows in Fleet"}},{{"number":4111,"title":"Draw thread rows from Fleet's view"}}]}}}}"#
+    );
+    one.waiting_for.insert(0, ipc::decode::<WaitingItem>("goal met item", wire.as_bytes()).map_err(|why| why.to_string())?);
+    one.mark = Some(ipc::JobMark { state: ipc::JobState::Waiting, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
+    Ok(())
 }
 
 /// The first Job's open card answered from the sheet: its two items gone, and his answers kept as Fleet keeps them.
@@ -753,7 +798,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" | "asks-answered" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" | "asks-answered" | SUB_PROJECT_GOAL => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "review-asks" => include_bytes!("../fixtures/review-asks-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),

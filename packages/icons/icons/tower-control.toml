@@ -1,0 +1,7 @@
+[icons.tower-control]
+  means = "A control tower: a glazed cab on a mast, the place that sees every craft and says who lands when"
+  group = "Jobs list"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A sub project's orchestrator, the Job that coordinates its Jobs toward his goal: its row under the sub project's heading, its row on the sub project's board, the Goal sheet it opens and the row act Turn into orchestrator. Never the Operator, which is `bot`, never the Commander, which is `compass`, and never a sub project itself, which is `boxes`."
+  notes = "Proposed 28 Nov 2026 with the walk `sub-project-goal`. In the accent, as the sub project's heading is. Tooltip `Orchestrator: it coordinates this sub project`. Refused: `network`, reserved to the Canvas toggle; `workflow`, the Workflows surface; `compass`, the Commander; `radar`, what waits behind a call; `crosshair`, the battlefield's locate button."

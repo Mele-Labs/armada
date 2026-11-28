@@ -485,7 +485,18 @@ shortcut = "S"
 scope = "list"
 destructive = false
 confirms = false
-notes = "Groups the Jobs under the keys under a name he gives: the row's own Job, or every Job selected where the row is among them. Opens the naming sheet in the project picker's place, with the features those Jobs write to now under Comes with; Enter sends Fleet's `start_sub_project`, Esc leaves. The sub project heads the list in every grouping, and a live Job that writes to one of its features joins it there. Native only. Shifted as Move to project is: the Jobs list's bare keys are its own and carry no row, so a row act takes a capital. Taken 26 Nov 2026."
+notes = "Groups the Jobs under the keys toward a goal he gives: the row's own Job, or every Job selected where the row is among them. Opens the sheet in the project picker's place, its one box Goal, which names the sub project too, with the features those Jobs write to now under Comes with; Enter sends Fleet's `start_sub_project` with the goal, Esc leaves. The sub project heads the list in every grouping, and a live Job that writes to one of its features joins it there. Native only. Shifted as Move to project is: the Jobs list's bare keys are its own and carry no row, so a row act takes a capital. Taken 26 Nov 2026."
+
+[actions.turn_into_orchestrator]
+kind = "Action"
+tier = "Contextual"
+verb = "Turn into orchestrator"
+icon = "tower-control"
+shortcut = "O"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Makes the running Job under the keys the orchestrator of a new sub project toward a goal he gives: Fleet's `turn_into_orchestrator`, which moves the Job's own work to a new first Job under it. Opens the sheet Start a sub project opens, with its one Goal box; Enter sends, Esc leaves. Offered on a live Job that coordinates no open sub project. Native only. Shifted as Start a sub project is. Taken 28 Nov 2026."
 
 [actions.deck_select]
 kind = "Action"

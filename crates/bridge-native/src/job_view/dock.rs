@@ -1154,6 +1154,10 @@ impl JobView {
                 if let Some(card) = (row.source == WaitingSource::Handoff).then(|| self.handoff_in_needs(id, row, look, cx)).flatten() {
                     return card;
                 }
+                // A sub project's Goal met? is its card, as its board draws it: the goal, what landed, Agree and Not yet.
+                if let Some(card) = (row.source == WaitingSource::GoalMet).then(|| self.goal_met_in_needs(id, row, look, cx)).flatten() {
+                    return card;
+                }
                 let command = match &row.act {
                     NeedsYouAct::Run { command } | NeedsYouAct::Restart { command, .. } | NeedsYouAct::Steps { command: Some(command), .. } => Some(command),
                     _ => None,
@@ -1178,6 +1182,18 @@ impl JobView {
                 self.list_row(id, &key, icon, said, row.text.clone(), press, Some(row), look, cx)
             }
         }
+    }
+
+    /// The Goal met? card for a row of Fleet's, from the item the Job's record holds: its options pressed answer it.
+    fn goal_met_in_needs(&self, id: &SharedString, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let met = self.record(id, cx)?.waiting_for.iter().find(|item| item.id == row.id)?.goal_met.as_ref()?;
+        let landed: Vec<(u64, SharedString)> = met.landed.iter().map(|pull| (pull.number, pull.title.clone().into())).collect();
+        let answers = row_options(row).iter().enumerate().map(|(at, option)| {
+            let (item, word) = (row.id.clone(), SharedString::from(option.label.clone()));
+            labelled(press(format!("goal-answer:{}:{at}", row.id), word.clone(), None, None, Weight::Plain, look).on_click(cx.listener(move |this, _, window, cx| this.answer_row(&item, at, window, cx))), Role::Button, word)
+        });
+        let answers = div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(answers);
+        Some(crate::jobs::goal_met::card(look, "needs-goal-met", &met.goal.clone().into(), &landed, answers))
     }
 
     /// What a press on a row does, as Fleet's `act` says.
@@ -1750,6 +1766,10 @@ impl JobView {
     /// A button pressed: the option goes to Fleet as the whole pick and the row goes at once.
     pub(super) fn answer_row(&mut self, item: &str, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        // A walk's Goal met? is settled in the list it plays on, as Fleet would: Agree folds the sub project away.
+        if item.starts_with("goal_met:") {
+            crate::jobs::JobsList::mock_goal_answered(item, &id, u32::try_from(at).unwrap_or(u32::MAX), cx);
+        }
         let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None, extras: Default::default() });
         self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }

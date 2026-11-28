@@ -339,8 +339,9 @@ The pull requests are those the Reviews lists name, so the screen shows none unt
 ## Sub projects
 
 A sub project is a group of Jobs the owner picked in the Jobs list and named, toward a goal in his words.
-He picks them with ⌘-click or a right click and Start a sub project, and gives it a name and a goal.
-The Jobs list draws it as a heading on top of the list, with its Jobs nested under it.
+He picks them with ⌘-click or a right click and Start a sub project, and gives it a goal, whose first line names it too.
+The Jobs list draws it as a heading of its goal on top of the list, its orchestrator the first row, with its Jobs nested under it.
+A right click on a running Job offers Turn into orchestrator, which asks the goal in the same sheet.
 
 `start_sub_project` keeps his name and goal, trimmed, and the Jobs in his order.
 It also keeps the slugs of the features whose `jobs_now` holds one of those Jobs at the press, read as `list_features` reads them.

@@ -95,7 +95,7 @@ impl Leads {
         let mut out: Vec<(&'a SessionRecord, Option<String>)> =
             sub.jobs.iter().filter_map(|id| listed.iter().find(|job| job.id == *id)).map(|job| (*job, None)).collect();
         for job in listed.iter().filter(|job| job.state == SessionState::Live) {
-            if out.iter().any(|(held, _)| held.id == job.id) {
+            if out.iter().any(|(held, _)| held.id == job.id) || sub.orchestrator.as_ref() == Some(&job.id) {
                 continue;
             }
             if let Some(feature) = job.features.iter().find(|feature| feature.project == sub.project && sub.features.contains(&feature.slug)) {
@@ -110,6 +110,31 @@ impl Leads {
         let written = |slug: &str| jobs.iter().flat_map(|job| &job.features).find(|feature| feature.project == sub.project && feature.slug == slug).map(|feature| feature.title.clone());
         sub.features.iter().filter_map(|slug| self.feature(&sub.project, slug).map(|(feature, _)| feature.title.clone()).or_else(|| written(slug))).collect()
     }
+}
+
+/// A sub project's orchestrator among `listed`, where Fleet started one and it is listed.
+pub(super) fn orchestrator_of<'a>(sub: &ipc::SubProject, listed: &[&'a SessionRecord]) -> Option<&'a SessionRecord> {
+    let id = sub.orchestrator.as_ref()?;
+    listed.iter().copied().find(|job| job.id == *id)
+}
+
+/// A sub project's heading: his goal, else its name where it was kept before goals had words of their own.
+pub(super) fn heading_of(sub: &ipc::SubProject) -> SharedString {
+    if sub.goal.trim().is_empty() { sub.name.clone() } else { sub.goal.clone() }.into()
+}
+
+/// What a sub project is called: his goal's first line. There is no name box, so the goal names it.
+fn name_of(goal: &str) -> String {
+    goal.trim().lines().next().unwrap_or_default().trim().to_string()
+}
+
+/// The Goal met? item a sub project's orchestrator holds now, with what it carries, where it holds one.
+pub(super) fn goal_met_of<'a>(sub: &ipc::SubProject, jobs: &'a [SessionRecord]) -> Option<(&'a SessionRecord, &'a ipc::WaitingItem, &'a ipc::GoalMet)> {
+    let orchestrator = jobs.iter().find(|job| sub.orchestrator.as_ref() == Some(&job.id))?;
+    orchestrator.waiting_for.iter().find_map(|item| {
+        let met = item.goal_met.as_ref().filter(|met| item.source == WaitingSource::GoalMet && met.sub_project == sub.id)?;
+        Some((orchestrator, item, met))
+    })
 }
 
 /// The muted line of a joined row: the feature that brought it in.
@@ -253,13 +278,30 @@ impl JobsList {
         }
     }
 
-    /// The naming sheet for these Jobs, under the row as the project picker opens, or in the window's upper middle where the row
-    /// is not drawn.
+    /// The sheet that asks the goal for these Jobs, under the row as the project picker opens, or in the window's upper middle
+    /// where the row is not drawn.
     pub(crate) fn open_name_sheet(&mut self, ids: Vec<SharedString>, at: Option<Point<Pixels>>, window: &mut Window, cx: &mut Context<Self>) {
         let ids: Vec<SharedString> = ids.into_iter().filter(|id| self.record(id).is_some_and(|job| job.state == SessionState::Live)).collect();
         if ids.is_empty() {
             return;
         }
+        self.open_sheet(name_sheet::For::Start(ids), at, window, cx);
+    }
+
+    /// Whether a Job can be turned into an orchestrator: it runs, and coordinates no open sub project already.
+    pub(super) fn can_orchestrate(&self, id: &str) -> bool {
+        let live = self.record(id).is_some_and(|job| job.state == SessionState::Live && !crate::move_to_mac::moved(job));
+        live && !self.leads.subs.iter().any(|sub| sub.ended_at.is_none() && sub.orchestrator.as_ref().is_some_and(|one| one.as_str() == id))
+    }
+
+    /// The same sheet for Turn into orchestrator: one Job, and the goal it is to coordinate a sub project toward.
+    pub(crate) fn open_goal_sheet(&mut self, id: SharedString, at: Option<Point<Pixels>>, window: &mut Window, cx: &mut Context<Self>) {
+        if self.can_orchestrate(&id) {
+            self.open_sheet(name_sheet::For::Turn(id), at, window, cx);
+        }
+    }
+
+    fn open_sheet(&mut self, purpose: name_sheet::For, at: Option<Point<Pixels>>, window: &mut Window, cx: &mut Context<Self>) {
         let (at, corner) = match at {
             Some(at) => (at, Anchor::TopLeft),
             None => {
@@ -269,7 +311,7 @@ impl JobsList {
         };
         self.card = None;
         let list = cx.weak_entity();
-        let sheet = cx.new(|cx| name_sheet::NameSheet::new(list, ids, at, corner, window, cx));
+        let sheet = cx.new(|cx| name_sheet::NameSheet::new(list, purpose, at, corner, window, cx));
         let dismissed = cx.subscribe_in(&sheet, window, |this, shut, _: &DismissEvent, window, cx| {
             if this.naming.as_ref().is_some_and(|(open, _)| open == shut) {
                 this.naming = None;
@@ -287,17 +329,22 @@ impl JobsList {
         self.naming.as_ref().map(|(sheet, _)| sheet.clone())
     }
 
-    /// What Start it sends: the project of the first Job, the name, and the Jobs in his order.
-    pub(super) fn sub_project_body(&self, ids: &[SharedString], name: &str) -> ipc::StartSubProject {
-        let project = ids.iter().filter_map(|id| self.record(id)).find_map(|job| self.names.project_of(job)).unwrap_or_default().to_string();
-        // The sheet asks no goal yet, so the name stands for it.
-        ipc::StartSubProject { project, name: name.trim().to_string(), goal: name.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
+    /// What Start it sends: the project of the first Job, the goal in his words and the name it gives, and the Jobs in his order.
+    pub(super) fn sub_project_body(&self, ids: &[SharedString], goal: &str) -> ipc::StartSubProject {
+        let project = self.project_of_ids(ids);
+        ipc::StartSubProject { project, name: name_of(goal), goal: goal.trim().to_string(), jobs: ids.iter().map(|id| ipc::SessionId::carried(id.to_string())).collect() }
     }
 
-    /// Start a sub project of these Jobs. A live Fleet keeps it and the heading stands on its answer; a refusal comes back in
-    /// Fleet's words. On mock data the list keeps it itself, as a walk's stand-in for Fleet's yes. The selection is let go.
-    pub(crate) fn start_sub_project(&mut self, ids: &[SharedString], name: &str, cx: &mut Context<Self>) -> Task<Result<(), String>> {
-        let body = self.sub_project_body(ids, name);
+    /// The project of the first of these Jobs that stands in one, by id, else none.
+    fn project_of_ids(&self, ids: &[SharedString]) -> String {
+        ids.iter().filter_map(|id| self.record(id)).find_map(|job| self.names.project_of(job)).unwrap_or_default().to_string()
+    }
+
+    /// Start a sub project of these Jobs toward his goal. A live Fleet keeps it and the heading stands on its answer; a refusal
+    /// comes back in Fleet's words. On mock data the list keeps it itself, as a walk's stand-in for Fleet's yes. The selection is
+    /// let go.
+    pub(crate) fn start_sub_project(&mut self, ids: &[SharedString], goal: &str, cx: &mut Context<Self>) -> Task<Result<(), String>> {
+        let body = self.sub_project_body(ids, goal);
         if self.fleet.is_none() {
             let features = shelves(&self.jobs).into_iter().filter(|shelf| shelf.project == body.project && body.jobs.iter().any(|id| shelf.jobs.contains(&id.as_str()))).map(|shelf| shelf.slug.to_string()).collect();
             let sub = ipc::SubProject {
@@ -327,6 +374,83 @@ impl JobsList {
             }
             Err(why) => Err(why.said),
         })
+    }
+
+    /// Turn into orchestrator: this running Job coordinates a new sub project toward his goal, and Fleet moves its own work to a
+    /// new first Job under it. A refusal comes back in Fleet's words. On mock data the list keeps a sub project of none but it.
+    pub(crate) fn turn_into_orchestrator(&mut self, id: &SharedString, goal: &str, cx: &mut Context<Self>) -> Task<Result<(), String>> {
+        let body = ipc::TurnIntoOrchestrator { project: self.project_of_ids(std::slice::from_ref(id)), session_id: ipc::SessionId::carried(id.to_string()), goal: goal.trim().to_string() };
+        if self.fleet.is_none() {
+            let sub = ipc::SubProject {
+                id: format!("mock-sub-{}", self.leads.subs.len() + 1),
+                project: body.project,
+                name: name_of(&body.goal),
+                goal: body.goal,
+                jobs: Vec::new(),
+                features: Vec::new(),
+                orchestrator: Some(body.session_id),
+                started_at: ipc::Instant::carried(chrono::Utc::now().to_rfc3339()),
+                ended_at: None,
+            };
+            self.hold_sub(sub, cx);
+            return Task::ready(Ok(()));
+        }
+        let Some(port) = self.port(cx) else { return Task::ready(Err("Fleet is not connected".into())) };
+        let sent = crate::settings::wire::request::<ipc::SubProject>(port, crate::settings::wire::Ask::Post(ORCHESTRATOR.into(), crate::settings::wire::body(&body)), "SubProject", cx);
+        cx.spawn(async move |this, cx| match sent.await {
+            Ok(sub) => {
+                let _ = this.update(cx, |this, cx| this.hold_sub(sub, cx));
+                Ok(())
+            }
+            Err(why) => Err(why.said),
+        })
+    }
+
+    /// Agree (choice 0) or Not yet (1) on a sub project's Goal met? card: `answer_waiting` on its orchestrator's item. Agree folds
+    /// the sub project away at once. A refusal comes back in Fleet's words. On mock data the list settles it itself.
+    pub(crate) fn answer_goal(&mut self, sub: &str, job: &str, item: &str, choice: u32, cx: &mut Context<Self>) -> Task<Result<(), String>> {
+        if self.fleet.is_none() {
+            self.goal_answered(sub, job, item, choice, cx);
+            return Task::ready(Ok(()));
+        }
+        let Some(port) = self.port(cx) else { return Task::ready(Err("Fleet is not connected".into())) };
+        let answer = ipc::AnswerWaiting { session_id: ipc::SessionId::carried(job), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() };
+        let body = crate::settings::wire::body(&answer);
+        let sent = cx.background_executor().spawn(async move {
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+            runtime.block_on(crate::transport::post(port, ANSWER, body))
+        });
+        let (sub, job, item) = (sub.to_string(), job.to_string(), item.to_string());
+        cx.spawn(async move |this, cx| {
+            match sent.await {
+                Ok((status, _)) if (200..300).contains(&status) => {}
+                Ok((status, bytes)) => return Err(crate::refusal::Refusal::read("POST", ANSWER, status, &bytes).to_string()),
+                Err(why) => return Err(why),
+            }
+            let _ = this.update(cx, |this, cx| this.goal_answered(&sub, &job, &item, choice, cx));
+            Ok(())
+        })
+    }
+
+    /// A Goal met? answer taken: the card goes from the orchestrator's list, and on Agree the sub project folds away, ahead of
+    /// Fleet's next word.
+    pub(crate) fn goal_answered(&mut self, sub: &str, job: &str, item: &str, choice: u32, cx: &mut Context<Self>) {
+        if let Some(record) = self.jobs.iter_mut().find(|one| one.id.as_str() == job) {
+            record.waiting_for.retain(|one| one.id != item);
+        }
+        if choice == 0 {
+            self.leads.subs.retain(|held| held.id != sub);
+        }
+        self.relist(cx);
+        // The board reads the orchestrator's items, which the lines do not carry.
+        cx.notify();
+    }
+
+    /// A walk's Goal met? answered from the orchestrator's own Needs you: the list the walk plays on settles it as Fleet would.
+    pub(crate) fn mock_goal_answered(item: &str, job: &str, choice: u32, cx: &mut App) {
+        let Some(list) = cx.try_global::<MockList>().and_then(|held| held.0.upgrade()) else { return };
+        let Some(sub) = item.strip_prefix("goal_met:").map(str::to_string) else { return };
+        list.update(cx, |list, cx| list.goal_answered(&sub, job, item, choice, cx));
     }
 
     /// A sub project kept: it heads its Jobs at once, ahead of the next read.
@@ -435,3 +559,9 @@ impl JobsList {
 
 /// `ungroup_sub_project`'s route.
 const UNGROUP: &str = "/sub_projects/ungroup";
+
+/// `turn_into_orchestrator`'s route.
+const ORCHESTRATOR: &str = "/sub_projects/orchestrator";
+
+/// `answer_waiting`'s route.
+const ANSWER: &str = "/sessions/waiting/answer";
