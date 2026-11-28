@@ -115,7 +115,7 @@ The brief is the only context the agent has, so it carries:
 | Where it is | The component and file already found in step 2, and the screen that reproduces it |
 | The decision | The option the owner picked, and its stated cost, word for word |
 | The proof | A test through the code the note touches, run once against the change broken on purpose. A screenshot is how it is looked at, not the proof |
-| The evidence | For a visual change, what `session-habits`, *Walks*, says: the branch offered for his preview. The report names the branch and the slot's absolute path |
+| The evidence | For a visual change, what `session-habits`, *Walks*, says: the screen as a native walk, built from the branch. The report names the branch and the slot's absolute path |
 | The landing | Open a PR and **do not merge**; the rest of the landing is in the brief's own list (push as it goes, foreground runs, one `**QUESTION:**` line) |
 
 **Verify what comes back yourself.** Read the diff, rerun the tests it added,

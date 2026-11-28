@@ -1,6 +1,7 @@
 //! The walk's graphs: a deploy watch of checkout-api, on rows made here rather than read. Each spec is
 //! Vega-Lite as an agent would write it and goes through `ipc::graph::read_spec`, so a spec the reader
-//! refuses fails the walk instead of drawing. Every 15 seconds each live feed takes its next minute.
+//! refuses fails the walk instead of drawing. Every 15 seconds each live feed takes its next minute. The thread places
+//! each card with a `graph` item, as Fleet's thread does (`fixtures/live-graphs-threads.json`).
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -13,6 +14,7 @@ use serde_json::{json, Value};
 
 use super::feeds::{FeedBook, Graphs};
 use super::{Card, Delta, Form, Headline, Stat, Tone};
+use ipc::MetricCredential;
 
 /// The scenario the walk plays on, and its Job.
 pub const SCENARIO: &str = "live-graphs";
@@ -23,6 +25,7 @@ const ERRORS: &str = "checkout-api/errors";
 const HEALTH: &str = "checkout-api/health";
 const SPLIT: &str = "checkout-api/split";
 const REQUESTS: &str = "checkout-api/requests";
+const GRAFANA: &str = "grafana/checkout-errors";
 
 /// The minutes the feeds hold before the deploy and after it.
 const BEFORE: i64 = 35;
@@ -124,13 +127,13 @@ fn worse(said: &str, since: Option<&str>) -> Option<Delta> {
     Some(Delta { said: said.into(), since: since.map(Into::into), tone: Tone::Worse })
 }
 
-/// The cards, each after the agent's message it belongs to.
+/// The cards, in the order the thread first shows them.
 fn cards() -> Vec<Rc<Card>> {
     let deploy = deploy().to_rfc3339();
     let marker = format!(
         r#"{{"mark":{{"type":"rule"}},"encoding":{{"x":{{"datum":"{deploy}"}}}}}},{{"mark":{{"type":"text","align":"left"}},"encoding":{{"x":{{"datum":"{deploy}"}},"text":{{"value":"Deploy 4.12"}}}}}}"#
     );
-    let card = |id: &str, title: &str, source: &str, after: &str, form: Form| Rc::new(Card { id: id.into(), title: title.into(), source: source.into(), live: true, form, after: after.into() });
+    let card = |id: &str, title: &str, source: &str, form: Form| Rc::new(Card { id: id.into(), title: title.into(), source: source.into(), live: true, form, broken: None, no_token: None });
     let p99 = spec(format!(
         r#"{{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","title":"p99 latency","width":"container","data":{{"name":"{LATENCY}"}},"layer":[
             {{"mark":{{"type":"area","interpolate":"monotone"}},"encoding":{{"x":{{"field":"at","type":"temporal","title":"Time"}},"y":{{"field":"p99","type":"quantitative","title":"p99 (ms)"}}}}}},
@@ -156,24 +159,34 @@ fn cards() -> Vec<Rc<Card>> {
     let scatter = spec(format!(
         r#"{{"title":"Latency by payload size","data":{{"name":"{REQUESTS}"}},"mark":{{"type":"point","filled":true}},"encoding":{{"x":{{"field":"kb","type":"quantitative","title":"Payload (KB)"}},"y":{{"field":"ms","type":"quantitative","title":"Latency (ms)"}},"color":{{"field":"version","type":"nominal","sort":["Stable","Canary"]}},"tooltip":[{{"field":"kb"}},{{"field":"ms"}}]}}}}"#
     ));
+    let grafana = spec(format!(r#"{{"title":"Checkout errors in Grafana","data":{{"name":"{GRAFANA}"}},"mark":"line","encoding":{{"x":{{"field":"at","type":"temporal"}},"y":{{"field":"errors","type":"quantitative"}}}}}}"#));
     let stat = |label: &str, field: &str, unit: Option<&str>, shown: Option<&str>, delta: Option<Delta>| Stat { label: label.into(), feed: HEALTH.into(), field: field.into(), unit: unit.map(Into::into), shown: shown.map(Into::into), delta };
     vec![
-        card("graph-p99", "p99 latency", "Fleet reads every 15s", "m-g2", Form::Chart { spec: p99, headline: Some(Headline { feed: LATENCY.into(), field: "p99".into(), unit: Some("ms".into()), delta: worse("+41%", Some("since deploy")) }) }),
-        card("graph-percentiles", "Latency percentiles", "Fleet reads every 15s", "m-g2", Form::Chart { spec: percentiles, headline: None }),
-        card("graph-errors", "Errors per minute", "Fleet reads every 15s", "m-g3", Form::Chart { spec: errors, headline: None }),
+        card("graph-p99", "p99 latency", "Fleet reads every 15s", Form::Chart { spec: p99, headline: Some(Headline { feed: LATENCY.into(), field: "p99".into(), unit: Some("ms".into()), delta: worse("+41%", Some("since deploy")) }) }),
+        card("graph-percentiles", "Latency percentiles", "Fleet reads every 15s", Form::Chart { spec: percentiles, headline: None }),
+        card("graph-errors", "Errors per minute", "Fleet reads every 15s", Form::Chart { spec: errors, headline: None }),
         card(
             "graph-health",
             "checkout-api health",
             "Fleet reads every 15s",
-            "m-g3",
             Form::Strip(vec![
                 stat("Error rate", "error_pct", Some("%"), None, worse("+2.1 pts", None)),
                 stat("Pods ready", "pods_ready", None, Some("12 of 12"), Some(Delta { said: "All ready".into(), since: None, tone: Tone::Better })),
                 stat("CPU", "cpu_pct", Some("%"), None, Some(Delta { said: "+14 pts".into(), since: None, tone: Tone::Steady })),
             ]),
         ),
-        card("graph-split", "Traffic split", "Fleet reads every minute", "m-g4", Form::Chart { spec: split, headline: None }),
-        card("graph-payload", "Latency by payload size", "Fleet reads every minute", "m-g4", Form::Chart { spec: scatter, headline: None }),
+        card("graph-split", "Traffic split", "Fleet reads every minute", Form::Chart { spec: split, headline: None }),
+        card("graph-payload", "Latency by payload size", "Fleet reads every minute", Form::Chart { spec: scatter, headline: None }),
+        // A recipe that signs in to a dashboard, and this Mac holds no token for it: no rows, and the card says what to make.
+        Rc::new(Card {
+            id: "graph-grafana".into(),
+            title: "Checkout errors in Grafana".into(),
+            source: "Fleet reads every minute".into(),
+            live: true,
+            form: Form::Chart { spec: grafana, headline: None },
+            broken: None,
+            no_token: Some(MetricCredential { name: "grafana".into(), how: "A Grafana service account token with the Viewer role".into(), url: Some("https://grafana.com/docs/grafana/latest/administration/service-accounts/".into()) }),
+        }),
     ]
 }
 
@@ -186,7 +199,7 @@ pub fn begin(scenario: &str, cx: &mut App) {
         }
         return;
     }
-    let book = cx.new(|_| FeedBook::new(feeds()));
+    let book = cx.new(|_| FeedBook::new(feeds(), cards()));
     let held = book.downgrade();
     let tick: Task<()> = cx.spawn(async move |cx| {
         // The minute each feed takes next.
@@ -203,6 +216,6 @@ pub fn begin(scenario: &str, cx: &mut App) {
         }
     });
     let mut by_job = BTreeMap::new();
-    by_job.insert(JOB.to_string(), cards());
-    cx.set_global(Graphs { book, by_job, _tick: tick });
+    by_job.insert(JOB.to_string(), book);
+    cx.set_global(Graphs { by_job, _tick: Some(tick) });
 }

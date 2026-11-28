@@ -13,7 +13,7 @@ use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, RenderImage, Role, SharedString, Window};
 use ipc::{ArtifactArchived, ArtifactBy, ArtifactForm, ArtifactRef, ArtifactRevision, ArtifactState, DraftHow, Instant, JobArtifact, SessionId, SessionRow, SketchHow, ThreadItem};
 
-use super::band_card::{kind_look, revision_chip, state_chip, tile, Stand};
+use super::band_card::{dot_chip, glyph_tile, kind_look, revision_chip, state_chip, tile, Stand};
 use super::rows::tip;
 use super::JobView;
 use crate::labels::labelled;
@@ -58,6 +58,9 @@ pub(super) struct Artifacts {
     unfolded: HashSet<String>,
     /// The row J and K are on, by Job.
     cursor: HashMap<String, String>,
+    /// The filter picked, by Job, and the Jobs whose keys are on the filters rather than the rows.
+    shelf: HashMap<String, Shelf>,
+    on_shelves: HashSet<String>,
     /// What the mock Fleet folded away or restored here, by Job and artifact, since it keeps nothing.
     folded_here: HashMap<(String, String), bool>,
     /// What the mock Fleet was told he opened and edited here, by Job and artifact, since it keeps nothing: the newest
@@ -172,6 +175,110 @@ pub(super) fn split(rows: &[JobArtifact]) -> (Vec<&JobArtifact>, Vec<&JobArtifac
     rows.iter().partition(|one| one.archived.is_none())
 }
 
+/// Which of Armada's own rows the tab shows: every kind, or one. Only a kind the Job holds has a filter, as on the Story tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum Shelf {
+    #[default]
+    All,
+    Sketches,
+    Drafts,
+    Pages,
+    Graphs,
+}
+
+impl Shelf {
+    const KINDS: [Shelf; 4] = [Shelf::Sketches, Shelf::Drafts, Shelf::Pages, Shelf::Graphs];
+
+    pub(super) fn word(self) -> &'static str {
+        match self {
+            Shelf::All => "All",
+            Shelf::Sketches => "Sketches",
+            Shelf::Drafts => "Drafts",
+            Shelf::Pages => "Pages",
+            Shelf::Graphs => "Graphs",
+        }
+    }
+
+    fn of(form: ArtifactForm) -> Shelf {
+        match form {
+            ArtifactForm::Sketch => Shelf::Sketches,
+            ArtifactForm::Draft => Shelf::Drafts,
+            ArtifactForm::Page => Shelf::Pages,
+        }
+    }
+
+    fn admits(self, kind: Shelf) -> bool {
+        self == Shelf::All || self == kind
+    }
+}
+
+/// One of the Job's graphs as the tab lists it: Fleet's card, and when the thread last showed it.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct GraphRow {
+    pub id: String,
+    pub title: String,
+    pub live: bool,
+    pub at: Option<Instant>,
+}
+
+impl GraphRow {
+    /// The row's key among the tab's, for its cursor: no artifact id starts so.
+    pub fn key(&self) -> String {
+        format!("graph:{}", self.id)
+    }
+}
+
+/// One of Armada's own rows: an artifact Fleet lists, or a graph.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Shown<'a> {
+    Artifact(&'a JobArtifact),
+    Graph(&'a GraphRow),
+}
+
+impl Shown<'_> {
+    pub(super) fn key(&self) -> String {
+        match self {
+            Shown::Artifact(one) => one.id.clone(),
+            Shown::Graph(graph) => graph.key(),
+        }
+    }
+
+    fn at(&self) -> Option<&Instant> {
+        match self {
+            Shown::Artifact(one) => one.revisions.last().map(|last| &last.at),
+            Shown::Graph(graph) => graph.at.as_ref(),
+        }
+    }
+
+    fn shelf(&self) -> Shelf {
+        match self {
+            Shown::Artifact(one) => Shelf::of(one.form),
+            Shown::Graph(_) => Shelf::Graphs,
+        }
+    }
+}
+
+/// The filters the tab offers: All, then each kind the Job holds, the archived counted.
+pub(super) fn shelves(rows: &[JobArtifact], graphs: &[GraphRow]) -> Vec<Shelf> {
+    let held = |shelf: Shelf| rows.iter().any(|one| Shelf::of(one.form) == shelf) || (shelf == Shelf::Graphs && !graphs.is_empty());
+    std::iter::once(Shelf::All).chain(Shelf::KINDS.into_iter().filter(|shelf| held(*shelf))).collect()
+}
+
+/// The filter as drawn: the one picked, or All where the Job no longer holds its kind.
+pub(super) fn held_shelf(picked: Shelf, shelves: &[Shelf]) -> Shelf {
+    if shelves.contains(&picked) { picked } else { Shelf::All }
+}
+
+/// The rows the filter lets through: the ones not folded away with the graphs among them, newest first by when each was
+/// last shown, then the folded, in Fleet's order.
+pub(super) fn shelved<'a>(rows: &'a [JobArtifact], graphs: &'a [GraphRow], shelf: Shelf) -> (Vec<Shown<'a>>, Vec<&'a JobArtifact>) {
+    let (live, folded) = split(rows);
+    let mut shown: Vec<Shown<'a>> = live.into_iter().map(Shown::Artifact).chain(graphs.iter().map(Shown::Graph)).filter(|one| shelf.admits(one.shelf())).collect();
+    // Stable, so rows shown at the same moment keep Fleet's order; one with no time goes last.
+    shown.sort_by(|a, b| b.at().cmp(&a.at()));
+    (shown, folded.into_iter().filter(|one| shelf.admits(Shelf::of(one.form))).collect())
+}
+
 /// One link the tab lists under Armada's own rows.
 pub(super) struct LinkRow {
     pub url: String,
@@ -246,6 +353,18 @@ impl JobView {
     /// Every artifact of Job `job` as Fleet last listed them, newest first; none until the first answer.
     pub(super) fn artifact_rows(&self, job: &str) -> &[JobArtifact] {
         self.artifacts.read.get(job).and_then(|read| read.rows.as_deref()).unwrap_or_default()
+    }
+
+    /// Job `job`'s graphs as the Graphs tab holds them, each with when the thread last showed it.
+    pub(super) fn graph_rows(&self, job: &str, cx: &gpui::App) -> Vec<GraphRow> {
+        let items = self.thread(job, cx).map(|held| held.items.as_slice()).unwrap_or_default();
+        let shown_at = |id: &str| {
+            items.iter().rev().find_map(|item| match item {
+                ThreadItem::Graph(graph) if graph.graph == id => Some(graph.at.clone()),
+                _ => None,
+            })
+        };
+        crate::graph::feeds::of_job(job, cx).iter().map(|card| GraphRow { id: card.id.clone(), title: card.title.clone(), live: card.live, at: shown_at(&card.id) }).collect()
     }
 
     /// A held artifact to change in place, for a test that needs one unlike the mock's.
@@ -619,15 +738,19 @@ impl JobView {
 
     // ---- the tab -------------------------------------------------------------------------
 
-    /// The Artifacts tab: Armada's own, one row each, newest first, with the archived folded at the foot; then the Job's links
-    /// as Claude artifacts, external ones and the rest. None while the Job has none of any.
-    pub(super) fn pane_artifacts(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// The Artifacts tab: filters over Armada's own, one row each with the Job's graphs among them, newest first, with the
+    /// archived folded at the foot; then, under All, the Job's links as Claude artifacts, external ones and the rest. None
+    /// while the Job has none of any.
+    pub(super) fn pane_artifacts(&self, id: &SharedString, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
         let Some(rows) = self.artifacts.read.get(id.as_ref()) else { return None };
         let Some(rows) = rows.rows.as_ref() else { return Some(self.artifact_shapes(look)) };
-        let (live, folded) = split(rows);
-        let sections = self.record(id, cx).map(|record| link_sections(&record.attachments)).unwrap_or_default();
-        if live.is_empty() && folded.is_empty() && sections.is_empty() {
+        let graphs = self.graph_rows(id, cx);
+        let tabs = shelves(rows, &graphs);
+        let shelf = held_shelf(self.artifacts.shelf.get(id.as_ref()).copied().unwrap_or_default(), &tabs);
+        let (live, folded) = shelved(rows, &graphs, shelf);
+        let sections = if shelf == Shelf::All { self.record(id, cx).map(|record| link_sections(&record.attachments)).unwrap_or_default() } else { Vec::new() };
+        if live.is_empty() && folded.is_empty() && sections.is_empty() && tabs.len() < 2 {
             return None;
         }
         let now = Local::now();
@@ -636,10 +759,29 @@ impl JobView {
         let spot = page.keys.spot("artifacts-tab", cx);
         let ids: Vec<String> = live
             .iter()
-            .map(|one| one.id.clone())
+            .map(Shown::key)
             .chain(open.then(|| folded.iter().map(|one| one.id.clone())).into_iter().flatten())
             .chain(sections.iter().flat_map(|(_, links)| links.iter().map(LinkRow::key)))
             .collect();
+        let filters = (tabs.len() > 1).then(|| {
+            let ringed = self.artifacts.on_shelves.contains(id.as_ref()) && spot.focus.is_focused(window);
+            let drawn = tabs
+                .iter()
+                .map(|one| {
+                    let (job, one, focus) = (id.to_string(), *one, spot.focus.clone());
+                    let tab = super::story::view::filter_tab(look, SharedString::from(format!("artifacts-filter-{}", one.word())), one.word(), one == shelf, one == shelf && ringed).on_click(cx.listener(
+                        move |this, _, window, cx| {
+                            window.focus(&focus, cx);
+                            this.artifacts.on_shelves.insert(job.clone());
+                            this.artifacts.shelf.insert(job.clone(), one);
+                            cx.notify();
+                        },
+                    ));
+                    labelled(tab, Role::Tab, one.word()).into_any_element()
+                })
+                .collect();
+            super::story::view::filter_row(look, "artifacts-filters", "Artifacts filter", look.length(token::SPACE_4), drawn)
+        });
         // Armada's own rows take a heading only where links stand under them.
         let armada_heading = (!sections.is_empty() && !(live.is_empty() && folded.is_empty())).then(|| section_heading(look, "Armada"));
         let links: Vec<AnyElement> = sections
@@ -651,44 +793,119 @@ impl JobView {
                 }))
             })
             .collect();
-        let (job, keyed) = (id.to_string(), ids.clone());
+        let (job, acted) = (id.to_string(), id.to_string());
         let list = div()
             .id("pane-artifacts")
+            .key_context(crate::generated::actions::ActionScope::Features.key_context().unwrap_or_default())
             .track_focus(&spot.focus)
             .flex()
             .flex_col()
+            .on_action(cx.listener(move |this, act: &crate::keymap::Act, window, cx| this.artifacts_act(&acted, &ids, &tabs, act, window, cx)))
             .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
                 let modifiers = event.keystroke.modifiers;
-                let on = this.artifacts.cursor.get(&job).cloned();
                 match (event.keystroke.key.as_str(), modifiers.shift, modifiers.modified()) {
-                    ("j" | "down" | "k" | "up", false, false) => {
-                        let to = step(&keyed, on.as_deref(), if matches!(event.keystroke.key.as_str(), "j" | "down") { 1 } else { -1 });
-                        if to.is_some() && to != on {
-                            crate::ui_sounds::moved();
-                        }
-                        this.artifacts_cursor(&job, to, cx)
-                    }
-                    ("enter", false, false) => {
-                        let Some(on) = on else { return };
-                        match on.strip_prefix("link:") {
-                            Some(url) => cx.open_url(url),
-                            None => this.open_artifact(&job, &on, window, cx),
-                        }
-                    }
                     ("r", true, true) => {
-                        let Some(on) = on else { return };
+                        let Some(on) = this.artifacts.cursor.get(&job).cloned() else { return };
                         this.restore_artifact_row(&job, &on, window, cx);
                     }
+                    // Escape gives the keys back to the rows, as on the Story tab.
+                    ("escape", false, false) if this.artifacts.on_shelves.remove(&job) => cx.notify(),
                     _ => return,
                 }
                 cx.stop_propagation();
             }))
+            .children(filters)
             .children(armada_heading)
-            .children(live.iter().map(|one| self.artifact_row(id, one, cursor.as_deref() == Some(one.id.as_str()), false, now, look, cx)))
+            .children(live.iter().map(|one| {
+                let on = cursor.as_deref() == Some(one.key().as_str());
+                match one {
+                    Shown::Artifact(one) => self.artifact_row(id, one, on, false, now, look, cx),
+                    Shown::Graph(graph) => self.graph_row(id, graph, on, now, look, cx),
+                }
+            }))
             .children((!folded.is_empty()).then(|| self.archived_fold(id, open, look, cx)))
             .children(open.then(|| folded.iter().map(|one| self.artifact_row(id, one, cursor.as_deref() == Some(one.id.as_str()), true, now, look, cx)).collect::<Vec<_>>()).into_iter().flatten())
             .children(links);
         Some(labelled(list, Role::List, "Artifacts").into_any_element())
+    }
+
+    /// The registry's `features` acts, pressed in the tab: the Story tab's keys. Tab goes between the filters and the rows,
+    /// Left and Right pick a filter, and on the rows J, K and Enter move and open.
+    #[allow(clippy::too_many_arguments)]
+    fn artifacts_act(&mut self, job: &str, keyed: &[String], tabs: &[Shelf], act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) {
+        let on_shelves = self.artifacts.on_shelves.contains(job);
+        match act.id {
+            "features_move" if on_shelves => {}
+            "features_move" => {
+                let on = self.artifacts.cursor.get(job).cloned();
+                let to = step(keyed, on.as_deref(), if act.slot % 2 == 0 { 1 } else { -1 });
+                if to.is_some() && to != on {
+                    crate::ui_sounds::moved();
+                }
+                self.artifacts_cursor(job, to, cx);
+            }
+            "features_open" if on_shelves => {}
+            "features_open" => {
+                let Some(on) = self.artifacts.cursor.get(job).cloned() else { return };
+                self.open_artifact_row(job, &on, window, cx);
+            }
+            "features_chip" if tabs.len() > 1 => {
+                let picked = held_shelf(self.artifacts.shelf.get(job).copied().unwrap_or_default(), tabs);
+                let at = tabs.iter().position(|one| *one == picked).unwrap_or(0) as isize;
+                let next = tabs[(at + if act.slot == 0 { -1 } else { 1 }).clamp(0, tabs.len() as isize - 1) as usize];
+                self.artifacts.on_shelves.insert(job.to_string());
+                if next != picked {
+                    self.artifacts.shelf.insert(job.to_string(), next);
+                    crate::ui_sounds::moved();
+                }
+                cx.notify();
+            }
+            "features_pane" => {
+                if !self.artifacts.on_shelves.remove(job) && tabs.len() > 1 {
+                    self.artifacts.on_shelves.insert(job.to_string());
+                }
+                cx.notify();
+            }
+            _ => cx.propagate(),
+        }
+    }
+
+    /// A row's key opened: a link in the browser, a graph at the top of the Graphs tab, an artifact where it is read.
+    fn open_artifact_row(&mut self, job: &str, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(url) = key.strip_prefix("link:") {
+            cx.open_url(url);
+        } else if let Some(graph) = key.strip_prefix("graph:") {
+            self.open_graph(graph, window, cx);
+        } else {
+            self.open_artifact(job, key, window, cx);
+        }
+    }
+
+    /// The frame every row of the tab shares: its edge under it, and the pointer's or the keys' place on it.
+    fn row_frame(look: &Look, key: &str, on: bool) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id(SharedString::from(format!("artifact-row:{key}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .cursor_pointer()
+            .when(on, |row| row.bg(look.color(token::BG_HOVER)))
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+    }
+
+    /// A row's title, one line.
+    fn row_title(look: &Look, title: String) -> gpui::Div {
+        div()
+            .truncate()
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(SharedString::from(title))
     }
 
     /// One link: its kind's tile beside the address as the Ledger titles it, then where it points, who wrote it and when.
@@ -703,17 +920,7 @@ impl JobView {
         } else {
             ("link", token::ACCENT)
         };
-        let ink = look.color(ink);
         let said = [link.site.clone(), Some(if link.by_you { "You" } else { "Agent" }.to_string())].into_iter().flatten().collect::<Vec<_>>().join(" \u{b7} ");
-        let tile = div()
-            .flex_none()
-            .flex()
-            .items_center()
-            .justify_center()
-            .size(look.length(token::SPACE_6) + look.length(token::BORDER_WIDTH) * 2.)
-            .rounded(look.length(token::RADIUS_MD))
-            .bg(ink.opacity(0.18))
-            .child(gpui::svg().path(crate::assets::icon_path(glyph)).flex_none().size(look.length(token::TEXT_BASE)).text_color(ink));
         let meta = div()
             .flex()
             .items_center()
@@ -723,44 +930,38 @@ impl JobView {
             .text_color(look.color(token::FG_MUTED))
             .child(SharedString::from(said))
             .child(self.stamp(&link.since, look, now, true, cx));
-        let row = div()
-            .id(SharedString::from(format!("artifact-row:{key}")))
-            .flex()
-            .items_start()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .cursor_pointer()
-            .when(on, |row| row.bg(look.color(token::BG_HOVER)))
-            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+        let row = Self::row_frame(look, &key, on)
             .tooltip(tip(link.url.clone()))
-            .child(tile)
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_1))
-                    .child(
-                        div()
-                            .truncate()
-                            .text_size(look.length(token::TEXT_XS))
-                            .line_height(look.length(token::LEADING_XS))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .text_color(look.color(token::FG_DEFAULT))
-                            .child(SharedString::from(title.clone())),
-                    )
-                    .child(meta),
-            );
+            .child(glyph_tile(look, glyph, ink))
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(Self::row_title(look, title.clone())).child(meta));
         let (job, url) = (id.to_string(), link.url);
         let row = row.on_click(cx.listener(move |this, _, _, cx| {
             this.artifacts_cursor(&job, Some(format!("link:{url}")), cx);
             cx.open_url(&url);
         }));
         labelled(row, Role::Button, format!("Open {title}")).into_any_element()
+    }
+
+    /// One graph: the chart's tile beside its title, then whether Fleet still reads it and when the thread last showed it.
+    /// A press opens the Graphs tab with the graph at its top.
+    fn graph_row(&self, id: &SharedString, graph: &GraphRow, on: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let key = graph.key();
+        let (ink, word, said) = if graph.live { (token::STATUS_RUNNING, "Live", "Live: Fleet is reading it") } else { (token::STATUS_NOT_STARTED, "Ended", "Fleet stopped reading it") };
+        let meta = div()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .child(dot_chip(look, format!("artifact-state:{key}"), ink, word, said.to_string(), word))
+            .children(graph.at.as_ref().map(|at| self.stamp(at, look, now, true, cx)));
+        let row = Self::row_frame(look, &key, on)
+            .child(glyph_tile(look, "chart-line", token::KIND_DELIVERY))
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(Self::row_title(look, graph.title.clone())).child(meta));
+        let (job, graph_id) = (id.to_string(), graph.id.clone());
+        let row = row.on_click(cx.listener(move |this, _, window, cx| {
+            this.artifacts_cursor(&job, Some(key.clone()), cx);
+            this.open_graph(&graph_id, window, cx);
+        }));
+        labelled(row, Role::Button, format!("Open graph {}", graph.title)).into_any_element()
     }
 
     fn artifacts_cursor(&mut self, job: &str, to: Option<String>, cx: &mut Context<Self>) {
@@ -787,19 +988,8 @@ impl JobView {
             .child(state_chip(look, format!("artifact-state:{key}"), Stand::of(one.state), one.words.as_deref(), None))
             .child(revision_chip(look, format!("artifact-revision:{key}"), number, said))
             .children(last.map(|last| self.stamp(&last.at, look, now, true, cx)));
-        let row = div()
-            .id(SharedString::from(format!("artifact-row:{key}")))
-            .flex()
-            .items_start()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .cursor_pointer()
-            .when(on, |row| row.bg(look.color(token::BG_HOVER)))
+        let row = Self::row_frame(look, &key, on)
             .when(folded, |row| row.opacity(0.5))
-            .hover(|style| style.bg(look.color(token::BG_HOVER)))
             .child(tile(look, one.form))
             .child(
                 div()
@@ -808,15 +998,7 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
-                    .child(
-                        div()
-                            .truncate()
-                            .text_size(look.length(token::TEXT_XS))
-                            .line_height(look.length(token::LEADING_XS))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .text_color(look.color(token::FG_DEFAULT))
-                            .child(SharedString::from(one.title.clone())),
-                    )
+                    .child(Self::row_title(look, one.title.clone()))
                     .children(line.map(|line| {
                         div().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(line))
                     }))
@@ -1015,6 +1197,45 @@ mod tests {
         let (live, folded) = split(&rows);
         assert_eq!(live.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["design", "draft:Comment"]);
         assert_eq!(folded.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["draft:Release note"]);
+    }
+
+    fn graph(id: &str, when: Option<&str>) -> GraphRow {
+        GraphRow { id: id.into(), title: id.into(), live: true, at: when.map(|when| Instant::carried(format!("2026-11-14T{when}:00Z"))) }
+    }
+
+    fn keys(shown: &[Shown]) -> Vec<String> {
+        shown.iter().map(Shown::key).collect()
+    }
+
+    #[test]
+    fn a_filter_lets_through_only_its_kind_and_the_archived_fold_follows_it() {
+        let mut rows = mock_artifacts(&items());
+        rows[1].archived = Some(ArtifactArchived { by: ArtifactBy::Owner, at: Instant::carried("2026-11-14T12:00:00Z") });
+        let graphs = [graph("p99", Some("09:30"))];
+        assert_eq!(shelves(&rows, &graphs), [Shelf::All, Shelf::Drafts, Shelf::Pages, Shelf::Graphs], "All, then each kind the Job holds, the archived counted");
+        let (live, folded) = shelved(&rows, &graphs, Shelf::Drafts);
+        assert_eq!(keys(&live), ["draft:Comment"]);
+        assert_eq!(folded.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["draft:Release note"], "the fold holds the drafts only");
+        let (live, folded) = shelved(&rows, &graphs, Shelf::Graphs);
+        assert_eq!(keys(&live), ["graph:p99"]);
+        assert!(folded.is_empty(), "no graph is archived");
+    }
+
+    #[test]
+    fn a_filter_whose_kind_the_job_no_longer_holds_falls_back_to_all() {
+        let rows = mock_artifacts(&items());
+        let tabs = shelves(&rows, &[]);
+        assert_eq!(tabs, [Shelf::All, Shelf::Drafts, Shelf::Pages], "no sketch and no graph, so no filter for either");
+        assert_eq!(held_shelf(Shelf::Graphs, &tabs), Shelf::All);
+        assert_eq!(held_shelf(Shelf::Pages, &tabs), Shelf::Pages);
+    }
+
+    #[test]
+    fn graphs_sit_among_the_other_artifacts_newest_first_by_when_each_was_shown() {
+        let rows = mock_artifacts(&items());
+        let graphs = [graph("p99", Some("09:30")), graph("errors", Some("12:00")), graph("unshown", None)];
+        let (live, _) = shelved(&rows, &graphs, Shelf::All);
+        assert_eq!(keys(&live), ["graph:errors", "design", "draft:Release note", "graph:p99", "draft:Comment", "graph:unshown"], "a graph the thread never showed goes last");
     }
 
     #[test]

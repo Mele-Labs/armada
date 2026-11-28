@@ -74,6 +74,8 @@ struct Fields {
     scene: Option<ipc::RawScene>,
     // `show_file`'s path, as the agent gave it: the row names the file, and Fleet's receipt has the resolved one.
     path: Option<Said>,
+    // `show_graph`'s id: the row names the graph, and the thread places its card there.
+    id: Option<Said>,
 }
 
 /// A door call's `body`, or nothing where it is not an object.
@@ -153,6 +155,7 @@ pub(crate) fn figure(operation: &str, call: &Arguments) -> Option<String> {
             _ => None,
         },
         "show_file" => said(|fields| &fields.path).map(String::from),
+        "show_graph" => said(|fields| &fields.id).map(String::from),
         "redirect_one_drone" => call.drone_id.and_then(|said| said.0.clone()),
         _ => None,
     }

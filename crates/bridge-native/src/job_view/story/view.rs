@@ -27,40 +27,50 @@ fn column(look: &Look, width: gpui::Pixels) -> Div {
     div().flex_none().w(width).flex().items_center().justify_end().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap()
 }
 
+/// One filter tab, picked or not; `on` rings it where the keys are on it. The Artifacts tab draws its filters with it too.
+pub(crate) fn filter_tab(look: &Look, id: SharedString, word: &'static str, picked: bool, on: bool) -> gpui::Stateful<Div> {
+    let edge = look.length(token::BORDER_WIDTH);
+    div()
+        .id(id)
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::H_CONTROL) - look.length(token::SPACE_1) - edge * 2.)
+        .px(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(edge)
+        .border_color(if on { ring_colour(look) } else { gpui::transparent_black() })
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_XS))
+        .whitespace_nowrap()
+        .cursor_pointer()
+        .map(|tab| {
+            if picked {
+                tab.bg(look.color(token::ACCENT_MUTED)).border_color(if on { ring_colour(look) } else { look.color(token::ACCENT) }).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT))
+            } else {
+                let hover = look.color(token::FG_DEFAULT);
+                tab.text_color(look.color(token::FG_MUTED)).hover(move |style| style.text_color(hover))
+            }
+        })
+        .child(word)
+}
+
+/// The row of filter tabs over a list, its edge `inset` in from the pane's, named `name` for VoiceOver.
+pub(crate) fn filter_row(look: &Look, id: &'static str, name: &'static str, inset: gpui::Pixels, tabs: Vec<AnyElement>) -> AnyElement {
+    let track = crate::parts::tabs::track(look, id).children(tabs);
+    div().px(inset).pt(look.length(token::SPACE_4)).pb(look.length(token::SPACE_2)).flex().child(labelled(track, Role::TabList, name)).into_any_element()
+}
+
 impl StoryTab {
     /// One filter tab. The keys' own place on it is a ring.
     fn render_filter(&self, filter: Filter, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let picked = self.filter == filter;
         let on = picked && self.region == Region::Filters && self.focus.is_focused(window);
-        let edge = look.length(token::BORDER_WIDTH);
-        let tab = div()
-            .id(SharedString::from(format!("story-filter-{}", filter.word())))
-            .flex_none()
-            .flex()
-            .items_center()
-            .h(look.length(token::H_CONTROL) - look.length(token::SPACE_1) - edge * 2.)
-            .px(look.length(token::SPACE_3))
-            .rounded(look.length(token::RADIUS_MD))
-            .border(edge)
-            .border_color(if on { ring_colour(look) } else { gpui::transparent_black() })
-            .text_size(look.length(token::TEXT_XS))
-            .line_height(look.length(token::LEADING_XS))
-            .whitespace_nowrap()
-            .cursor_pointer()
-            .map(|tab| {
-                if picked {
-                    tab.bg(look.color(token::ACCENT_MUTED)).border_color(if on { ring_colour(look) } else { look.color(token::ACCENT) }).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT))
-                } else {
-                    let hover = look.color(token::FG_DEFAULT);
-                    tab.text_color(look.color(token::FG_MUTED)).hover(move |style| style.text_color(hover))
-                }
-            })
-            .on_click(cx.listener(move |this, _, window, cx| {
-                window.focus(&this.focus, cx);
-                this.region = Region::Filters;
-                this.filter_by(filter, cx);
-            }))
-            .child(filter.word());
+        let tab = filter_tab(look, SharedString::from(format!("story-filter-{}", filter.word())), filter.word(), picked, on).on_click(cx.listener(move |this, _, window, cx| {
+            window.focus(&this.focus, cx);
+            this.region = Region::Filters;
+            this.filter_by(filter, cx);
+        }));
         labelled(tab, Role::Tab, filter.word()).into_any_element()
     }
 
@@ -69,8 +79,8 @@ impl StoryTab {
         if tabs.len() < 2 {
             return None;
         }
-        let track = crate::parts::tabs::track(look, "story-filters").children(tabs.into_iter().map(|filter| self.render_filter(filter, look, window, cx)));
-        Some(div().px(look.length(token::SPACE_6)).pt(look.length(token::SPACE_4)).pb(look.length(token::SPACE_2)).flex().child(labelled(track, Role::TabList, "Story filter")).into_any_element())
+        let tabs = tabs.into_iter().map(|filter| self.render_filter(filter, look, window, cx)).collect();
+        Some(filter_row(look, "story-filters", "Story filter", look.length(token::SPACE_6), tabs))
     }
 
     /// The fixed-width pill that says where an ask stands, with what it means in its tooltip.

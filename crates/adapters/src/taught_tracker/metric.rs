@@ -6,7 +6,7 @@
 //! `env`, `arguments`, `headers` and `body`, and **never `argv`, `server` or `url`**, which a process list or a log would show.
 
 use adapter_traits::Secret;
-use ipc::{MetricAnswer, MetricCall, MetricRecipe};
+use ipc::{GraphRecipe, MetricAnswer, MetricCall, MetricRecipe};
 
 use super::file::{placeholders_in, texts_of, url_problem, Transport, CREDENTIAL};
 use super::running::{self, Fills};
@@ -104,6 +104,37 @@ fn transport_of(call: &MetricCall) -> Transport {
 /// What `recipe` reads now, or why it did not. **Blocks** for as long as the call takes, so a caller on an async runtime
 /// runs it on a blocking thread. The why is scrubbed of `token` and is a sentence for a person.
 pub fn run_metric(recipe: &MetricRecipe, token: Option<&Secret<String>>) -> Result<MetricAnswer, String> {
+    let (printed, fills) = mapped(recipe, token)?;
+    ipc::decode::<MetricAnswer>("a metric's answer", &printed)
+        .map_err(|why| fills.scrubbed(&format!("the `map` did not print an answer of rows: {}", why.why)))
+}
+
+/// The problems of a graph's recipe, held to a metric recipe's rules, its credential's name with them, or none.
+pub fn graph_recipe_problem(recipe: &GraphRecipe) -> Option<String> {
+    problem_with(&as_metric(recipe))
+}
+
+/// The rows a graph's recipe reads now, by feed, or why it did not. `feeds` are the graph's, and `token` the one its
+/// credential names, read for this run. **Blocks**, as [`run_metric`] does, and the why is scrubbed of the token.
+pub fn run_graph_recipe(recipe: &GraphRecipe, feeds: &[String], token: Option<&Secret<String>>) -> Result<Vec<(String, Vec<ipc::graph::Row>)>, String> {
+    let (printed, fills) = mapped(&as_metric(recipe), token)?;
+    ipc::recipe_rows(&printed, feeds).map_err(|why| fills.scrubbed(&why))
+}
+
+/// A graph's recipe as the metric recipe it runs as.
+fn as_metric(recipe: &GraphRecipe) -> MetricRecipe {
+    MetricRecipe {
+        id: String::from("graph"),
+        title: String::from("graph"),
+        call: recipe.call.clone(),
+        map: recipe.map.clone(),
+        every_secs: Some(recipe.every_secs),
+        credential: recipe.credential.clone(),
+    }
+}
+
+/// What `recipe`'s map printed, and the fills its whys are scrubbed with.
+fn mapped<'a>(recipe: &MetricRecipe, token: Option<&'a Secret<String>>) -> Result<(Vec<u8>, Fills<'a>), String> {
     if let Some(problem) = problem_with(recipe) {
         return Err(problem);
     }
@@ -118,6 +149,5 @@ pub fn run_metric(recipe: &MetricRecipe, token: Option<&Secret<String>>) -> Resu
     if !mapped.succeeded {
         return Err(fills.scrubbed(&mapping::refusal_of(&mapped.stderr)));
     }
-    ipc::decode::<MetricAnswer>("a metric's answer", &mapped.stdout)
-        .map_err(|why| fills.scrubbed(&format!("the `map` did not print an answer of rows: {}", why.why)))
+    Ok((mapped.stdout, fills))
 }
