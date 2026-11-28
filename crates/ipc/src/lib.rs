@@ -1010,3 +1010,6 @@ pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKi
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
 pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};
+/// A native walk played against the pictures of the look he approved.
+mod look_checks;
+pub use look_checks::{LookReport, LookStep};
