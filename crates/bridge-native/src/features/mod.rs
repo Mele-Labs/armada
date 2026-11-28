@@ -15,6 +15,8 @@ mod doc_checks;
 mod dossier;
 mod floor_map;
 pub(crate) mod floor_home;
+pub mod gallery;
+mod gallery_view;
 mod librarian;
 pub(crate) mod looked;
 pub(crate) mod mock;

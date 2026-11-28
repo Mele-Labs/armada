@@ -568,3 +568,76 @@ pub fn drafted(start: &ipc::LibraryStart) -> FeatureLibrary {
         librarian: librarian(Reading::Never),
     }
 }
+
+/// The gallery's mock: Armada's library with a cover on the features that have a picture, every standing picture newest first
+/// by feature slug, and the pictures the librarian thinks may belong to a feature. Fleet carries no such suggestions yet, so
+/// `suggested` is the mock's alone.
+pub struct Gallery {
+    pub library: FeatureLibrary,
+    pub pictures: Vec<(String, Vec<ipc::FeaturePicture>)>,
+    pub suggested: Vec<(String, Vec<ipc::FeaturePicture>)>,
+}
+
+/// A picture taken `hours` ago, by a Job where `job` names one and by the librarian where it does not. `job` holds the Job's
+/// title, which the card shows; Fleet's `FeaturePicture.job` carries its id.
+fn picture(id: &str, at: &str, hours: i64, (width, height): (u32, u32), job: Option<&str>) -> ipc::FeaturePicture {
+    let taken = chrono::Utc::now() - chrono::Duration::minutes(hours * 60 + 5);
+    let (url, screen) = if at.starts_with("localhost") { (Some(format!("http://{at}")), None) } else { (None, Some(at.to_string())) };
+    ipc::FeaturePicture {
+        id: id.into(),
+        url,
+        screen,
+        commit: Some("8263d3f".into()),
+        taken_at: Instant::carried(taken.to_rfc3339()),
+        width,
+        height,
+        bytes: picture_png(id).map_or(0, |png| png.len() as u64),
+        by: if job.is_some() { ipc::PictureBy::Job } else { ipc::PictureBy::Librarian },
+        job: job.map(str::to_string),
+    }
+}
+
+/// Armada's library without its pending features, six with pictures and three without, and two suggestions on the Jobs list.
+pub fn gallery() -> Gallery {
+    let mut library = library();
+    library.areas.retain(|area| area.slug != super::curate::PENDING_AREA);
+    let pictures = vec![
+        (
+            "job-list-and-live-status".to_string(),
+            vec![
+                picture("jobs-split", "jobs-lamps", 2, (1200, 750), Some("Keep the Jobs list at its place on refresh")),
+                picture("jobs-stacked", "localhost:5373/jobs", 72, (1200, 800), None),
+            ],
+        ),
+        ("start-a-job".to_string(), vec![picture("start-card", "start-flow-sheet", 5, (800, 500), Some("Add the model picker to the start card"))]),
+        ("thread-and-composer".to_string(), vec![picture("thread", "localhost:5373/jobs/thread", 8, (800, 500), None)]),
+        ("terminal-jobs".to_string(), vec![picture("terminal", "native-side-job", 30, (800, 500), Some("Open a shell from the plus"))]),
+        ("pull-request-panel".to_string(), vec![picture("pull-request", "localhost:5373/jobs/pull-request", 3, (800, 500), Some("Draft the description in the panel"))]),
+        ("reviews".to_string(), vec![picture("reviews-menu", "localhost:5373/reviews", 20, (760, 540), None), picture("reviews-acts", "review-asks", 50, (760, 380), Some("Lead each review row with its act"))]),
+    ];
+    let suggested = vec![(
+        "job-list-and-live-status".to_string(),
+        vec![picture("jobs-sidebar", "localhost:5373/jobs?view=sidebar", 26, (1200, 800), None), picture("jobs-review-long", "localhost:5373/review", 30, (760, 2000), None)],
+    )];
+    for row in library.areas.iter_mut().flat_map(|area| area.features.iter_mut()) {
+        row.cover = pictures.iter().find(|(slug, _)| *slug == row.slug).and_then(|(_, shown)| shown.first()).map(|one| one.id.clone());
+    }
+    Gallery { library, pictures, suggested }
+}
+
+/// The bytes `get_feature_picture` would serve for a picture of the gallery's mock.
+pub fn picture_png(id: &str) -> Option<&'static [u8]> {
+    match id {
+        "jobs-split" => Some(include_bytes!("../../fixtures/ways-look-split.png")),
+        "jobs-stacked" => Some(include_bytes!("../../fixtures/ways-look-stacked.png")),
+        "jobs-sidebar" => Some(include_bytes!("../../fixtures/ways-look-sidebar.png")),
+        "jobs-review-long" => Some(include_bytes!("../../fixtures/pictures/pick-actions-c.png")),
+        "reviews-acts" => Some(include_bytes!("../../fixtures/pictures/pick-actions-a.png")),
+        "start-card" => Some(include_bytes!("../../fixtures/gallery/start-card.png")),
+        "thread" => Some(include_bytes!("../../fixtures/gallery/thread.png")),
+        "terminal" => Some(include_bytes!("../../fixtures/gallery/terminal.png")),
+        "pull-request" => Some(include_bytes!("../../fixtures/gallery/pull-request.png")),
+        "reviews-menu" => Some(include_bytes!("../../fixtures/pictures/pick-actions-b.png")),
+        _ => None,
+    }
+}

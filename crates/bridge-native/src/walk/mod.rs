@@ -16,6 +16,7 @@ pub mod bar;
 pub mod check;
 pub mod cockpit;
 pub mod dispatch;
+pub mod feature_gallery;
 pub mod fleet;
 pub mod move_to_project;
 pub mod new_project;
@@ -246,6 +247,8 @@ pub enum Screen {
     Reviews,
     /// The Cockpit as the app opens it: the Jobs list with the Operator's page at its right until a Job is opened.
     Cockpit,
+    /// The Features gallery alone, on `features::mock::gallery`.
+    FeatureGallery,
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
@@ -415,6 +418,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "feature-gallery",
+        title: "Features as a gallery: each feature by its picture, and what is not it",
+        screen: Screen::FeatureGallery,
+        scenario: "feature-gallery",
+        steps: &feature_gallery::STEPS,
+    },
     Walk {
         name: "usage",
         title: "Usage: where the burn was wasted, kind by kind",

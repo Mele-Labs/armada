@@ -231,6 +231,13 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: over.into(), focus })
             }
+            Screen::FeatureGallery => {
+                super::strip_marks::leave(cx);
+                let screen = cx.new(|cx| crate::features::gallery::Gallery::mock(window, cx));
+                let focus = Focus { keys: screen.read(cx).focus.clone(), within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: screen.into(), focus })
+            }
             Screen::Marks => {
                 crate::titlebar::scenes::begin(cx);
                 super::strip_marks::enter(cx);
