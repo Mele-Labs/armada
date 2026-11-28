@@ -149,7 +149,7 @@ Nothing here is Electron's.
 | `OperatorTurnItem`, `OperatorFeedEntry` and `ToReviewItem` | Fleet writes, Bridge reads | Gain `operator`, an `OperatorTag` `{ project, name, accent? }`: the project's Operator the item belongs to, with the name and accent it is set to. Absent where no project's Operator holds it, and on a feed line kept before each project had one |
 
 **`OperatorSettings` is every value resolved.**
-`on`, `model`, `effort`, `role` (`copilot`, `dispatcher` or `reviewer`), `words`, `prompt`, `output_style`, `tools` `{ start_jobs, merge, end_jobs, file_issues }`, `decisions` (`cards` or `chat`), `name`, `accent?` and `acts?`.
+`on`, `model`, `effort`, `role` (`partner`, `dispatcher` or `reviewer`), `words`, `prompt`, `output_style`, `tools` `{ start_jobs, merge, end_jobs, file_issues }`, `decisions` (`cards` or `chat`), `name`, `accent?` and `acts?`.
 A tool he did not set follows the role, and `accent` is absent until he sets one.
 
 **Set and unset are refused whole, before anything is kept.**

@@ -5,7 +5,7 @@ use ipc::{OperatorDecisions, OperatorRole};
 
 use crate::hosted_session::{operator_rules, OPERATOR_STYLE};
 
-const COPILOT: &str = include_str!("operator_role_copilot.md");
+const PARTNER: &str = include_str!("operator_role_partner.md");
 const DISPATCHER: &str = include_str!("operator_role_dispatcher.md");
 const REVIEWER: &str = include_str!("operator_role_reviewer.md");
 
@@ -15,7 +15,7 @@ const CHAT: &str = "Decisions in the talk. This project asks every decision in t
 /// The rules block of `role`.
 pub fn role_rules(role: OperatorRole) -> &'static str {
     match role {
-        OperatorRole::Copilot => COPILOT,
+        OperatorRole::Partner => PARTNER,
         OperatorRole::Dispatcher => DISPATCHER,
         OperatorRole::Reviewer => REVIEWER,
     }
@@ -37,7 +37,7 @@ pub struct OperatorPrompt {
 
 impl Default for OperatorPrompt {
     fn default() -> OperatorPrompt {
-        OperatorPrompt { words: String::new(), role: OperatorRole::Copilot, extra: String::new(), style: OPERATOR_STYLE.to_string(), decisions: OperatorDecisions::Cards }
+        OperatorPrompt { words: String::new(), role: OperatorRole::Partner, extra: String::new(), style: OPERATOR_STYLE.to_string(), decisions: OperatorDecisions::Cards }
     }
 }
 

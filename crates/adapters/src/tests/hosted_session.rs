@@ -915,7 +915,7 @@ fn the_operator_prompt_is_his_words_then_the_role_then_the_rules_then_his_additi
     let at = |needle: &str| told.find(needle).unwrap_or_else(|| panic!("{needle} is told: {told}"));
     let (words, role, rules, extra) = (at("WORDS:"), at("Your role is reviewer"), at("You are the Operator of one project"), at("EXTRA:"));
     assert!(words < role && role < rules && rules < extra, "order {words} {role} {rules} {extra}");
-    assert!(!told.contains("Your role is copilot"), "{told}");
+    assert!(!told.contains("Your role is partner"), "{told}");
     let settings = value_after(&rendered, "--settings").expect("settings");
     assert!(settings.contains("\"outputStyle\":\"terse\""), "{settings}");
 }

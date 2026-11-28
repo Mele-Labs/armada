@@ -128,12 +128,12 @@ async fn a_project_reads_as_the_defaults_until_he_sets_a_value_and_the_role_sets
         (now.get(config::settings::MODELS_OPERATOR), now.get(config::settings::EFFORT_OPERATOR))
     };
     assert_eq!((fresh.model.as_str(), fresh.effort.as_str()), (model.as_str(), effort.as_str()), "today's model and effort");
-    assert_eq!(fresh.role, OperatorRole::Copilot);
+    assert_eq!(fresh.role, OperatorRole::Partner);
     assert_eq!(fresh.decisions, ipc::OperatorDecisions::Cards);
     assert!(fresh.on, "on by default");
     assert_eq!((fresh.name.as_str(), fresh.output_style.as_str()), ("Operator", "armada:Operator"));
     assert!(fresh.accent.is_none() && fresh.words.is_empty() && fresh.prompt.is_empty());
-    assert_eq!(fresh.tools, OperatorRole::Copilot.tools());
+    assert_eq!(fresh.tools, OperatorRole::Partner.tools());
     assert!(fresh.tools.start_jobs && fresh.tools.merge && fresh.tools.end_jobs && fresh.tools.file_issues);
 
     set_for(&rig, &a, OperatorSettingsSet { role: Some(OperatorRole::Dispatcher), ..Default::default() }).await;
@@ -151,7 +151,7 @@ async fn a_project_reads_as_the_defaults_until_he_sets_a_value_and_the_role_sets
 
     let listed = rig.fleet.operator_settings_set(SetOperatorSettings { project: a.clone(), set: OperatorSettingsSet::default(), unset: vec!["tools.merge".into(), "role".into()] }).await.expect("unset");
     let one = listed.projects.iter().find(|one| one.project == a).expect("listed");
-    assert_eq!((one.settings.role, one.settings.tools.merge, one.set.role), (OperatorRole::Copilot, true, None), "unset returns each to its default");
+    assert_eq!((one.settings.role, one.settings.tools.merge, one.set.role), (OperatorRole::Partner, true, None), "unset returns each to its default");
     assert_eq!(listed.styles.first().map(|one| one.name.as_str()), Some("armada:Operator"));
 
     let bad = rig.fleet.operator_settings_set(SetOperatorSettings { project: a.clone(), set: OperatorSettingsSet { accent: Some("red".into()), ..Default::default() }, unset: Vec::new() }).await.expect_err("not a hex colour");

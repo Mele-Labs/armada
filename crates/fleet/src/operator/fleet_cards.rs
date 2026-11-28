@@ -109,7 +109,7 @@ impl FleetCardKind {
     }
 
     /// Carry out his pick `pick`, or say why it could not be done and leave the card standing.
-    pub(crate) async fn answered<H, V, W>(&self, fleet: &Arc<Fleet<H, V, W>>, pick: &str) -> Result<(), Fault>
+    pub(super) async fn answered<H, V, W>(&self, fleet: &Arc<Fleet<H, V, W>>, pick: &str) -> Result<(), Fault>
     where
         H: AgentHarness + Send + Sync + 'static,
         H::Error: std::error::Error + Send + Sync + 'static,

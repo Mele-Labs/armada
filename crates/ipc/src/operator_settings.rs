@@ -15,7 +15,7 @@ use crate::SessionId;
 pub enum OperatorRole {
     /// Works beside him: answers, starts Jobs and lands on his word.
     #[default]
-    Copilot,
+    Partner,
     /// Turns arrivals and his words into Jobs and keeps them moving. Lands nothing.
     Dispatcher,
     /// Reads what waits on him and gives its read and pick. Starts, ends and lands nothing.
@@ -23,11 +23,11 @@ pub enum OperatorRole {
 }
 
 impl OperatorRole {
-    pub const ALL: [OperatorRole; 3] = [OperatorRole::Copilot, OperatorRole::Dispatcher, OperatorRole::Reviewer];
+    pub const ALL: [OperatorRole; 3] = [OperatorRole::Partner, OperatorRole::Dispatcher, OperatorRole::Reviewer];
 
     pub fn as_wire(self) -> &'static str {
         match self {
-            OperatorRole::Copilot => "copilot",
+            OperatorRole::Partner => "partner",
             OperatorRole::Dispatcher => "dispatcher",
             OperatorRole::Reviewer => "reviewer",
         }
@@ -41,7 +41,7 @@ impl OperatorRole {
     /// The tools this role has on until he says otherwise.
     pub fn tools(self) -> OperatorTools {
         match self {
-            OperatorRole::Copilot => OperatorTools { start_jobs: true, merge: true, end_jobs: true, file_issues: true },
+            OperatorRole::Partner => OperatorTools { start_jobs: true, merge: true, end_jobs: true, file_issues: true },
             OperatorRole::Dispatcher => OperatorTools { start_jobs: true, merge: false, end_jobs: true, file_issues: true },
             OperatorRole::Reviewer => OperatorTools { start_jobs: false, merge: false, end_jobs: false, file_issues: false },
         }

@@ -221,7 +221,7 @@ They are kept as values of the project, never in its file and never as machine s
 | Switch | Whether the project has an Operator | On | At the next tick, when its session starts or ends |
 | Model | The model of its session | The machine's `operator-model` | At once: the session is handed on to a fresh copy |
 | Effort | How hard its session thinks | The machine's `effort.operator` | At once, as the model does |
-| Role | `copilot`, `dispatcher` or `reviewer` | `copilot` | At once, as the model does |
+| Role | `partner`, `dispatcher` or `reviewer` | `partner` | At once, as the model does |
 | His words | What this Operator is for, put first in its prompt | None | At once, as the model does |
 | Prompt | His addition, put after the rules | None | At once, as the model does |
 | Output style | The style it runs in, any the harness finds | `armada:Operator` | At once, as the model does |
@@ -236,7 +236,7 @@ His own switch for a tool wins over the role's.
 
 | Role | Start Jobs | Merge | End Jobs | File issues |
 |---|---|---|---|---|
-| `copilot` | On | On | On | On |
+| `partner` | On | On | On | On |
 | `dispatcher` | On | Off | On | On |
 | `reviewer` | Off | Off | Off | Off |
 
