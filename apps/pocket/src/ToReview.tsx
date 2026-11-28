@@ -7,7 +7,7 @@ import { Box, Eye } from "lucide-react";
 import { useFleet } from "./fleet";
 import { MacRow } from "./JobList";
 import { Notch } from "./Notch";
-import { ReviewItem } from "./ReviewItem";
+import { ReadyToTryAll, ReviewItem } from "./ReviewItem";
 import { go, pairPath } from "./router";
 import { useToReview, type Group } from "./reviewList";
 import { Trouble } from "./ui";
@@ -58,7 +58,17 @@ function Head({ group }: { group: Group }) {
 
 export function ToReview() {
   const fleet = useFleet();
-  const { groups, several, loaded, troubled } = useToReview();
+  const { groups: read, several, loaded, troubled } = useToReview();
+  // One preview build holds every offered branch, so every Job ready to try is one card, ahead of the groups.
+  const trying = read.flatMap((group) =>
+    group.entries.filter(({ item }) => item.kind === "ready_to_try"),
+  );
+  const groups = read
+    .map((group) => ({
+      ...group,
+      entries: group.entries.filter(({ item }) => item.kind !== "ready_to_try"),
+    }))
+    .filter((group) => group.entries.length > 0);
   const down = fleet.macs.filter((mac) => !mac.paired);
   return (
     <section className="pk-screen" aria-label="To review">
@@ -82,9 +92,10 @@ export function ToReview() {
             says={several ? `${mac.machine.name}: ${says}` : says}
           />
         ))}
-        {!loaded && groups.length === 0 ? (
+        {trying.length === 0 ? null : <ReadyToTryAll entries={trying} several={several} />}
+        {!loaded && read.length === 0 ? (
           <div className="pk-rv__wait pk-skeleton" aria-hidden="true" />
-        ) : groups.length === 0 ? (
+        ) : read.length === 0 ? (
           <p className="pk-fact">Nothing waits on you.</p>
         ) : (
           groups.map((group) => (

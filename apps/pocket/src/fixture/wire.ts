@@ -872,6 +872,7 @@ export function fixtureMacs(
   const closing = phone({
     id: "o1",
     title: "Close out the tracker mod",
+    now: "Ticked every task in the plan; its pull request merged.",
     repository: "armada",
     kind: "hosted",
     waiting: true,
@@ -2017,6 +2018,7 @@ ${Array.from(
   const toReview = phone({
     id: "rv",
     title: "Pocket To review",
+    now: "Built the To review screen and its fixture; the tests pass.",
     repository: "armada",
     kind: "hosted",
     waiting: true,

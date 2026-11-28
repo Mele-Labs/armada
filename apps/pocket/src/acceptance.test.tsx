@@ -10,7 +10,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { answer, type Posted } from "./fixture/gateway";
-import { PARTS_JOB, STEP_BAR, TRY_CARD } from "./fixture/artifacts";
+import { PARTS_JOB, STEP_BAR, toReviewTry, TRY_CARD } from "./fixture/artifacts";
 import {
   ARTIFACTS_JOB,
   artifactsJob,
@@ -3249,7 +3249,9 @@ describe("To review", {
     expect(first.textContent).toContain("Does the Try step look right?");
     expect(first.textContent).toContain("Review what a Job waits on");
     // Two Macs are paired, so each item names its Mac.
-    expect(item("Run the Pocket checks")!.querySelector(".pk-rv__mac")?.textContent).toBe("studio");
+    expect(
+      item("Run the Pocket checks")!.querySelector(".pk-rv__jobbar .pk-rv__mac")?.textContent,
+    ).toBe("studio");
     expect(
       host.querySelector('[aria-label="To review or Jobs"] [aria-current="page"]')?.textContent,
     ).toBe("To review");
@@ -3392,6 +3394,67 @@ describe("To review", {
     expect(read?.textContent).toContain("Every task in the tracker mod's plan is ticked");
     expect(read?.textContent).toContain("Would pick: Mark done");
     expect(item("Move ARM-41 to In progress")!.querySelector('[aria-label="Operator"]')).toBeNull();
+  });
+
+  it("heads each item with its Job and what the Job is doing, and opens the Job from there", async () => {
+    await shown();
+    const bar = item("Mark the tracker tasks done?")!.querySelector<HTMLButtonElement>(
+      ".pk-rv__jobbar",
+    )!;
+    expect(bar.querySelector(".pk-rv__jobtitle")?.textContent).toBe("Close out the tracker mod");
+    await vi.waitFor(() =>
+      expect(bar.querySelector(".pk-rv__now")?.textContent).toBe(
+        "Ticked every task in the plan; its pull request merged.",
+      ),
+    );
+    expect(bar.querySelector(".pk-rv__mac")?.textContent).toBe("studio");
+    await press(bar);
+    await vi.waitFor(() => expect(window.location.pathname).toMatch(/^\/jobs\/.+\/o1$/));
+  });
+
+  it("draws every Job ready to try in one Ready to try card, a row each, and answers each row for its own Job", async () => {
+    const studio = macs[STUDIO]!;
+    const parts = partsJob(NOW);
+    studio.live.unshift(parts.listed);
+    studio.threads[PARTS_JOB] = parts.thread;
+    studio.artifacts = {
+      [PARTS_JOB]: parts.artifacts,
+    };
+    const second = toReviewTry(NOW);
+    studio.threads["rv"]!.session.waiting_for?.unshift(second.item);
+    studio.tries = {
+      [PARTS_JOB]: parts.tries,
+      rv: [
+        second.card,
+      ],
+    };
+    await shown();
+    await vi.waitFor(() =>
+      expect(host.querySelectorAll(".pk-rv-try__job .pk-try")).toHaveLength(2),
+    );
+    expect(host.querySelectorAll(".pk-rv-try")).toHaveLength(1);
+    expect(host.querySelector('.pk-rv[data-kind="ready_to_try"]')).toBeNull();
+    const rows = Array.from(host.querySelectorAll<HTMLElement>(".pk-rv-try__job"));
+    expect(rows.map((row) => row.querySelector(".pk-rv__jobtitle")?.textContent).sort()).toEqual(
+      [
+        parts.listed.title,
+        "Pocket To review",
+      ].sort(),
+    );
+    const ours = rows.find(
+      (row) => row.querySelector(".pk-rv__jobtitle")?.textContent === "Pocket To review",
+    )!;
+    await press(
+      Array.from(ours.querySelectorAll("button")).find(
+        (one) => one.textContent?.trim() === "Looks good",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(sentTo("/api/sessions/ready_to_try/answer")[0]?.body).toMatchObject({
+        session_id: "rv",
+        branch: "armada/pocket-to-review",
+      }),
+    );
   });
 
   it("goes to the Jobs list and back with the switch", async () => {

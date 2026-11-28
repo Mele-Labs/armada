@@ -28,7 +28,8 @@ on, read from each Mac's `list_to_review` and merged into one list, headed by ea
 feature, then the Jobs in neither. A switch under the bar goes to the Jobs list and back. Each item is drawn by one
 component, `src/ReviewItem.tsx`, in the form it asks in (an artifact's parts, a plan, a draft, a Ready to try card,
 options, a thing to do, a command or a press) and answered in place through the operation it names; a new form is one
-case of its `Form`. The fixture's Job `Pocket To review` holds a thing to do, a command and an item asking for approval.
+case of its `Form`. Each item opens with its Job's bar, the Job's title and what it is doing, which opens the Job. Every
+Job ready to try shares one Ready to try card ahead of the groups, a row each, since one preview build holds them all. The fixture's Job `Pocket To review` holds a thing to do, a command and an item asking for approval.
 
 A Job's thread ends in what waits on the owner: a question, one of Fleet's own
 choices (how the work lands, every slot held, tasks done, a rule's act, a

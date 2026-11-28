@@ -232,11 +232,14 @@ export function TryCard({
   id,
   card,
   reread,
+  bare = false,
 }: {
   machine: Machine;
   id: string;
   card: ThreadReadyToTry;
   reread: () => void;
+  /** A row of the one Ready to try card To review draws, which carries the band and the frame. */
+  bare?: boolean;
 }) {
   const [artifacts] = useArtifacts(card.approved === undefined ? undefined : machine, id);
   const approved = approvedPicture(card, artifacts.artifacts);
@@ -289,11 +292,13 @@ export function TryCard({
   }));
 
   return (
-    <article className="pk-try" aria-label={card.about}>
-      <header className="pk-try__band">
-        <span className="pk-try__chip">Ready to try</span>
-        <span className="pk-try__at">{TIME.format(new Date(card.at))}</span>
-      </header>
+    <article className={bare ? "pk-try pk-try--bare" : "pk-try"} aria-label={card.about}>
+      {bare ? null : (
+        <header className="pk-try__band">
+          <span className="pk-try__chip">Ready to try</span>
+          <span className="pk-try__at">{TIME.format(new Date(card.at))}</span>
+        </header>
+      )}
       <h2 className="pk-try__title">{card.about}</h2>
       {pictures.length === 0 ? null : (
         <WithKeptStyles machine={machine}>

@@ -1,0 +1,7 @@
+[icons.square-check]
+  means = "A square with a tick inside"
+  group = "To review kind"
+  size = "16px"
+  status = "Proposed"
+  reserved = "Something a Job asked the owner to do himself and mark done, on its To review item in Pocket. Never a task's state, which TaskMark draws; never a Check result; never a plan's list, which is `list-todo`."
+  notes = "Proposed 28 Nov 2026 for Pocket's To review (`apps/pocket/src/ReviewItem.tsx`), the tile of an item whose kind is `to_do`: a box he ticks with Done. Tooltip `To do`. Against `list-todo`, reserved for the plan's work on a Record row, and `check`, a Job state and a yes."

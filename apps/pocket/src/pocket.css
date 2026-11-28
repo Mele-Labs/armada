@@ -2003,8 +2003,58 @@ button.pk-send__title {
   gap: var(--space-2);
   padding-bottom: var(--space-3);
 }
-.pk-rv > :not(.pk-bc__head) {
+.pk-rv > :not(.pk-bc__head, .pk-rv__jobbar) {
   margin-inline: var(--space-3);
+}
+.armada-tooltip:has(> .pk-rv__jobbar) {
+  display: block;
+}
+.pk-rv__jobbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.pk-rv__jobbar:hover {
+  background: var(--bg-hover);
+}
+.pk-rv__jobbar:focus-visible {
+  outline: var(--border-width) solid var(--accent);
+  outline-offset: calc(var(--border-width) * -2);
+}
+.pk-rv__jobline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-weight: var(--weight-medium);
+}
+.pk-rv__jobline > svg {
+  flex: none;
+  color: var(--fg-muted);
+}
+.pk-rv__jobtitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-rv__now {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--fg-muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .pk-rv__tile[data-kind="plan"] {
   --kind: var(--kind-gate);
@@ -2036,20 +2086,11 @@ button.pk-send__title {
   border-top: var(--border-width) solid var(--border-subtle);
   font-size: var(--text-xs);
 }
+.pk-rv__from:not(:has(button)) {
+  display: none;
+}
 .pk-rv__from .pk-bc__rest {
   margin-left: auto;
-}
-.pk-rv__job {
-  min-width: 0;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent-hover);
-  font: inherit;
-  font-weight: var(--weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .pk-rv__mac {
   flex: none;
@@ -2126,4 +2167,30 @@ button.pk-send__title {
 /* A page in the list stops at half the screen; Open reads it whole. */
 .pk-rv .pk-art__page {
   max-height: 50vh;
+}
+
+/* To review's one Ready to try card: the band and frame once, a row per Job under its Job bar. */
+.pk-rv-try {
+  flex: none;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.pk-rv-try > .pk-try__band {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.pk-rv-try__jobs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pk-rv-try__job + .pk-rv-try__job {
+  border-top: var(--border-width) solid var(--border-default);
+}
+.pk-try--bare {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }

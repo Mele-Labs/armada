@@ -9,6 +9,8 @@
 import { useState } from "react";
 import {
   AppWindow,
+  Box,
+  ChevronRight,
   CircleCheck,
   CircleHelp,
   FileText,
@@ -51,7 +53,7 @@ import { TryCard, useTryCards } from "./ReadyToTry";
 import { refreshPreview } from "./refresh";
 import { artifactPath, documentPath, go, jobPath, sketchPath } from "./router";
 import { approvalOf, draftsOf, sessionOfThread, sketchOf } from "./thread";
-import { answersOn, readList } from "./reviewList";
+import { answersOn, readList, type Entry } from "./reviewList";
 import { Trouble } from "./ui";
 
 /** Each kind's glyph and the word its tooltip names it by. */
@@ -384,7 +386,13 @@ function PlanForm(props: FormProps) {
 }
 
 /** Each open Ready to try card the item holds, as the Job's own card draws and answers it. */
-function TryForm({ mac, item }: FormProps) {
+function TryForm({
+  mac,
+  item,
+  bare = false,
+}: FormProps & {
+  bare?: boolean;
+}) {
   const [cards, reread] = useTryCards(mac.machine, item.job.id, true);
   const wanted = item.answer.op === "answer_ready_to_try" ? item.answer.cards : [];
   const held = (cards ?? []).filter((card) =>
@@ -394,7 +402,14 @@ function TryForm({ mac, item }: FormProps) {
   return (
     <>
       {held.map((card) => (
-        <TryCard key={card.id} machine={mac.machine} id={item.job.id} card={card} reread={reread} />
+        <TryCard
+          key={card.id}
+          machine={mac.machine}
+          id={item.job.id}
+          card={card}
+          reread={reread}
+          bare={bare}
+        />
       ))}
     </>
   );
@@ -713,6 +728,64 @@ function DismissAct({ mac, item, onSaid }: FormProps) {
   );
 }
 
+/**
+ * The Job an item comes from, across the card's top: its title, its Mac where several are paired, and what it is doing,
+ * else what it last said, else what it has done so far, as its row in the Jobs list says. A press opens the Job.
+ */
+export function JobBar({ mac, item, several }: { mac: Mac; item: ToReviewItem; several: boolean }) {
+  const now = mac.live.find((one) => one.id === item.job.id)?.now ?? "";
+  const macName = mac.machine.name || new URL(mac.machine.origin).hostname;
+  return (
+    <Tooltip label="Open the Job">
+      <button
+        type="button"
+        className="pk-rv__jobbar"
+        aria-label={`Open ${item.job.title}`}
+        onClick={() => go(jobPath(mac.machine.origin, item.job.id))}
+      >
+        <span className="pk-rv__jobline">
+          <Box size={14} aria-hidden="true" />
+          <span className="pk-rv__jobtitle">{item.job.title}</span>
+          {several ? <span className="pk-rv__mac">{macName}</span> : null}
+          <ChevronRight size={14} aria-hidden="true" />
+        </span>
+        {now === "" ? null : <span className="pk-rv__now">{now}</span>}
+      </button>
+    </Tooltip>
+  );
+}
+
+/**
+ * Every Job ready to try, in one card: one preview build holds them all, so they are tried together. Each Job is a row
+ * under its Job bar, answered on its own.
+ */
+export function ReadyToTryAll({
+  entries,
+  several,
+}: {
+  entries: readonly Entry[];
+  several: boolean;
+}) {
+  return (
+    <section className="pk-try pk-rv-try" aria-label="Ready to try">
+      <header className="pk-try__band">
+        <span className="pk-try__chip">Ready to try</span>
+      </header>
+      <ul className="pk-rv-try__jobs">
+        {entries.map(({ mac, item }) => (
+          <li
+            key={`${mac.machine.origin} ${item.job.id} ${item.row.id}`}
+            className="pk-rv-try__job"
+          >
+            <JobBar mac={mac} item={item} several={several} />
+            <TryForm mac={mac} item={item} keep="" onSaid={() => undefined} bare />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** What the Operator read in the item and the option it would pick, as native's review sheet draws it. */
 function OperatorNote({ read, pick }: { read: string; pick: string }) {
   return (
@@ -744,10 +817,10 @@ export function ReviewItem({
     keep,
     onSaid: setSays,
   };
-  const macName = mac.machine.name || new URL(mac.machine.origin).hostname;
   return (
     <li className="pk-rv-row">
       <article className="pk-bc pk-rv" data-kind={item.kind} aria-label={item.row.text}>
+        <JobBar mac={mac} item={item} several={several} />
         {HEADED(item) ? null : <FrameHead item={item} />}
         {item.why === undefined ? null : <p className="pk-rv__why">{item.why}</p>}
         {item.operator_read === undefined ? null : <OperatorNote {...item.operator_read} />}
@@ -755,16 +828,6 @@ export function ReviewItem({
           <Form {...props} />
         </div>
         <div className="pk-rv__from">
-          <Tooltip label="Open the Job">
-            <button
-              type="button"
-              className="pk-rv__job"
-              onClick={() => go(jobPath(mac.machine.origin, item.job.id))}
-            >
-              {item.job.title}
-            </button>
-          </Tooltip>
-          {several ? <span className="pk-rv__mac">{macName}</span> : null}
           <span className="pk-bc__rest">
             <DismissAct {...props} />
           </span>
