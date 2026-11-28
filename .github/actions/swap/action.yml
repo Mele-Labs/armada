@@ -1,0 +1,19 @@
+# 8 GB more swap, for a job whose compile comes near the runner's 16 GB.
+# Out of memory, a hosted runner dies or is shut down rather than slowing,
+# and its job hangs past its limit with no log: docs/practices/ci.md,
+# *Memory on the runner*. The temporary disk at /mnt where the runner has one.
+name: swap
+runs:
+  using: composite
+  steps:
+    - name: More swap
+      shell: bash
+      run: |
+        at=/mnt
+        mountpoint -q /mnt || at=
+        if sudo fallocate -l 8G "$at/armada-swap" && sudo chmod 600 "$at/armada-swap" \
+          && sudo mkswap -q "$at/armada-swap" && sudo swapon "$at/armada-swap"; then
+          echo "SWAP $(free -m | awk '/Swap:/{print $2"M"}') in all"
+        else
+          echo "SWAP not added; the job runs on the runner's own"
+        fi

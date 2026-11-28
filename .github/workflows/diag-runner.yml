@@ -1,4 +1,4 @@
-# Throwaway: what fills a hosted runner's memory while CI compiles the test code.
+# Throwaway: the fixed test compile, through the real swap and run-check actions.
 # Runs on pushes to this one branch only, and is deleted before the branch lands.
 name: diag-runner
 on:
@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   compile:
-    name: diag compile ${{ matrix.variant }}
+    name: diag compile fixed ${{ matrix.copy }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [threads1, threads1-jobs2]
+        copy: [1, 2, 3]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/rust-setup
@@ -28,22 +28,8 @@ jobs:
           key: test
           shared: test-test
           nextest: "true"
-      - name: Compile, sampled
-        env:
-          VARIANT: ${{ matrix.variant }}
-        run: |
-          case "$VARIANT" in
-            threads4) export RUSTC_WORKSPACE_WRAPPER="$PWD/.github/ci/rustc-threads.sh" ;;
-            threads1-jobs2) export CARGO_BUILD_JOBS=2 ;;
-          esac
-          (
-            while true; do
-              echo "MEM $(date -u +%T) $(free -m | awk '/Mem:/{print "used="$3"M avail="$7"M"}') swap=$(free -m | awk '/Swap:/{print $3"M"}')"
-              ps -eo rss=,comm=,args= --sort=-rss | head -6 | sed -E 's/^ *([0-9]+) +([^ ]+) .*--crate-name ([^ ]+)(.*--test)?.*$/TOP \1K \2 \3 \4/; s/^ *([0-9]+) +([^ ]+) .*$/TOP \1K \2/'
-              sleep 5
-            done
-          ) &
-          start=$(date +%s)
-          cargo nextest run --workspace --exclude acceptance --no-run 2>&1 | grep -v -E "^\s+(Compiling|Checking|Fresh)" | tail -20
-          echo "RESULT variant=$VARIANT seconds=$(( $(date +%s) - start ))"
-          kill %1 2>/dev/null || true
+      - uses: ./.github/actions/swap
+      - uses: ./.github/actions/run-check
+        with:
+          name: test_compile
+          cmd: set -o pipefail; cargo nextest run --workspace --exclude acceptance --no-run 2>&1 | grep -v -E "^\s+(Compiling|Checking|Fresh)" | tail -5

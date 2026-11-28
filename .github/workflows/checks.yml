@@ -335,12 +335,11 @@ jobs:
     if: contains(fromJSON(needs.plan.outputs.checks), 'test')
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # fleet's test harness compiles 31% faster with Armada's own crates
-    # type-checked on four threads and no debug info. test_compile and the
-    # main-caches probe set the same, as rust-cache hashes them into this
-    # job's key. docs/spikes/ci-test-compile.md.
+    # No debug info: fleet's test harness compiles 11% faster. test_compile
+    # and the main-caches probe set the same, as rust-cache hashes them into
+    # this job's key. Four rustc threads were dropped on 28 Nov 2026: they ran
+    # the 16 GB runner out of memory. docs/spikes/ci-test-compile.md.
     env:
-      RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     strategy:
@@ -361,6 +360,7 @@ jobs:
         with:
           key: test
           nextest: "true"
+      - uses: ./.github/actions/swap
       - name: Slice nextest
         env:
           SHARD: ${{ matrix.shard }}
@@ -398,7 +398,6 @@ jobs:
     timeout-minutes: 20
     # The same as `test`, whose cache this restores.
     env:
-      RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
@@ -418,6 +417,7 @@ jobs:
           key: test
           shared: test-test
           nextest: "true"
+      - uses: ./.github/actions/swap
       - name: No-run nextest
         run: |
           mkdir -p "$RUNNER_TEMP/norun"
