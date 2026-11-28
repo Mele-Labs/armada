@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, EntityId, FocusHandle, FontWeight, Global, Hsla, Role, SharedString, Subscription, WeakEntity, Window};
+use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, EntityId, FocusHandle, FontWeight, Global, Hsla, Role, ScrollHandle, SharedString, Subscription, WeakEntity, Window};
 use ipc::{MetricCredential, ThreadGraph};
 
 use super::rows::{glyph, mono, tip, Size};
@@ -524,10 +524,13 @@ impl gpui::Render for GraphCard {
     }
 }
 
-/// Each Job view's graph cards, by Job, place and card.
+/// Each Job view's graph cards, by Job, place and card, and the scroll of each Job's Graphs tab.
 #[derive(Default)]
 struct Held {
     cards: HashMap<(EntityId, String, Place), HashMap<String, Entity<GraphCard>>>,
+    scrolls: HashMap<(EntityId, String), ScrollHandle>,
+    /// The graph each Job's Graphs tab is to put at its top when it next draws, by its place among the cards.
+    wanted: HashMap<(EntityId, String), usize>,
 }
 
 impl Global for Held {}
@@ -612,11 +615,23 @@ impl JobView {
         self.sync_graphs(job, Place::Tab, cx);
         let look = cx.look().clone();
         let cards: Vec<Entity<GraphCard>> = feeds::of_job(job, cx).iter().filter_map(|card| self.held_graph(job, Place::Tab, &card.id, cx)).collect();
+        let scroll = self.graphs_scroll(job, cx);
+        let key = (cx.entity_id(), job.to_string());
+        if let Some(at) = cx.try_global::<Held>().and_then(|held| held.wanted.get(&key)).copied() {
+            // A tab drawing for the first time has no edges yet for gpui to scroll against, so it waits one frame.
+            if scroll.bounds().size.height > px(0.) {
+                scroll.scroll_to_top_of_item(at);
+                cx.default_global::<Held>().wanted.remove(&key);
+            } else {
+                cx.notify();
+            }
+        }
         let list = div()
             .id(SharedString::from(format!("pane-body:{}", tab.id)))
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
+            .track_scroll(&scroll)
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
             .flex()
@@ -624,6 +639,24 @@ impl JobView {
             .gap(look.length(token::SPACE_4))
             .children(cards);
         Some(labelled(list, Role::Region, "Graphs").into_any_element())
+    }
+
+    /// The scroll of `job`'s Graphs tab in this view, made the first time it is asked for.
+    pub(super) fn graphs_scroll(&self, job: &str, cx: &mut Context<Self>) -> ScrollHandle {
+        let key = (cx.entity_id(), job.to_string());
+        cx.default_global::<Held>().scrolls.entry(key).or_default().clone()
+    }
+
+    /// Open the Graphs tab of the Job shown with graph `id` at its top, as a press on its row in Artifacts asks.
+    pub(super) fn open_graph(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_graphs(window, cx);
+        let Some(job) = self.shown.clone() else { return };
+        // The tab draws every card the book holds, in its order, so the graph's place there is its place in the book.
+        if let Some(at) = feeds::of_job(&job, cx).iter().position(|card| card.id == id) {
+            let key = (cx.entity_id(), job.to_string());
+            cx.default_global::<Held>().wanted.insert(key, at);
+            cx.notify();
+        }
     }
 
     /// Open the Graphs tab of the Job shown: the one it has comes to the front, and none makes one.
@@ -720,6 +753,30 @@ mod tests {
         });
         fresh(cx);
         assert_eq!(drawn_like(cx, Role::Article, "Graph: p99"), ["Graph: p99 after the rollback"], "the card is replaced where it stands");
+    }
+
+    #[gpui::test]
+    fn a_graph_opened_from_its_artifacts_row_stands_at_the_top_of_the_graphs_tab(cx: &mut gpui::TestAppContext) {
+        let (view, book, cx) = opened(cx);
+        // Six more graphs and a short window, so the fifth stands well below the tab's fold with enough under it to reach the top.
+        let mut many = graphs();
+        many.extend((0..6).map(|n| shown(&format!("graph-more-{n}"), &format!("More {n}"))));
+        book.update(cx, |book, cx| {
+            book.take_changed(GraphsChanged { session_id: SessionId::carried(JOB), graphs: many, feeds: Vec::new() });
+            cx.notify();
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(900.)));
+        fresh(cx);
+        view.update_in(cx, |view, window, cx| view.open_graph("graph-more-2", window, cx));
+        fresh(cx);
+        fresh(cx);
+        let found = |cx: &mut gpui::VisualTestContext, role: Role, name: &str| {
+            cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds))
+        };
+        let tab = found(cx, Role::Region, "Graphs").expect("the Graphs tab is in front");
+        let card = found(cx, Role::Article, "Graph: More 2").expect("the graph is drawn");
+        assert!(view.update(cx, |view, cx| view.graphs_scroll(JOB, cx).offset().y) < gpui::px(0.), "the tab scrolled");
+        assert!(card.top() >= tab.top() && card.top() - tab.top() < gpui::px(40.), "the graph stands at the tab's top: card {card:?}, tab {tab:?}");
     }
 
     #[gpui::test]

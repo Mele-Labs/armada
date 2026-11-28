@@ -870,12 +870,12 @@ impl JobView {
         }
     }
 
-    /// A row's key opened: a link in the browser, a graph in the Graphs tab, an artifact where it is read.
+    /// A row's key opened: a link in the browser, a graph at the top of the Graphs tab, an artifact where it is read.
     fn open_artifact_row(&mut self, job: &str, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(url) = key.strip_prefix("link:") {
             cx.open_url(url);
-        } else if key.starts_with("graph:") {
-            self.open_graphs(window, cx);
+        } else if let Some(graph) = key.strip_prefix("graph:") {
+            self.open_graph(graph, window, cx);
         } else {
             self.open_artifact(job, key, window, cx);
         }
@@ -943,7 +943,7 @@ impl JobView {
     }
 
     /// One graph: the chart's tile beside its title, then whether Fleet still reads it and when the thread last showed it.
-    /// A press opens the Graphs tab, as the card's own Open in Graphs does.
+    /// A press opens the Graphs tab with the graph at its top.
     fn graph_row(&self, id: &SharedString, graph: &GraphRow, on: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = graph.key();
         let (ink, word, said) = if graph.live { (token::STATUS_RUNNING, "Live", "Live: Fleet is reading it") } else { (token::STATUS_NOT_STARTED, "Ended", "Fleet stopped reading it") };
@@ -956,10 +956,10 @@ impl JobView {
         let row = Self::row_frame(look, &key, on)
             .child(glyph_tile(look, "chart-line", token::KIND_DELIVERY))
             .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(Self::row_title(look, graph.title.clone())).child(meta));
-        let job = id.to_string();
+        let (job, graph_id) = (id.to_string(), graph.id.clone());
         let row = row.on_click(cx.listener(move |this, _, window, cx| {
             this.artifacts_cursor(&job, Some(key.clone()), cx);
-            this.open_graphs(window, cx);
+            this.open_graph(&graph_id, window, cx);
         }));
         labelled(row, Role::Button, format!("Open graph {}", graph.title)).into_any_element()
     }
