@@ -156,6 +156,10 @@ where
     pub(crate) fn metrics_held(&self) -> &crate::project_metrics::Readings {
         &self.metric_readings
     }
+    /// The graph recipes running now. See [`crate::graphs`].
+    pub(crate) fn graphs_running(&self) -> &crate::graphs::Running {
+        &self.graphs_running
+    }
     pub(crate) fn mods(&self) -> &crate::mods::Told {
         &self.mods
     }

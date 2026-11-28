@@ -90,6 +90,7 @@ mod parts_card;
 mod parts_fold;
 mod parts_reader;
 mod live_pill;
+mod page_graphs;
 mod page_sketches;
 mod reader;
 mod reader_draw;
@@ -1091,6 +1092,7 @@ impl JobView {
         self.want_needs(id, cx);
         self.want_looks(id, cx);
         self.want_watches(id, cx);
+        self.want_graphs(id, cx);
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
         let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
         let working = self.working(id, cx);

@@ -17,7 +17,7 @@ use ipc::{
 mod cards;
 mod head;
 
-use cards::{file_card_of, form_of, reads, sketch_card_of, with_changes, with_documents, with_margins, with_ready, with_sketch_state};
+use cards::{file_card_of, form_of, graph_card_of, with_graph_repeats, reads, sketch_card_of, with_changes, with_documents, with_margins, with_ready, with_sketch_state};
 use head::{ask_of, head_of, pinned_of, waiting_plan_of};
 
 const FLEET: &str = "fleet";
@@ -177,7 +177,9 @@ fn items_of(
         .map(|row| {
             let card = match row {
                 SessionRow::Tool { id, at, text, .. } => {
-                    sketch_card_of(id, at, text, ledger).or_else(|| file_card_of(id, at, text, ledger))
+                    sketch_card_of(id, at, text, ledger)
+                        .or_else(|| file_card_of(id, at, text, ledger))
+                        .or_else(|| graph_card_of(id, at, text))
                 }
                 _ => None,
             };
@@ -223,6 +225,7 @@ fn items_of(
         items = fold(&entries, &keep);
     }
     with_approved_plan(&mut items, thread);
+    with_graph_repeats(&mut items);
     items
 }
 
