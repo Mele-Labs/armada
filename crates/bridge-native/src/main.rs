@@ -6,6 +6,7 @@
 //! | `--mock <scenario>` | The same window on mock data (`mock.rs`), with no Fleet |
 //! | `--walk <name>` | A native walk in its own window with a walk bar (`walk/`). Fleet adds `--job <id> --url <url> --fleet-port <port>` when the owner presses Open, and `--take <name>=<walk>` for each of its variations |
 //! | `--shot-check <scene.html> --out <dir> [--fixtures-dir <dir>] [--against <scene.html>]` | A scene's states drawn with no window on screen and set against the steps of the walk it names; writes `report.json` and a pair of pictures for each state, exits 1 when any has drifted or has no step (`shot_check/`) |
+//! | `--walk <name> --check --shots <dir> --against <dir> --out <dir>` | The walk's pictures set against the look he approved, by file name; writes `<out>/report.json` (`ipc::LookReport`), exits 1 when a step drifted or is missing, 2 when the walk did not play (`shot_check/look.rs`) |
 //! | `--walk <name> --check [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed. `--hold` lets each step's animations run before its picture. `--pace` presses Next that long after each step, as a person reading it would |
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
@@ -145,7 +146,7 @@ use walk::window::WalkWindow;
 /// What `--help` prints, and what an unread command line prints before it exits.
 const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
-       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
+       bridge-native --walk <name> [--check] [--shots <dir>] [--against <dir> --out <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
        bridge-native --prototype-shots <dir>
        bridge-native --system-shots <dir>
@@ -157,6 +158,7 @@ With no flags it opens on the Fleet this Mac runs.
   --walk <name>       open the walk of that name in its own window
   --check             play the walk with no window on screen; exit 0 when it plays to its end
   --shots <dir>       with --check, keep a picture of each step in <dir>
+  --against <dir>     with --check and --shots, set each step's picture against the file of that name in <dir>, the look he approved; exit 1 when any drifted or is missing, 2 when the walk did not play
   --hold <ms>         with --shots, let each step's animations run this long before its picture
   --pace <ms>         with --check, press Next this long after each step, as a person would; a step still playing then fails
   --width <points>    the walk's window width
@@ -166,7 +168,7 @@ With no flags it opens on the Fleet this Mac runs.
   --prototype-shots <dir>  draw the mock prototype with no window on screen, keep a picture of each state in <dir>, print how long it took to draw, and exit
   --system-shots <dir>  draw the System block of the mock Fleet at 1400 and 900 wide in nine states with no window on screen, keep a picture of each in <dir>, and exit
   --shot-check <scene.html>  draw each state of the scene and the step of the walk it names for that state, compare the two, and exit 1 when any has drifted or has no step
-  --out <dir>         with --shot-check, where report.json and each state's side-by-side and difference pictures go
+  --out <dir>         with --shot-check or --against, where report.json and each state's or drifted step's side-by-side and difference pictures go
   --fixtures-dir <dir>  with --shot-check, where the scene's fixtures are, the scene's own folder where left out
   --against <scene.html>  with --shot-check, draw this scene's states in the walk's place
   --list-walks        print the name of every walk this build plays, one a line, and exit
@@ -189,7 +191,7 @@ enum Mode {
     /// A scene's states set against the built screen's steps, headless.
     ShotCheck(shot_check::Args),
     Mock(String),
-    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
+    Walk { name: String, check: bool, shots: Option<PathBuf>, look: Option<(PathBuf, PathBuf)>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
@@ -245,7 +247,16 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
             .filter(|pair| pair[0] == "--take")
             .map(|pair| pair[1].rsplit_once('=').map(|(name, walk)| (name.to_string(), walk.to_string())).ok_or(format!("--take {} is not <name>=<walk>", pair[1])))
             .collect::<Result<_, _>>()?;
-        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, pace, width, height, fleet, takes });
+        // `--against <dir> --out <dir>`: the walk's pictures set against the look he approved.
+        let look = match (value("--against").transpose()?, value("--out").transpose()?) {
+            (Some(against), Some(out)) => Some((PathBuf::from(against), PathBuf::from(out))),
+            (None, None) => None,
+            _ => return Err("--against and --out come together".into()),
+        };
+        if look.is_some() && !(args.iter().any(|arg| arg == "--check") && shots.is_some()) {
+            return Err("--against needs --check and --shots <dir>".into());
+        }
+        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, look, hold, pace, width, height, fleet, takes });
     }
     if let Some(scenario) = value("--mock").transpose()? {
         return Ok(Mode::Mock(scenario));
@@ -347,19 +358,38 @@ fn main() -> ExitCode {
             }
         };
     }
-    if let Mode::Walk { name, check: true, shots, hold, pace, width, height, takes, .. } = &mode {
+    if let Mode::Walk { name, check: true, shots, look, hold, pace, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
-            return ExitCode::FAILURE;
+            return if look.is_some() { ExitCode::from(2) } else { ExitCode::FAILURE };
         };
         return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *pace, *width, *height) {
             Ok(()) => {
                 log::Note::info("the walk played to its end").field("walk", walk.name).emit();
-                ExitCode::SUCCESS
+                let (Some((against, out)), Some(shots)) = (look, shots) else {
+                    return ExitCode::SUCCESS;
+                };
+                // Against the look he approved: 1 when a step drifted or is missing, 2 when the report could not be made.
+                match shot_check::look::report(walk.name, walk.steps.len(), shots, against, out).and_then(|report| shot_check::look::write(&report, out).map(|()| report)) {
+                    Ok(report) => {
+                        for step in &report.steps {
+                            log::Note::info("a step set against the look he approved").field("step", step.step.to_string()).field("drifted", step.drifted.to_string()).field("missing", step.missing.to_string()).field("mean", format!("{:.5}", step.mean)).field("cells", format!("{:.4}", step.cells)).emit();
+                        }
+                        if report.drifted {
+                            ExitCode::FAILURE
+                        } else {
+                            ExitCode::SUCCESS
+                        }
+                    }
+                    Err(why) => {
+                        log::Note::warn("the walk was not set against the look he approved").field("walk", walk.name).field("why", why).emit();
+                        ExitCode::from(2)
+                    }
+                }
             }
             Err(why) => {
                 log::Note::warn("the walk did not play").field("walk", walk.name).field("why", why).emit();
-                ExitCode::FAILURE
+                if look.is_some() { ExitCode::from(2) } else { ExitCode::FAILURE }
             }
         };
     }
