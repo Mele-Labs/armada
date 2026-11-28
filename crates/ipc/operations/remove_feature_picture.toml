@@ -2,6 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Operator"
+ask_tool = "none"
 description = "Take a picture off its feature: his Not this feature. Give the picture's id and, where he said, `why`"
 notes = """
 `POST /features/pictures/remove`, body `RemoveFeaturePicture`: `picture` (a `FeaturePicture.id`) and an optional `why`. Answered with `FeaturePictureRemoved`: `feature` (the slug it was under), `picture`, `cover`, the feature's cover now, absent where it has none left, and `rule`, the catalog rule his `why` became.
