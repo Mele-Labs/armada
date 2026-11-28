@@ -161,8 +161,9 @@ fn small_button(look: &Look, id: impl Into<gpui::ElementId>, said: &str, lead: O
     styled
         .when(on, |button| button.cursor_pointer())
         .when(!on && !pending, |button| button.opacity(0.4))
-        .when_some(if pending { Some("loader-circle") } else { lead }, |button, icon| button.child(glyph(look, icon, Size::Small, ink)))
+        .when_some(if pending { None } else { lead }, |button, icon| button.child(glyph(look, icon, Size::Small, ink)))
         .child(SharedString::from(said.to_string()))
+        .when(pending, |button| button.relative().child(crate::parts::ring::ring_overlay(look, SharedString::from(format!("{said}-ring")), look.length(token::RADIUS_MD), if primary { look.color(token::TEXT_ON_ACCENT) } else { look.color(token::ACCENT) })))
 }
 
 /// Fleet's sentence where it refused, under what asked (`sv-lanes__refused`).
