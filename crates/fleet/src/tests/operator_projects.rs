@@ -222,6 +222,8 @@ async fn his_words_reach_the_operator_of_the_project_the_talk_names_and_no_other
     eventually(|| async { heard_by(&rig, &for_b, "Look at the reader") >= 1 }).await;
     assert_eq!(heard_by(&rig, &for_a, "Look at the reader"), 0, "A's Operator never hears words for B");
 
-    let unrouted = Arc::clone(&rig.fleet).operator_talked(super::operator_cards::said("Anyone?", None)).await.expect_err("two run and he named none");
-    assert_eq!(unrouted.error().code, "fleet.operator_session_not_running");
+    // Two run and he named none: his words are kept and he is asked which, so neither Operator hears them yet.
+    Arc::clone(&rig.fleet).operator_talked(super::operator_cards::said("Anyone?", None)).await.expect("kept");
+    assert_eq!(heard_by(&rig, &for_a, "Anyone?") + heard_by(&rig, &for_b, "Anyone?"), 0);
+    assert_eq!(rig.fleet.store().lock().await.operator_held_sends().expect("read").len(), 1);
 }

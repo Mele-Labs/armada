@@ -1572,7 +1572,7 @@ mod tests {
 
     /// His words as a talk, with nothing sent beside them.
     fn said(words: &str, about: Option<&str>) -> TalkToOperator {
-        TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None }
+        TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None, looking_at: None }
     }
 
     /// The page with the Jobs screen made beside it, as the app holds them: its Job view draws the Operator's thread and box.
@@ -2209,7 +2209,7 @@ mod tests {
         // A newer entry replaces it, and a merged pull request says its number.
         page.update(cx, |page, cx| {
             let mut read = page.page.clone().expect("the page is read");
-            read.feed.insert(0, ipc::operator_page::OperatorFeedEntry { at: ipc::Instant::carried("2026-11-11T13:05:00-05:00"), kind: ipc::operator_page::OperatorFeedKind::Merged, title: "Slot meter".into(), session_id: None, number: Some("3414".into()), said: None });
+            read.feed.insert(0, ipc::operator_page::OperatorFeedEntry { at: ipc::Instant::carried("2026-11-11T13:05:00-05:00"), kind: ipc::operator_page::OperatorFeedKind::Merged, title: "Slot meter".into(), session_id: None, number: Some("3414".into()), said: None, operator: None });
             page.set_page(read, cx);
         });
         cx.run_until_parked();

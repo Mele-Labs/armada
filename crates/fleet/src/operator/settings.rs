@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, SetupKind, Vcs, WhatWasRead, WorkPr
 use api::Refusal;
 use config::settings as keys;
 use ipc::{
-    ManifestId, OperatorActs, OperatorDecisions, OperatorRole, OperatorSettings, OperatorSettingsList, OperatorSettingsSet, OperatorToolsSet,
+    ManifestId, OperatorActs, OperatorDecisions, OperatorRole, OperatorSettings, OperatorTag, OperatorSettingsList, OperatorSettingsSet, OperatorToolsSet,
     ProjectOperatorSettings, SessionId, SetOperatorSettings, StartSession,
 };
 
@@ -101,6 +101,12 @@ fn resolved(set: &OperatorSettingsSet, model: String, effort: String) -> Operato
         accent: set.accent.clone(),
         acts: set.acts,
     }
+}
+
+/// Whose Operator `project`'s is, as a card, a line of the feed or an item to review draws it: the name and accent he set.
+pub(crate) fn operator_tag_in(store: &store::Store, project: &str) -> OperatorTag {
+    let set = set_read(store, project);
+    OperatorTag { project: project.to_string(), name: set.name.filter(|name| !name.trim().is_empty()).unwrap_or_else(|| DEFAULT_NAME.to_string()), accent: set.accent }
 }
 
 /// Whether `accent` is `#rrggbb`.

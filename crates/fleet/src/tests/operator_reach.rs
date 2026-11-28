@@ -58,7 +58,7 @@ async fn held_back(two: &Two, caller: Caller, operation: &str) -> Option<String>
 }
 
 async fn says(two: &Two, project: &str, words: &str) {
-    let talk = TalkToOperator { words: words.into(), about: None, attachments: Vec::new(), mentions: Vec::new(), project: Some(project.into()) };
+    let talk = TalkToOperator { words: words.into(), about: None, attachments: Vec::new(), mentions: Vec::new(), project: Some(project.into()), looking_at: None };
     Arc::clone(&two.rig.fleet).operator_talked(talk).await.expect("delivered");
 }
 

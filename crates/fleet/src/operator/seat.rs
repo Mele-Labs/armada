@@ -50,6 +50,11 @@ impl Seat {
         held(&self.says).get(project).copied()
     }
 
+    /// The project he last said something to, where he has said any since Fleet started.
+    pub(crate) fn last_said_project(&self) -> Option<String> {
+        held(&self.says).iter().max_by_key(|(_, at)| **at).map(|(project, _)| project.clone())
+    }
+
     /// `from`'s Operator may reach `to` until `until`.
     pub(crate) fn granted(&self, from: &str, to: &str, until: i64) {
         held(&self.grants).insert((from.to_string(), to.to_string()), until);

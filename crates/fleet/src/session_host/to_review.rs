@@ -163,6 +163,7 @@ pub(crate) fn to_review_of(project: Option<String>, jobs: Vec<JobWaiting>, subs:
                     why: item.why.clone(),
                     job: ToReviewJob { id: one.id.clone(), title: title.clone() },
                     project: filed.clone(),
+                    operator: None,
                     sub_project: sub.map(|at| sub_project_wire(&subs[at])),
                     features: one.features.clone(),
                     operator_read: item.operator_read.clone(),
@@ -229,7 +230,13 @@ where
             jobs.push(JobWaiting { id: record.id, title: record.title, features: record.features, waiting: record.waiting_for, projects, cards });
         }
         let subs = self.store().lock().await.sub_projects(project.as_deref(), false).map_err(|why| self.ledger_fault(why))?;
-        Ok(to_review_of(project, jobs, &subs))
+        let mut list = to_review_of(project, jobs, &subs);
+        let store = self.store().lock().await;
+        for item in list.groups.iter_mut().flat_map(|group| group.items.iter_mut()) {
+            item.operator = item.project.as_deref().map(|filed| crate::operator::operator_tag_in(&store, filed));
+        }
+        drop(store);
+        Ok(list)
     }
 
     /// The Job's Ready to try cards still open, past those he dismissed the row for.

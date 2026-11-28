@@ -178,6 +178,7 @@ where
             conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
             held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
             card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()).map(|card| card_picked(card, row)),
+            operator: row.project.as_deref().map(|project| super::settings::operator_tag_in(store, project)),
         };
         Some(shown)
     }

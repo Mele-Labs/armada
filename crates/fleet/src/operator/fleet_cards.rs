@@ -33,7 +33,16 @@ pub(crate) enum FleetCardKind {
     /// An Operator's call named something in a project that is not its own. `session` is the Operator that asked, `act` the
     /// operation it called and `words` what it asked, in his terms.
     OtherProject { session: String, from_project: String, to_project: String, act: String, words: String },
+    /// The router could not tell whose Operator his words are for. `held` is the number of the kept send, `candidates` the
+    /// likeliest projects, by id.
+    WhichProject { held: i64, candidates: Vec<String> },
 }
+
+/// What each project's option on the asking card costs.
+const HEARS_THIS: &str = "Its Operator hears this and nothing of the others";
+
+/// The longest stretch of his words the asking card quotes.
+const QUOTED: usize = 160;
 
 /// A card as it is drawn: its title, what it reads, and each option with its cost.
 pub(crate) struct Described {
@@ -72,6 +81,16 @@ impl FleetCardKind {
         W::Error: std::error::Error + Send + Sync + 'static,
     {
         match self {
+            FleetCardKind::WhichProject { held, candidates } => {
+                let words = fleet.held_words(*held).await.unwrap_or_default();
+                let quoted: String = words.chars().take(QUOTED).collect();
+                Described {
+                    title: "Which project is this for?".to_string(),
+                    read: format!("He said: \"{quoted}{}\". Nothing in it says whose it is.", if words.chars().count() > QUOTED { "..." } else { "" }),
+                    options: candidates.iter().map(|project| (fleet.operator_project_name(project), HEARS_THIS.to_string())).collect(),
+                    project: None,
+                }
+            }
             FleetCardKind::OtherProject { from_project, to_project, act, words, .. } => {
                 let (from, to) = (fleet.operator_project_name(from_project), fleet.operator_project_name(to_project));
                 let name = fleet.operator_settings_of(from_project).await.name;
@@ -101,6 +120,10 @@ impl FleetCardKind {
         W::Error: std::error::Error + Send + Sync + 'static,
     {
         match self {
+            FleetCardKind::WhichProject { held, candidates } => {
+                let project = candidates.iter().find(|project| fleet.operator_project_name(project) == pick).ok_or_else(|| Fault::NotOffered(format!("{pick} is not a pick this card offers")))?;
+                fleet.held_words_routed(*held, project).await
+            }
             FleetCardKind::OtherProject { from_project, to_project, act, words, .. } => {
                 let (from, to) = (fleet.operator_project_name(from_project), fleet.operator_project_name(to_project));
                 let name = fleet.operator_settings_of(from_project).await.name;
@@ -205,6 +228,32 @@ where
             .and_then(|text| ipc::decode::<FleetCardKind>("a card of Fleet's own", text.as_bytes()).ok())
             .ok_or_else(|| Fault::NotDone("Fleet no longer holds what this card asks".to_string()))?;
         kind.answered(self, pick).await
+    }
+
+    /// His words kept as send `held`, where it has not been told yet.
+    async fn held_words(&self, held: i64) -> Option<String> {
+        let kept = self.store().lock().await.operator_held_sends().ok()?.into_iter().find(|(n, _)| *n == held)?.1;
+        ipc::decode::<ipc::operator_talk::TalkToOperator>("TalkToOperator", kept.as_bytes()).ok().map(|talk| talk.words)
+    }
+
+    /// His pick of `project` for kept send `held`: the send is kept with it, and told to its Operator now where one runs,
+    /// else once the session Fleet starts for it is up.
+    async fn held_words_routed(self: &Arc<Self>, held: i64, project: &str) -> Result<(), Fault> {
+        let gone = || Fault::NotDone("Fleet no longer holds his words".to_string());
+        let kept = self.store().lock().await.operator_held_sends().ok().and_then(|sends| sends.into_iter().find(|(n, _)| *n == held)).ok_or_else(gone)?.1;
+        let talk = ipc::decode::<ipc::operator_talk::TalkToOperator>("TalkToOperator", kept.as_bytes()).map_err(|_| gone())?;
+        let routed = ipc::encode(&ipc::operator_talk::TalkToOperator { project: Some(project.to_string()), ..talk }).map_err(|_| gone())?;
+        if !self.operator_on() {
+            return Err(Fault::NotDone("the Operator is off, so nothing here would hear it".to_string()));
+        }
+        if !self.store().lock().await.route_operator_held_send(held, &routed).map_err(|_| gone())? {
+            return Err(gone());
+        }
+        match self.operator_session_id(project).await {
+            Some(id) => self.held_sends_delivered(project, &id).await,
+            None => self.operator_seat().wake.notify_one(),
+        }
+        Ok(())
     }
 
     /// A project as he names it: its name, else its id.

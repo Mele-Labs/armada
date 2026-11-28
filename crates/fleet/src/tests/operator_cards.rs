@@ -90,7 +90,7 @@ fn heard(rig: &Rig, containing: &str) -> usize {
 
 /// His words to the Operator, about `about` where it names a card, with nothing sent beside them.
 pub(super) fn said(words: &str, about: Option<&str>) -> TalkToOperator {
-    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None }
+    TalkToOperator { words: words.into(), about: about.map(str::to_string), attachments: Vec::new(), mentions: Vec::new(), project: None, looking_at: None }
 }
 
 fn option(label: &str, cost: &str) -> CardOption {

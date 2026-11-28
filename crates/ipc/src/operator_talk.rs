@@ -83,6 +83,9 @@ pub struct TalkToOperator {
     /// The project whose Operator he is talking to, where he has one in front of him. Since 28 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
+    /// The Job he has open while he talks: the project it belongs to hears him where nothing else says whose he means.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub looking_at: Option<SessionId>,
 }
 
 /// The Log row an answer rests on.

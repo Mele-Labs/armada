@@ -65,6 +65,9 @@ pub struct ToReviewItem {
     /// The project the Job is filed in, by id. Absent for a Job in none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project: Option<String>,
+    /// That project's Operator: its name and accent. Absent where the Job is in no project. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator: Option<crate::OperatorTag>,
     /// The sub project the Job is one of. Absent for a Job in none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sub_project: Option<ToReviewSubProject>,

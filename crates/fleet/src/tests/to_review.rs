@@ -247,3 +247,20 @@ async fn a_projects_live_jobs_are_listed_by_sub_project_and_feature_and_another_
         assert!(jobs.contains(&job.as_str().to_string()), "{} is listed: {jobs:?}", job.as_str());
     }
 }
+
+#[tokio::test]
+async fn an_item_carries_the_name_and_accent_of_its_projects_operator() {
+    let rig = rig(None);
+    let shop = a_project(&rig).await;
+    let garden = a_project(&rig).await;
+    let set = ipc::OperatorSettingsSet { name: Some("Kit".into()), accent: Some("#aabbcc".into()), ..Default::default() };
+    rig.fleet.operator_settings_set(ipc::SetOperatorSettings { project: shop.clone(), set, unset: Vec::new() }).await.expect("set");
+    let (in_shop, in_garden) = (an_agent_for(&rig, &shop).await, an_agent_for(&rig, &garden).await);
+    ask(&rig, &in_shop, "shop").await;
+    ask(&rig, &in_garden, "garden").await;
+
+    let every = rig.fleet.list_to_review(None).await.expect("listed");
+    let operator_of = |job: &SessionId| every.groups.iter().flat_map(|group| &group.items).find(|item| &item.job.id == job).map(|item| item.operator.clone());
+    assert_eq!(operator_of(&in_shop), Some(Some(ipc::OperatorTag { project: shop, name: "Kit".into(), accent: Some("#aabbcc".into()) })));
+    assert_eq!(operator_of(&in_garden), Some(Some(ipc::OperatorTag { project: garden, name: "Operator".into(), accent: None })), "the default name, and no accent");
+}

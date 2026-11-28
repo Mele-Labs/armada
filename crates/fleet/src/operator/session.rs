@@ -237,7 +237,7 @@ where
     /// Each send he made for `project` while its Operator ran no session, told to session `id` in the order he sent them. A
     /// send is kept with the project it was routed to, so no Operator is told another project's words. One the session was not
     /// told stays kept for the next start or tick.
-    async fn held_sends_delivered(self: &Arc<Self>, project: &str, id: &str) {
+    pub(super) async fn held_sends_delivered(self: &Arc<Self>, project: &str, id: &str) {
         let held = match self.store().lock().await.operator_held_sends() {
             Ok(held) => held,
             Err(why) => return self.operator_warned("the sends kept for the Operator were not read", format!("{why:?}")),
