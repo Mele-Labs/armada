@@ -35,6 +35,7 @@ mod side_job_renamed;
 mod slot_strandings;
 mod plan_reading;
 mod session_priority;
+mod kept_looks;
 mod ports;
 mod preferences;
 mod rebuilding;

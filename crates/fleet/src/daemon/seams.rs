@@ -510,6 +510,9 @@ where
     pub(crate) fn native_walks(&self) -> &crate::native_walks::NativeWalks {
         &self.native_walks
     }
+    pub(crate) fn walk_builds(&self) -> &crate::walk_builds::WalkBuilds {
+        &self.walk_builds
+    }
     pub(crate) fn worktrees_memory(&self) -> &crate::worktrees_kept::Kept {
         &self.kept
     }

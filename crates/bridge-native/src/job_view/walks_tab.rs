@@ -3,10 +3,11 @@
 //! the walks come from its thread: a `window` row for each walk shown, and his `Approved:` message for each he approved.
 
 use chrono::Local;
-use gpui::{div, prelude::*, AnyElement, Context, Role, SharedString, Window};
-use ipc::{Instant, SessionRow, SessionVoice};
+use gpui::{div, prelude::*, AnimationExt, AnyElement, Context, Role, SharedString, Window};
+use ipc::{Instant, SessionRow, SessionVoice, WalkBuild, WalkBuildState};
 
 use super::rows::{approved_address, clock, glyph, tip, walk_of, Size};
+use crate::look::Token;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -27,6 +28,49 @@ pub(super) struct Walked {
     pub(super) url: String,
     pub(super) title: String,
     pub(super) stand: Stand,
+    /// Where the build of a native walk from the Job's branch stands; none for a web page.
+    pub(super) build: Option<WalkBuild>,
+}
+
+/// What a walk's row draws and does: the mark with its tooltip, the words, and whether a press opens the walk.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Reads {
+    pub(super) mark: &'static str,
+    pub(super) hue: Token,
+    pub(super) tooltip: &'static str,
+    pub(super) said: String,
+    pub(super) said_hue: Token,
+    /// The mark turns while Fleet builds.
+    pub(super) spins: bool,
+    pub(super) opens: bool,
+}
+
+/// How the row reads: a walk still being built or whose build failed says so and opens nothing; any other is as it stands.
+pub(super) fn reads(walk: &Walked, now: chrono::DateTime<Local>) -> Reads {
+    if walk.stand == Stand::Waits {
+        match walk.build.as_ref().map(|build| build.state) {
+            Some(WalkBuildState::Building) => {
+                return Reads { mark: "loader-circle", hue: token::STEP_RUNNING, tooltip: "Fleet is building this walk from the Job's branch", said: "Building".into(), said_hue: token::STEP_RUNNING, spins: true, opens: false };
+            }
+            Some(WalkBuildState::Failed) => {
+                return Reads { mark: "circle-x", hue: token::STEP_FAILED, tooltip: "The build failed and the Job was told", said: "Not ready".into(), said_hue: token::FG_SUBTLE, spins: false, opens: false };
+            }
+            Some(WalkBuildState::Ready) | None => {}
+        }
+    }
+    let (mark, hue, tooltip) = match walk.stand {
+        Stand::Waits => ("eye", token::STATUS_AWAITING_REVIEW, "Waits on you"),
+        Stand::Approved(_) => ("circle-check", token::STEP_ADVANCED, "Approved"),
+        Stand::Closed(_) => ("eye", token::FG_SUBTLE, "Closed without your Approve"),
+    };
+    let when = |at: &Instant| clock(at.as_str(), now).unwrap_or_else(|| at.as_str().to_string());
+    let said = match &walk.stand {
+        Stand::Waits => "waits on you".to_string(),
+        Stand::Approved(at) => format!("approved {}", when(at)),
+        Stand::Closed(at) => format!("closed {}", when(at)),
+    };
+    let said_hue = if walk.stand == Stand::Waits { token::STATUS_AWAITING_REVIEW } else { token::FG_SUBTLE };
+    Reads { mark, hue, tooltip, said, said_hue, spins: false, opens: true }
 }
 
 /// Whether two addresses are the one walk: the same address, or the same `walk` name on either.
@@ -46,13 +90,13 @@ pub(super) fn walks_of(rows: &[SessionRow]) -> Vec<Walked> {
         .collect();
     let mut out: Vec<Walked> = Vec::new();
     for row in rows {
-        let SessionRow::Window { url, title, ended_at, .. } = row else { continue };
+        let SessionRow::Window { url, title, ended_at, build, .. } = row else { continue };
         let stand = match ended_at {
             None => Stand::Waits,
             Some(at) if approved.iter().any(|address| same_walk(address, url)) => Stand::Approved(at.clone()),
             Some(at) => Stand::Closed(at.clone()),
         };
-        let walked = Walked { url: url.clone(), title: title.clone(), stand };
+        let walked = Walked { url: url.clone(), title: title.clone(), stand, build: build.clone() };
         match out.iter_mut().find(|one| same_walk(&one.url, url)) {
             Some(one) => *one = walked,
             None => out.push(walked),
@@ -72,44 +116,45 @@ impl JobView {
     }
 
     fn walk_row(&self, walk: &Walked, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let now = Local::now();
-        let (mark, hue, tooltip) = match walk.stand {
-            Stand::Waits => ("eye", token::STATUS_AWAITING_REVIEW, "Waits on you"),
-            Stand::Approved(_) => ("circle-check", token::STEP_ADVANCED, "Approved"),
-            Stand::Closed(_) => ("eye", token::FG_SUBTLE, "Closed without your Approve"),
-        };
-        let said = match &walk.stand {
-            Stand::Waits => "waits on you".to_string(),
-            Stand::Approved(at) => format!("approved {}", clock(at.as_str(), now).unwrap_or_else(|| at.as_str().to_string())),
-            Stand::Closed(at) => format!("closed {}", clock(at.as_str(), now).unwrap_or_else(|| at.as_str().to_string())),
-        };
+        let Reads { mark, hue, tooltip, said, said_hue, spins, opens } = reads(walk, Local::now());
         let key = walk.url.clone();
         let open = key.clone();
-        labelled(
-            div()
-                .id(SharedString::from(format!("walk-row:{key}")))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .min_h(look.length(token::H_ROW))
-                .px(look.length(token::SPACE_2))
-                .py(look.length(token::SPACE_1))
-                .border_b(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .cursor_pointer()
+        let glyph = glyph(look, mark, Size::Small, look.color(hue));
+        let glyph = if spins {
+            glyph
+                .with_animation(SharedString::from(format!("walk-building:{key}")), gpui::Animation::new(look.duration(token::DURATION_SPIN)).repeat(), |mark, at| {
+                    mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(at)))
+                })
+                .into_any_element()
+        } else {
+            glyph.into_any_element()
+        };
+        let row = div()
+            .id(SharedString::from(format!("walk-row:{key}")))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .min_h(look.length(token::H_ROW))
+            .px(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .child(labelled(div().id(SharedString::from(format!("walk-mark:{key}"))).flex_none().tooltip(tip(SharedString::from(tooltip))).child(glyph), Role::Image, tooltip))
+            .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(walk.title.clone())))
+            .child(div().flex_none().text_color(look.color(said_hue)).child(SharedString::from(said.clone())));
+        // A walk still building or not ready is a row that says so; it takes no focus and no press.
+        let row = if opens {
+            row.cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tab_index(0)
                 .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                .child(div().id(SharedString::from(format!("walk-mark:{key}"))).flex_none().tooltip(tip(SharedString::from(tooltip))).child(glyph(look, mark, Size::Small, look.color(hue))))
-                .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(walk.title.clone())))
-                .child(div().flex_none().text_color(look.color(if walk.stand == Stand::Waits { token::STATUS_AWAITING_REVIEW } else { token::FG_SUBTLE })).child(SharedString::from(said.clone())))
-                .on_click(cx.listener(move |this, _, window: &mut Window, cx| this.press_walk(&open, window, cx))),
-            Role::Button,
-            format!("{}, {said}", walk.title),
-        )
-        .into_any_element()
+                .on_click(cx.listener(move |this, _, window: &mut Window, cx| this.press_walk(&open, window, cx)))
+        } else {
+            row
+        };
+        labelled(row, if opens { Role::Button } else { Role::Row }, format!("{}, {said}", walk.title)).into_any_element()
     }
 }
 
@@ -164,5 +209,30 @@ mod tests {
         let done = drawn_like(cx, gpui::Role::Button, "Keys for each pane");
         assert_eq!(done.len(), 1);
         assert!(done[0].contains("approved"), "{}", done[0]);
+    }
+
+    fn built(state: Option<&str>) -> Walked {
+        let build = state.map(|state| format!(r#","build":{{"state":"{state}","commit":"abc1234","at":"2026-11-09T10:51:00Z"}}"#)).unwrap_or_default();
+        let json = format!(r#"{{"kind":"window","id":"w9","at":"2026-11-09T10:50:00Z","title":"Walk bar","url":"armada://walk/bar"{build}}}"#);
+        let row = ipc::decode::<SessionRow>("row", json.as_bytes()).expect("the row decodes");
+        walks_of(&[row]).remove(0)
+    }
+
+    /// A walk Fleet is still building says Building and opens nothing; one whose build failed says Not ready, muted, and
+    /// opens nothing; a ready one or a page with no build reads and opens as a walk always did.
+    #[test]
+    fn a_walk_reads_and_opens_by_where_its_build_stands() {
+        let now = Local::now();
+        let building = reads(&built(Some("building")), now);
+        assert_eq!((building.said.as_str(), building.opens, building.spins, building.mark), ("Building", false, true, "loader-circle"));
+        assert_eq!(building.tooltip, "Fleet is building this walk from the Job's branch");
+        let failed = reads(&built(Some("failed")), now);
+        assert_eq!((failed.said.as_str(), failed.opens, failed.spins), ("Not ready", false, false));
+        assert_eq!(failed.said_hue, token::FG_SUBTLE);
+        assert_eq!(failed.tooltip, "The build failed and the Job was told");
+        for state in [Some("ready"), None] {
+            let ready = reads(&built(state), now);
+            assert_eq!((ready.said.as_str(), ready.opens, ready.spins), ("waits on you", true, false));
+        }
     }
 }

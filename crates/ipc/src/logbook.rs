@@ -6,11 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::Instant;
 
-/// Whose entry it is: one repository's, the owner's across every repository, or this Mac's.
+/// Whose entry it is: one repository's, one project's across the repositories it holds, the owner's across every
+/// repository, or this Mac's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LogbookSection {
     Repo,
+    Project,
     Habits,
     Machine,
 }
@@ -89,6 +91,9 @@ pub struct LogbookEntry {
     /// The repository's root, on a `repo` entry only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
+    /// The project's id, on a `project` entry only: every Job in a repository the project holds is told it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     pub kind: LogbookKind,
     /// Where the sorter placed it. Absent until it has, and then Other.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -265,6 +270,9 @@ pub struct TeachLogbookEntry {
     /// The repository's root, **required for a `repo` entry** and ignored for the others.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
+    /// The project's id, **required for a `project` entry** and ignored for the others.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     pub kind: LogbookKind,
     pub text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

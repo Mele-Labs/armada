@@ -107,6 +107,8 @@ mod lanes_copy;
 mod ledger;
 mod mods_made;
 mod mod_panel;
+#[cfg(test)]
+mod operator_harness;
 mod report;
 pub(crate) mod sketch_pad;
 mod sketch_card;
@@ -163,10 +165,10 @@ pub use judge_cards::{ask_judge_choice, ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
-pub use beside::{DrawRaised, Leave, OperatorPane, Say};
+pub use beside::{DrawRaised, Leave, OperatorPane, Say, UNSTARTED};
 pub use on_page::{operator_answered, operator_focus, operator_has_keys, operator_list, operator_tag, operator_thread_on_page, operator_to_last_reply, operator_untag, operator_words};
 #[cfg(test)]
-pub use on_page::{operator_tagged, operator_unechoed, posted_to_mock, sent_to_job};
+pub use on_page::{operator_drawn_for, operator_tagged, operator_unechoed, posted_to_mock, sent_to_job};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
@@ -932,9 +934,11 @@ impl JobView {
         })
     }
 
-    /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`).
+    /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`). The Operator's on its page always
+    /// is: words sent with no session running start one.
     fn closed(&self, id: &str, cx: &App) -> bool {
-        self.record(id, cx).is_none_or(|job| {
+        !self.is_beside(id)
+            && self.record(id, cx).is_none_or(|job| {
             job.state == SessionState::Ended || job.mark.is_some_and(|mark| matches!(mark.state, JobState::Ended | JobState::Quiet))
         })
     }
@@ -1563,7 +1567,7 @@ impl Render for JobView {
         popups.extend(self.pop.as_ref().map(|pop| pop.menu.clone().into_any_element()));
         popups.extend(self.render_confirm(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_editor(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_teach(false, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_judge_sheet(&id, window, cx));

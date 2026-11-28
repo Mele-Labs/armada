@@ -338,7 +338,7 @@ pub(super) fn bind(cx: &mut gpui::App) {
 /// Whether a card's answer settles its ask: it leaves the sheet and Needs you.
 fn settles(answer: &super::acts::Answer) -> bool {
     use super::acts::Answer;
-    matches!(answer, Answer::Approved | Answer::Fixed(_) | Answer::SentBack(_) | Answer::Withdrawn | Answer::Dismissed | Answer::Going | Answer::SetAside)
+    matches!(answer, Answer::Approved | Answer::Skipped | Answer::Fixed(_) | Answer::SentBack(_) | Answer::Withdrawn | Answer::Dismissed | Answer::Going | Answer::SetAside)
 }
 
 pub(super) fn instant(at: &str) -> i64 {
@@ -1068,7 +1068,7 @@ impl JobView {
         })?;
         match super::ready_card::Standing::of(card, page.cards.answers.get(&card.id)) {
             super::ready_card::Standing::Open | super::ready_card::Standing::Later => None,
-            super::ready_card::Standing::Good => Some(Verdict::Approved),
+            super::ready_card::Standing::Good | super::ready_card::Standing::Skipped => Some(Verdict::Approved),
             super::ready_card::Standing::Rework => Some(Verdict::ChangesAsked),
             super::ready_card::Standing::Withdrawn | super::ready_card::Standing::Replaced => Some(Verdict::Answered),
         }

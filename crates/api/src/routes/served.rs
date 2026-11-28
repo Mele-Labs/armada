@@ -722,6 +722,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_held",
     },
     Route {
+        operation: "settle_clash",
+        method: "POST",
+        path: "/sessions/settle_clash",
+    },
+    Route {
         operation: "list_bug_reports",
         method: "GET",
         path: "/bug_reports",

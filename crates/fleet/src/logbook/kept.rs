@@ -170,7 +170,7 @@ where
     async fn logbook_section_written(&self, root: &str, section: LogSection, at: At) -> Result<(), String> {
         let key = match section {
             LogSection::Repo => places::key_of(root),
-            LogSection::Habits | LogSection::Machine => String::new(),
+            LogSection::Habits | LogSection::Machine | LogSection::Project => String::new(),
         };
         let text = match &at {
             At::File(path) => read_file(path)?,

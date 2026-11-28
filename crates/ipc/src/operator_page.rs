@@ -421,6 +421,10 @@ pub struct OperatorPage {
     /// The Operator's live session, whose thread is the talk. Absent while none runs. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,
+    /// The newest Operator session, ended ones too: the thread the page draws while none runs, so the talk is
+    /// never gone. The same as `session_id` while one runs. Since 28 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub talk_session_id: Option<SessionId>,
     /// What the Operator may do unasked in each served project, `acts` absent where he has not said.
     /// Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -418,6 +418,7 @@ where
             watches: crate::watches::Watches::default(),
             servers: crate::servers::Servers::default(),
             native_walks: crate::native_walks::NativeWalks::default(),
+            walk_builds: crate::walk_builds::WalkBuilds::default(),
             peers: fittings.peers,
             requests: fittings.requests,
             metric_tokens: fittings.metric_tokens,

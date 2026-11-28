@@ -309,9 +309,12 @@ fn each_job_held_is_named_while_held_so_it_is_told_both_ways() {
 fn short_memory_holds_builds_and_keeps_holding_for_a_turn_after_it_eases() {
     let mut turns = Turns::default();
     let start = Instant::now();
-    assert!(!turns.loaded(false, Some(1), start), "normal pressure and a low load hold nothing");
-    assert!(turns.loaded(false, Some(2), start), "warn pressure holds builds");
-    assert!(turns.loaded(false, Some(1), start + TURN / 2), "eased within a turn: still held, or every build would start at once");
-    assert!(!turns.loaded(false, Some(1), start + TURN + Duration::from_secs(1)), "eased for a turn: let go");
-    assert!(turns.loaded(true, None, start + TURN * 2), "the load alone still holds");
+    let memory = Some(checks_runner::Short::Memory { level: 2, at: 2 });
+    let load = Some(checks_runner::Short::Load { load: 31, limit: 24, window: checks_runner::LoadWindow::One });
+    assert!(!turns.loaded(None, start), "memory normal and no load over its limit hold nothing");
+    assert!(turns.loaded(memory, start), "short memory holds builds");
+    assert!(turns.loaded(None, start + TURN / 2), "eased within a turn: still held, or every build would start at once");
+    assert!(!turns.loaded(None, start + TURN + Duration::from_secs(1)), "eased for a turn: let go");
+    assert!(turns.loaded(load, start + TURN * 2), "a load over a limit that is set still holds");
+    assert!(!turns.loaded(None, start + TURN * 2), "and lets go the moment it falls, with no turn's wait");
 }

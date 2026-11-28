@@ -72,6 +72,7 @@ pub(crate) fn rows() -> Vec<Row> {
             glyph: tool.glyph,
             name: tool.name.to_string(),
             says: tool.says.to_string(),
+            project: None,
             pick: Pick::Tag { kind: TagKind::Tool, id: tool.id.to_string(), title: tool.name.to_string(), url: None },
         })
         .collect()

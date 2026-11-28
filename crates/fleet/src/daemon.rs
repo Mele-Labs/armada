@@ -184,6 +184,8 @@ pub struct Fleet<H, V, W> {
     /// The native apps a Job's walks run, stopped with the walk, the Job, the slot and Fleet. Never
     /// written down — `crate::native_walks`.
     native_walks: crate::native_walks::NativeWalks,
+    /// The native Bridge each walk is built as from its Job's commit, one at a time. Never written down - `crate::walk_builds`.
+    walk_builds: crate::walk_builds::WalkBuilds,
     peers: Arc<dyn PeerOf>,
     /// What sends a request and the secrets it is filled with — `crate::requesting`.
     requests: crate::requesting::Requesting,

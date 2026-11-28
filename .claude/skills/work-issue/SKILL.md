@@ -117,8 +117,8 @@ Fleet took the load to 19 on 18 cores, and a different test timed out each run.
 `docs/concepts/manifest.md`, *How many Checks run at once*.
 
 **Fleet handles load; never wait on it by hand.** A Check waits for a slot,
-and while the fifteen-minute load is 24 or more it waits for every other Check
-to end, saying so on stderr. Your agent and everything it starts already run at
+starts at most a minute after the last one beside a running Check, and while
+memory is short it waits for every other Check to end, saying so on stderr. Your agent and everything it starts already run at
 utility priority, so no `taskpolicy` prefix, no load loop, and no such lines in
 a brief. `docs/concepts/manifest.md`, *How many Checks run at once* and *At
 what priority a Check runs*.
