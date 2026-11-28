@@ -1227,7 +1227,7 @@ mod drawn_tests {
 
 #[cfg(test)]
 mod window_row_tests {
-    use super::super::parts_fold::{drawn, redraw, rooted_job_with};
+    use super::super::parts_fold::{redraw, rooted_job_with};
     use super::super::row_tabs::RowKind;
     use crate::mock_parts::JOB;
     use gpui::{px, Modifiers, Role};
@@ -1248,6 +1248,8 @@ mod window_row_tests {
                 let job = jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the folds' Job");
                 let shown = format!(r#"{{"kind":"artifact","target":"{URL}","state":"standing","detail":{{"form":"window","title":"Orders page"}},"since":"2026-11-28T03:21:27Z","changed_at":"2026-11-28T03:21:27Z"}}"#);
                 job.attachments.push(ipc::decode::<ipc::Attachment>("window", shown.as_bytes()).expect("the window decodes"));
+                let owed = format!(r#"{{"id":"walk:{URL}","text":"Orders page","since":"2026-11-28T03:21:27Z","source":"walk","act":{{"kind":"walk","target":"{URL}"}}}}"#);
+                job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("walk item", owed.as_bytes()).expect("the walk item decodes"));
             },
             |threads| {
                 let thread = threads.get_mut(JOB).expect("the folds' thread");
@@ -1255,12 +1257,15 @@ mod window_row_tests {
                 thread.items.push(ipc::decode::<ipc::ThreadItem>("window row", row.as_bytes()).expect("the row decodes"));
             },
         );
+        // Owed, the walk's tab arrives behind the one in front, not yet seen.
+        let seen = |view: &gpui::Entity<super::JobView>, cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, _| view.row_tab_list(JOB).into_iter().find(|tab| tab.kind == RowKind::Walk && tab.key == URL).map(|tab| tab.seen))
+        };
+        assert_eq!(seen(&view, cx), Some(false), "the owed walk arrived behind");
         let at = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Button, SAYS).map(|row| row.bounds.center()));
         let at = at.expect("the walk's row is a button");
         cx.simulate_click(at, Modifiers::none());
         redraw(cx);
-        let tabs = view.read_with(cx, |view, _| view.row_tab_list(JOB));
-        assert!(tabs.iter().any(|tab| tab.kind == RowKind::Walk && tab.key == URL), "the walk's tab opened: {tabs:?}");
-        assert!(drawn(cx, Role::Button, SAYS), "the row stays");
+        assert_eq!(seen(&view, cx), Some(true), "the press brought the walk's tab to the front");
     }
 }
