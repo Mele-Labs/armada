@@ -282,6 +282,12 @@ impl MockFleet {
                 }
                 self.preferences.time_format = text;
             }
+            "motion" => {
+                if let Some(problem) = (!text.is_empty()).then(|| ipc::motion::problems(&text)).unwrap_or_default().into_iter().next() {
+                    return Err(Refused::said(format!("motion: {problem}")));
+                }
+                self.preferences.motion = text;
+            }
             other => return Err(Refused::said(format!("there is no preference {other}"))),
         }
         Ok(self.preferences.clone())

@@ -1,6 +1,7 @@
 //! The busy ring: while something loads, its border carries a bright arc with a fading tail that
 //! circles the rounded edge, in place of a spinner glyph. One colour, the tail fading to clear over
-//! [`TAIL_DEGREES`], the head the brightest and nearest white. A turn takes the spin duration.
+//! [`TAIL_DEGREES`], the head the brightest and nearest white. A turn takes the seconds he set in
+//! Settings, Motion (six where he has set none), read from `settings::motion`.
 //!
 //! Place [`ring_overlay`] inside a relatively positioned element; it paints nothing else and takes
 //! no press. The geometry is pure ([`arc_segments`], [`perimeter_point`]) so it is tested without a window.
@@ -116,15 +117,32 @@ fn sweep(phase: f32, radius: Pixels, width: Pixels, reach: Pixels, ink: Hsla) ->
     .size_full()
 }
 
-/// The ring over an element's border: absolutely placed, its own size, turning once per three spins.
+/// How many times a second the ring asks for a new frame. Each ask redraws the whole view the ring sits in,
+/// so a turn that takes seconds does not need sixty.
+pub const RING_FPS: f32 = 30.;
+
+/// How many times a second a running call's clock asks for a new frame: it changes once a second.
+pub const COUNT_FPS: f32 = 2.;
+
+/// The animation a running call's elapsed time counts on.
+pub fn count_animation() -> Animation {
+    Animation::new(std::time::Duration::from_secs(1)).repeat().with_max_fps(COUNT_FPS)
+}
+
+/// The ring over an element's border: absolutely placed, its own size, turning once per the seconds he set.
 /// `radius` is the element's corner radius; `ink` is the arc's colour.
 pub fn ring_overlay(look: &Look, id: impl Into<ElementId>, radius: Pixels, ink: Hsla) -> impl IntoElement {
+    ring_overlay_in(look, id, radius, ink, crate::settings::motion::ring_seconds())
+}
+
+/// The same ring turning once per `seconds`: Settings, Motion draws its preview at the speed on the stepper,
+/// before it is saved.
+pub fn ring_overlay_in(look: &Look, id: impl Into<ElementId>, radius: Pixels, ink: Hsla, seconds: u32) -> impl IntoElement {
     let edge = look.length(token::BORDER_WIDTH);
     let (width, reach) = (edge * 2., edge * 0.5);
     div().absolute().inset_0().with_animation(
         id,
-        // Three spins of the glyph spinner: a border is a long path, so the same pace reads as a blur.
-        Animation::new(look.duration(token::DURATION_SPIN) * 3).repeat(),
+        Animation::new(std::time::Duration::from_secs(u64::from(seconds))).repeat().with_max_fps(RING_FPS),
         move |layer, phase| layer.child(sweep(phase, radius, width, reach, ink)),
     )
 }
@@ -166,5 +184,85 @@ mod tests {
         assert!(near(perimeter_point(100., 100., 10., 0.5), (50., 100.)));
         assert!(near(perimeter_point(100., 100., 10., 0.75), (0., 50.)));
         assert!(near(perimeter_point(100., 100., 10., 1.), (50., 0.)));
+    }
+
+    use gpui::{list, AnyElement, Context, Entity, ListAlignment, ListState, Render, SharedString, Window};
+    use std::{cell::Cell, rc::Rc, time::Duration};
+
+    thread_local! {
+        static PHASES: std::cell::RefCell<Vec<f32>> = std::cell::RefCell::default();
+    }
+
+    /// One list row like the live calls card: a 1 s counting timer, and the ring over it when `ringed`.
+    struct Thread {
+        state: ListState,
+        ringed: bool,
+        drawn: Rc<Cell<u32>>,
+        counted: Rc<Cell<u32>>,
+    }
+
+    impl Render for Thread {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            let state = self.state.clone();
+            let (ringed, drawn, counted) = (self.ringed, self.drawn.clone(), self.counted.clone());
+            let _ = cx;
+            list(state, move |_, _, _| {
+                drawn.set(drawn.get() + 1);
+                let counted = counted.clone();
+                let look = Look::dark();
+                let mut card = div().relative().w(px(300.)).h(px(80.)).child(div().with_animation(
+                    SharedString::from("count"),
+                    count_animation(),
+                    move |time, delta| {
+                        counted.set(counted.get() + 1);
+                        PHASES.with(|all| all.borrow_mut().push(delta));
+                        time.child("0s")
+                    },
+                ));
+                if ringed {
+                    card = card.child(ring_overlay_in(&look, SharedString::from("ring"), px(8.), look.color(token::STATUS_RUNNING), 6));
+                }
+                card.into_any_element() as AnyElement
+            })
+            .size_full()
+        }
+    }
+
+    /// Frames of 16 ms over `frames`: how many times the row was drawn, and its timer asked for its value.
+    fn timer_ticks(ringed: bool, frames: u32, cx: &mut gpui::TestAppContext) -> (u32, u32) {
+        cx.update(crate::init_app);
+        let (drawn, counted) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+        let (view, cx): (Entity<Thread>, _) = {
+            let (d, c) = (drawn.clone(), counted.clone());
+            cx.add_window_view(move |_, _| {
+                let state = ListState::new(1, ListAlignment::Top, px(200.));
+                Thread { state, ringed, drawn: d, counted: c }
+            })
+        };
+        let _ = view;
+        for _ in 0..frames {
+            cx.executor().advance_clock(Duration::from_millis(16));
+            cx.update(|window, cx| {
+                window.simulate_next_frame(cx);
+            });
+            cx.run_until_parked();
+        }
+        (drawn.get(), counted.get())
+    }
+
+    #[gpui::test]
+    fn a_list_rows_timer_keeps_ticking_with_and_without_the_ring(cx: &mut gpui::TestAppContext) {
+        let plain = timer_ticks(false, 240, cx);
+        let ringed = timer_ticks(true, 240, cx);
+        let phases = PHASES.with(|all| all.borrow().clone());
+        assert!(phases.windows(2).filter(|pair| pair[1] > pair[0]).count() >= 6, "the animation's phase advances: {phases:?}");
+        assert!(plain.1 >= 6 && ringed.1 >= 6, "the timer ticks alone {plain:?} and beside the ring {ringed:?}");
+    }
+
+    #[gpui::test]
+    fn the_ring_and_the_clock_do_not_redraw_the_view_every_frame(cx: &mut gpui::TestAppContext) {
+        // About two seconds at sixty frames a second: a redraw every frame would draw the row some 120 times.
+        let (drawn, _) = timer_ticks(true, 120, cx);
+        assert!(drawn <= 80, "the row was drawn {drawn} times in two seconds");
     }
 }

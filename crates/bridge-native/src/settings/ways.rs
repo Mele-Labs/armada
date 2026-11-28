@@ -137,6 +137,7 @@ pub fn apply(prefs: &mut Preferences, name: &str, put: &Put) -> bool {
     match (name, put) {
         ("layout_choices", Put::Text(text)) => prefs.layout_choices = text.clone(),
         ("time_format", Put::Text(text)) => prefs.time_format = text.clone(),
+        ("motion", Put::Text(text)) => prefs.motion = text.clone(),
         ("take_in", Put::Text(text)) => match TakeIn::from_word(text) {
             Some(word) => prefs.take_in = word,
             None => return false,

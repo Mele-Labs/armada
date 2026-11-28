@@ -998,6 +998,9 @@ impl SettingsOverlay {
         if let Some(entry) = shown.filter(|one| one.body == Body::Time) {
             return self.render_time(entry, look, window, cx);
         }
+        if let Some(entry) = shown.filter(|one| one.body == Body::Motion) {
+            return self.render_motion(entry, look, window, cx);
+        }
         if shown.is_some_and(|one| one.body == Body::Judges) {
             return self.render_judges(look, window, cx);
         }
@@ -1032,7 +1035,7 @@ impl SettingsOverlay {
             }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
             Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
-            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Store | Body::Time | Body::Shared | Body::Account | Body::Judges) => {}
+            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Store | Body::Time | Body::Motion | Body::Shared | Body::Account | Body::Judges) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
@@ -1100,7 +1103,7 @@ impl SettingsOverlay {
         } else {
             self.judges.forget();
         }
-        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
+        if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Motion | Body::Ways)) {
             self.read_prefs(cx);
             self.prefs_keys(cx);
         }

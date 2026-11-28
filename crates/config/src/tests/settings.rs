@@ -261,6 +261,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::LAYOUT,
         s::KEY_BINDINGS,
         s::TIME_FORMAT,
+        s::MOTION,
         s::HOME_LAYOUT,
         s::ROW_VIEW,
         s::THREAD_LOOK,

@@ -75,6 +75,7 @@ impl JobView {
             labelled(
                 div()
                     .id("live-pill")
+                    .relative()
                     .flex()
                     // It takes the room the row has spare, which `fits` has found to be enough, so the other controls keep their words.
                     .flex_1()
@@ -94,10 +95,11 @@ impl JobView {
                     .cursor_pointer()
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
                     .tooltip(tip(said.clone()))
-                    .child(self.working_mark(look, look.color(token::STATUS_RUNNING)))
                     .child(div().id("live-pill-words").flex_1().min_w_0().truncate().child(said.clone()))
                     .children(time)
                     .child(glyph(look, "arrow-down", Size::Small, look.color(token::FG_MUTED)))
+                    // The busy ring runs on the pill's border, where a spinner glyph stood.
+                    .child(crate::parts::ring::ring_overlay(look, "live-pill-ring", look.length(token::RADIUS_MD), look.color(token::STATUS_RUNNING)))
                     // The press is the pill's alone, and puts the list at its tail as the End key does.
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.pin(&back);

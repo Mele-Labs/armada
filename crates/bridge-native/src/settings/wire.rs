@@ -920,6 +920,7 @@ impl Wire {
             Wire::Live(fleet) => fleet.update(cx, |fleet, cx| fleet.preferences_saved(answer, cx)),
             Wire::Mock(mock) => {
                 super::time::hold(&answer.time_format);
+                super::motion::hold(&answer.motion);
                 super::layout::hold(&answer.layout_choices);
                 cx.refresh_windows();
                 crate::keymap::install(&crate::keymap::Rebinding::read(&answer.key_bindings), cx);
