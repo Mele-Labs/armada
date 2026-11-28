@@ -397,14 +397,6 @@ impl GraphCard {
     fn token_note(&self, credential: &MetricCredential, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let id = &self.card.id;
         let missing = format!("No {} token on this Mac", credential.name);
-        let words = div()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1) / 2.)
-            .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(missing.clone())))
-            .child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(credential.how.clone())));
         let make = credential.url.clone().map(|url| {
             labelled(
                 div()
@@ -414,7 +406,9 @@ impl GraphCard {
                     .items_center()
                     .gap(look.length(token::SPACE_1))
                     .h(look.length(token::H_CONTROL))
+                    // The link's words stand in line with the sentences above it; its hover ground reaches past them.
                     .px(look.length(token::SPACE_2))
+                    .ml(-look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_MD))
                     .cursor_pointer()
                     .text_color(look.color(token::FG_MUTED))
@@ -427,6 +421,17 @@ impl GraphCard {
                 format!("Make a {} token", credential.name),
             )
         });
+        // What to make, then where: the link goes under the words, so a narrow card keeps the sentences whole.
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .items_start()
+            .gap(look.length(token::SPACE_1) / 2.)
+            .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(missing.clone())))
+            .child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(credential.how.clone())))
+            .children(make);
         let note = div()
             .id(SharedString::from(format!("graph-token:{id}")))
             .flex()
@@ -439,8 +444,7 @@ impl GraphCard {
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(glyph(look, "key-round", Size::Small, look.color(token::DEGRADED))))
-            .child(words)
-            .children(make);
+            .child(words);
         labelled(note, Role::Status, format!("{missing}. {}", credential.how)).into_any_element()
     }
 

@@ -1669,7 +1669,7 @@ pub static WALKS: &[Walk] = &[
             press_on("The Artifacts tab lists the Job's graphs among its pages, newest first, under a filter for each kind it holds", "tab", "Job column: Artifacts", "tablist", "Artifacts filter"),
             press_on("The Graphs filter leaves only the graphs, each live or ended", "tab", "Graphs", "button", "Open graph p99 latency"),
             press_on("Open in Graphs holds every graph of the Job, larger", "button", "Open Latency by payload size in Graphs", "region", "Graphs"),
-            step("A graph whose recipe signs in to a dashboard, and this Mac holds no token for it, says which token to make and where", Verb::WheelTo("region", "Graphs", 400), "status", "No grafana token on this Mac. A Grafana service account token with the Viewer role"),
+            step("A graph whose recipe signs in to a dashboard, and this Mac holds no token for it, says which token to make and where", Verb::Wheel("region", "Graphs", 6000), "status", "No grafana token on this Mac. A Grafana service account token with the Viewer role"),
             answer("The same graphs in the light theme", "look-light", "region", "Graphs"),
         ],
     },

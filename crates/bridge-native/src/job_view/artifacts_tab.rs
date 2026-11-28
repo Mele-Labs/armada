@@ -208,8 +208,7 @@ impl Shelf {
     }
 
     fn admits(self, kind: Shelf) -> bool {
-        let _ = (self, kind);
-        true
+        self == Shelf::All || self == kind
     }
 }
 
@@ -267,8 +266,7 @@ pub(super) fn shelves(rows: &[JobArtifact], graphs: &[GraphRow]) -> Vec<Shelf> {
 
 /// The filter as drawn: the one picked, or All where the Job no longer holds its kind.
 pub(super) fn held_shelf(picked: Shelf, shelves: &[Shelf]) -> Shelf {
-    let _ = shelves;
-    picked
+    if shelves.contains(&picked) { picked } else { Shelf::All }
 }
 
 /// The rows the filter lets through: the ones not folded away with the graphs among them, newest first by when each was
@@ -277,6 +275,7 @@ pub(super) fn shelved<'a>(rows: &'a [JobArtifact], graphs: &'a [GraphRow], shelf
     let (live, folded) = split(rows);
     let mut shown: Vec<Shown<'a>> = live.into_iter().map(Shown::Artifact).chain(graphs.iter().map(Shown::Graph)).filter(|one| shelf.admits(one.shelf())).collect();
     // Stable, so rows shown at the same moment keep Fleet's order; one with no time goes last.
+    shown.sort_by(|a, b| b.at().cmp(&a.at()));
     (shown, folded.into_iter().filter(|one| shelf.admits(Shelf::of(one.form))).collect())
 }
 
